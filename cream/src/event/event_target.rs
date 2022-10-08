@@ -1,5 +1,6 @@
 use std::{
     any::{Any, TypeId},
+    cell::RefCell,
     collections::HashMap,
 };
 
@@ -11,7 +12,7 @@ use super::{callback::ClosureCall, Event, EventFlow};
 
 const CALLBACK_LIST_LEN: usize = 6;
 type EventListener<A> = MapWeak<dyn ClosureCall<A>>;
-pub type EventListenerList<A> = SmallVec<[EventListener<A>; CALLBACK_LIST_LEN]>;
+pub(crate) type EventListenerList<A> = RefCell<SmallVec<[EventListener<A>; CALLBACK_LIST_LEN]>>;
 
 pub struct EventTarget {
     // dyn Any -> EventListenerList<E::Arg>
@@ -19,53 +20,50 @@ pub struct EventTarget {
 }
 
 impl EventTarget {
-    pub fn get<E: Event>(&self, ev: E) -> &[EventListener<E::Arg>] {
-        match self.event_listeners.get(&ev.type_id()) {
-            Some(map_rc) => map_rc
-                .downcast_ref::<EventListenerList<E::Arg>>()
-                .expect("unreachable"),
-            None => &[],
-        }
+    pub(crate) fn get<E: Event>(&self, ev: E) -> Option<MapRc<EventListenerList<E::Arg>>> {
+        self.event_listeners.get(&ev.type_id()).map(|ell| {
+            ell.map(|any| {
+                any.downcast_ref::<EventListenerList<E::Arg>>()
+                    .expect("unreachable")
+            })
+        })
     }
 
-    fn get_mut<E: Event>(&mut self, ev: E) -> &mut EventListenerList<E::Arg> {
-        let type_id = ev.type_id();
-        match self.event_listeners.get_mut(&type_id) {
-            Some(vec) => vec.downcast_mut().unwrap(),
+    pub(crate) fn get_or_create<E: Event>(&mut self, ev: E) -> MapRc<EventListenerList<E::Arg>> {
+        match self.get(ev) {
+            Some(s) => s,
             None => {
-                let map_rc: MapRc<dyn Any> =
-                    MapRc::new(EventListenerList::<E::Arg>::new()).map(|ell| ell as _);
-
-                self.event_listeners.insert(type_id, map_rc);
+                let map_rc: MapRc<EventListenerList<E::Arg>> =
+                    MapRc::new(RefCell::new(SmallVec::new()));
 
                 self.event_listeners
-                    .get_mut(&type_id)
-                    .unwrap()
-                    .downcast_mut()
-                    .unwrap()
+                    .insert(ev.type_id(), map_rc.map_to_any());
+                map_rc
             }
         }
     }
 
-    pub fn on<E>(&mut self, ev: E, el: EventListener<E::Arg>)
+    pub(crate) fn on<E>(&mut self, ev: E, el: EventListener<E::Arg>)
     where
         E: Event,
     {
-        self.get_mut(ev).push(el);
+        (*self.get_or_create(ev)).borrow_mut().push(el);
     }
 
-    pub fn call<E>(&mut self, ev: E, args: &E::Arg, event_flow: &mut EventFlow)
+    pub fn emit<E>(&mut self, ev: E, args: &E::Arg, event_flow: &mut EventFlow)
     where
         E: Event,
     {
-        self.get_mut(ev).retain(|callback| {
-            let callback = match callback.upgrade() {
-                Some(cb) => cb,
-                None => return false,
-            };
+        if let Some(ell) = self.get(ev) {
+            (*ell).borrow_mut().retain(|callback| {
+                let callback = match callback.upgrade() {
+                    Some(cb) => cb,
+                    None => return false,
+                };
 
-            callback.call(args, event_flow);
-            true
-        });
+                callback.call(args, event_flow);
+                true
+            });
+        }
     }
 }

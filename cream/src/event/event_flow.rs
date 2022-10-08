@@ -3,10 +3,10 @@ use getset::CopyGetters;
 #[derive(Debug, Clone, CopyGetters)]
 pub struct EventFlow {
     #[getset(get_copy = "pub")]
-    pub(super) bubble: bool,
+    pub(crate) bubble: bool,
 
     #[getset(get_copy = "pub")]
-    pub(super) is_exact: bool,
+    pub(crate) is_exact: bool,
 }
 
 impl EventFlow {

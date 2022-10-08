@@ -1,9 +1,8 @@
 use std::any::Any;
 
-pub(crate) mod callback;
+pub mod callback;
 pub mod event_flow;
-pub(crate) mod event_target;
-pub(crate) mod event_target_finder;
+pub mod event_target;
 
 pub use event_flow::EventFlow;
 

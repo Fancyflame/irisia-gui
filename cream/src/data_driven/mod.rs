@@ -1,12 +1,12 @@
 pub mod computed;
+pub mod constant_value;
 pub mod data;
 pub(crate) mod dep;
+pub mod interfaces;
 mod thread_guard;
 pub mod watcher;
 
-use std::rc::Rc;
-
 pub use computed::Computed;
 pub use data::Data;
-pub use watcher::{Watchable, Watcher};
-pub type RcWatchable<D> = Rc<dyn Watchable<D>>;
+pub use interfaces::*;
+pub use watcher::Watcher;

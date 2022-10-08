@@ -1,39 +1,36 @@
 use std::{
-    cell::{Cell, Ref, RefCell},
+    cell::{Cell, RefCell},
     rc::Rc,
 };
 
-use super::{
-    dep::{DepCollecter, DepNode},
-    Watchable,
-};
+use crate::map_rc::{MapRc, MapWeak};
+
+use super::{dep::DepCollecter, DataSource, DepNode, Watchable};
 
 pub(super) type Version = bool;
 
 pub struct Data<D> {
     data: RefCell<D>,
+    slf: MapWeak<Self>,
     version: Cell<Version>,
     dependents: DepCollecter,
 }
 
-impl<D> Data<D> {
-    fn new_raw(default: D) -> Self {
-        Data {
+impl<D: 'static> Data<D> {
+    pub fn new(default: D) -> MapRc<Self> {
+        Rc::new_cyclic(|weak| Data {
             data: RefCell::new(default),
+            slf: weak.clone().into(),
             version: Cell::new(false),
             dependents: DepCollecter::new(),
-        }
+        })
+        .into()
     }
 
     #[inline]
-    pub fn new(default: D) -> Rc<Self> {
-        Rc::new(Self::new_raw(default))
-    }
-
-    #[inline]
-    pub fn set<'a>(self: &Rc<Self>, val: D) {
+    pub fn set<'a>(&self, val: D) {
         *self.data.borrow_mut() = val;
-        self.dependents.update_root(self);
+        self.dependents.update_root(&self.slf.upgrade().unwrap());
     }
 
     #[inline]
@@ -43,12 +40,12 @@ impl<D> Data<D> {
 }
 
 impl<D> Watchable<D> for Data<D> {
-    fn get<'a>(&'a self) -> Ref<'a, D> {
+    fn get<'a>(&'a self) -> DataSource<D> {
         self.dependents.collect();
-        self.data.borrow()
+        self.data.borrow().into()
     }
 
-    fn subscribe(&self, sub: &Rc<dyn DepNode>) {
+    fn subscribe(&self, sub: &MapRc<dyn DepNode>) {
         self.dependents.subscribe(sub);
     }
 }

@@ -1,23 +1,8 @@
-use std::{
-    any::{Any, TypeId},
-    collections::HashMap,
-};
-
-use anyhow::Result;
 use getset::{CopyGetters, Getters, MutGetters};
-use smallvec::SmallVec;
 
-use crate::{
-    event::{callback::ClosureCall, event_target::EventTarget, Event},
-    map_rc::{MapRc, MapWeak},
-    primary::Area,
-    structure::Element,
-};
+use crate::{event::event_target::EventTarget, primary::Area, structure::Element};
 
-/*pub(crate) type LayerHandle = MapRc<RefCell<dyn AnyLayer>>;
-pub(crate) type LayerHandleWeak = MapWeak<RefCell<dyn AnyLayer>>;*/
-
-#[derive(Getters, CopyGetters, MutGetters)]
+#[derive(Getters, MutGetters)]
 pub struct Layer<E>
 where
     E: Element,
@@ -26,15 +11,27 @@ where
     ele: E,
 
     style: E::Style,
+    attrs: LayerAttribute,
+}
 
-    #[getset(get = "pub")]
+#[derive(Getters, MutGetters, CopyGetters)]
+pub(crate) struct LayerAttribute {
+    #[getset(get = "pub", get_mut = "pub(crate)")]
     graphic: Vec<u8>,
 
-    #[getset(get_copy = "pub")]
+    #[getset(get_copy = "pub", get_mut = "pub(crate)")]
     area: Area,
 
     #[getset(get = "pub", get_mut = "pub")]
     event_target: EventTarget,
 }
 
-//impl<El> Layer<El> where El: Element {}
+pub(crate) trait LayerTrait {
+    fn attrs(&self) -> &LayerAttribute;
+}
+
+impl<E: Element> LayerTrait for Layer<E> {
+    fn attrs(&self) -> &LayerAttribute {
+        &self.attrs
+    }
+}

@@ -4,9 +4,12 @@ use std::{
     rc::{Rc, Weak},
 };
 
+trait Nothing {}
+impl<T> Nothing for T {}
+
 pub struct MapRc<T: ?Sized> {
     dst: *const T,
-    rc: Rc<dyn Any>,
+    rc: Rc<dyn Nothing>,
 }
 
 impl<T: ?Sized> Clone for MapRc<T> {
@@ -18,14 +21,18 @@ impl<T: ?Sized> Clone for MapRc<T> {
     }
 }
 
-impl<T: ?Sized> MapRc<T> {
-    pub fn new(value: T) -> Self
-    where
-        T: Sized,
-    {
+impl<T: 'static> MapRc<T> {
+    pub fn new(value: T) -> Self {
         Rc::new(value).into()
     }
 
+    #[inline]
+    pub fn map_to_any(&self) -> MapRc<dyn Any> {
+        self.map(|x| x as _)
+    }
+}
+
+impl<T: ?Sized> MapRc<T> {
     pub fn map<U, F>(&self, func: F) -> MapRc<U>
     where
         U: ?Sized,
@@ -38,11 +45,15 @@ impl<T: ?Sized> MapRc<T> {
         }
     }
 
-    pub fn downgrade(this: &Self) -> MapWeak<T> {
+    pub fn downgrade(&self) -> MapWeak<T> {
         MapWeak {
-            dst: this.dst,
-            weak: Rc::downgrade(&this.rc),
+            dst: self.dst,
+            weak: Rc::downgrade(&self.rc),
         }
+    }
+
+    pub fn as_ptr(&self) -> *const T {
+        self.dst
     }
 }
 
@@ -64,7 +75,7 @@ impl<T: ?Sized> Deref for MapRc<T> {
 
 pub struct MapWeak<T: ?Sized> {
     dst: *const T,
-    weak: Weak<dyn Any>,
+    weak: Weak<dyn Nothing>,
 }
 
 impl<T: ?Sized> MapWeak<T> {
@@ -77,7 +88,7 @@ impl<T: ?Sized> MapWeak<T> {
     }
 }
 
-impl<T> From<Weak<T>> for MapWeak<T> {
+impl<T: 'static> From<Weak<T>> for MapWeak<T> {
     fn from(weak: Weak<T>) -> Self {
         MapWeak {
             dst: weak.as_ptr(),

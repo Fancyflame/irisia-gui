@@ -1,9 +1,9 @@
-use std::{cell::Ref, rc::Rc};
+use crate::map_rc::MapRc;
 
-use super::dep::DepNode;
+use super::{DepNode, Watchable};
 
 pub struct Watcher<F, D> {
-    watch: Rc<dyn Watchable<D>>,
+    watch: MapRc<dyn Watchable<D>>,
     call: F,
 }
 
@@ -12,16 +12,18 @@ where
     F: Fn(&D) + 'static,
     D: 'static,
 {
-    pub fn new<W>(watch: Rc<W>, call: F) -> Rc<Self>
+    pub fn new<W>(watch: &MapRc<W>, call: F) -> MapRc<Self>
     where
         W: Watchable<D> + 'static,
     {
-        let w = Rc::new(Watcher { watch, call });
+        let watch = watch.map(|w| w as &dyn Watchable<D>);
+        let wacther = MapRc::new(Watcher {
+            watch: watch.clone(),
+            call,
+        });
 
-        let w_cloned = w.clone() as Rc<dyn DepNode>;
-        w.watch.subscribe(&w_cloned);
-
-        w
+        watch.subscribe(&wacther.map(|w| w as _));
+        wacther
     }
 }
 
@@ -33,24 +35,3 @@ where
         (self.call)(&*self.watch.get());
     }
 }
-
-pub trait Watchable<D> {
-    fn get<'a>(&'a self) -> Ref<'a, D>;
-    fn subscribe(&self, sub: &Rc<dyn DepNode>);
-}
-
-/*pub trait WatchShortcut<D: 'static>
-where
-    Self: Sized,
-    for<'r> &'r Self: Into<Watchable<D>>,
-{
-    #[inline]
-    fn watch<F>(&self, call: F) -> Rc<Watcher<D>>
-    where
-        F: FnMut(&D, &Watcher<D>) + 'static,
-    {
-        Watcher::new(self, call)
-    }
-}
-
-impl<T, D: 'static> WatchShortcut<D> for T where for<'r> &'r T: Into<Watchable<D>> + Clone {}*/
