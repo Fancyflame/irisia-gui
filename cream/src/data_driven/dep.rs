@@ -45,7 +45,7 @@ impl DepCollecter {
         self.stc
             .collecter_stack
             .borrow_mut()
-            .push(node.map(|x| x as _));
+            .push(MapRc::map(node, |x| x as _));
     }
 
     #[inline]

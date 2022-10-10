@@ -3,7 +3,7 @@ use crate::map_rc::MapRc;
 use super::{DepNode, Watchable};
 
 pub struct Watcher<F, D> {
-    watch: MapRc<dyn Watchable<D>>,
+    watch: MapRc<dyn Watchable<Data = D>>,
     call: F,
 }
 
@@ -14,15 +14,15 @@ where
 {
     pub fn new<W>(watch: &MapRc<W>, call: F) -> MapRc<Self>
     where
-        W: Watchable<D> + 'static,
+        W: Watchable<Data = D> + 'static,
     {
-        let watch = watch.map(|w| w as &dyn Watchable<D>);
+        let watch = MapRc::map(watch, |w| w as &dyn Watchable<Data = D>);
         let wacther = MapRc::new(Watcher {
             watch: watch.clone(),
             call,
         });
 
-        watch.subscribe(&wacther.map(|w| w as _));
+        watch.subscribe(&MapRc::map(&wacther, |w| w as _));
         wacther
     }
 }

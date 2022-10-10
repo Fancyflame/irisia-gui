@@ -39,7 +39,9 @@ impl<D: 'static> Data<D> {
     }
 }
 
-impl<D> Watchable<D> for Data<D> {
+impl<D> Watchable for Data<D> {
+    type Data = D;
+
     fn get<'a>(&'a self) -> DataSource<D> {
         self.dependents.collect();
         self.data.borrow().into()

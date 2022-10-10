@@ -8,8 +8,9 @@ pub trait DepNode {
     fn on_update(&self);
 }
 
-pub trait Watchable<D> {
-    fn get(&self) -> DataSource<D>;
+pub trait Watchable {
+    type Data;
+    fn get(&self) -> DataSource<Self::Data>;
     fn subscribe(&self, sub: &MapRc<dyn DepNode>);
 }
 
@@ -17,6 +18,7 @@ enum DataSourceEnum<'a, T> {
     Ref(Ref<'a, T>),
     Borrow(&'a T),
 }
+
 pub struct DataSource<'a, T>(DataSourceEnum<'a, T>);
 
 impl<'a, T> Deref for DataSource<'a, T> {

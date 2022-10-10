@@ -27,33 +27,33 @@ impl<T: 'static> MapRc<T> {
     }
 
     #[inline]
-    pub fn map_to_any(&self) -> MapRc<dyn Any> {
-        self.map(|x| x as _)
+    pub fn map_to_any(this: &Self) -> MapRc<dyn Any> {
+        Self::map(this, |x| x as _)
     }
 }
 
 impl<T: ?Sized> MapRc<T> {
-    pub fn map<U, F>(&self, func: F) -> MapRc<U>
+    pub fn map<U, F>(this: &Self, func: F) -> MapRc<U>
     where
         U: ?Sized,
         F: FnOnce(&T) -> &U,
     {
-        let ptr = unsafe { func(&*self.dst) as *const U };
+        let ptr = unsafe { func(&*this.dst) as *const U };
         MapRc {
             dst: ptr,
-            rc: self.rc.clone(),
+            rc: this.rc.clone(),
         }
     }
 
-    pub fn downgrade(&self) -> MapWeak<T> {
+    pub fn downgrade(this: &Self) -> MapWeak<T> {
         MapWeak {
-            dst: self.dst,
-            weak: Rc::downgrade(&self.rc),
+            dst: this.dst,
+            weak: Rc::downgrade(&this.rc),
         }
     }
 
-    pub fn as_ptr(&self) -> *const T {
-        self.dst
+    pub fn as_ptr(this: &Self) -> *const T {
+        this.dst
     }
 }
 

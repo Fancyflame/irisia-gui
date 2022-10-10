@@ -1,4 +1,5 @@
 use std::{
+    any::Any,
     cell::{Cell, Ref, RefCell},
     rc::Rc,
 };
@@ -10,24 +11,47 @@ use super::{
     DataSource, DepNode, Watchable,
 };
 
-pub struct Computed<F, D> {
+pub struct Computed<D> {
     cache: RefCell<Option<D>>,
     slf: MapWeak<Self>,
-    compute: F,
+
+    binding: MapWeak<dyn Any>,
+    compute: &'static dyn Any,
+    compute_use: fn(&'static dyn Any, &MapWeak<dyn Any>, cache: Option<D>) -> D,
+
     last_ver: Cell<FullVersion>,
     marked_dirty: Cell<bool>,
     pub(super) dependents: DepCollecter,
 }
 
-impl<F: 'static, D: 'static> Computed<F, D>
+impl<D> Computed<D>
 where
-    F: Fn(Option<D>) -> D,
+    D: 'static,
 {
-    pub fn new(compute: F) -> MapRc<Self> {
+    pub fn new<S: 'static>(
+        binding: &MapRc<S>,
+        compute: &'static fn(&S, Option<D>) -> D,
+    ) -> MapRc<Self> {
+        fn compute_use<S: 'static, D: 'static>(
+            func: &'static dyn Any,
+            binding: &MapWeak<dyn Any>,
+            cache: Option<D>,
+        ) -> D {
+            let func = func.downcast_ref::<fn(&S, Option<D>) -> D>().unwrap();
+            let binding = MapRc::map(&binding.upgrade().unwrap(), |any| {
+                any.downcast_ref::<S>().unwrap()
+            });
+            func(&binding, cache)
+        }
+
         Rc::new_cyclic(|weak| Computed {
             cache: RefCell::new(None),
             slf: weak.clone().into(),
-            compute,
+
+            binding: MapRc::downgrade(&MapRc::map_to_any(binding)),
+            compute: compute as _,
+            compute_use: compute_use::<S, D>,
+
             last_ver: EMPTY_VER.into(),
             marked_dirty: true.into(),
             dependents: DepCollecter::new(),
@@ -36,10 +60,12 @@ where
     }
 }
 
-impl<F: 'static, D: 'static> Watchable<D> for Computed<F, D>
+impl<D> Watchable for Computed<D>
 where
-    F: Fn(Option<D>) -> D,
+    D: 'static,
 {
+    type Data = D;
+
     fn get(&self) -> DataSource<D> {
         self.dependents.collect();
         let is_dirty = match (self.marked_dirty.get(), self.dependents.current_ver()) {
@@ -57,7 +83,11 @@ where
             let mut borrowed = self.cache.borrow_mut();
 
             self.dependents.push_dependent(&self.slf.upgrade().unwrap());
-            *borrowed = Some((self.compute)(borrowed.take()));
+            *borrowed = Some((self.compute_use)(
+                self.compute,
+                &self.binding,
+                borrowed.take(),
+            ));
             self.dependents.pop_dependent();
 
             drop(borrowed);
@@ -71,7 +101,10 @@ where
     }
 }
 
-impl<F, D> DepNode for Computed<F, D> {
+impl<D> DepNode for Computed<D>
+where
+    D: 'static,
+{
     fn on_update(&self) {
         let cv = self.dependents.current_ver().unwrap();
         if self.last_ver.get() != cv {

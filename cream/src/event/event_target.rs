@@ -20,9 +20,15 @@ pub struct EventTarget {
 }
 
 impl EventTarget {
+    pub(crate) fn new() -> Self {
+        EventTarget {
+            event_listeners: HashMap::new(),
+        }
+    }
+
     pub(crate) fn get<E: Event>(&self, ev: E) -> Option<MapRc<EventListenerList<E::Arg>>> {
         self.event_listeners.get(&ev.type_id()).map(|ell| {
-            ell.map(|any| {
+            MapRc::map(ell, |any| {
                 any.downcast_ref::<EventListenerList<E::Arg>>()
                     .expect("unreachable")
             })
@@ -37,7 +43,7 @@ impl EventTarget {
                     MapRc::new(RefCell::new(SmallVec::new()));
 
                 self.event_listeners
-                    .insert(ev.type_id(), map_rc.map_to_any());
+                    .insert(ev.type_id(), MapRc::map_to_any(&map_rc));
                 map_rc
             }
         }
