@@ -1,6 +1,4 @@
-use std::{cell::Ref, ops::Deref};
-
-use crate::map_rc::MapRc;
+use std::{cell::Ref, ops::Deref, rc::Rc};
 
 /// Implement this trait says that it can be a dependent of a
 /// data source.
@@ -11,17 +9,30 @@ pub trait DepNode {
 pub trait Watchable {
     type Data;
     fn get(&self) -> DataSource<Self::Data>;
-    fn subscribe(&self, sub: &MapRc<dyn DepNode>);
+    fn subscribe(&self, sub: &Rc<dyn DepNode>);
 }
 
-enum DataSourceEnum<'a, T> {
+enum DataSourceEnum<'a, T: ?Sized> {
     Ref(Ref<'a, T>),
     Borrow(&'a T),
 }
 
-pub struct DataSource<'a, T>(DataSourceEnum<'a, T>);
+pub struct DataSource<'a, T: ?Sized>(DataSourceEnum<'a, T>);
 
-impl<'a, T> Deref for DataSource<'a, T> {
+impl<'a, T: ?Sized> DataSource<'a, T> {
+    pub fn map<F, U>(orig: Self, func: F) -> DataSource<'a, U>
+    where
+        F: FnOnce(&T) -> &U,
+        U: ?Sized + 'a,
+    {
+        match orig.0 {
+            DataSourceEnum::Ref(r) => Ref::map(r, func).into(),
+            DataSourceEnum::Borrow(b) => func(b).into(),
+        }
+    }
+}
+
+impl<T: ?Sized> Deref for DataSource<'_, T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
         match &self.0 {
@@ -31,13 +42,13 @@ impl<'a, T> Deref for DataSource<'a, T> {
     }
 }
 
-impl<'a, T> From<&'a T> for DataSource<'a, T> {
+impl<'a, T: ?Sized> From<&'a T> for DataSource<'a, T> {
     fn from(f: &'a T) -> Self {
         DataSource(DataSourceEnum::Borrow(f))
     }
 }
 
-impl<'a, T> From<Ref<'a, T>> for DataSource<'a, T> {
+impl<'a, T: ?Sized> From<Ref<'a, T>> for DataSource<'a, T> {
     fn from(f: Ref<'a, T>) -> Self {
         DataSource(DataSourceEnum::Ref(f))
     }

@@ -1,13 +1,11 @@
 use std::{any::TypeId, collections::HashMap};
 
 use crate::{
+    data_driven::Watchable,
     event::{Event, EventFlow},
-    map_rc::MapWeak,
     primary::Vec2,
-    structure::Element,
+    structure::element::ElementHandle,
 };
-
-use super::layer::LayerTrait;
 
 pub struct BubbleEventRegister {
     // `usize`s is the indexes of layers which listen this event
@@ -27,8 +25,7 @@ impl BubbleEventRegister {
         }
     }
 
-    pub(crate) fn register<E: Event, El: Element>(&mut self, ev: E, index: usize) {
-        let type_id = ev.type_id();
+    pub(crate) fn register_unchecked(&mut self, type_id: TypeId, index: usize) {
         match self.map.get_mut(&type_id) {
             Some(vec) => {
                 vec.push(index);
@@ -42,9 +39,9 @@ impl BubbleEventRegister {
     pub(crate) fn call<E: Event>(
         &self,
         ev: E,
-        arg: &E::Arg,
+        args: &E::Arg,
         point: Vec2,
-        layers: &[MapWeak<dyn LayerTrait>],
+        layers: &[ElementHandle],
     ) {
         let type_id = TypeId::of::<E>();
 
@@ -55,25 +52,18 @@ impl BubbleEventRegister {
 
         let mut is_exact = true;
         for index in indexes {
-            let layer = layers[*index].upgrade().unwrap();
-            let attrs = layer.attrs();
+            let layer = layers[*index].borrow();
+            let svc = layer.service();
+            let area = *svc.area().get();
 
-            if point.abs_ge(attrs.area().0) && point.abs_le(attrs.area().1) {
-                let callbacks = match attrs.event_target().get(ev) {
-                    Some(cb) => cb,
-                    None => unreachable!("The event is expected exists in this event target"),
-                };
-
+            if point.abs_ge(area.0) && point.abs_le(area.1) {
                 let mut flow = EventFlow {
                     is_exact,
                     bubble: false,
                 };
 
                 is_exact = false;
-
-                for cb in &*callbacks.borrow() {
-                    cb.upgrade().unwrap().call(arg, &mut flow);
-                }
+                svc.event_target().emit(ev, args, &mut flow);
 
                 if !flow.bubble() {
                     break;

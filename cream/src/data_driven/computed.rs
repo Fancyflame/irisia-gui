@@ -1,10 +1,7 @@
 use std::{
-    any::Any,
-    cell::{Cell, Ref, RefCell},
-    rc::Rc,
+    cell::{Ref, RefCell},
+    rc::{Rc, Weak},
 };
-
-use crate::map_rc::{MapRc, MapWeak};
 
 use super::{
     dep::{DepCollecter, FullVersion, EMPTY_VER},
@@ -12,51 +9,36 @@ use super::{
 };
 
 pub struct Computed<D> {
-    cache: RefCell<Option<D>>,
-    slf: MapWeak<Self>,
-
-    binding: MapWeak<dyn Any>,
-    compute: &'static dyn Any,
-    compute_use: fn(&'static dyn Any, &MapWeak<dyn Any>, cache: Option<D>) -> D,
-
-    last_ver: Cell<FullVersion>,
-    marked_dirty: Cell<bool>,
+    ver: RefCell<ComputedVer<D>>,
+    slf: Weak<Self>,
+    compute: Box<dyn Fn(Option<D>) -> D>,
     pub(super) dependents: DepCollecter,
+}
+
+struct ComputedVer<D> {
+    cache: Option<D>,
+    last_ver: FullVersion,
+    marked_dirty: bool,
 }
 
 impl<D> Computed<D>
 where
     D: 'static,
 {
-    pub fn new<S: 'static>(
-        binding: &MapRc<S>,
-        compute: &'static fn(&S, Option<D>) -> D,
-    ) -> MapRc<Self> {
-        fn compute_use<S: 'static, D: 'static>(
-            func: &'static dyn Any,
-            binding: &MapWeak<dyn Any>,
-            cache: Option<D>,
-        ) -> D {
-            let func = func.downcast_ref::<fn(&S, Option<D>) -> D>().unwrap();
-            let binding = MapRc::map(&binding.upgrade().unwrap(), |any| {
-                any.downcast_ref::<S>().unwrap()
-            });
-            func(&binding, cache)
-        }
-
+    pub fn new<S: 'static>(binding: Weak<S>, compute: fn(&S, Option<D>) -> D) -> Rc<Self> {
         Rc::new_cyclic(|weak| Computed {
-            cache: RefCell::new(None),
-            slf: weak.clone().into(),
-
-            binding: MapRc::downgrade(&MapRc::map_to_any(binding)),
-            compute: compute as _,
-            compute_use: compute_use::<S, D>,
-
-            last_ver: EMPTY_VER.into(),
-            marked_dirty: true.into(),
+            ver: RefCell::new(ComputedVer {
+                cache: None,
+                last_ver: EMPTY_VER.into(),
+                marked_dirty: true.into(),
+            }),
+            slf: weak.clone(),
+            compute: Box::new(move |opt| {
+                let rc = binding.upgrade().expect("The binding has been dropped");
+                compute(&rc, opt)
+            }),
             dependents: DepCollecter::new(),
         })
-        .into()
     }
 }
 
@@ -68,35 +50,30 @@ where
 
     fn get(&self) -> DataSource<D> {
         self.dependents.collect();
-        let is_dirty = match (self.marked_dirty.get(), self.dependents.current_ver()) {
+
+        let mut cache = self.ver.borrow_mut();
+        let is_dirty = match (cache.marked_dirty, self.dependents.current_ver()) {
             (true, _) => true,
-            (false, Some(ver)) => ver != self.last_ver.get(),
+            (false, Some(ver)) => ver != cache.last_ver,
             (false, None) => false,
         };
 
         if is_dirty {
-            self.marked_dirty.set(false);
+            cache.marked_dirty = false;
             if let Some(cv) = self.dependents.current_ver() {
-                self.last_ver.set(cv);
+                cache.last_ver = cv;
             }
 
-            let mut borrowed = self.cache.borrow_mut();
-
             self.dependents.push_dependent(&self.slf.upgrade().unwrap());
-            *borrowed = Some((self.compute_use)(
-                self.compute,
-                &self.binding,
-                borrowed.take(),
-            ));
+            cache.cache = Some((self.compute)(cache.cache.take()));
             self.dependents.pop_dependent();
-
-            drop(borrowed);
         }
 
-        Ref::map(self.cache.borrow(), |x| x.as_ref().unwrap()).into()
+        drop(cache);
+        Ref::map(self.ver.borrow(), |x| x.cache.as_ref().unwrap()).into()
     }
 
-    fn subscribe(&self, sub: &MapRc<dyn DepNode>) {
+    fn subscribe(&self, sub: &Rc<dyn DepNode>) {
         self.dependents.subscribe(sub);
     }
 }
@@ -106,10 +83,12 @@ where
     D: 'static,
 {
     fn on_update(&self) {
+        let mut cache = self.ver.borrow_mut();
         let cv = self.dependents.current_ver().unwrap();
-        if self.last_ver.get() != cv {
-            self.last_ver.set(cv);
-            self.marked_dirty.set(true);
+        if cache.last_ver != cv {
+            cache.last_ver = cv;
+            cache.marked_dirty = true;
+            drop(cache);
             self.dependents.update_all();
         }
     }

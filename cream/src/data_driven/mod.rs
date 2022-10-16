@@ -1,12 +1,13 @@
 pub mod computed;
-pub mod constant_value;
-pub mod data;
-pub(crate) mod dep;
+pub mod const_data;
+pub(self) mod dep;
 pub mod interfaces;
-mod thread_guard;
+pub mod mut_data;
+pub(crate) mod thread_guard;
 pub mod watcher;
 
 pub use computed::Computed;
-pub use data::Data;
+pub use const_data::ConstData;
 pub use interfaces::*;
+pub use mut_data::MutData;
 pub use watcher::Watcher;

@@ -1,36 +1,33 @@
-use crate::map_rc::MapRc;
+use std::rc::{Rc, Weak};
 
 use super::{DepNode, Watchable};
 
-pub struct Watcher<F, D> {
-    watch: MapRc<dyn Watchable<Data = D>>,
-    call: F,
+pub struct Watcher<D: 'static> {
+    watch: Rc<dyn Watchable<Data = D>>,
+    call: Box<dyn Fn(&D)>,
 }
 
-impl<F, D> Watcher<F, D>
-where
-    F: Fn(&D) + 'static,
-    D: 'static,
-{
-    pub fn new<W>(watch: &MapRc<W>, call: F) -> MapRc<Self>
+impl<D> Watcher<D> {
+    pub fn new<W, S, F>(watch: &Rc<W>, binding: Weak<S>, call: F) -> Rc<Self>
     where
+        S: 'static,
         W: Watchable<Data = D> + 'static,
+        F: Fn(&S, &D) + 'static,
     {
-        let watch = MapRc::map(watch, |w| w as &dyn Watchable<Data = D>);
-        let wacther = MapRc::new(Watcher {
+        let wather = Rc::new(Watcher {
             watch: watch.clone(),
-            call,
+            call: Box::new(move |data| {
+                let rc = binding.upgrade().expect("The binding has been dropped");
+                call(&rc, data);
+            }),
         });
 
-        watch.subscribe(&MapRc::map(&wacther, |w| w as _));
-        wacther
+        watch.subscribe(&(wather.clone() as _));
+        wather
     }
 }
 
-impl<F, D> DepNode for Watcher<F, D>
-where
-    F: Fn(&D),
-{
+impl<D> DepNode for Watcher<D> {
     fn on_update(&self) {
         (self.call)(&*self.watch.get());
     }
