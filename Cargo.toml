@@ -1,2 +1,2 @@
 [workspace]
-members = ["cream", "cream-macro"]
+members = ["cream_core", "cream_kit", "cream_winit", "cream_macros"]
