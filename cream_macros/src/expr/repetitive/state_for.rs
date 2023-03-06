@@ -1,10 +1,8 @@
 use quote::{quote, ToTokens};
 use syn::{parse::Parse, Expr, Pat, Token};
 
-use crate::expr::{state_block::StateBlock, Codegen};
-/*
+use crate::expr::{state_block::StateBlock, Codegen, StateExpr, VisitUnit};
 
-*/
 pub struct StateForLoop<T: Codegen> {
     pat: Pat,
     iter: Expr,
@@ -17,7 +15,7 @@ impl<T: Codegen> Parse for StateForLoop<T> {
         input.parse::<Token![for]>()?;
         let pat = input.parse()?;
         input.parse::<Token![in]>()?;
-        let iter = input.parse()?;
+        let iter = Expr::parse_without_eager_brace(input)?;
         let body: StateBlock<T> = input.parse()?;
         let key = body.get_key()?.cloned();
 
@@ -47,12 +45,28 @@ impl<T: Codegen> ToTokens for StateForLoop<T> {
                 )
             },
             None => quote! {
-                ::cream_core::__macro_helper::__for_loop_iter_item_as_key(#iter, |#pat| #body)
+                ::cream_core::__for_loop_iter_item_as_key(#iter, |#pat| #body)
             },
         };
 
         T::repetitive_applicate(tokens, |tokens| {
             iter.to_tokens(tokens);
         });
+    }
+}
+
+impl<T: Codegen> VisitUnit<T> for StateForLoop<T> {
+    fn visit_unit<F>(&self, f: &mut F)
+    where
+        F: FnMut(&StateExpr<T>),
+    {
+        self.body.visit_unit(f);
+    }
+
+    fn visit_unit_mut<F>(&mut self, f: &mut F)
+    where
+        F: FnMut(&mut StateExpr<T>),
+    {
+        self.body.visit_unit_mut(f);
     }
 }

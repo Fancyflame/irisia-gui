@@ -32,7 +32,7 @@ where
         self.slot.node.style_iter()
     }
 
-    fn finish<'b, I>(self, _: &mut (), mut iter: I) -> Result<()>
+    fn finish_iter<'b, I>(self, _: &mut (), mut iter: I) -> Result<()>
     where
         I: Iterator<Item = RenderContent<'b>>,
     {
@@ -63,6 +63,6 @@ where
     where
         I: Iterator<Item = RenderContent<'b>>,
     {
-        self.node.finish(self.cache, iter)
+        self.node.finish_iter(self.cache, iter)
     }
 }

@@ -2,7 +2,7 @@ use proc_macro2::TokenStream;
 use quote::ToTokens;
 use syn::{parse::Parse, token::Brace, Expr, Token};
 
-use crate::expr::{state_block::StateBlock, Codegen, ConditionalApplicator};
+use crate::expr::{state_block::StateBlock, Codegen, ConditionalApplicator, StateExpr, VisitUnit};
 
 /*
     // count 4
@@ -28,16 +28,6 @@ struct If<T: Codegen> {
     then: StateBlock<T>,
 }
 
-impl<T: Codegen> Parse for If<T> {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        Ok(If {
-            if_token: input.parse()?,
-            cond: Expr::parse_without_eager_brace(input)?,
-            then: input.parse()?,
-        })
-    }
-}
-
 impl<T: Codegen> Parse for StateIf<T> {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let leading_if = input.parse()?;
@@ -58,6 +48,16 @@ impl<T: Codegen> Parse for StateIf<T> {
             leading_if,
             else_ifs,
             default,
+        })
+    }
+}
+
+impl<T: Codegen> Parse for If<T> {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        Ok(If {
+            if_token: input.parse()?,
+            cond: Expr::parse_without_eager_brace(input)?,
+            then: input.parse()?,
         })
     }
 }
@@ -102,6 +102,38 @@ impl<T: Codegen> ToTokens for StateIf<T> {
             Brace::default().surround(tokens, |tokens| {
                 ca.apply(tokens, |tokens| T::empty(tokens));
             })
+        }
+    }
+}
+
+impl<T: Codegen> VisitUnit<T> for StateIf<T> {
+    fn visit_unit<F>(&self, f: &mut F)
+    where
+        F: FnMut(&StateExpr<T>),
+    {
+        self.leading_if.then.visit_unit(f);
+
+        for x in &self.else_ifs {
+            x.1.then.visit_unit(f);
+        }
+
+        if let Some(def) = &self.default {
+            def.1.visit_unit(f);
+        }
+    }
+
+    fn visit_unit_mut<F>(&mut self, f: &mut F)
+    where
+        F: FnMut(&mut StateExpr<T>),
+    {
+        self.leading_if.then.visit_unit_mut(f);
+
+        for x in &mut self.else_ifs {
+            x.1.then.visit_unit_mut(f);
+        }
+
+        if let Some(def) = &mut self.default {
+            def.1.visit_unit_mut(f);
         }
     }
 }

@@ -1,10 +1,11 @@
 use quote::{quote, ToTokens};
-use syn::{parse_quote, token::Paren};
+use syn::{parenthesized, parse::ParseStream, parse_quote, token::Paren, Result, Token};
 
 use crate::expr::{conditional::ca::DefaultConditionalApplicator, Codegen};
 
-use self::cmd::Command;
+use self::cmd::ElementCommand;
 
+pub mod build;
 pub mod cmd;
 pub mod stmt;
 
@@ -12,7 +13,7 @@ pub struct ElementCodegen;
 
 impl Codegen for ElementCodegen {
     type Ca = DefaultConditionalApplicator;
-    type Command = cmd::Command;
+    type Command = cmd::ElementCommand;
     type Stmt = stmt::ElementStmt;
 
     const IN_BLOCK: bool = false;
@@ -41,7 +42,8 @@ impl Codegen for ElementCodegen {
         input: syn::parse::ParseStream,
     ) -> syn::Result<Option<Self::Command>> {
         Ok(Some(match cmd {
-            "slot" => Command::Slot(input.parse()?),
+            "slot" => ElementCommand::Slot(input.parse()?),
+            "init" => parse_init_command(input)?,
             _ => return Ok(None),
         }))
     }
@@ -53,4 +55,26 @@ impl Codegen for ElementCodegen {
         quote!(.chain).to_tokens(tokens);
         Paren::default().surround(tokens, f);
     }
+}
+
+fn parse_init_command(input: ParseStream) -> Result<ElementCommand> {
+    let content;
+    parenthesized!(content in input);
+    let event_src = content.parse()?;
+
+    Ok(if content.peek(Token![,]) {
+        ElementCommand::InitRender {
+            event_src,
+            cache_box: {
+                content.parse::<Token![,]>()?;
+                content.parse()?
+            },
+            render_content: {
+                content.parse::<Token![,]>()?;
+                content.parse()?
+            },
+        }
+    } else {
+        ElementCommand::InitBuild { event_src }
+    })
 }

@@ -36,8 +36,8 @@ pub trait Element: Default + 'static {
         &mut self,
         props: Self::Props<'_>,
         styles: &S,
-        upstream_evl: WrappedEvents,
-        evl_builder: EvlBuilder<Pl, Self, ()>,
+        event_listeners: WrappedEvents,
+        event_listener_builder: EvlBuilder<Pl, Self, ()>,
         children: Slot<C>,
         content: RenderContent,
     ) -> Result<()>

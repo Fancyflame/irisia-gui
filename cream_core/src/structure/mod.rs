@@ -1,6 +1,6 @@
 use std::iter::Empty;
 
-use crate::{event::global_register::GlobalEventRegister, style::reader::StyleReader, Result};
+use crate::{style::reader::StyleReader, CacheBox, Result};
 
 use self::chain::Chain;
 
@@ -15,30 +15,11 @@ pub use self::{
 
 pub mod add_child;
 pub mod branch;
+pub mod cache_box;
 pub mod chain;
+mod fn_helper;
 pub mod repeating;
 pub mod slot;
-
-// TODO
-pub trait FuncOnce<'a, In>
-where
-    In: 'a,
-{
-    type Output: Iterator<Item = RenderContent<'a>>;
-    fn provide(self, style_iter: In) -> Self::Output;
-}
-
-impl<'a, F, In, Out> FuncOnce<'a, In> for F
-where
-    In: 'a,
-    F: FnOnce(In) -> Out,
-    Out: Iterator<Item = RenderContent<'a>>,
-{
-    type Output = Out;
-    fn provide(self, style_iter: In) -> Out {
-        self(style_iter)
-    }
-}
 
 pub trait Node {
     type Cache: Default + 'static;
@@ -56,9 +37,16 @@ pub trait Node {
         S: StyleReader,
         G: GlobalEventRegister;*/
 
-    fn finish<'a, I>(self, cache: &mut Self::Cache, iter: I) -> Result<()>
+    fn finish_iter<'a, I>(self, cache: &mut Self::Cache, iter: I) -> Result<()>
     where
         I: Iterator<Item = RenderContent<'a>>;
+
+    fn fin(self, cache: &mut CacheBox, content: RenderContent) -> Result<()>
+    where
+        Self: Sized,
+    {
+        self.finish_iter(cache.get_cache(), std::iter::once(content))
+    }
 
     fn chain<T>(self, other: T) -> Chain<T, Self>
     where
@@ -82,7 +70,7 @@ impl Node for EmptyStructure {
         std::iter::empty()
     }
 
-    fn finish<'a, I>(self, _: &mut Self::Cache, _: I) -> Result<()>
+    fn finish_iter<'a, I>(self, _: &mut Self::Cache, _: I) -> Result<()>
     where
         I: Iterator<Item = RenderContent<'a>>,
     {

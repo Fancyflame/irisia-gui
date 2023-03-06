@@ -78,7 +78,7 @@ where
         iter::once(S::read_style(&self.style))
     }
 
-    fn finish<'a, I>(self, cache: &mut Self::Cache, mut iter: I) -> Result<()>
+    fn finish_iter<'a, I>(self, cache: &mut Self::Cache, mut iter: I) -> Result<()>
     where
         I: Iterator<Item = RenderContent<'a>>,
     {

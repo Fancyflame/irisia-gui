@@ -20,13 +20,14 @@ impl Parse for ElementStmt {
         braced!(content in input);
 
         while !content.is_empty() {
-            if content.peek(Ident) && content.peek2(Token![:]) {
+            if content.peek(Ident) {
                 // parse props-value pair
                 props.push((content.parse()?, {
                     content.parse::<Token![:]>()?;
                     content.parse()?
                 }));
-            } else if content.peek(Token![@]) {
+            } else if content.peek(Token![+]) {
+                content.parse::<Token![+]>()?;
                 let cmd: Ident = content.parse()?;
                 let is_ok = match &*cmd.to_string() {
                     "name" => rename.replace(call_rename(&content)?).is_none(),
@@ -43,6 +44,8 @@ impl Parse for ElementStmt {
                         format!("duplicated command `{}`", cmd.to_string()),
                     ));
                 }
+            } else {
+                break;
             }
 
             if !content.is_empty() {
@@ -55,8 +58,9 @@ impl Parse for ElementStmt {
         Ok(ElementStmt {
             element,
             props,
-            rename,
+            _rename: rename,
             style: style.unwrap_or_else(|| parse_quote!(::cream_core::style::NoStyle)),
+            event_src: None,
             event_listeners: event_listeners.unwrap_or_default(),
             children,
         })

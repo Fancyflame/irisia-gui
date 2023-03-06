@@ -1,7 +1,7 @@
 use quote::{quote, ToTokens};
 use syn::{parse::Parse, Expr, Token};
 
-use crate::expr::{state_block::StateBlock, Codegen};
+use crate::expr::{state_block::StateBlock, Codegen, StateExpr, VisitUnit};
 
 pub struct StateWhile<T: Codegen> {
     cond: Expr,
@@ -12,7 +12,7 @@ pub struct StateWhile<T: Codegen> {
 impl<T: Codegen> Parse for StateWhile<T> {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         input.parse::<Token![while]>()?;
-        let cond = input.parse()?;
+        let cond = Expr::parse_without_eager_brace(input)?;
         let state_block: StateBlock<T> = input.parse()?;
         let key = state_block.get_key()?;
 
@@ -50,5 +50,21 @@ impl<T: Codegen> ToTokens for StateWhile<T> {
             }
             .to_tokens(tokens);
         });
+    }
+}
+
+impl<T: Codegen> VisitUnit<T> for StateWhile<T> {
+    fn visit_unit<F>(&self, f: &mut F)
+    where
+        F: FnMut(&StateExpr<T>),
+    {
+        self.state_block.visit_unit(f);
+    }
+
+    fn visit_unit_mut<F>(&mut self, f: &mut F)
+    where
+        F: FnMut(&mut StateExpr<T>),
+    {
+        self.state_block.visit_unit_mut(f);
     }
 }

@@ -16,3 +16,5 @@ pub mod style;
 
 #[doc(hidden)]
 pub use __macro_helper::*;
+
+pub use structure::cache_box::CacheBox;

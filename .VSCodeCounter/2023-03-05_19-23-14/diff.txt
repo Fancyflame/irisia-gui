@@ -1,0 +1,61 @@
+Date : 2023-03-05 19:23:14
+Directory : d:\FancyFlame\cream-rs
+Total : 21 files,  310 codes, 17 comments, 59 blanks, all 386 lines
+
+Languages
++----------+------------+------------+------------+------------+------------+
+| language | files      | code       | comment    | blank      | total      |
++----------+------------+------------+------------+------------+------------+
+| Rust     |         21 |        310 |         17 |         59 |        386 |
++----------+------------+------------+------------+------------+------------+
+
+Directories
++-------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                    | files      | code       | comment    | blank      | total      |
++-------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                       |         21 |        310 |         17 |         59 |        386 |
+| cream_core                                                              |          5 |         86 |         -1 |         18 |        103 |
+| cream_core\examples                                                     |          1 |         45 |          0 |         10 |         55 |
+| cream_core\src                                                          |          4 |         41 |         -1 |          8 |         48 |
+| cream_core\src (Files)                                                  |          1 |          1 |          0 |          1 |          2 |
+| cream_core\src\structure                                                |          3 |         40 |         -1 |          7 |         46 |
+| cream_macros                                                            |         16 |        224 |         18 |         41 |        283 |
+| cream_macros\examples                                                   |          1 |        -11 |          0 |         -2 |        -13 |
+| cream_macros\src                                                        |         15 |        235 |         18 |         43 |        296 |
+| cream_macros\src (Files)                                                |          1 |        -11 |         21 |          0 |         10 |
+| cream_macros\src\element                                                |          6 |        126 |          0 |         21 |        147 |
+| cream_macros\src\element (Files)                                        |          3 |         89 |          0 |         14 |        103 |
+| cream_macros\src\element\stmt                                           |          3 |         37 |          0 |          7 |         44 |
+| cream_macros\src\expr                                                   |          8 |        120 |         -3 |         22 |        139 |
+| cream_macros\src\expr (Files)                                           |          4 |         44 |          0 |          9 |         53 |
+| cream_macros\src\expr\conditional                                       |          2 |         48 |          0 |          8 |         56 |
+| cream_macros\src\expr\repetitive                                        |          2 |         28 |         -3 |          5 |         30 |
++-------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++-------------------------------------------------------------------------+----------+------------+------------+------------+------------+
+| filename                                                                | language | code       | comment    | blank      | total      |
++-------------------------------------------------------------------------+----------+------------+------------+------------+------------+
+| d:\FancyFlame\cream-rs\cream_core\examples\test.rs                      | Rust     |         45 |          0 |         10 |         55 |
+| d:\FancyFlame\cream-rs\cream_core\src\lib.rs                            | Rust     |          1 |          0 |          1 |          2 |
+| d:\FancyFlame\cream-rs\cream_core\src\structure\cache_box.rs            | Rust     |         35 |          0 |          5 |         40 |
+| d:\FancyFlame\cream-rs\cream_core\src\structure\fn_helper.rs            | Rust     |         15 |          0 |          3 |         18 |
+| d:\FancyFlame\cream-rs\cream_core\src\structure\mod.rs                  | Rust     |        -10 |         -1 |         -1 |        -12 |
+| d:\FancyFlame\cream-rs\cream_macros\examples\t.rs                       | Rust     |        -11 |          0 |         -2 |        -13 |
+| d:\FancyFlame\cream-rs\cream_macros\src\element\build.rs                | Rust     |         66 |          0 |         12 |         78 |
+| d:\FancyFlame\cream-rs\cream_macros\src\element\cmd.rs                  | Rust     |          6 |          0 |          0 |          6 |
+| d:\FancyFlame\cream-rs\cream_macros\src\element\mod.rs                  | Rust     |         17 |          0 |          2 |         19 |
+| d:\FancyFlame\cream-rs\cream_macros\src\element\stmt\mod.rs             | Rust     |          7 |          0 |          2 |          9 |
+| d:\FancyFlame\cream-rs\cream_macros\src\element\stmt\parse.rs           | Rust     |          3 |          0 |          0 |          3 |
+| d:\FancyFlame\cream-rs\cream_macros\src\element\stmt\to_tokens.rs       | Rust     |         27 |          0 |          5 |         32 |
+| d:\FancyFlame\cream-rs\cream_macros\src\expr\conditional\state_if.rs    | Rust     |         26 |          0 |          6 |         32 |
+| d:\FancyFlame\cream-rs\cream_macros\src\expr\conditional\state_match.rs | Rust     |         22 |          0 |          2 |         24 |
+| d:\FancyFlame\cream-rs\cream_macros\src\expr\mod.rs                     | Rust     |        -31 |          0 |         -1 |        -32 |
+| d:\FancyFlame\cream-rs\cream_macros\src\expr\repetitive\state_for.rs    | Rust     |         14 |         -3 |          3 |         14 |
+| d:\FancyFlame\cream-rs\cream_macros\src\expr\repetitive\state_while.rs  | Rust     |         14 |          0 |          2 |         16 |
+| d:\FancyFlame\cream-rs\cream_macros\src\expr\state_block.rs             | Rust     |         21 |          0 |          2 |         23 |
+| d:\FancyFlame\cream-rs\cream_macros\src\expr\state_command.rs           | Rust     |        -16 |          0 |          0 |        -16 |
+| d:\FancyFlame\cream-rs\cream_macros\src\expr\state_expr.rs              | Rust     |         70 |          0 |          8 |         78 |
+| d:\FancyFlame\cream-rs\cream_macros\src\lib.rs                          | Rust     |        -11 |         21 |          0 |         10 |
+| Total                                                                   |          |        310 |         17 |         59 |        386 |
++-------------------------------------------------------------------------+----------+------------+------------+------------+------------+

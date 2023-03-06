@@ -39,13 +39,13 @@ where
         }
     }
 
-    fn finish<'a, I>(self, cache: &mut Self::Cache, iter: I) -> crate::Result<()>
+    fn finish_iter<'a, I>(self, cache: &mut Self::Cache, iter: I) -> crate::Result<()>
     where
         I: Iterator<Item = RenderContent<'a>>,
     {
         match self {
-            Branch::Arm1(a) => a.finish(&mut cache.arm1, iter),
-            Branch::Arm2(a) => a.finish(&mut cache.arm2, iter),
+            Branch::Arm1(a) => a.finish_iter(&mut cache.arm1, iter),
+            Branch::Arm2(a) => a.finish_iter(&mut cache.arm2, iter),
         }
     }
 }

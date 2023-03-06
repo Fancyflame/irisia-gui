@@ -9,7 +9,10 @@ use syn::{
     Expr, Result, Token,
 };
 
-use super::{state_command::StateCommand, Codegen, StateExpr};
+use super::{
+    state_command::{StateCommand, StateCommandBody},
+    Codegen, StateExpr, VisitUnit,
+};
 
 // {Empty.xxx().xxx()}
 pub struct StateBlock<T: Codegen> {
@@ -45,11 +48,35 @@ impl<T: Codegen> ToTokens for StateBlock<T> {
     }
 }
 
+impl<T: Codegen> VisitUnit<T> for StateBlock<T> {
+    fn visit_unit<F>(&self, f: &mut F)
+    where
+        F: FnMut(&StateExpr<T>),
+    {
+        for stmt in &self.stmts {
+            stmt.visit_unit(f);
+        }
+    }
+
+    fn visit_unit_mut<F>(&mut self, f: &mut F)
+    where
+        F: FnMut(&mut StateExpr<T>),
+    {
+        for stmt in &mut self.stmts {
+            stmt.visit_unit_mut(f);
+        }
+    }
+}
+
 impl<T: Codegen> StateBlock<T> {
     pub fn get_key(&self) -> Result<Option<&Expr>> {
         let mut key = None;
         for stmt in &self.stmts {
-            if let StateExpr::Command(StateCommand::Key(key_expr)) = stmt {
+            if let StateExpr::Command(StateCommand {
+                body: StateCommandBody::Key(key_expr),
+                ..
+            }) = stmt
+            {
                 if key.replace(key_expr).is_some() {
                     return Err(syn::Error::new(
                         key_expr.span(),

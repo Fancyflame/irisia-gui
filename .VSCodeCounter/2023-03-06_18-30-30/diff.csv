@@ -1,0 +1,11 @@
+"filename", "language", "Rust", "comment", "blank", "total"
+"d:\FancyFlame\cream-rs\cream_core\examples\test.rs", "Rust", 23, 0, 4, 27
+"d:\FancyFlame\cream-rs\cream_macros\src\element\build.rs", "Rust", 21, 0, 3, 24
+"d:\FancyFlame\cream-rs\cream_macros\src\element\cmd.rs", "Rust", 3, 0, 0, 3
+"d:\FancyFlame\cream-rs\cream_macros\src\element\mod.rs", "Rust", 5, 0, 0, 5
+"d:\FancyFlame\cream-rs\cream_macros\src\element\stmt\mod.rs", "Rust", 3, 0, 1, 4
+"d:\FancyFlame\cream-rs\cream_macros\src\element\stmt\parse.rs", "Rust", 1, 0, 0, 1
+"d:\FancyFlame\cream-rs\cream_macros\src\lib.rs", "Rust", 12, -22, 0, -10
+"d:\FancyFlame\cream-rs\cream_macros\src\uninit_type\mod.rs", "Rust", -63, 0, -12, -75
+"d:\FancyFlame\cream-rs\cream_macros\src\uninit_type\set.rs", "Rust", -60, 0, -11, -71
+"Total", "-", -55, -22, -15, -92

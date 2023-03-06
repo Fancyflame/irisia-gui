@@ -8,7 +8,9 @@ use syn::{
     Expr, Pat, Token,
 };
 
-use crate::expr::{state_block::stmts_to_tokens, Codegen, ConditionalApplicator, StateExpr};
+use crate::expr::{
+    state_block::stmts_to_tokens, Codegen, ConditionalApplicator, StateExpr, VisitUnit,
+};
 
 /*
     match expr1 {
@@ -115,4 +117,24 @@ fn arm_to_tokens<T: Codegen>(tokens: &mut TokenStream, arm: &Arm<T>, ca: &mut T:
         other => other.to_tokens(tokens),
     });
     <Token![,]>::default().to_tokens(tokens);
+}
+
+impl<T: Codegen> VisitUnit<T> for StateMatch<T> {
+    fn visit_unit<F>(&self, f: &mut F)
+    where
+        F: FnMut(&StateExpr<T>),
+    {
+        for x in &self.arms {
+            x.body.visit_unit(f);
+        }
+    }
+
+    fn visit_unit_mut<F>(&mut self, f: &mut F)
+    where
+        F: FnMut(&mut StateExpr<T>),
+    {
+        for x in &mut self.arms {
+            x.body.visit_unit_mut(f);
+        }
+    }
 }

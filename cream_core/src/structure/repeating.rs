@@ -60,7 +60,7 @@ where
         self.nodes.iter().map(func).flatten()
     }
 
-    fn finish<'a, I>(self, cache: &mut Self::Cache, mut iter: I) -> crate::Result<()>
+    fn finish_iter<'a, I>(self, cache: &mut Self::Cache, mut iter: I) -> crate::Result<()>
     where
         I: Iterator<Item = RenderContent<'a>>,
     {
@@ -68,11 +68,11 @@ where
             match cache.0.get_mut(&k) {
                 Some(c) => {
                     c.used_signal = true;
-                    x.finish(&mut c.value, &mut iter)?
+                    x.finish_iter(&mut c.value, &mut iter)?
                 }
                 None => {
                     let mut value = T::Cache::default();
-                    x.finish(&mut value, &mut iter)?;
+                    x.finish_iter(&mut value, &mut iter)?;
                     cache.0.insert(
                         k,
                         CacheUnit {

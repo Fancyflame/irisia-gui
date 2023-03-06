@@ -25,11 +25,11 @@ where
         self.0.style_iter().chain(self.1.style_iter())
     }
 
-    fn finish<'a, I>(self, cache: &mut Self::Cache, mut iter: I) -> crate::Result<()>
+    fn finish_iter<'a, I>(self, cache: &mut Self::Cache, mut iter: I) -> crate::Result<()>
     where
         I: Iterator<Item = RenderContent<'a>>,
     {
-        self.0.finish(&mut cache.0, &mut iter)?;
-        self.1.finish(&mut cache.1, iter)
+        self.0.finish_iter(&mut cache.0, &mut iter)?;
+        self.1.finish_iter(&mut cache.1, iter)
     }
 }
