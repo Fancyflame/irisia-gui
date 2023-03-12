@@ -9,14 +9,14 @@ use self::{
 };
 
 use super::{
-    build::{chain::Chain, EvlBuilder},
+    build::{chain::Chain, EventListenerBuilder},
     EventResolve,
 };
 
 pub mod add_listener2;
 pub mod proxy;
 
-pub struct EvlProxyBuilder<Pl, El, L>(pub(super) EvlBuilder<Pl, El, L>);
+pub struct EvlProxyBuilder<Pl, El, L>(pub(super) EventListenerBuilder<Pl, El, L>);
 
 impl<Pl, El, L> EvlProxyBuilder<Pl, El, L>
 where
@@ -24,7 +24,7 @@ where
     El: Element,
     L: EventResolve<Pl, El>,
 {
-    pub(crate) fn from_builder(builder: EvlBuilder<Pl, El, L>) -> Self {
+    pub(crate) fn from_builder(builder: EventListenerBuilder<Pl, El, L>) -> Self {
         EvlProxyBuilder(builder)
     }
 
@@ -48,7 +48,7 @@ where
         E: Event,
         F: FnMut(OriginalEvent<Pl, El, E, L>),
     {
-        EvlProxyBuilder(EvlBuilder {
+        EvlProxyBuilder(EventListenerBuilder {
             handle: self.0.handle,
             listeners: Proxy::new(self.0.listeners, f),
         })

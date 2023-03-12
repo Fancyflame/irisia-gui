@@ -28,14 +28,15 @@ pub mod add_style;
 pub mod branch;
 pub mod chain;
 pub mod reader;
-pub mod units;
 
 pub use add_style::*;
 pub use branch::*;
 pub use chain::*;
-pub use units::*;
 
 pub trait Style: Clone + 'static {}
+
+#[derive(Default, Clone, Copy)]
+pub struct Pixel(pub f32);
 
 #[derive(Clone, Copy)]
 pub struct NoStyle;

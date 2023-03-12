@@ -14,6 +14,7 @@ pub struct ElementStmt {
     style: Expr,
     event_src: Option<Rc<Expr>>,
     event_listeners: Vec<(Type, Expr)>,
+    proxy: Type,
     children: Vec<StateExpr<ElementCodegen>>,
 }
 

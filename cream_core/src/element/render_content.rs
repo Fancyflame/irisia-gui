@@ -1,4 +1,4 @@
-use skia_safe::Canvas;
+use cream_backend::Canvas;
 
 use crate::{
     event::{

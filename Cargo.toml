@@ -1,2 +1,3 @@
 [workspace]
-members = ["cream_core", "cream_kit", "cream_winit", "cream_macros"]
+resolver = "2"
+members = ["cream_core", "cream", "cream_backend", "cream_macros"]

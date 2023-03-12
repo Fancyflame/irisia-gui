@@ -14,52 +14,52 @@ pub mod add_listener;
 pub mod chain;
 pub mod empty;
 
-pub struct EvlBuilder<Pl, El, L> {
+pub struct EventListenerBuilder<Pl, El, L> {
     pub(super) handle: WeakHandle<ProxyLayerCache<Pl, El>>,
     pub(super) listeners: L,
 }
 
-impl<Pl, El> EvlBuilder<Pl, El, ()> {
+impl<Pl, El> EventListenerBuilder<Pl, El, ()> {
     pub fn new(handle: &RcHandle<ProxyLayerCache<Pl, El>>) -> Self {
-        EvlBuilder {
+        EventListenerBuilder {
             handle: Rc::downgrade(&handle),
             listeners: (),
         }
     }
 }
 
-impl<T, El, L> EvlBuilder<T, El, L>
+impl<T, El, L> EventListenerBuilder<T, El, L>
 where
     L: EventResolve<T, El>,
 {
-    pub fn listen<E, F>(self, f: F) -> EvlBuilder<T, El, Chain<L, AddListener<E, F>>>
+    pub fn listen<E, F>(self, f: F) -> EventListenerBuilder<T, El, Chain<L, AddListener<E, F>>>
     where
         E: Event,
         F: Fn(&mut El, &E, &mut EventFlow),
     {
-        EvlBuilder {
+        EventListenerBuilder {
             handle: self.handle,
             listeners: Chain::new(self.listeners, AddListener::new(f)),
         }
     }
 
-    pub fn chain<U>(self, other: U) -> EvlBuilder<T, El, Chain<L, U>>
+    pub fn chain<U>(self, other: U) -> EventListenerBuilder<T, El, Chain<L, U>>
     where
         U: EventResolve<T, El>,
     {
-        EvlBuilder {
+        EventListenerBuilder {
             handle: self.handle,
             listeners: Chain::new(self.listeners, other),
         }
     }
 }
 
-impl<T, El, L> Clone for EvlBuilder<T, El, L>
+impl<T, El, L> Clone for EventListenerBuilder<T, El, L>
 where
     L: Clone,
 {
     fn clone(&self) -> Self {
-        EvlBuilder {
+        EventListenerBuilder {
             handle: self.handle.clone(),
             listeners: self.listeners.clone(),
         }

@@ -24,7 +24,7 @@ fn main() {
             style2: true;
         }
 
-        match my_str {
+        match mys_tr {
             None => {
                 style1: 10, 20;
                 @extend ext_style;

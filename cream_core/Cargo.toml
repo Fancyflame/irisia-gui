@@ -7,6 +7,6 @@ edition = "2021"
 
 [dependencies]
 cream_macros = { path = "../cream_macros" }
-skia-safe = { version = "0.58", features = ["gl", "textlayout", "binary-cache"] }
+cream_backend = { path = "../cream_backend" }
 anyhow = "1"
 smallvec = "1.9"

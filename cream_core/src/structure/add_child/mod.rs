@@ -7,7 +7,7 @@ use anyhow::anyhow;
 
 use crate::{
     element::{proxy_layer::ProxyLayer, RcHandle, RenderContent},
-    event::event_state::{build::EvlBuilder, proxy::EvlProxyBuilder, EventResolve},
+    event::event_state::{build::EventListenerBuilder, proxy::EvlProxyBuilder, EventResolve},
     style::{reader::StyleReader, StyleContainer},
     Result,
 };
@@ -23,23 +23,23 @@ pub struct AddChildCache<Pl, El, Cc> {
     children_cache: Cc,
 }
 
-pub struct AddChild<'a, El, Sty, Ch, L, Pl = ()>
+pub struct AddChild<'a, El, Pl, Sty, Ch, El2, Pl2, L>
 where
     El: Element,
 {
     _phantom: PhantomData<(El, Pl)>,
     prop: <El as Element>::Props<'a>,
     style: Sty,
-    listeners: EvlBuilder<Pl, El, L>,
+    listeners: EventListenerBuilder<Pl2, El2, L>,
     children: Ch,
 }
 
-pub fn add_child<'a, El, Sty, Ch, L, Pl>(
+pub fn add_child<'a, El, Pl, Sty, Ch, El2, Pl2, L>(
     prop: <El as Element>::Props<'a>,
     style: Sty,
-    listeners: EvlBuilder<Pl, El, L>,
+    listeners: EventListenerBuilder<Pl2, El2, L>,
     children: Ch,
-) -> AddChild<'a, El, Sty, Ch, L, Pl>
+) -> AddChild<'a, El, Pl, Sty, Ch, El2, Pl2, L>
 where
     El: Element,
 {
@@ -60,13 +60,15 @@ where
     Ls: event listeners
     Ch: children node
 */
-impl<'prop, El, Pl, Sty, Ch, L> Node for AddChild<'prop, El, Sty, Ch, L, Pl>
+impl<'prop, El, Pl, Sty, Ch, El2, Pl2, L> Node for AddChild<'prop, El, Pl, Sty, Ch, El2, Pl2, L>
 where
     El: Element<Children<Ch> = Ch> + 'static,
+    Pl: ProxyLayer<El>,
     Sty: StyleContainer,
     Ch: Node,
-    Pl: ProxyLayer<El>,
-    L: EventResolve<Pl, El>,
+    El2: Element,
+    Pl2: ProxyLayer<El2>,
+    L: EventResolve<Pl2, El2>,
 {
     type Cache = Option<AddChildCache<Pl, El, <Ch as Node>::Cache>>;
     type StyleIter<'a, S> = Once<S> where Self:'a;
@@ -111,7 +113,7 @@ where
             self.prop,
             &self.style,
             EvlProxyBuilder::from_builder(self.listeners),
-            EvlBuilder::new(&cache.pl_cache),
+            EventListenerBuilder::new(&cache.pl_cache),
             Slot {
                 node: self.children,
                 cache: &mut cache.children_cache,

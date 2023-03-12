@@ -1,0 +1,160 @@
+Date : 2023-03-12 19:32:55
+Directory : d:\FancyFlame\cream-rs
+Total : 87 files,  3728 codes, 74 comments, 757 blanks, all 4559 lines
+
+Languages
++----------+------------+------------+------------+------------+------------+
+| language | files      | code       | comment    | blank      | total      |
++----------+------------+------------+------------+------------+------------+
+| Rust     |         73 |      3,376 |         70 |        662 |      4,108 |
+| Markdown |          8 |        304 |          0 |         79 |        383 |
+| TOML     |          5 |         47 |          4 |         16 |         67 |
+| XML      |          1 |          1 |          0 |          0 |          1 |
++----------+------------+------------+------------+------------+------------+
+
+Directories
++--------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                 | files      | code       | comment    | blank      | total      |
++--------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                    |         87 |      3,728 |         74 |        757 |      4,559 |
+| . (Files)                                                                            |          2 |          6 |          0 |          3 |          9 |
+| cream                                                                                |          3 |         18 |          1 |          7 |         26 |
+| cream (Files)                                                                        |          1 |          7 |          1 |          3 |         11 |
+| cream\src                                                                            |          2 |         11 |          0 |          4 |         15 |
+| cream_backend                                                                        |         12 |        504 |          1 |        116 |        621 |
+| cream_backend (Files)                                                                |          1 |         17 |          1 |          5 |         23 |
+| cream_backend\src                                                                    |         11 |        487 |          0 |        111 |        598 |
+| cream_backend\src (Files)                                                            |          2 |         14 |          0 |          6 |         20 |
+| cream_backend\src\runtime                                                            |          4 |        131 |          0 |         33 |        164 |
+| cream_backend\src\window                                                             |          5 |        342 |          0 |         72 |        414 |
+| cream_core                                                                           |         40 |      1,580 |         49 |        326 |      1,955 |
+| cream_core (Files)                                                                   |          1 |          9 |          1 |          3 |         13 |
+| cream_core\examples                                                                  |          2 |        146 |          0 |         35 |        181 |
+| cream_core\src                                                                       |         37 |      1,425 |         48 |        288 |      1,761 |
+| cream_core\src (Files)                                                               |          2 |         54 |          3 |         15 |         72 |
+| cream_core\src\element                                                               |          3 |        129 |          5 |         24 |        158 |
+| cream_core\src\event                                                                 |         14 |        557 |          1 |        121 |        679 |
+| cream_core\src\event (Files)                                                         |          2 |         46 |          0 |         15 |         61 |
+| cream_core\src\event\event_state                                                     |         10 |        435 |          1 |         84 |        520 |
+| cream_core\src\event\event_state (Files)                                             |          1 |         15 |          0 |          4 |         19 |
+| cream_core\src\event\event_state\build                                               |          4 |        144 |          0 |         29 |        173 |
+| cream_core\src\event\event_state\proxy                                               |          3 |        192 |          1 |         31 |        224 |
+| cream_core\src\event\event_state\wrap                                                |          2 |         84 |          0 |         20 |        104 |
+| cream_core\src\event\global_register                                                 |          2 |         76 |          0 |         22 |         98 |
+| cream_core\src\macro_helper                                                          |          3 |         42 |          1 |         11 |         54 |
+| cream_core\src\render                                                                |          1 |         54 |          0 |          8 |         62 |
+| cream_core\src\structure                                                             |          9 |        456 |         13 |         82 |        551 |
+| cream_core\src\structure (Files)                                                     |          7 |        337 |          5 |         64 |        406 |
+| cream_core\src\structure\add_child                                                   |          2 |        119 |          8 |         18 |        145 |
+| cream_core\src\style                                                                 |          5 |        133 |         25 |         27 |        185 |
+| cream_macros                                                                         |         22 |      1,318 |         23 |        228 |      1,569 |
+| cream_macros (Files)                                                                 |          1 |         11 |          1 |          4 |         16 |
+| cream_macros\src                                                                     |         21 |      1,307 |         22 |        224 |      1,553 |
+| cream_macros\src (Files)                                                             |          2 |         63 |          0 |         10 |         73 |
+| cream_macros\src\element                                                             |          6 |        371 |          1 |         69 |        441 |
+| cream_macros\src\element (Files)                                                     |          3 |        185 |          0 |         33 |        218 |
+| cream_macros\src\element\stmt                                                        |          3 |        186 |          1 |         36 |        223 |
+| cream_macros\src\expr                                                                |         11 |        697 |         21 |        113 |        831 |
+| cream_macros\src\expr (Files)                                                        |          4 |        292 |          2 |         44 |        338 |
+| cream_macros\src\expr\conditional                                                    |          4 |        278 |         19 |         49 |        346 |
+| cream_macros\src\expr\repetitive                                                     |          3 |        127 |          0 |         20 |        147 |
+| cream_macros\src\style                                                               |          2 |        176 |          0 |         32 |        208 |
+| documentation                                                                        |          8 |        302 |          0 |         77 |        379 |
+| documentation (Files)                                                                |          3 |         99 |          0 |         19 |        118 |
+| documentation\comp_mngr                                                              |          1 |         22 |          0 |          7 |         29 |
+| documentation\element                                                                |          4 |        181 |          0 |         51 |        232 |
++--------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++--------------------------------------------------------------------------------------+----------+------------+------------+------------+------------+
+| filename                                                                             | language | code       | comment    | blank      | total      |
++--------------------------------------------------------------------------------------+----------+------------+------------+------------+------------+
+| d:\FancyFlame\cream-rs\Cargo.toml                                                    | TOML     |          3 |          0 |          1 |          4 |
+| d:\FancyFlame\cream-rs\README.md                                                     | Markdown |          3 |          0 |          2 |          5 |
+| d:\FancyFlame\cream-rs\cream\Cargo.toml                                              | TOML     |          7 |          1 |          3 |         11 |
+| d:\FancyFlame\cream-rs\cream\src\event.rs                                            | Rust     |         10 |          0 |          3 |         13 |
+| d:\FancyFlame\cream-rs\cream\src\lib.rs                                              | Rust     |          1 |          0 |          1 |          2 |
+| d:\FancyFlame\cream-rs\cream_backend\Cargo.toml                                      | TOML     |         17 |          1 |          5 |         23 |
+| d:\FancyFlame\cream-rs\cream_backend\src\application.rs                              | Rust     |          8 |          0 |          3 |         11 |
+| d:\FancyFlame\cream-rs\cream_backend\src\lib.rs                                      | Rust     |          6 |          0 |          3 |          9 |
+| d:\FancyFlame\cream-rs\cream_backend\src\runtime\global.rs                           | Rust     |         23 |          0 |          8 |         31 |
+| d:\FancyFlame\cream-rs\cream_backend\src\runtime\mod.rs                              | Rust     |         35 |          0 |          9 |         44 |
+| d:\FancyFlame\cream-rs\cream_backend\src\runtime\rt_event.rs                         | Rust     |         20 |          0 |          5 |         25 |
+| d:\FancyFlame\cream-rs\cream_backend\src\runtime\send_event.rs                       | Rust     |         53 |          0 |         11 |         64 |
+| d:\FancyFlame\cream-rs\cream_backend\src\window\create.rs                            | Rust     |         28 |          0 |          6 |         34 |
+| d:\FancyFlame\cream-rs\cream_backend\src\window\mod.rs                               | Rust     |         62 |          0 |         12 |         74 |
+| d:\FancyFlame\cream-rs\cream_backend\src\window\renderer.rs                          | Rust     |         76 |          0 |         20 |         96 |
+| d:\FancyFlame\cream-rs\cream_backend\src\window\run.rs                               | Rust     |         57 |          0 |         14 |         71 |
+| d:\FancyFlame\cream-rs\cream_backend\src\window\timer.rs                             | Rust     |        119 |          0 |         20 |        139 |
+| d:\FancyFlame\cream-rs\cream_core\Cargo.toml                                         | TOML     |          9 |          1 |          3 |         13 |
+| d:\FancyFlame\cream-rs\cream_core\examples\style_macro.rs                            | Rust     |         72 |          0 |         20 |         92 |
+| d:\FancyFlame\cream-rs\cream_core\examples\test.rs                                   | Rust     |         74 |          0 |         15 |         89 |
+| d:\FancyFlame\cream-rs\cream_core\src\element\mod.rs                                 | Rust     |         34 |          5 |         11 |         50 |
+| d:\FancyFlame\cream-rs\cream_core\src\element\proxy_layer.rs                         | Rust     |         57 |          0 |          4 |         61 |
+| d:\FancyFlame\cream-rs\cream_core\src\element\render_content.rs                      | Rust     |         38 |          0 |          9 |         47 |
+| d:\FancyFlame\cream-rs\cream_core\src\event\event_flow.rs                            | Rust     |         40 |          0 |         11 |         51 |
+| d:\FancyFlame\cream-rs\cream_core\src\event\event_state\build\add_listener.rs        | Rust     |         41 |          0 |          7 |         48 |
+| d:\FancyFlame\cream-rs\cream_core\src\event\event_state\build\chain.rs               | Rust     |         27 |          0 |          7 |         34 |
+| d:\FancyFlame\cream-rs\cream_core\src\event\event_state\build\empty.rs               | Rust     |         18 |          0 |          5 |         23 |
+| d:\FancyFlame\cream-rs\cream_core\src\event\event_state\build\mod.rs                 | Rust     |         58 |          0 |         10 |         68 |
+| d:\FancyFlame\cream-rs\cream_core\src\event\event_state\mod.rs                       | Rust     |         15 |          0 |          4 |         19 |
+| d:\FancyFlame\cream-rs\cream_core\src\event\event_state\proxy\add_listener2.rs       | Rust     |         41 |          0 |          7 |         48 |
+| d:\FancyFlame\cream-rs\cream_core\src\event\event_state\proxy\mod.rs                 | Rust     |         48 |          0 |          9 |         57 |
+| d:\FancyFlame\cream-rs\cream_core\src\event\event_state\proxy\proxy.rs               | Rust     |        103 |          1 |         15 |        119 |
+| d:\FancyFlame\cream-rs\cream_core\src\event\event_state\wrap\inner.rs                | Rust     |         41 |          0 |          9 |         50 |
+| d:\FancyFlame\cream-rs\cream_core\src\event\event_state\wrap\mod.rs                  | Rust     |         43 |          0 |         11 |         54 |
+| d:\FancyFlame\cream-rs\cream_core\src\event\global_register\mod.rs                   | Rust     |          6 |          0 |          4 |         10 |
+| d:\FancyFlame\cream-rs\cream_core\src\event\global_register\system_event_register.rs | Rust     |         70 |          0 |         18 |         88 |
+| d:\FancyFlame\cream-rs\cream_core\src\event\mod.rs                                   | Rust     |          6 |          0 |          4 |         10 |
+| d:\FancyFlame\cream-rs\cream_core\src\lib.rs                                         | Rust     |         14 |          1 |          6 |         21 |
+| d:\FancyFlame\cream-rs\cream_core\src\macro_helper\chain_caller.rs                   | Rust     |         17 |          0 |          5 |         22 |
+| d:\FancyFlame\cream-rs\cream_core\src\macro_helper\for_loop.rs                       | Rust     |         20 |          0 |          3 |         23 |
+| d:\FancyFlame\cream-rs\cream_core\src\macro_helper\mod.rs                            | Rust     |          5 |          1 |          3 |          9 |
+| d:\FancyFlame\cream-rs\cream_core\src\primary.rs                                     | Rust     |         40 |          2 |          9 |         51 |
+| d:\FancyFlame\cream-rs\cream_core\src\render\mod.rs                                  | Rust     |         54 |          0 |          8 |         62 |
+| d:\FancyFlame\cream-rs\cream_core\src\structure\add_child\mod.rs                     | Rust     |        102 |          8 |         15 |        125 |
+| d:\FancyFlame\cream-rs\cream_core\src\structure\add_child\pl_cache.rs                | Rust     |         17 |          0 |          3 |         20 |
+| d:\FancyFlame\cream-rs\cream_core\src\structure\branch.rs                            | Rust     |         57 |          0 |         10 |         67 |
+| d:\FancyFlame\cream-rs\cream_core\src\structure\cache_box.rs                         | Rust     |         35 |          0 |          5 |         40 |
+| d:\FancyFlame\cream-rs\cream_core\src\structure\chain.rs                             | Rust     |         29 |          0 |          7 |         36 |
+| d:\FancyFlame\cream-rs\cream_core\src\structure\fn_helper.rs                         | Rust     |         15 |          0 |          3 |         18 |
+| d:\FancyFlame\cream-rs\cream_core\src\structure\mod.rs                               | Rust     |         59 |          5 |         16 |         80 |
+| d:\FancyFlame\cream-rs\cream_core\src\structure\repeating.rs                         | Rust     |         82 |          0 |         14 |         96 |
+| d:\FancyFlame\cream-rs\cream_core\src\structure\slot.rs                              | Rust     |         60 |          0 |          9 |         69 |
+| d:\FancyFlame\cream-rs\cream_core\src\style\add_style.rs                             | Rust     |         19 |          0 |          5 |         24 |
+| d:\FancyFlame\cream-rs\cream_core\src\style\branch.rs                                | Rust     |         18 |          0 |          3 |         21 |
+| d:\FancyFlame\cream-rs\cream_core\src\style\chain.rs                                 | Rust     |         24 |          0 |          4 |         28 |
+| d:\FancyFlame\cream-rs\cream_core\src\style\mod.rs                                   | Rust     |         23 |         25 |          9 |         57 |
+| d:\FancyFlame\cream-rs\cream_core\src\style\reader.rs                                | Rust     |         49 |          0 |          6 |         55 |
+| d:\FancyFlame\cream-rs\cream_macros\Cargo.toml                                       | TOML     |         11 |          1 |          4 |         16 |
+| d:\FancyFlame\cream-rs\cream_macros\src\element\build.rs                             | Rust     |         94 |          0 |         16 |        110 |
+| d:\FancyFlame\cream-rs\cream_macros\src\element\cmd.rs                               | Rust     |         24 |          0 |          3 |         27 |
+| d:\FancyFlame\cream-rs\cream_macros\src\element\mod.rs                               | Rust     |         67 |          0 |         14 |         81 |
+| d:\FancyFlame\cream-rs\cream_macros\src\element\stmt\mod.rs                          | Rust     |         23 |          0 |          7 |         30 |
+| d:\FancyFlame\cream-rs\cream_macros\src\element\stmt\parse.rs                        | Rust     |         99 |          1 |         17 |        117 |
+| d:\FancyFlame\cream-rs\cream_macros\src\element\stmt\to_tokens.rs                    | Rust     |         64 |          0 |         12 |         76 |
+| d:\FancyFlame\cream-rs\cream_macros\src\expr\conditional\ca.rs                       | Rust     |         50 |          0 |         11 |         61 |
+| d:\FancyFlame\cream-rs\cream_macros\src\expr\conditional\mod.rs                      | Rust     |          3 |          0 |          1 |          4 |
+| d:\FancyFlame\cream-rs\cream_macros\src\expr\conditional\state_if.rs                 | Rust     |        107 |         12 |         21 |        140 |
+| d:\FancyFlame\cream-rs\cream_macros\src\expr\conditional\state_match.rs              | Rust     |        118 |          7 |         16 |        141 |
+| d:\FancyFlame\cream-rs\cream_macros\src\expr\mod.rs                                  | Rust     |         50 |          1 |         14 |         65 |
+| d:\FancyFlame\cream-rs\cream_macros\src\expr\repetitive\mod.rs                       | Rust     |          2 |          0 |          1 |          3 |
+| d:\FancyFlame\cream-rs\cream_macros\src\expr\repetitive\state_for.rs                 | Rust     |         63 |          0 |         10 |         73 |
+| d:\FancyFlame\cream-rs\cream_macros\src\expr\repetitive\state_while.rs               | Rust     |         62 |          0 |          9 |         71 |
+| d:\FancyFlame\cream-rs\cream_macros\src\expr\state_block.rs                          | Rust     |         97 |          1 |         11 |        109 |
+| d:\FancyFlame\cream-rs\cream_macros\src\expr\state_command.rs                        | Rust     |         52 |          0 |          9 |         61 |
+| d:\FancyFlame\cream-rs\cream_macros\src\expr\state_expr.rs                           | Rust     |         93 |          0 |         10 |        103 |
+| d:\FancyFlame\cream-rs\cream_macros\src\lib.rs                                       | Rust     |         37 |          0 |          6 |         43 |
+| d:\FancyFlame\cream-rs\cream_macros\src\style\mod.rs                                 | Rust     |         45 |          0 |         14 |         59 |
+| d:\FancyFlame\cream-rs\cream_macros\src\style\stmt.rs                                | Rust     |        131 |          0 |         18 |        149 |
+| d:\FancyFlame\cream-rs\cream_macros\src\t.rs                                         | Rust     |         26 |          0 |          4 |         30 |
+| d:\FancyFlame\cream-rs\documentation\comp_mngr\summary.md                            | Markdown |         22 |          0 |          7 |         29 |
+| d:\FancyFlame\cream-rs\documentation\element\computed.md                             | Markdown |         83 |          0 |         20 |        103 |
+| d:\FancyFlame\cream-rs\documentation\element\responsible_data.md                     | Markdown |         25 |          0 |          7 |         32 |
+| d:\FancyFlame\cream-rs\documentation\element\style.md                                | Markdown |         47 |          0 |         14 |         61 |
+| d:\FancyFlame\cream-rs\documentation\element\summary.md                              | Markdown |         26 |          0 |         10 |         36 |
+| d:\FancyFlame\cream-rs\documentation\index.md                                        | Markdown |         85 |          0 |         16 |        101 |
+| d:\FancyFlame\cream-rs\documentation\renderer.md                                     | Markdown |         13 |          0 |          3 |         16 |
+| d:\FancyFlame\cream-rs\documentation\summary.svg                                     | XML      |          1 |          0 |          0 |          1 |
+| Total                                                                                |          |      3,728 |         74 |        757 |      4,559 |
++--------------------------------------------------------------------------------------+----------+------------+------------+------------+------------+

@@ -35,7 +35,7 @@ impl Element for MyElement {
         props: Self::Props<'_>,
         styles: &S,
         upstream_evl: cream_core::event::WrappedEvents,
-        evl_builder: cream_core::event::EvlBuilder<Pl, Self, ()>,
+        evl_builder: cream_core::event::EventListenerBuilder<Pl, Self, ()>,
         children: cream_core::structure::Slot<C>,
         content: cream_core::element::RenderContent,
     ) -> cream_core::Result<()>

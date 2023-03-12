@@ -10,7 +10,7 @@ mod __macro_helper;
 pub mod element;
 pub mod event;
 pub mod primary;
-pub mod render;
+//pub mod render;
 pub mod structure;
 pub mod style;
 

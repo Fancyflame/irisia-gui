@@ -1,7 +1,7 @@
 use std::rc::Weak;
 use std::{cell::RefCell, rc::Rc};
 
-use crate::event::event_state::build::EvlBuilder;
+use crate::event::event_state::build::EventListenerBuilder;
 use crate::event::event_state::wrap::WrappedEvents;
 use crate::{style::StyleContainer, Result};
 
@@ -37,7 +37,7 @@ pub trait Element: Default + 'static {
         props: Self::Props<'_>,
         styles: &S,
         event_listeners: WrappedEvents,
-        event_listener_builder: EvlBuilder<Pl, Self, ()>,
+        event_listener_builder: EventListenerBuilder<Pl, Self, ()>,
         children: Slot<C>,
         content: RenderContent,
     ) -> Result<()>

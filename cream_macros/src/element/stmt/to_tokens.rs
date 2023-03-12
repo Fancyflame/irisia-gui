@@ -15,6 +15,7 @@ impl ToTokens for ElementStmt {
             style,
             event_src,
             event_listeners,
+            proxy,
             children,
         } = self;
 
@@ -34,7 +35,7 @@ impl ToTokens for ElementStmt {
         };
 
         quote! {
-            ::cream_core::structure::add_child::<#element, _, _, _, _>(
+            ::cream_core::structure::add_child::<#element, #proxy, _, _, _, _, _>(
                 #props,
                 #style,
                 #event_listeners,

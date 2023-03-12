@@ -15,6 +15,7 @@ impl Parse for ElementStmt {
         let mut rename: Option<Ident> = None;
         let mut style: Option<Expr> = None;
         let mut event_listeners: Option<Vec<(Type, Expr)>> = None;
+        let mut proxy: Option<Type> = None;
 
         let content;
         braced!(content in input);
@@ -33,6 +34,7 @@ impl Parse for ElementStmt {
                     "name" => rename.replace(call_rename(&content)?).is_none(),
                     "style" => style.replace(call_style(&content)?).is_none(),
                     "on" => event_listeners.replace(call_on(&content)?).is_none(),
+                    "proxy" => proxy.replace(call_proxy(&content)?).is_none(),
                     other => {
                         return Err(Error::new(cmd.span(), format!("unknown command `{other}`")))
                     }
@@ -62,6 +64,7 @@ impl Parse for ElementStmt {
             style: style.unwrap_or_else(|| parse_quote!(::cream_core::style::NoStyle)),
             event_src: None,
             event_listeners: event_listeners.unwrap_or_default(),
+            proxy: proxy.unwrap_or_else(|| parse_quote! {()}),
             children,
         })
     }
@@ -105,4 +108,9 @@ fn parse_one_listener(input: ParseStream) -> Result<(Type, Expr)> {
     input.parse::<Token![:]>()?;
     let func = input.parse()?;
     Ok((event, func))
+}
+
+fn call_proxy(input: ParseStream) -> Result<Type> {
+    input.parse::<Token![:]>()?;
+    input.parse()
 }
