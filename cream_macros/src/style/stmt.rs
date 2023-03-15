@@ -134,7 +134,11 @@ fn special_lit(expr: &mut Expr) -> Result<()> {
     if let Expr::Lit(ExprLit { lit, .. }) = expr {
         match lit {
             Lit::Int(lit_int) if lit_int.suffix() == "px" => {
-                let val: u32 = lit_int.base10_parse()?;
+                let val = lit_int.base10_parse::<u32>()? as f32;
+                *expr = parse_quote!(::cream_core::style::Pixel(#val));
+            }
+            Lit::Float(lit_float) if lit_float.suffix() == "px" => {
+                let val = lit_float.base10_parse::<f32>()?;
                 *expr = parse_quote!(::cream_core::style::Pixel(#val));
             }
             Lit::Float(lit_float) if lit_float.suffix() == "pct" => {

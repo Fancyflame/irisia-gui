@@ -26,7 +26,6 @@ impl WrappedEvents {
         WrappedEvents(inner::wrap_proxy(proxy))
     }
 
-    #[allow(dead_code)]
     pub(crate) fn new_empty() -> Self {
         WrappedEvents(None)
     }

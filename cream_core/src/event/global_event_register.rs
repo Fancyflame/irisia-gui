@@ -7,8 +7,6 @@ use crate::{
     primary::{Point, Region},
 };
 
-use super::GlobalEventRegister;
-
 type Listeners = (WrappedEvents, Region);
 
 struct Classified {
@@ -16,15 +14,9 @@ struct Classified {
     is_classified: bool,
 }
 
-pub struct SystemEventRegister {
+pub(crate) struct SystemEventRegister {
     all: Vec<(WrappedEvents, Region)>,
     classified: HashMap<TypeId, Classified>,
-}
-
-impl GlobalEventRegister for SystemEventRegister {
-    fn listen_list(&mut self, el: WrappedEvents, region: Region) {
-        self.all.push((el, region));
-    }
 }
 
 impl SystemEventRegister {
@@ -33,6 +25,10 @@ impl SystemEventRegister {
             all: Vec::new(),
             classified: HashMap::new(),
         }
+    }
+
+    pub fn listen_list(&mut self, el: WrappedEvents, region: Region) {
+        self.all.push((el, region));
     }
 
     pub fn emit<E: Event>(&mut self, event: &E, point: Option<Point>) {

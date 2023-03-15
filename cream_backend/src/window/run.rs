@@ -9,7 +9,7 @@ use winit::{
     event::{Event, StartCause, WindowEvent},
 };
 
-use crate::{runtime::rt_event::RuntimeEvent, Application};
+use crate::{runtime::rt_event::RuntimeEvent, AppWindow};
 
 use super::{renderer::SurfaceProvider, Window};
 
@@ -17,7 +17,7 @@ impl Window {
     pub fn run_on<F, A>(self, f: F) -> Result<()>
     where
         F: FnOnce(&Rc<Window>) -> A,
-        A: Application,
+        A: AppWindow,
     {
         let window = Rc::new(self);
 

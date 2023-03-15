@@ -1,8 +1,0 @@
-"filename", "language", "Rust", "comment", "blank", "total"
-"d:\FancyFlame\cream-rs\cream_backend\src\runtime\mod.rs", "Rust", -33, 0, 1, -32
-"d:\FancyFlame\cream-rs\cream_backend\src\runtime\rt_event.rs", "Rust", 13, 0, 4, 17
-"d:\FancyFlame\cream-rs\cream_backend\src\runtime\send_event.rs", "Rust", 53, 0, 11, 64
-"d:\FancyFlame\cream-rs\cream_backend\src\window\canvas.rs", "Rust", 2, 0, 0, 2
-"d:\FancyFlame\cream-rs\cream_backend\src\window\mod.rs", "Rust", 1, 0, 1, 2
-"d:\FancyFlame\cream-rs\cream_backend\src\window\window_builder.rs", "Rust", 29, 0, 5, 34
-"Total", "-", 65, 0, 22, 87

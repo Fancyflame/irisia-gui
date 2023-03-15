@@ -24,7 +24,7 @@ fn main() {
             style2: true;
         }
 
-        match mys_tr {
+        match my_str {
             None => {
                 style1: 10, 20;
                 @extend ext_style;
@@ -34,7 +34,7 @@ fn main() {
 
             Some(other) => {
                 style1: &other[..5];
-                pixel_test: 2px, 6px, .scale 10.2, .empty;
+                pixel_test: 2px, 6.2px, .scale 10.2, .empty;
             }
         }
     };

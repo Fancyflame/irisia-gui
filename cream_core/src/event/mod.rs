@@ -1,9 +1,9 @@
 pub mod event_flow;
 pub mod event_state;
-pub(crate) mod global_register;
+pub mod global_event_register;
+pub mod native;
 
 pub use event_flow::EventFlow;
-
 pub use event_state::{build::EventListenerBuilder, proxy::EvlProxyBuilder, wrap::WrappedEvents};
 
 pub trait Event: 'static {}

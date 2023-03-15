@@ -1,61 +1,52 @@
-use anyhow::{anyhow, Result};
+use std::{rc::Rc, time::Duration};
+
+use anyhow::Result;
+use cream_backend::{window::Window, AppWindow, Canvas, WindowEvent};
 
 use crate::{
-    element::{Element, NoProps, RcHandle, RenderContent},
+    element::{Element, RcHandle, RenderContent},
     event::{
         event_state::{build::EventListenerBuilder, wrap::WrappedEvents},
-        global_register::system_event_register::SystemEventRegister,
-        Event,
+        global_event_register::SystemEventRegister,
     },
     primary::Point,
     structure::{add_child::pl_cache::ProxyLayerCache, slot::Slot, EmptyStructure},
     style::NoStyle,
 };
 
-pub struct Renderer<El> {
+pub struct Application<El> {
+    window: Rc<Window>,
     application: RcHandle<ProxyLayerCache<(), El>>,
     global_listeners: SystemEventRegister,
 }
 
-impl<El> Renderer<El>
+impl<El> AppWindow for Application<El>
 where
     El: Element<Children<EmptyStructure> = EmptyStructure>,
 {
-    pub fn emit_event<E: Event>(&mut self, event: &E, point: Option<Point>) {
-        self.global_listeners.emit(event, point);
-    }
-
-    pub fn redraw(&mut self) -> Result<&[u8]> {
+    fn on_redraw(&mut self, canvas: &mut Canvas, size: (u32, u32), delta: Duration) -> Result<()> {
         self.global_listeners.clear();
-
-        self.application.borrow_mut().elem.render(
+        let mut cache = self.application.borrow_mut();
+        cache.elem.render(
             Default::default(),
             &NoStyle,
             WrappedEvents::new_empty(),
             EventListenerBuilder::new(&self.application),
             Slot {
-                cache: &mut (),
                 node: EmptyStructure,
+                cache: &mut (),
             },
             RenderContent {
-                canvas: &mut canvas,
+                canvas,
                 event_register: &mut self.global_listeners,
-                region: (
-                    (0, 0).into(),
-                    (self.size.0 as u32, self.size.1 as u32).into(),
-                ),
+                region: (Point(0, size.0), Point(0, size.1)),
+                window: &self.window,
+                delta,
             },
-        )?;
+        )
+    }
 
-        if !self.surface.read_pixels(
-            &self.output_image_info,
-            &mut self.render_buffer,
-            self.size.0 as usize,
-            (0, 0),
-        ) {
-            return Err(anyhow!("cannot read pixels from canvas"));
-        }
-
-        Ok(&self.render_buffer)
+    fn on_window_event(&mut self, event: WindowEvent) {
+        todo!(); //self.global_listeners.emit(event, point)
     }
 }

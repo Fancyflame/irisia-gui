@@ -1,9 +1,13 @@
 use expr::{state_block::parse_stmts, state_block::StateBlock};
 use proc_macro::TokenStream;
-use quote::ToTokens;
+use quote::{quote, ToTokens};
 use style::StyleCodegen;
-use syn::parse::{ParseStream, Parser};
+use syn::{
+    parse::{ParseStream, Parser},
+    parse_macro_input, DeriveInput,
+};
 
+mod derive_style;
 mod element;
 pub(crate) mod expr;
 mod style;
@@ -39,4 +43,28 @@ pub fn style(input: TokenStream) -> TokenStream {
     }
     .into_token_stream();
     stream.into()
+}
+
+#[proc_macro_derive(Event)]
+pub fn event_derive(input: TokenStream) -> TokenStream {
+    let DeriveInput {
+        ident, generics, ..
+    } = parse_macro_input!(input as DeriveInput);
+
+    let (impl_gen, type_gen, where_clause) = generics.split_for_impl();
+
+    quote! {
+        impl #impl_gen ::cream_core::Event for #ident #type_gen
+        #where_clause
+        {}
+    }
+    .into()
+}
+
+#[proc_macro_derive(Style, attributes(cream))]
+pub fn derive_style(input: TokenStream) -> TokenStream {
+    match derive_style::derive_style(parse_macro_input!(input as DeriveInput)) {
+        Ok(t) => t.into(),
+        Err(e) => e.to_compile_error().into(),
+    }
 }
