@@ -1,45 +1,45 @@
 use std::{
     iter::{self, Once},
     marker::PhantomData,
+    sync::Arc,
 };
 
 use anyhow::anyhow;
+use tokio::sync::Mutex;
 
 use crate::{
-    element::{proxy_layer::ProxyLayer, RcHandle, RenderContent},
-    event::event_state::{build::EventListenerBuilder, proxy::EvlProxyBuilder, EventResolve},
+    element::RenderContent,
+    event::{EventChanSetter, EventEmitter},
     style::{reader::StyleReader, StyleContainer},
-    Result,
+    CacheBox, Result,
 };
-
-use self::pl_cache::ProxyLayerCache;
 
 use super::{slot::Slot, Element, Node};
 
-pub(crate) mod pl_cache;
-
-pub struct AddChildCache<Pl, El, Cc> {
-    pl_cache: RcHandle<ProxyLayerCache<Pl, El>>,
+pub struct AddChildCache<El, Cc> {
+    element: Arc<Mutex<El>>,
+    cache_box: CacheBox,
+    chan_setter: EventChanSetter,
     children_cache: Cc,
 }
 
-pub struct AddChild<'a, El, Pl, Sty, Ch, El2, Pl2, L>
+pub struct AddChild<'a, El, Sty, Ch>
 where
     El: Element,
 {
-    _phantom: PhantomData<(El, Pl)>,
+    _phantom: PhantomData<El>,
     prop: <El as Element>::Props<'a>,
     style: Sty,
-    listeners: EventListenerBuilder<Pl2, El2, L>,
+    event_emitter: EventEmitter,
     children: Ch,
 }
 
-pub fn add_child<'a, El, Pl, Sty, Ch, El2, Pl2, L>(
+pub fn add_child<'a, El, Sty, Ch>(
     prop: <El as Element>::Props<'a>,
     style: Sty,
-    listeners: EventListenerBuilder<Pl2, El2, L>,
+    event_emitter: EventEmitter,
     children: Ch,
-) -> AddChild<'a, El, Pl, Sty, Ch, El2, Pl2, L>
+) -> AddChild<'a, El, Sty, Ch>
 where
     El: Element,
 {
@@ -47,7 +47,7 @@ where
         _phantom: PhantomData,
         prop,
         style,
-        listeners,
+        event_emitter,
         children,
     }
 }
@@ -60,17 +60,13 @@ where
     Ls: event listeners
     Ch: children node
 */
-impl<'prop, El, Pl, Sty, Ch, El2, Pl2, L> Node for AddChild<'prop, El, Pl, Sty, Ch, El2, Pl2, L>
+impl<'prop, El, Sty, Ch> Node for AddChild<'prop, El, Sty, Ch>
 where
-    El: Element<Children<Ch> = Ch> + 'static,
-    Pl: ProxyLayer<El>,
+    El: Element<Children<Ch> = Ch>,
     Sty: StyleContainer,
     Ch: Node,
-    El2: Element,
-    Pl2: ProxyLayer<El2>,
-    L: EventResolve<Pl2, El2>,
 {
-    type Cache = Option<AddChildCache<Pl, El, <Ch as Node>::Cache>>;
+    type Cache = Option<AddChildCache<El, <Ch as Node>::Cache>>;
     type StyleIter<'a, S> = Once<S> where Self:'a;
 
     fn style_iter<S>(&self) -> Self::StyleIter<'_, S>
@@ -84,7 +80,7 @@ where
     where
         I: Iterator<Item = RenderContent<'a>>,
     {
-        let content = match iter.next() {
+        let content: RenderContent = match iter.next() {
             Some(content) => content,
             None => {
                 return Err(anyhow!(
@@ -96,28 +92,34 @@ where
         let cache = match cache {
             Some(c) => c,
             c @ None => {
+                let el = Arc::new(Mutex::new(El::create()));
+                let (setter, getter) =
+                    EventChanSetter::channel(content.global_event_receiver.clone());
+
+                El::start_runtime(el.clone(), self.event_emitter, getter);
+
                 let cache = AddChildCache {
-                    pl_cache: Default::default(),
+                    element: el,
+                    cache_box: CacheBox::new(),
+                    chan_setter: setter,
                     children_cache: Default::default(),
                 };
+
                 *c = Some(cache);
                 c.as_mut().unwrap()
             }
         };
 
-        let mut pl_cache_refmut = cache.pl_cache.borrow_mut();
-        let pl_cache = &mut *pl_cache_refmut;
-
-        pl_cache.pl.proxy(
-            &mut pl_cache.elem,
+        let mut elem = cache.element.blocking_lock();
+        elem.render(
             self.prop,
             &self.style,
-            EvlProxyBuilder::from_builder(self.listeners),
-            EventListenerBuilder::new(&cache.pl_cache),
+            &mut cache.cache_box,
             Slot {
                 node: self.children,
                 cache: &mut cache.children_cache,
             },
+            &cache.chan_setter,
             content,
         )
     }

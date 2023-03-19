@@ -1,6 +1,6 @@
-use expr::{state_block::parse_stmts, state_block::StateBlock};
+use expr::state_block::{parse_stmts, stmts_to_tokens};
 use proc_macro::TokenStream;
-use quote::{quote, ToTokens};
+use quote::quote;
 use style::StyleCodegen;
 use syn::{
     parse::{ParseStream, Parser},
@@ -37,16 +37,20 @@ pub fn style(input: TokenStream) -> TokenStream {
         Err(e) => return e.to_compile_error().into(),
     };
 
-    let stream = StateBlock {
-        brace: Default::default(),
-        stmts,
+    let mut stmt_tokens = proc_macro2::TokenStream::new();
+    stmts_to_tokens(&mut stmt_tokens, &stmts);
+
+    quote! {
+        {
+            use ::cream_core::style::StyleContainer;
+            #stmt_tokens
+        }
     }
-    .into_token_stream();
-    stream.into()
+    .into()
 }
 
 #[proc_macro_derive(Event)]
-pub fn event_derive(input: TokenStream) -> TokenStream {
+pub fn derive_event(input: TokenStream) -> TokenStream {
     let DeriveInput {
         ident, generics, ..
     } = parse_macro_input!(input as DeriveInput);

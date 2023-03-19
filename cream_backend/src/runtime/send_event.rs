@@ -21,6 +21,7 @@ impl WindowMap {
                     .map_err(|_| "inner error: cannot send user event")
                     .unwrap(),
             );
+
             self.send_event(wid, event);
         }
     }
@@ -38,6 +39,10 @@ impl WindowMap {
     pub(super) fn send_event(&mut self, wid: WindowId, event: RuntimeEvent) {
         match self.get(&wid) {
             Some(sender) => {
+                if let RuntimeEvent::SysEvent(Event::WindowEvent { event, .. }) = &event {
+                    dbg!(event);
+                    println!("send");
+                }
                 if sender.send(event).is_err() {
                     self.remove(&wid);
                 }

@@ -1,6 +1,6 @@
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
-use syn::{Expr, Ident, Type};
+use syn::{Expr, Ident, LitStr, Type};
 
 use crate::expr::state_block::stmts_to_tokens;
 
@@ -11,21 +11,23 @@ impl ToTokens for ElementStmt {
         let ElementStmt {
             element,
             props,
-            _rename: _,
+            rename,
             style,
-            event_src,
-            event_listeners,
-            proxy,
+            event_setter,
+            event_listener_channel,
             children,
         } = self;
 
         let props = gen_props(element, props);
 
+        if rename.is_some() {
+            quote!(::std::compile_error("rename is not support yet")).to_tokens(tokens);
+            return;
+        }
+
         let event_listeners = gen_event_listeners(
-            event_src
-                .as_ref()
-                .expect("inner error: event src need to be set"),
-            event_listeners,
+            event_setter.as_ref().map(|x| x.as_ref()),
+            event_listener_channel,
         );
 
         let children = {
@@ -35,7 +37,7 @@ impl ToTokens for ElementStmt {
         };
 
         quote! {
-            ::cream_core::structure::add_child::<#element, #proxy, _, _, _, _, _>(
+            ::cream_core::structure::add_child::<#element, _, _>(
                 #props,
                 #style,
                 #event_listeners,
@@ -59,17 +61,24 @@ fn gen_props(element: &Type, props: &[(Ident, Expr)]) -> TokenStream {
     }
 }
 
-fn gen_event_listeners(event_src: &Expr, event_listeners: &[(Type, Expr)]) -> TokenStream {
-    let mut output = quote! {
-        ::std::clone::Clone::clone(#event_src)
-    };
+fn gen_event_listeners(
+    event_setter: Option<&Expr>,
+    listener: &Option<(LitStr, Option<Expr>)>,
+) -> TokenStream {
+    match (event_setter, listener) {
+        (_, None) => quote!(::cream_core::event::EventEmitter::new_empty()),
 
-    for (event, value) in event_listeners {
-        quote! {
-            .listen::<#event, _>(#value)
+        (Some(event_setter), Some((name, maybe_with_key))) => match maybe_with_key {
+            None => quote!((#event_setter).to_emitter(#name)),
+            Some(with_key) => quote!((#event_setter).to_emitter_with_key(#name, #with_key)),
+        },
+
+        (None, Some((name, _))) => {
+            let string = format!(
+                "channel `{}` cannot be mount, because no event setter provided",
+                name.value()
+            );
+            quote!(::std::compile_error!(#string))
         }
-        .to_tokens(&mut output);
     }
-
-    output
 }

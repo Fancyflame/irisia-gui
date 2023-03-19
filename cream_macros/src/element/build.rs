@@ -10,57 +10,44 @@ use crate::expr::{
     StateExpr, VisitUnit,
 };
 
-use super::{cmd::ElementCommand, ElementCodegen};
+use super::{
+    cmd::{ElementCommand, InitCommand},
+    ElementCodegen,
+};
 
 pub fn build(input: ParseStream, render: bool) -> Result<TokenStream> {
     let mut stmts = parse_stmts::<ElementCodegen>(input)?;
-    let (init, span, stmts_expr) = match stmts.split_first_mut() {
+    let (mut args, span, stmts_expr) = match stmts.split_first_mut() {
         Some((
             StateExpr::Command(StateCommand {
                 span,
-                body:
-                    StateCommandBody::Custom(
-                        init @ ElementCommand::InitRender { .. }
-                        | init @ ElementCommand::InitBuild { .. },
-                    ),
+                body: StateCommandBody::Custom(ElementCommand::Init(InitCommand { args })),
             }),
             rest,
         )) => {
-            let event_src = match init {
-                ElementCommand::InitBuild { event_src }
-                | ElementCommand::InitRender { event_src, .. } => Rc::new(event_src.clone()),
-                _ => unreachable!(),
-            };
-            walk_tree(rest, &event_src)?;
+            let mut args = args.into_iter();
+
+            if let Some(setter) = args.next() {
+                walk_tree(rest, &Rc::new(setter.clone()))?;
+            }
+
             let mut stmts_expr = TokenStream::new();
             stmts_to_tokens(&mut stmts_expr, rest);
-            (init, span, stmts_expr)
+            (args, span, stmts_expr)
         }
         _ => return Err(input.error("missing `init` command")),
     };
 
-    match (render, init) {
-        (
-            true,
-            ElementCommand::InitRender {
-                event_src: _,
-                cache_box,
-                render_content,
-            },
-        ) => Ok(quote! {
+    match (render, (args.next(), args.next())) {
+        (true, (Some(cache_box), Some(render_content))) => Ok(quote! {
             ::cream_core::structure::Node::fin(#stmts_expr, #cache_box, #render_content)
         }),
 
-        (false, ElementCommand::InitBuild { .. }) => Ok(stmts_expr),
+        (false, _) => Ok(stmts_expr),
 
-        (true, ElementCommand::InitBuild { .. }) => Err(Error::new(
+        (true, (None, _)) => Err(Error::new(
             span.clone(),
             "complete `init` command is required: `@init(_, _, _)`",
-        )),
-
-        (false, ElementCommand::InitRender { .. }) => Err(Error::new(
-            span.clone(),
-            "complete `init` command is unnecessary, consider short form: `@init(_)`",
         )),
 
         _ => unreachable!(),
@@ -82,7 +69,6 @@ fn walk_tree(root_exprs: &mut [StateExpr<ElementCodegen>], event_src: &Rc<Expr>)
 }
 
 fn proc_one(expr: &mut StateExpr<ElementCodegen>, event_src: &Rc<Expr>) -> Result<()> {
-    println!("set raw");
     match expr {
         StateExpr::Raw(r) => {
             r.set_event_src(event_src.clone());
@@ -93,7 +79,7 @@ fn proc_one(expr: &mut StateExpr<ElementCodegen>, event_src: &Rc<Expr>) -> Resul
             body: StateCommandBody::Custom(command),
             span,
         }) => match command {
-            ElementCommand::InitRender { .. } | ElementCommand::InitBuild { .. } => {
+            ElementCommand::Init(_) => {
                 return Err(Error::new(
                     span.clone(),
                     "`init` command can only be used at start of the root",

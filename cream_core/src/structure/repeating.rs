@@ -13,7 +13,7 @@ use super::Node;
 
 struct CacheUnit<T> {
     value: T,
-    used_signal: bool,
+    alive_signal: bool,
 }
 
 pub struct RepeatingCache<K, T>(HashMap<K, CacheUnit<T>>);
@@ -67,7 +67,7 @@ where
         for (k, x) in self.nodes {
             match cache.0.get_mut(&k) {
                 Some(c) => {
-                    c.used_signal = true;
+                    c.alive_signal = true;
                     x.finish_iter(&mut c.value, &mut iter)?
                 }
                 None => {
@@ -77,7 +77,7 @@ where
                         k,
                         CacheUnit {
                             value,
-                            used_signal: true,
+                            alive_signal: true,
                         },
                     );
                 }
@@ -85,8 +85,8 @@ where
         }
 
         cache.0.retain(|_, cache_unit| {
-            let sig = cache_unit.used_signal;
-            cache_unit.used_signal = false;
+            let sig = cache_unit.alive_signal;
+            cache_unit.alive_signal = false;
             sig
         });
 

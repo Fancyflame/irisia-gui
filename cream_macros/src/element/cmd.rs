@@ -1,16 +1,13 @@
 use quote::{quote, ToTokens};
-use syn::Expr;
+use syn::{parenthesized, parse::Parse, punctuated::Punctuated, token::Paren, Error, Expr, Token};
 
 pub enum ElementCommand {
     Slot(Expr),
-    InitRender {
-        event_src: Expr,
-        cache_box: Expr,
-        render_content: Expr,
-    },
-    InitBuild {
-        event_src: Expr,
-    },
+    Init(InitCommand),
+}
+
+pub struct InitCommand {
+    pub args: Punctuated<Expr, Token![,]>,
 }
 
 impl ToTokens for ElementCommand {
@@ -20,7 +17,31 @@ impl ToTokens for ElementCommand {
                 ::cream_core::structure::ApplySlot::new(#ex)
             }
             .to_tokens(tokens),
-            Self::InitRender { .. } | Self::InitBuild { .. } => unreachable!(),
+            Self::Init(_) => unreachable!(),
+        }
+    }
+}
+
+impl Parse for InitCommand {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        if !input.peek(Paren) {
+            return Ok(InitCommand {
+                args: Punctuated::new(),
+            });
+        }
+
+        let content;
+        let paren = parenthesized!(content in input);
+        let punct = Punctuated::<Expr, Token![,]>::parse_terminated(&content)?;
+
+        match punct.len() {
+            0 | 1 | 3 => Ok(InitCommand { args: punct }),
+            count => {
+                return Err(Error::new(
+                    paren.span,
+                    format!("argument count of `init` command must be 0, 1 or 3, found {count}"),
+                ))
+            }
         }
     }
 }

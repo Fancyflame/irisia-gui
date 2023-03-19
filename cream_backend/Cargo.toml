@@ -16,7 +16,9 @@ skia-safe = { version = "0.58", features = [
     "textlayout",
     "binary-cache",
 ] }
+tokio = { version = "1.26", features = ["rt-multi-thread"] }
 anyhow = "1"
+lazy_static = "1"
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger = "0.11.0"

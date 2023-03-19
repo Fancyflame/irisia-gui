@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use cream_macros::Style;
 
 fn main() {}

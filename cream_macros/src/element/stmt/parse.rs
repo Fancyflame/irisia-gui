@@ -1,9 +1,7 @@
 use syn::{
     braced,
     parse::{Parse, ParseStream},
-    parse_quote,
-    token::Brace,
-    Error, Expr, Ident, LitStr, Result, Token, Type,
+    parse_quote, Error, Expr, Ident, LitStr, Result, Token, Type,
 };
 
 use crate::{element::stmt::ElementStmt, expr::state_block::parse_stmts};
@@ -14,8 +12,7 @@ impl Parse for ElementStmt {
         let mut props: Vec<(Ident, Expr)> = Vec::new();
         let mut rename: Option<Ident> = None;
         let mut style: Option<Expr> = None;
-        let mut event_listeners: Option<Vec<(Type, Expr)>> = None;
-        let mut proxy: Option<Type> = None;
+        let mut event_listener_channel: Option<(LitStr, Option<Expr>)> = None;
 
         let content;
         braced!(content in input);
@@ -33,8 +30,9 @@ impl Parse for ElementStmt {
                 let is_ok = match &*cmd.to_string() {
                     "name" => rename.replace(call_rename(&content)?).is_none(),
                     "style" => style.replace(call_style(&content)?).is_none(),
-                    "on" => event_listeners.replace(call_on(&content)?).is_none(),
-                    "proxy" => proxy.replace(call_proxy(&content)?).is_none(),
+                    "listen" => event_listener_channel
+                        .replace(call_listen(&content)?)
+                        .is_none(),
                     other => {
                         return Err(Error::new(cmd.span(), format!("unknown command `{other}`")))
                     }
@@ -60,11 +58,10 @@ impl Parse for ElementStmt {
         Ok(ElementStmt {
             element,
             props,
-            _rename: rename,
+            rename,
             style: style.unwrap_or_else(|| parse_quote!(::cream_core::style::NoStyle)),
-            event_src: None,
-            event_listeners: event_listeners.unwrap_or_default(),
-            proxy: proxy.unwrap_or_else(|| parse_quote! {()}),
+            event_setter: None,
+            event_listener_channel,
             children,
         })
     }
@@ -83,34 +80,14 @@ fn call_style(input: ParseStream) -> Result<Expr> {
     input.parse()
 }
 
-fn call_on(input: ParseStream) -> Result<Vec<(Type, Expr)>> {
-    let mut children = Vec::new();
-
-    if input.peek(Brace) {
-        let content;
-        braced!(content in input);
-
-        while !content.is_empty() {
-            children.push(parse_one_listener(&content)?);
-            if !content.is_empty() {
-                input.parse::<Token![,]>()?;
-            }
-        }
+fn call_listen(input: ParseStream) -> Result<(LitStr, Option<Expr>)> {
+    let name = input.parse()?;
+    let key = if input.peek(Token![=>]) {
+        input.parse::<Token![=>]>()?;
+        Some(input.parse()?)
     } else {
-        children.push(parse_one_listener(input)?);
-    }
+        None
+    };
 
-    Ok(children)
-}
-
-fn parse_one_listener(input: ParseStream) -> Result<(Type, Expr)> {
-    let event: Type = input.parse()?;
-    input.parse::<Token![:]>()?;
-    let func = input.parse()?;
-    Ok((event, func))
-}
-
-fn call_proxy(input: ParseStream) -> Result<Type> {
-    input.parse::<Token![:]>()?;
-    input.parse()
+    Ok((name, key))
 }

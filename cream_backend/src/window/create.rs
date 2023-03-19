@@ -1,4 +1,4 @@
-use std::{cell::RefCell, sync::mpsc};
+use std::sync::mpsc;
 
 use crate::runtime::{
     global::WindowRegiterMutex,
@@ -8,7 +8,7 @@ use crate::runtime::{
 use anyhow::Result;
 use winit::window::WindowBuilder;
 
-use super::{timer::Timer, Window};
+use super::Window;
 
 impl Window {
     pub fn create<F>(f: F) -> Result<Self>
@@ -25,7 +25,6 @@ impl Window {
             RuntimeEvent::WindowCreated { win } => Ok(Window {
                 winit_window: win?,
                 event_receiver: rx,
-                timer: RefCell::new(Timer::new()),
             }),
             _ => unreachable!("unexpected sys event"),
         }

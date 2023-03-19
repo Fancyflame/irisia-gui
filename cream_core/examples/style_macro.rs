@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use cream_core::style::AddStyle;
 use cream_core::style::NoStyle;
 use cream_core::style::Pixel;

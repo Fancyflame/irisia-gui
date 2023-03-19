@@ -1,4 +1,4 @@
-use std::{sync::mpsc::Sender, time::Instant};
+use std::sync::mpsc::Sender;
 
 use winit::{
     error::OsError,
@@ -20,5 +20,4 @@ pub(crate) enum WindowReg {
         sender: Sender<RuntimeEvent>,
     },
     WindowDestroyed(WindowId),
-    SetWait(Instant),
 }

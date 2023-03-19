@@ -10,3 +10,6 @@ cream_macros = { path = "../cream_macros" }
 cream_backend = { path = "../cream_backend" }
 anyhow = "1"
 smallvec = "1.9"
+tokio = { version = "1.26", features = ["sync", "rt-multi-thread"] }
+async-trait = "0.1"
+

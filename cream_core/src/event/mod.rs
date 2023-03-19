@@ -1,9 +1,12 @@
-pub mod event_flow;
-pub mod event_state;
-pub mod global_event_register;
-pub mod native;
-
+pub use event_channel::{
+    data::Data,
+    emitter::EventEmitter,
+    getter::{EventChanGetter, EventReceiver},
+    setter::EventChanSetter,
+};
 pub use event_flow::EventFlow;
-pub use event_state::{build::EventListenerBuilder, proxy::EvlProxyBuilder, wrap::WrappedEvents};
 
-pub trait Event: 'static {}
+pub mod event_channel;
+pub mod event_flow;
+
+pub trait Event: Send + 'static {}

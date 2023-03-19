@@ -33,6 +33,8 @@ pub use add_style::*;
 pub use branch::*;
 pub use chain::*;
 
+use self::reader::StyleReader;
+
 pub trait Style: Clone + 'static {}
 
 #[derive(Default, Clone, Copy)]
@@ -43,6 +45,10 @@ pub struct NoStyle;
 
 pub trait StyleContainer: Sized + Clone {
     fn get_style<T: Style>(&self) -> Option<T>;
+
+    fn read<S: StyleReader>(&self) -> S {
+        S::read_style(self)
+    }
 
     fn chain<T: StyleContainer>(self, style: T) -> Chain<Self, T> {
         Chain::new(self, style)

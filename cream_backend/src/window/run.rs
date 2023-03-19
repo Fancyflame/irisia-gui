@@ -1,35 +1,52 @@
 use std::{
-    rc::Rc,
+    sync::{atomic::AtomicUsize, Arc},
     time::{Duration, Instant},
 };
 
 use anyhow::Result;
 use winit::{
     dpi::PhysicalSize,
-    event::{Event, StartCause, WindowEvent},
+    event::{Event, KeyboardInput},
 };
 
-use crate::{runtime::rt_event::RuntimeEvent, AppWindow};
+use crate::{
+    runtime::{rt_event::RuntimeEvent, TOKIO_RT},
+    AppWindow, WindowEvent,
+};
 
 use super::{renderer::SurfaceProvider, Window};
 
 impl Window {
-    pub fn run_on<F, A>(self, f: F) -> Result<()>
+    pub fn run<A>(self) -> Result<()>
     where
-        F: FnOnce(&Rc<Window>) -> A,
         A: AppWindow,
     {
-        let window = Rc::new(self);
+        let window = Arc::new(self);
 
-        let mut app = f(&window);
+        let mut app = A::on_create(&window)?;
 
-        let mut renderer = SurfaceProvider::new(&window.winit_window)?;
-
+        let mut renderer = SurfaceProvider::new(window.clone())?;
         let mut last_frame_instant: Option<Instant> = None;
 
+        let counter = Arc::new(AtomicUsize::new(0));
+
+        {
+            let counter = counter.clone();
+            std::thread::spawn(move || loop {
+                std::thread::sleep(Duration::from_secs(1));
+                let value = counter.swap(0, std::sync::atomic::Ordering::Relaxed);
+                println!("{}:{}: {value}", file!(), line!());
+            });
+        }
+
         loop {
-            match window.event_receiver.recv()? {
-                RuntimeEvent::WindowCreated { .. } => unreachable!("unexpect window created event"),
+            let result = window.event_receiver.recv()?;
+            counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            if let RuntimeEvent::SysEvent(Event::WindowEvent { event, .. }) = &result {
+                println!("recv");
+            }
+
+            match result {
                 RuntimeEvent::SysEvent(event) => match event {
                     Event::LoopDestroyed => break Ok(()),
 
@@ -42,7 +59,9 @@ impl Window {
                             }
                         };
 
-                        renderer.render(|canvas, size| app.on_redraw(canvas, size, delta))?;
+                        renderer.render(window.inner_size(), |canvas, size| {
+                            app.on_redraw(canvas, size, delta)
+                        })?;
                         window.winit_window.request_redraw();
                     }
 
@@ -50,20 +69,17 @@ impl Window {
                         window_id: _,
                         event,
                     } => {
-                        if let WindowEvent::Resized(PhysicalSize { width, height }) = &event {
-                            renderer.resize(*width, *height);
-                        }
-                        app.on_window_event(event)
+                        app.on_window_event(event);
                     }
 
-                    Event::NewEvents(StartCause::ResumeTimeReached {
+                    /*Event::NewEvents(StartCause::ResumeTimeReached {
                         requested_resume, ..
                     }) => {
                         window.timer.borrow_mut().update(requested_resume);
-                    }
-
+                    }*/
                     _ => {}
                 },
+                RuntimeEvent::WindowCreated { .. } => unreachable!("unexpect window created event"),
             }
         }
     }

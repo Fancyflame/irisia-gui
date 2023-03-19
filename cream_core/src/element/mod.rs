@@ -1,17 +1,14 @@
-use std::rc::Weak;
-use std::{cell::RefCell, rc::Rc};
+use std::sync::Arc;
 
-use crate::event::event_state::build::EventListenerBuilder;
-use crate::event::event_state::wrap::WrappedEvents;
+use crate::event::{EventChanGetter, EventChanSetter, EventEmitter};
+use crate::CacheBox;
 use crate::{style::StyleContainer, Result};
 
 use crate::structure::{slot::Slot, Node};
 
 pub use render_content::RenderContent;
+use tokio::sync::Mutex;
 
-use self::proxy_layer::ProxyLayer;
-
-pub mod proxy_layer;
 pub mod render_content;
 
 /// Element is a thing can draw itself on the given canvas,
@@ -23,27 +20,33 @@ pub mod render_content;
 #[derive(Clone, Copy, Default)]
 pub struct NoProps {}
 
-pub type RcHandle<T> = Rc<RefCell<T>>;
-pub type WeakHandle<T> = Weak<RefCell<T>>;
-
-pub trait Element: Default + 'static {
+pub trait Element: Send + 'static {
     type Props<'a>: Default;
     type Children<Ch>: Node
     where
         Ch: Node;
 
-    fn render<S, Pl, C>(
+    fn create() -> Self;
+
+    fn render<S, C>(
         &mut self,
         props: Self::Props<'_>,
         styles: &S,
-        event_listeners: WrappedEvents,
-        event_listener_builder: EventListenerBuilder<Pl, Self, ()>,
+        cache_box: &mut CacheBox,
         children: Slot<C>,
+        chan_setter: &EventChanSetter,
         content: RenderContent,
     ) -> Result<()>
     where
         S: StyleContainer,
-        Pl: ProxyLayer<Self>,
         C: Node,
         Self: Element<Children<C> = C>;
+
+    fn start_runtime(
+        slf: Arc<Mutex<Self>>,
+        event_emitter: EventEmitter,
+        chan_getter: EventChanGetter,
+    ) {
+        let _ = (slf, event_emitter, chan_getter);
+    }
 }

@@ -1,14 +1,10 @@
-use std::marker::PhantomData;
-
 use cream_core::{element::Element, structure::Node, CacheBox};
 use cream_macros::{build, render, style};
 
 pub fn main() {}
 
 #[derive(Default)]
-struct MyElement {
-    cache: CacheBox,
-}
+struct MyElement {}
 
 struct MyProps<'a> {
     name: &'a str,
@@ -30,19 +26,22 @@ impl Element for MyElement {
     type Props<'a> = MyProps<'a>;
     type Children<Ch: Node> = Ch;
 
-    fn render<S, Pl, C>(
+    fn create() -> Self {
+        Default::default()
+    }
+
+    fn render<S, C>(
         &mut self,
         props: Self::Props<'_>,
         styles: &S,
-        upstream_evl: cream_core::event::WrappedEvents,
-        evl_builder: cream_core::event::EventListenerBuilder<Pl, Self, ()>,
+        cache_box: &mut CacheBox,
         children: cream_core::structure::Slot<C>,
+        chan_setter: &cream_core::event::EventChanSetter,
         content: cream_core::element::RenderContent,
     ) -> cream_core::Result<()>
     where
         S: cream_core::style::StyleContainer,
-        Pl: cream_core::element::proxy_layer::ProxyLayer<Self>,
-        C: cream_core::structure::Node,
+        C: Node,
         Self: Element<Children<C> = C>,
     {
         let name = "dummy";
@@ -50,12 +49,12 @@ impl Element for MyElement {
         let optioned = Some(22);
 
         let ext = build! {
-            @init(&evl_builder);
+            @init(chan_setter);
             MyElement{}
         };
 
         render! {
-            @init(&evl_builder, &mut self.cache, content);
+            @init(chan_setter, cache_box, content);
 
             MyElement {
                 name: "John",
@@ -64,6 +63,7 @@ impl Element for MyElement {
 
                 for i in 0..value {
                     MyElement {
+                        +listen "dd" => 2,
                         name: name,
                         age: i
                     }

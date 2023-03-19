@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use syn::{Expr, Ident, Type};
+use syn::{Expr, Ident, LitStr, Type};
 
 use crate::{element::ElementCodegen, expr::StateExpr};
 
@@ -10,17 +10,16 @@ mod to_tokens;
 pub struct ElementStmt {
     element: Type,
     props: Vec<(Ident, Expr)>,
-    _rename: Option<Ident>,
+    rename: Option<Ident>,
     style: Expr,
-    event_src: Option<Rc<Expr>>,
-    event_listeners: Vec<(Type, Expr)>,
-    proxy: Type,
+    event_setter: Option<Rc<Expr>>,
+    event_listener_channel: Option<(LitStr, Option<Expr>)>,
     children: Vec<StateExpr<ElementCodegen>>,
 }
 
 impl ElementStmt {
     pub fn set_event_src(&mut self, expr: Rc<Expr>) {
-        self.event_src = Some(expr);
+        self.event_setter = Some(expr);
     }
 
     pub fn children_mut(&mut self) -> &mut [StateExpr<ElementCodegen>] {
