@@ -96,7 +96,12 @@ where
                 let (setter, getter) =
                     EventChanSetter::channel(content.global_event_receiver.clone());
 
-                El::start_runtime(el.clone(), self.event_emitter, getter);
+                El::start_runtime(
+                    el.clone(),
+                    self.event_emitter,
+                    getter,
+                    content.close_handle.clone(),
+                );
 
                 let cache = AddChildCache {
                     element: el,
@@ -114,12 +119,12 @@ where
         elem.render(
             self.prop,
             &self.style,
+            &cache.chan_setter,
             &mut cache.cache_box,
             Slot {
                 node: self.children,
                 cache: &mut cache.children_cache,
             },
-            &cache.chan_setter,
             content,
         )
     }

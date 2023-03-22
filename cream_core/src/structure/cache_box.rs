@@ -1,6 +1,6 @@
 use std::any::Any;
 
-pub struct CacheBox(Option<Box<dyn Any>>);
+pub struct CacheBox(Option<Box<dyn Any + Send + Sync>>);
 
 impl CacheBox {
     pub const fn new() -> Self {
@@ -9,7 +9,7 @@ impl CacheBox {
 
     pub(crate) fn get_cache<T>(&mut self) -> &mut T
     where
-        T: Default + 'static,
+        T: Default + Send + Sync + 'static,
     {
         match &mut self.0 {
             inner @ None => {

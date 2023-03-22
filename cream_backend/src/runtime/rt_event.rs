@@ -1,23 +1,25 @@
-use std::sync::mpsc::Sender;
+use std::sync::Arc;
 
+use tokio::sync::{oneshot, Mutex};
 use winit::{
     error::OsError,
-    event::Event,
     window::{WindowBuilder, WindowId},
 };
 
-use crate::WinitWindow;
-
-#[derive(Debug)]
-pub(crate) enum RuntimeEvent {
-    SysEvent(Event<'static, ()>),
-    WindowCreated { win: Result<WinitWindow, OsError> },
-}
+use crate::{AppWindow, WinitWindow};
 
 pub(crate) enum WindowReg {
-    WindowCreate {
-        build: Box<dyn FnOnce(WindowBuilder) -> WindowBuilder + Send>,
-        sender: Sender<RuntimeEvent>,
+    RawWindowRequest {
+        builder: Box<dyn FnOnce(WindowBuilder) -> WindowBuilder + Send>,
+        window_giver: oneshot::Sender<Result<WinitWindow, OsError>>,
     },
+
+    WindowRegister {
+        app: Arc<Mutex<dyn AppWindow>>,
+        raw_window: Arc<WinitWindow>,
+    },
+
     WindowDestroyed(WindowId),
+
+    Exit(i32),
 }

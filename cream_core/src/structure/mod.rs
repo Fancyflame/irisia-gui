@@ -41,9 +41,10 @@ pub trait Node {
     where
         I: Iterator<Item = RenderContent<'a>>;
 
-    fn fin(self, cache: &mut CacheBox, content: RenderContent) -> Result<()>
+    fn finish(self, cache: &mut CacheBox, content: RenderContent) -> Result<()>
     where
         Self: Sized,
+        Self::Cache: Send + Sync,
     {
         self.finish_iter(cache.get_cache(), std::iter::once(content))
     }

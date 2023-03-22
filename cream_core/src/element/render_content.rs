@@ -1,15 +1,16 @@
 use std::time::Duration;
 
-use cream_backend::{skia_safe::Canvas, window::Window};
+use cream_backend::{skia_safe::Canvas, window_handle::close_handle::CloseHandle, WinitWindow};
 
 use crate::{event::EventReceiver, primary::Region};
 
 pub struct RenderContent<'a> {
     pub(crate) canvas: &'a mut Canvas,
     pub(crate) region: Region,
-    pub(crate) window: &'a Window,
+    pub(crate) window: &'a WinitWindow,
     pub(crate) delta: Duration,
     pub(crate) global_event_receiver: &'a EventReceiver,
+    pub(crate) close_handle: CloseHandle,
 }
 
 impl RenderContent<'_> {
@@ -25,7 +26,7 @@ impl RenderContent<'_> {
         self.region
     }
 
-    pub fn window(&self) -> &Window {
+    pub fn window(&self) -> &WinitWindow {
         self.window
     }
 
@@ -47,6 +48,7 @@ impl RenderContent<'_> {
             window: self.window,
             delta: self.delta,
             global_event_receiver: self.global_event_receiver,
+            close_handle: self.close_handle.clone(),
         }
     }
 }

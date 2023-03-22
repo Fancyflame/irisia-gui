@@ -14,16 +14,7 @@ mod style;
 
 #[proc_macro]
 pub fn build(input: TokenStream) -> TokenStream {
-    let helper = |input: ParseStream| element::build::build(input, false);
-    match helper.parse(input) {
-        Ok(t) => t.into(),
-        Err(e) => e.to_compile_error().into(),
-    }
-}
-
-#[proc_macro]
-pub fn render(input: TokenStream) -> TokenStream {
-    let helper = |input: ParseStream| element::build::build(input, true);
+    let helper = |input: ParseStream| element::build::build(input);
     match helper.parse(input) {
         Ok(t) => t.into(),
         Err(e) => e.to_compile_error().into(),
@@ -40,12 +31,10 @@ pub fn style(input: TokenStream) -> TokenStream {
     let mut stmt_tokens = proc_macro2::TokenStream::new();
     stmts_to_tokens(&mut stmt_tokens, &stmts);
 
-    quote! {
-        {
-            use ::cream_core::style::StyleContainer;
-            #stmt_tokens
-        }
-    }
+    quote! {{
+        use ::cream_core::style::StyleContainer;
+        #stmt_tokens
+    }}
     .into()
 }
 

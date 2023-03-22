@@ -1,12 +1,9 @@
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::{sync::Arc, time::Duration};
 
 use cream_backend::{
     skia_safe::Canvas,
-    window::{Window, WindowBuilder},
-    AppWindow, WindowEvent,
+    window_handle::{close_handle::CloseHandle, WindowBuilder, WindowHandle},
+    AppWindow, WindowEvent, WinitWindow,
 };
 use tokio::{sync::mpsc, task::JoinHandle};
 
@@ -24,33 +21,32 @@ use crate::{
 
 pub mod event;
 
-pub fn run_application<El, F>(window_builder: F) -> Result<()>
+pub async fn new_window<El, F>(window_builder: F) -> Result<WindowHandle<Application<El>>>
 where
     El: Element<Children<EmptyStructure> = EmptyStructure>,
     F: FnOnce(WindowBuilder) -> WindowBuilder + Send + 'static,
 {
-    let window = Window::create(window_builder)?;
-    println!("window created");
-    window.run::<Application<El>>()
+    WindowHandle::create(window_builder).await
 }
 
 pub struct Application<El> {
-    window: Arc<Window>,
+    window: Arc<WinitWindow>,
     application: Option<AddChildCache<El, ()>>,
     global_event_receiver: EventReceiver,
     event_sender: mpsc::UnboundedSender<WindowEvent>,
     event_sender_handle: JoinHandle<()>,
+    close_handle: CloseHandle,
 }
 
 impl<El> AppWindow for Application<El>
 where
     El: Element<Children<EmptyStructure> = EmptyStructure>,
 {
-    fn on_create(window: &std::sync::Arc<Window>) -> Result<Self> {
+    fn on_create(window: &std::sync::Arc<WinitWindow>, close_handle: CloseHandle) -> Result<Self> {
         let (emitter, receiver) = one_channel();
         let (tx, mut rx) = mpsc::unbounded_channel();
 
-        let event_sender_handle = cream_backend::TOKIO_RT.spawn(async move {
+        let event_sender_handle = tokio::spawn(async move {
             loop {
                 let event = match rx.recv().await {
                     Some(event) => event,
@@ -67,6 +63,7 @@ where
             global_event_receiver: receiver,
             event_sender: tx,
             event_sender_handle,
+            close_handle,
         })
     }
 
@@ -86,6 +83,7 @@ where
                 window: &self.window,
                 delta,
                 global_event_receiver: &self.global_event_receiver,
+                close_handle: self.close_handle.clone(),
             }),
         )
     }
@@ -94,5 +92,11 @@ where
         self.event_sender
             .send(event)
             .expect("inner error: global window event sender dumped");
+    }
+}
+
+impl<El> Drop for Application<El> {
+    fn drop(&mut self) {
+        self.event_sender_handle.abort();
     }
 }

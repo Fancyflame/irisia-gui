@@ -1,7 +1,6 @@
 use std::rc::Rc;
 
 use proc_macro2::TokenStream;
-use quote::quote;
 use syn::{parse::ParseStream, Error, Expr, Result};
 
 use crate::expr::{
@@ -15,43 +14,32 @@ use super::{
     ElementCodegen,
 };
 
-pub fn build(input: ParseStream, render: bool) -> Result<TokenStream> {
+pub fn build(input: ParseStream) -> Result<TokenStream> {
     let mut stmts = parse_stmts::<ElementCodegen>(input)?;
-    let (mut args, span, stmts_expr) = match stmts.split_first_mut() {
+    let (args, rest) = match stmts.split_first_mut() {
         Some((
             StateExpr::Command(StateCommand {
-                span,
                 body: StateCommandBody::Custom(ElementCommand::Init(InitCommand { args })),
+                ..
             }),
             rest,
-        )) => {
-            let mut args = args.into_iter();
-
-            if let Some(setter) = args.next() {
-                walk_tree(rest, &Rc::new(setter.clone()))?;
-            }
-
-            let mut stmts_expr = TokenStream::new();
-            stmts_to_tokens(&mut stmts_expr, rest);
-            (args, span, stmts_expr)
-        }
+        )) => (args, rest),
         _ => return Err(input.error("missing `init` command")),
     };
 
-    match (render, (args.next(), args.next())) {
-        (true, (Some(cache_box), Some(render_content))) => Ok(quote! {
-            ::cream_core::structure::Node::fin(#stmts_expr, #cache_box, #render_content)
-        }),
+    let mut args = args.into_iter();
 
-        (false, _) => Ok(stmts_expr),
-
-        (true, (None, _)) => Err(Error::new(
-            span.clone(),
-            "complete `init` command is required: `@init(_, _, _)`",
-        )),
-
-        _ => unreachable!(),
+    if let Some(setter) = args.next() {
+        walk_tree(rest, &Rc::new(setter.clone()))?;
     }
+
+    if let Some(expr) = args.next() {
+        return Err(Error::new_spanned(expr, "unused argument found here"));
+    }
+
+    let mut stmts_expr = TokenStream::new();
+    stmts_to_tokens(&mut stmts_expr, rest);
+    Ok(stmts_expr)
 }
 
 fn walk_tree(root_exprs: &mut [StateExpr<ElementCodegen>], event_src: &Rc<Expr>) -> Result<()> {

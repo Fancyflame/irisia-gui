@@ -1,5 +1,5 @@
 use quote::{quote, ToTokens};
-use syn::{parenthesized, parse::Parse, punctuated::Punctuated, token::Paren, Error, Expr, Token};
+use syn::{parenthesized, parse::Parse, punctuated::Punctuated, token::Paren, Expr, Token};
 
 pub enum ElementCommand {
     Slot(Expr),
@@ -31,17 +31,8 @@ impl Parse for InitCommand {
         }
 
         let content;
-        let paren = parenthesized!(content in input);
+        parenthesized!(content in input);
         let punct = Punctuated::<Expr, Token![,]>::parse_terminated(&content)?;
-
-        match punct.len() {
-            0 | 1 | 3 => Ok(InitCommand { args: punct }),
-            count => {
-                return Err(Error::new(
-                    paren.span,
-                    format!("argument count of `init` command must be 0, 1 or 3, found {count}"),
-                ))
-            }
-        }
+        Ok(InitCommand { args: punct })
     }
 }

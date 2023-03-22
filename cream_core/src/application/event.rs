@@ -3,7 +3,7 @@ use cream_backend::WindowEvent;
 
 use crate::event::EventEmitter;
 
-pub(super) async fn emit_window_event(event_emitter: &EventEmitter, event: WindowEvent) {
+pub(super) async fn _emit_window_event(event_emitter: &EventEmitter, event: WindowEvent) {
     event_emitter.emit(event).await;
 }
 

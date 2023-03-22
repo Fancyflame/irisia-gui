@@ -10,7 +10,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 winit = { version = "0.28", features = ["android-native-activity"] }
-pixels = "0.11"
+pixels = { git = "https://github.com/parasyte/pixels.git" }
 skia-safe = { version = "0.58", features = [
     "gl",
     "textlayout",

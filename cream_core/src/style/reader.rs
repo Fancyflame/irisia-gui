@@ -52,3 +52,31 @@ impl_reader! {
     A B C D E F G H I J K,
     A B C D E F G H I J K L,
 }
+
+#[macro_export]
+macro_rules! read_style {
+    ($container: expr => {
+        $($name:ident: $Style: ty,)*
+    })=>{
+        let ($($name,)*) = {
+            let style_container = $container;
+            ($(<$Style as $crate::style::reader::StyleReader>::read_style(style_container),)*)
+        };
+    };
+
+    ($binding:ident in $container: expr => {
+        $($name:ident: $Style: ty,)*
+    }) => {
+        let $binding = {
+            struct __CreamMacroAnonymousReader {
+                $($name: $Style,)*
+            }
+
+            let style_container = $container;
+
+            __CreamMacroAnonymousReader {
+                $($name: <$Style as $crate::style::reader::StyleReader>::read_style(style_container),)*
+            }
+        };
+    };
+}

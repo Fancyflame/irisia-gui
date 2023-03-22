@@ -2,9 +2,12 @@ use std::collections::HashMap;
 
 use std::ops::{Deref, DerefMut};
 
+use crate::render_window::RenderWindow;
+use crate::AppWindow;
+
 use super::*;
 
-pub(crate) type WindowMapInner = HashMap<WindowId, mpsc::Sender<RuntimeEvent>>;
+pub(crate) type WindowMapInner = HashMap<WindowId, RenderWindow>;
 
 pub(super) struct WindowMap(WindowMapInner);
 

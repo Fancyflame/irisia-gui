@@ -6,10 +6,13 @@ use crate::{style::StyleContainer, Result};
 
 use crate::structure::{slot::Slot, Node};
 
+use cream_backend::window_handle::close_handle::CloseHandle;
+use cream_backend::winit::event::WindowEvent;
 pub use render_content::RenderContent;
 use tokio::sync::Mutex;
 
 pub mod render_content;
+pub mod render_fn_macro;
 
 /// Element is a thing can draw itself on the given canvas,
 /// according to its properties, styles and given drawing region.
@@ -32,9 +35,9 @@ pub trait Element: Send + 'static {
         &mut self,
         props: Self::Props<'_>,
         styles: &S,
+        chan_setter: &EventChanSetter,
         cache_box: &mut CacheBox,
         children: Slot<C>,
-        chan_setter: &EventChanSetter,
         content: RenderContent,
     ) -> Result<()>
     where
@@ -46,7 +49,8 @@ pub trait Element: Send + 'static {
         slf: Arc<Mutex<Self>>,
         event_emitter: EventEmitter,
         chan_getter: EventChanGetter,
+        close_handle: CloseHandle,
     ) {
-        let _ = (slf, event_emitter, chan_getter);
+        let _ = (slf, event_emitter, chan_getter, close_handle);
     }
 }

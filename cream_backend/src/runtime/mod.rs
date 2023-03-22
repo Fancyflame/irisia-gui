@@ -1,76 +1,94 @@
-use std::{future::Future, sync::mpsc};
+use std::{collections::HashMap, future::Future};
 
-use lazy_static::lazy_static;
-use tokio::{runtime::Runtime, task::spawn_blocking};
 use winit::{
     event::{Event, StartCause},
-    event_loop::{ControlFlow, EventLoop, EventLoopBuilder},
+    event_loop::{EventLoop, EventLoopBuilder},
     window::{WindowBuilder, WindowId},
 };
 
-use self::{
-    global::WindowRegiterMutex,
-    rt_event::{RuntimeEvent, WindowReg},
-    send_event::WindowMap,
-};
+use crate::render_window::RenderWindow;
+
+use self::{global::WindowRegiterMutex, rt_event::WindowReg};
 
 pub(crate) mod global;
 pub(crate) mod rt_event;
-mod send_event;
 
-lazy_static! {
-    pub static ref TOKIO_RT: Runtime = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .unwrap();
+pub async fn exit_app(code: i32) {
+    WindowRegiterMutex::lock().await.send(WindowReg::Exit(code));
 }
 
 pub fn start_runtime<F>(f: F) -> !
 where
-    F: FnOnce() + Send + 'static,
+    F: Future<Output = ()> + Send + 'static,
 {
-    let mut func_option = Some(f);
+    let mut future_option = Some(f);
+
+    let tokio_runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("cannot launch tokio runtime");
+    let _guard = tokio_runtime.enter();
 
     let event_loop: EventLoop<WindowReg> = EventLoopBuilder::with_user_event().build();
-    let mut window_map = WindowMap::new();
+    let mut window_map: HashMap<WindowId, RenderWindow> = HashMap::new();
     WindowRegiterMutex::init(event_loop.create_proxy());
 
     event_loop.run(move |event, event_loop, flow| {
         match event {
             Event::NewEvents(StartCause::Init) => {
-                let func = func_option.take().expect("unexpected take function twice");
-                /*std::thread::spawn(move || lazy_static::initialize(&TOKIO_RT))
-                .join()
-                .unwrap();*/
-                std::thread::spawn(func);
+                let future = future_option
+                    .take()
+                    .expect("unexpected take function twice");
+                tokio_runtime.spawn(future);
             }
 
             Event::WindowEvent { window_id, .. } | Event::RedrawRequested(window_id) => {
-                window_map.send_sys_event(window_id, event);
-            }
-
-            Event::UserEvent(WindowReg::WindowCreate { build, sender }) => {
-                let win = build(WindowBuilder::new()).build(event_loop);
-                if let Ok(win) = &win {
-                    window_map.insert(win.id(), sender.clone());
+                match window_map.get_mut(&window_id) {
+                    Some(w) => match event.map_nonuser_event() {
+                        Ok(event) => w.handle_event(event),
+                        _ => unreachable!(),
+                    },
+                    None => println!("no window map this window id, skipped"),
                 }
-                let _ = sender.send(RuntimeEvent::WindowCreated { win });
             }
 
-            Event::UserEvent(WindowReg::WindowDestroyed(wid)) => {
-                window_map.remove(&wid);
-            }
+            Event::UserEvent(window_reg) => match window_reg {
+                WindowReg::RawWindowRequest {
+                    builder,
+                    window_giver,
+                } => {
+                    let window = builder(WindowBuilder::new()).build(event_loop);
+                    let _ = window_giver.send(window);
+                }
 
-            _ => {}
+                WindowReg::WindowRegister { app, raw_window } => {
+                    let window_id = raw_window.id();
+                    let render_window =
+                        RenderWindow::new(app, raw_window).expect("cannot load renderer");
+                    window_map.insert(window_id, render_window);
+                }
+
+                WindowReg::WindowDestroyed(wid) => {
+                    window_map.remove(&wid);
+                }
+
+                WindowReg::Exit(code) => {
+                    flow.set_exit_with_code(code);
+                    return;
+                }
+            },
+
+            _ => match event.map_nonuser_event() {
+                Ok(e) => {
+                    if let Some(e) = e.to_static() {
+                        for window in window_map.values_mut() {
+                            window.handle_event(e.clone());
+                        }
+                    }
+                }
+                _ => unreachable!(),
+            },
         }
-        flow.set_poll();
+        flow.set_wait();
     });
-}
-
-fn start_tokio_rt<F>(block_fn: F)
-where
-    F: FnOnce() + Send + 'static,
-{
-    lazy_static::initialize(&TOKIO_RT);
-    block_fn();
 }
