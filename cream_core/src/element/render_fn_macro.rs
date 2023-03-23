@@ -42,23 +42,3 @@ macro_rules! render_fn {
         }
     };
 }
-
-#[macro_export]
-macro_rules! app_render_fn {
-    {
-        @init($slf:ident);
-        $($tt:tt)*
-    } => {
-        fn render(
-            &mut self,
-            __chan_setter: &$crate::event::EventChanSetter,
-            __cache_box: &mut $crate::CacheBox,
-            __content: $crate::element::RenderContent,
-        ) -> Result<()> {
-            $crate::render! {
-                @init(__chan_setter, __cache_box, __content);
-                $($tt)*
-            }
-        }
-    };
-}

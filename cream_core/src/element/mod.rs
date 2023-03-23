@@ -7,7 +7,6 @@ use crate::{style::StyleContainer, Result};
 use crate::structure::{slot::Slot, Node};
 
 use cream_backend::window_handle::close_handle::CloseHandle;
-use cream_backend::winit::event::WindowEvent;
 pub use render_content::RenderContent;
 use tokio::sync::Mutex;
 

@@ -3,7 +3,7 @@ use std::{any::TypeId, collections::VecDeque, fmt::Debug};
 use tokio::sync::MutexGuard;
 
 use crate::event::{
-    event_channel::header::{self, Header},
+    event_channel::raw_channel::header::{self, Header},
     Event,
 };
 
@@ -22,6 +22,20 @@ impl<'a> Data<'a> {
             key_header: header::from_bytes(&mut *buffer),
             buffer,
         }
+    }
+
+    pub fn is<E>(&self) -> bool
+    where
+        E: Event,
+    {
+        self.header.type_id == TypeId::of::<E>()
+    }
+
+    pub fn key_is<K>(&self) -> bool
+    where
+        K: Clone + Send + 'static,
+    {
+        self.key_header.type_id == TypeId::of::<K>()
     }
 
     pub fn assume<E>(mut self) -> Result<E, Self>

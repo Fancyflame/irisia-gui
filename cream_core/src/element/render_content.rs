@@ -2,14 +2,14 @@ use std::time::Duration;
 
 use cream_backend::{skia_safe::Canvas, window_handle::close_handle::CloseHandle, WinitWindow};
 
-use crate::{event::EventReceiver, primary::Region};
+use crate::{event::EventDispatcher, primary::Region};
 
 pub struct RenderContent<'a> {
     pub(crate) canvas: &'a mut Canvas,
     pub(crate) region: Region,
     pub(crate) window: &'a WinitWindow,
     pub(crate) delta: Duration,
-    pub(crate) global_event_receiver: &'a EventReceiver,
+    pub(crate) global_event_receiver: &'a EventDispatcher,
     pub(crate) close_handle: CloseHandle,
 }
 

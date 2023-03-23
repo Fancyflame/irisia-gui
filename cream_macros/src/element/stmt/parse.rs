@@ -59,7 +59,7 @@ impl Parse for ElementStmt {
             element,
             props,
             rename,
-            style: style.unwrap_or_else(|| parse_quote!(::cream_core::style::NoStyle)),
+            style: style.unwrap_or_else(|| parse_quote!(cream_core::style::NoStyle)),
             event_setter: None,
             event_listener_channel,
             children,

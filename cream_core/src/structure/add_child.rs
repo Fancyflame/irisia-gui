@@ -9,7 +9,11 @@ use tokio::sync::Mutex;
 
 use crate::{
     element::RenderContent,
-    event::{EventChanSetter, EventEmitter},
+    event::{
+        event_channel::channel_map::{channel_map, getter::ELEMENT_EVENT_CHANNEL},
+        standard::ElementDropped,
+        EventChanSetter, EventEmitter,
+    },
     style::{reader::StyleReader, StyleContainer},
     CacheBox, Result,
 };
@@ -93,8 +97,7 @@ where
             Some(c) => c,
             c @ None => {
                 let el = Arc::new(Mutex::new(El::create()));
-                let (setter, getter) =
-                    EventChanSetter::channel(content.global_event_receiver.clone());
+                let (setter, getter) = channel_map(content.global_event_receiver.clone());
 
                 El::start_runtime(
                     el.clone(),
@@ -127,5 +130,18 @@ where
             },
             content,
         )
+    }
+}
+
+impl<El, Cc> Drop for AddChildCache<El, Cc> {
+    fn drop(&mut self) {
+        let chan_setter = self.chan_setter.clone();
+        tokio::spawn(async move {
+            chan_setter
+                .to_special_event_emitter(ELEMENT_EVENT_CHANNEL)
+                .await
+                .emit(&ElementDropped)
+                .await;
+        });
     }
 }

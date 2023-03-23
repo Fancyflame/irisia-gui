@@ -2,13 +2,11 @@ use std::collections::VecDeque;
 
 use tokio::sync::{Mutex, Notify};
 
-use self::key::ChannelKey;
+use self::{header::Header, key::ChannelKey};
 
-use super::{
-    data::Data,
-    header::{self, Header},
-};
+use super::data::Data;
 
+pub(crate) mod header;
 pub(crate) mod key;
 
 pub(crate) struct RawChannel {

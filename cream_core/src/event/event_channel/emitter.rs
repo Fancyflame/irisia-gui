@@ -1,24 +1,22 @@
-use std::sync::Arc;
-
 use crate::event::Event;
 
-use super::channel::{key::ChannelKey, RawChannel};
+use super::{event_dispatcher::EventDispatcher, raw_channel::key::ChannelKey, EventReceiver};
 
 pub struct EventEmitter(Option<Inner>);
 
 struct Inner {
     key: Box<dyn ChannelKey>,
-    channel: Arc<RawChannel>,
+    channels: EventDispatcher,
 }
 
 impl EventEmitter {
-    pub(crate) fn new<K>(key: K, channel: Arc<RawChannel>) -> Self
+    pub(crate) fn join<K>(key: K, channels: EventDispatcher) -> Self
     where
         K: Clone + Send + Sync + 'static,
     {
         Self(Some(Inner {
-            key: Box::new(key),
-            channel,
+            key: Box::new(key) as _,
+            channels,
         }))
     }
 
@@ -26,12 +24,19 @@ impl EventEmitter {
         EventEmitter(None)
     }
 
-    pub async fn emit<E>(&self, event: E)
+    pub async fn emit<E>(&self, event: &E)
     where
-        E: Event,
+        E: Event + Clone,
     {
-        if let Some(Inner { key, channel }) = self.0.as_ref() {
-            channel.write(event, key.as_ref()).await;
+        if let Some(Inner { key, channels }) = self.0.as_ref() {
+            channels.emit(event, key.as_ref()).await;
+        }
+    }
+
+    pub async fn get_receiver(&self) -> EventReceiver {
+        match &self.0 {
+            Some(Inner { channels, .. }) => channels.get_receiver().await,
+            None => EventReceiver::new_empty(),
         }
     }
 }

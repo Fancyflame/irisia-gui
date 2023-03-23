@@ -1,4 +1,5 @@
 use expr::state_block::{parse_stmts, stmts_to_tokens};
+use match_data::ExprMatchData;
 use proc_macro::TokenStream;
 use quote::quote;
 use style::StyleCodegen;
@@ -10,6 +11,7 @@ use syn::{
 mod derive_style;
 mod element;
 pub(crate) mod expr;
+mod match_data;
 mod style;
 
 #[proc_macro]
@@ -32,7 +34,7 @@ pub fn style(input: TokenStream) -> TokenStream {
     stmts_to_tokens(&mut stmt_tokens, &stmts);
 
     quote! {{
-        use ::cream_core::style::StyleContainer;
+        use cream_core::style::StyleContainer;
         #stmt_tokens
     }}
     .into()
@@ -47,7 +49,7 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
     let (impl_gen, type_gen, where_clause) = generics.split_for_impl();
 
     quote! {
-        impl #impl_gen ::cream_core::Event for #ident #type_gen
+        impl #impl_gen cream_core::Event for #ident #type_gen
         #where_clause
         {}
     }
@@ -60,4 +62,10 @@ pub fn derive_style(input: TokenStream) -> TokenStream {
         Ok(t) => t.into(),
         Err(e) => e.to_compile_error().into(),
     }
+}
+
+#[proc_macro]
+pub fn match_event(input: TokenStream) -> TokenStream {
+    let match_data = parse_macro_input!(input as ExprMatchData);
+    match_data::expand(match_data).into()
 }

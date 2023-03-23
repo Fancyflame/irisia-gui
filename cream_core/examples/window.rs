@@ -1,14 +1,14 @@
-use std::time::Duration;
-
 use cream_backend::{start_runtime, window_handle::close_handle::CloseHandle, WindowEvent};
 use cream_core::{
     application::new_window,
     element::{Element, NoProps},
-    read_style, render_fn,
+    event::standard::ElementDropped,
+    exit_app, match_event, read_style, render_fn, select_event,
     skia_safe::{Color, Color4f, Paint, Rect},
     structure::{EmptyStructure, Node},
     style,
-    winit::event::{ElementState, KeyboardInput, VirtualKeyCode},
+    winit::event::{ElementState, KeyboardInput, MouseButton, VirtualKeyCode},
+    Event,
 };
 use cream_macros::Style;
 
@@ -17,11 +17,6 @@ fn main() {
         new_window::<App, _>(|builder| builder.with_title("test"))
             .await
             .unwrap();
-        tokio::task::spawn_blocking(|| loop {
-            std::thread::sleep(Duration::from_secs(60));
-        })
-        .await
-        .unwrap();
     });
 }
 
@@ -47,6 +42,29 @@ impl Element for App {
                 }
             }
         }
+    }
+
+    fn start_runtime(
+        _slf: std::sync::Arc<tokio::sync::Mutex<Self>>,
+        _event_emitter: cream_core::event::EventEmitter,
+        chan_getter: cream_core::event::EventChanGetter,
+        _close_handle: CloseHandle,
+    ) {
+        tokio::spawn(async move {
+            let global = chan_getter.get_receiver("@global").await;
+            loop {
+                match_event! {
+                    global.recv().await => {
+                        window_event as WindowEvent => match window_event{
+                            WindowEvent::MouseInput{ button: MouseButton::Left, state: ElementState::Pressed, ..}=>{
+                                println!("left click");
+                            },
+                            _=>{}
+                        }
+                    }
+                }
+            }
+        });
     }
 }
 
@@ -124,37 +142,49 @@ impl Element for Rectangle {
         close_handle: CloseHandle,
     ) {
         tokio::spawn(async move {
-            let receiver = chan_getter.get_receiver("@global").await;
+            let receiver = chan_getter.get_receiver("@window").await;
+            let element = chan_getter.get_receiver("@element").await;
             loop {
-                let data = receiver.recv().await;
-                let Ok(window_event)=data.assume::<WindowEvent>() else {
-                    continue;
-                };
-
-                match window_event {
-                    WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                state,
-                                virtual_keycode: Some(VirtualKeyCode::Space),
-                                ..
-                            },
-                        ..
-                    } => {
-                        slf.lock().await.is_force = match state {
-                            ElementState::Pressed => true,
-                            ElementState::Released => false,
+                select_event! {
+                    element.recv() => {
+                        _ as ElementDropped => {
+                            println!("element dropped");
+                            exit_app(0).await;
+                            return;
                         }
-                    }
+                    },
 
-                    WindowEvent::CloseRequested => {
-                        close_handle.close();
-                        return;
-                    }
+                    receiver.recv() => {
+                        window_event as WindowEvent, _ as () => match window_event {
+                            WindowEvent::KeyboardInput {
+                                input:
+                                    KeyboardInput {
+                                        state,
+                                        virtual_keycode: Some(VirtualKeyCode::Space),
+                                        ..
+                                    },
+                                ..
+                            } => {
+                                slf.lock().await.is_force = match state {
+                                    ElementState::Pressed => true,
+                                    ElementState::Released => false,
+                                }
+                            },
 
-                    _ => {}
-                }
+                            WindowEvent::CloseRequested => {
+                                close_handle.close();
+                            },
+
+                            _ => {}
+                        },
+
+                        _ as MyEvent => {},
+                    },
+                };
             }
         });
     }
 }
+
+#[derive(Event)]
+pub struct MyEvent;

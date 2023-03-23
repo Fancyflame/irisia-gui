@@ -48,7 +48,7 @@ where
                         Ok(event) => w.handle_event(event),
                         _ => unreachable!(),
                     },
-                    None => println!("no window map this window id, skipped"),
+                    None => {}
                 }
             }
 

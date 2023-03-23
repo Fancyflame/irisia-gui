@@ -1,22 +1,9 @@
-use std::sync::Arc;
-
-use self::channel::RawChannel;
-
-use super::{EventEmitter, EventReceiver};
-
-mod channel;
+pub mod channel_map;
 pub mod data;
 pub mod emitter;
-pub mod getter;
-mod header;
-pub mod setter;
+pub mod event_dispatcher;
+mod raw_channel;
+pub mod receiver;
+pub mod select_data;
 
-pub const GLOBAL_EVENT_RECEIVER_NAME: &str = "@global";
-
-pub(crate) fn one_channel() -> (EventEmitter, EventReceiver) {
-    let chan = Arc::new(RawChannel::new());
-    (
-        EventEmitter::new((), chan.clone()),
-        EventReceiver::new(chan),
-    )
-}
+use receiver::EventReceiver;

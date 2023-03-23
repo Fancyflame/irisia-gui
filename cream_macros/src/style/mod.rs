@@ -30,7 +30,7 @@ impl Codegen for StyleCodegen {
     }
 
     fn empty(tokens: &mut TokenStream) {
-        quote!(::cream_core::style::NoStyle).to_tokens(tokens);
+        quote!(cream_core::style::NoStyle).to_tokens(tokens);
     }
 
     fn repetitive_applicate<F>(tokens: &mut TokenStream, _: F)
@@ -44,7 +44,7 @@ impl Codegen for StyleCodegen {
     }
 
     fn conditional_applicate(count: usize) -> Self::Ca {
-        DefaultConditionalApplicator::new(count, parse_quote!(::cream_core::style::Branch))
+        DefaultConditionalApplicator::new(count, parse_quote!(cream_core::style::Branch))
     }
 
     fn chain_applicate<F>(tokens: &mut TokenStream, f: F)

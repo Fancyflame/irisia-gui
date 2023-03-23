@@ -9,7 +9,7 @@ use tokio::{sync::mpsc, task::JoinHandle};
 
 use crate::{
     element::{Element, RenderContent},
-    event::{event_channel::one_channel, EventEmitter, EventReceiver},
+    event::{EventDispatcher, EventEmitter},
     primary::Point,
     structure::{
         add_child::{self, AddChildCache},
@@ -32,7 +32,7 @@ where
 pub struct Application<El> {
     window: Arc<WinitWindow>,
     application: Option<AddChildCache<El, ()>>,
-    global_event_receiver: EventReceiver,
+    global_event_dispatcher: EventDispatcher,
     event_sender: mpsc::UnboundedSender<WindowEvent>,
     event_sender_handle: JoinHandle<()>,
     close_handle: CloseHandle,
@@ -43,24 +43,28 @@ where
     El: Element<Children<EmptyStructure> = EmptyStructure>,
 {
     fn on_create(window: &std::sync::Arc<WinitWindow>, close_handle: CloseHandle) -> Result<Self> {
-        let (emitter, receiver) = one_channel();
+        let dispatcher = EventDispatcher::new();
         let (tx, mut rx) = mpsc::unbounded_channel();
 
-        let event_sender_handle = tokio::spawn(async move {
-            loop {
-                let event = match rx.recv().await {
-                    Some(event) => event,
-                    None => return,
-                };
+        let event_sender_handle = {
+            let dispatcher = dispatcher.clone();
+            tokio::spawn(async move {
+                let emitter = dispatcher.get_emitter().await;
+                loop {
+                    let event = match rx.recv().await {
+                        Some(event) => event,
+                        None => return,
+                    };
 
-                emitter.emit(event).await;
-            }
-        });
+                    emitter.emit(&event).await;
+                }
+            })
+        };
 
         Ok(Application {
             window: window.clone(),
             application: None,
-            global_event_receiver: receiver,
+            global_event_dispatcher: dispatcher,
             event_sender: tx,
             event_sender_handle,
             close_handle,
@@ -82,7 +86,7 @@ where
                 region: (Point(0, size.0), Point(0, size.1)),
                 window: &self.window,
                 delta,
-                global_event_receiver: &self.global_event_receiver,
+                global_event_receiver: &self.global_event_dispatcher,
                 close_handle: self.close_handle.clone(),
             }),
         )
