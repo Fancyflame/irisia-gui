@@ -1,10 +1,12 @@
 use std::iter::Empty;
 
-use crate::{style::reader::StyleReader, CacheBox, Result};
+use crate::{
+    element::render_content::WildRenderContent, style::reader::StyleReader, CacheBox, Result,
+};
 
 use self::chain::Chain;
 
-use crate::element::{Element, RenderContent};
+use crate::element::Element;
 
 pub use self::{
     add_child::add_child,
@@ -39,9 +41,9 @@ pub trait Node {
 
     fn finish_iter<'a, I>(self, cache: &mut Self::Cache, iter: I) -> Result<()>
     where
-        I: Iterator<Item = RenderContent<'a>>;
+        I: Iterator<Item = WildRenderContent<'a>>;
 
-    fn finish(self, cache: &mut CacheBox, content: RenderContent) -> Result<()>
+    fn finish(self, cache: &mut CacheBox, content: WildRenderContent) -> Result<()>
     where
         Self: Sized,
         Self::Cache: Send + Sync,
@@ -73,7 +75,7 @@ impl Node for EmptyStructure {
 
     fn finish_iter<'a, I>(self, _: &mut Self::Cache, _: I) -> Result<()>
     where
-        I: Iterator<Item = RenderContent<'a>>,
+        I: Iterator<Item = WildRenderContent<'a>>,
     {
         Ok(())
     }

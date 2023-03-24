@@ -1,3 +1,5 @@
+use crate::event::EventDispatcher;
+
 use super::{data::Data, raw_channel::RawChannel};
 use std::{future::pending, sync::Arc};
 
@@ -10,11 +12,21 @@ struct Inner {
 }
 
 impl EventReceiver {
-    pub(super) fn join(channel: Arc<RawChannel>) -> Self {
-        EventReceiver(Some(Inner { channel }))
+    pub(super) async fn join(&mut self, dispatcher: &EventDispatcher) {
+        let weak = match &self.0 {
+            Some(inner) => Arc::downgrade(&inner.channel),
+            None => {
+                let channel = Arc::new(RawChannel::new());
+                let weak = Arc::downgrade(&channel);
+                self.0 = Some(Inner { channel });
+                weak
+            }
+        };
+
+        dispatcher.add_receiver(weak).await;
     }
 
-    pub(super) fn new_empty() -> Self {
+    pub(super) const fn new() -> Self {
         EventReceiver(None)
     }
 

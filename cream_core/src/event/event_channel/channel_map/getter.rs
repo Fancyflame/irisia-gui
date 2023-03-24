@@ -33,7 +33,7 @@ impl EventChanGetter {
                 if cfg!(debug_assertions) {
                     panic!("automatic event channel `{name}` is not support");
                 } else {
-                    return EventReceiver::new_empty();
+                    return EventReceiver::new();
                 }
             }
         }

@@ -32,11 +32,11 @@ where
         self.slot.node.style_iter()
     }
 
-    fn finish_iter<'b, I>(self, _: &mut (), mut iter: I) -> Result<()>
+    fn finish_iter<'b, I>(self, _: &mut (), iter: I) -> Result<()>
     where
-        I: Iterator<Item = RenderContent<'b>>,
+        I: Iterator<Item = WildRenderContent<'b>>,
     {
-        self.slot.render(&mut iter)
+        self.slot.render(iter)
     }
 }
 
@@ -61,7 +61,7 @@ where
 
     pub fn render<'b, I>(self, iter: I) -> Result<()>
     where
-        I: Iterator<Item = RenderContent<'b>>,
+        I: Iterator<Item = WildRenderContent<'b>>,
     {
         self.node.finish_iter(self.cache, iter)
     }

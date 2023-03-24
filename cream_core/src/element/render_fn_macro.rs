@@ -28,7 +28,7 @@ macro_rules! render_fn {
             __chan_setter: &$crate::event::EventChanSetter,
             __cache_box: &mut $crate::CacheBox,
             _: $crate::structure::Slot<__CreamMacroC>,
-            __content: $crate::element::RenderContent,
+            mut __content: $crate::element::RenderContent,
         ) -> $crate::Result<()>
         where
             __CreamMacroS: $crate::style::StyleContainer,
@@ -36,7 +36,7 @@ macro_rules! render_fn {
             Self: $crate::element::Element<Children<__CreamMacroC> = __CreamMacroC>,
         {
             $crate::render! {
-                @init(__chan_setter, __cache_box, __content);
+                @init(__chan_setter, __cache_box, __content.inherit(__content.region()));
                 $($tt)*
             }
         }

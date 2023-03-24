@@ -1,7 +1,7 @@
-use cream_backend::{start_runtime, window_handle::close_handle::CloseHandle, WindowEvent};
+use cream_backend::{start_runtime, WindowEvent};
 use cream_core::{
     application::new_window,
-    element::{Element, NoProps},
+    element::{Element, NoProps, RuntimeInit},
     event::standard::ElementDropped,
     exit_app, match_event, read_style, render_fn, select_event,
     skia_safe::{Color, Color4f, Paint, Rect},
@@ -44,14 +44,9 @@ impl Element for App {
         }
     }
 
-    fn start_runtime(
-        _slf: std::sync::Arc<tokio::sync::Mutex<Self>>,
-        _event_emitter: cream_core::event::EventEmitter,
-        chan_getter: cream_core::event::EventChanGetter,
-        _close_handle: CloseHandle,
-    ) {
+    fn start_runtime(init: RuntimeInit<Self>) {
         tokio::spawn(async move {
-            let global = chan_getter.get_receiver("@global").await;
+            let global = init.get_receiver("@global").await;
             loop {
                 match_event! {
                     global.recv().await => {
@@ -135,15 +130,10 @@ impl Element for Rectangle {
         Ok(())
     }
 
-    fn start_runtime(
-        slf: std::sync::Arc<tokio::sync::Mutex<Self>>,
-        _event_emitter: cream_core::event::EventEmitter,
-        chan_getter: cream_core::event::EventChanGetter,
-        close_handle: CloseHandle,
-    ) {
+    fn start_runtime(init: RuntimeInit<Self>) {
         tokio::spawn(async move {
-            let receiver = chan_getter.get_receiver("@window").await;
-            let element = chan_getter.get_receiver("@element").await;
+            let receiver = init.get_receiver("@window").await;
+            let element = init.get_receiver("@element").await;
             loop {
                 select_event! {
                     element.recv() => {
@@ -165,14 +155,14 @@ impl Element for Rectangle {
                                     },
                                 ..
                             } => {
-                                slf.lock().await.is_force = match state {
+                                init.app.lock().await.is_force = match state {
                                     ElementState::Pressed => true,
                                     ElementState::Released => false,
                                 }
                             },
 
                             WindowEvent::CloseRequested => {
-                                close_handle.close();
+                                init.close_handle.close();
                             },
 
                             _ => {}

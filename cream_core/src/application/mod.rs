@@ -8,7 +8,7 @@ use cream_backend::{
 use tokio::{sync::mpsc, task::JoinHandle};
 
 use crate::{
-    element::{Element, RenderContent},
+    element::{render_content::WildRenderContent, Element, RenderContent},
     event::{EventDispatcher, EventEmitter},
     primary::Point,
     structure::{
@@ -19,6 +19,9 @@ use crate::{
     Result,
 };
 
+use self::elem_table::ElemTable;
+
+pub(crate) mod elem_table;
 pub mod event;
 
 pub async fn new_window<El, F>(window_builder: F) -> Result<WindowHandle<Application<El>>>
@@ -33,6 +36,7 @@ pub struct Application<El> {
     window: Arc<WinitWindow>,
     application: Option<AddChildCache<El, ()>>,
     global_event_dispatcher: EventDispatcher,
+    elem_table: ElemTable,
     event_sender: mpsc::UnboundedSender<WindowEvent>,
     event_sender_handle: JoinHandle<()>,
     close_handle: CloseHandle,
@@ -65,6 +69,7 @@ where
             window: window.clone(),
             application: None,
             global_event_dispatcher: dispatcher,
+            elem_table: ElemTable::new(),
             event_sender: tx,
             event_sender_handle,
             close_handle,
@@ -75,20 +80,22 @@ where
         let add_child = add_child::add_child::<El, _, _>(
             Default::default(),
             NoStyle,
-            EventEmitter::new_empty(),
+            EventEmitter::new_no_receiver(),
             EmptyStructure,
         );
 
         add_child.finish_iter(
             &mut self.application,
-            std::iter::once(RenderContent {
+            std::iter::once(WildRenderContent(RenderContent {
                 canvas,
                 region: (Point(0, size.0), Point(0, size.1)),
                 window: &self.window,
-                delta,
+                delta_time: delta,
                 global_event_receiver: &self.global_event_dispatcher,
-                close_handle: self.close_handle.clone(),
-            }),
+                close_handle: self.close_handle,
+                elem_table_index: None,
+                elem_table_builder: self.elem_table.builder(),
+            })),
         )
     }
 

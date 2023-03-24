@@ -7,7 +7,7 @@ use std::{
 
 use smallvec::SmallVec;
 
-use crate::{element::RenderContent, style::reader::StyleReader};
+use crate::{element::render_content::WildRenderContent, style::reader::StyleReader};
 
 use super::Node;
 
@@ -62,7 +62,7 @@ where
 
     fn finish_iter<'a, I>(self, cache: &mut Self::Cache, mut iter: I) -> crate::Result<()>
     where
-        I: Iterator<Item = RenderContent<'a>>,
+        I: Iterator<Item = WildRenderContent<'a>>,
     {
         for (k, x) in self.nodes {
             match cache.0.get_mut(&k) {

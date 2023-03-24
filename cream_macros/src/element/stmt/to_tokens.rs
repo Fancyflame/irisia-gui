@@ -66,7 +66,7 @@ fn gen_event_listeners(
     listener: &Option<(LitStr, Option<Expr>)>,
 ) -> TokenStream {
     match (event_setter, listener) {
-        (_, None) => quote!(cream_core::event::EventEmitter::new_empty()),
+        (_, None) => quote!(cream_core::event::EventEmitter::new_no_receiver()),
 
         (Some(event_setter), Some((name, maybe_with_key))) => match maybe_with_key {
             None => quote!((#event_setter).to_emitter(#name)),

@@ -8,7 +8,7 @@ use anyhow::anyhow;
 use tokio::sync::Mutex;
 
 use crate::{
-    element::RenderContent,
+    element::{render_content::WildRenderContent, RenderContent, RuntimeInit},
     event::{
         event_channel::channel_map::{channel_map, getter::ELEMENT_EVENT_CHANNEL},
         standard::ElementDropped,
@@ -24,6 +24,7 @@ pub struct AddChildCache<El, Cc> {
     element: Arc<Mutex<El>>,
     cache_box: CacheBox,
     chan_setter: EventChanSetter,
+    element_event_emitter: EventEmitter,
     children_cache: Cc,
 }
 
@@ -82,10 +83,10 @@ where
 
     fn finish_iter<'a, I>(self, cache: &mut Self::Cache, mut iter: I) -> Result<()>
     where
-        I: Iterator<Item = RenderContent<'a>>,
+        I: Iterator<Item = WildRenderContent<'a>>,
     {
-        let content: RenderContent = match iter.next() {
-            Some(content) => content,
+        let mut content: RenderContent = match iter.next() {
+            Some(content) => content.into_inner(),
             None => {
                 return Err(anyhow!(
                     "items of the render content iterator is not enough"
@@ -99,16 +100,19 @@ where
                 let el = Arc::new(Mutex::new(El::create()));
                 let (setter, getter) = channel_map(content.global_event_receiver.clone());
 
-                El::start_runtime(
-                    el.clone(),
-                    self.event_emitter,
-                    getter,
-                    content.close_handle.clone(),
-                );
+                El::start_runtime(RuntimeInit {
+                    _prevent_new: (),
+                    app: el.clone(),
+                    event_emitter: self.event_emitter,
+                    channels: getter,
+                    close_handle: content.close_handle,
+                });
 
                 let cache = AddChildCache {
                     element: el,
                     cache_box: CacheBox::new(),
+                    element_event_emitter: tokio::runtime::Handle::current()
+                        .block_on(setter.to_special_event_emitter(ELEMENT_EVENT_CHANNEL)),
                     chan_setter: setter,
                     children_cache: Default::default(),
                 };
@@ -118,8 +122,13 @@ where
             }
         };
 
-        let mut elem = cache.element.blocking_lock();
-        elem.render(
+        content.elem_table_index = Some(
+            content
+                .elem_table_builder
+                .push(cache.element_event_emitter.clone()),
+        );
+
+        let result = cache.element.blocking_lock().render(
             self.prop,
             &self.style,
             &cache.chan_setter,
@@ -128,8 +137,11 @@ where
                 node: self.children,
                 cache: &mut cache.children_cache,
             },
-            content,
-        )
+            content.downgrade_lifetime(),
+        );
+
+        content.elem_table_builder.finish();
+        result
     }
 }
 

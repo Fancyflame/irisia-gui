@@ -1,4 +1,4 @@
-use crate::{element::RenderContent, style::reader::StyleReader};
+use crate::{element::render_content::WildRenderContent, style::reader::StyleReader};
 
 use super::Node;
 
@@ -27,7 +27,7 @@ where
 
     fn finish_iter<'a, I>(self, cache: &mut Self::Cache, mut iter: I) -> crate::Result<()>
     where
-        I: Iterator<Item = RenderContent<'a>>,
+        I: Iterator<Item = WildRenderContent<'a>>,
     {
         self.0.finish_iter(&mut cache.0, &mut iter)?;
         self.1.finish_iter(&mut cache.1, iter)

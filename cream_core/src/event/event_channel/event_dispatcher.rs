@@ -1,5 +1,6 @@
 use std::sync::{Arc, Weak};
 
+use smallvec::SmallVec;
 use tokio::sync::Mutex;
 
 use crate::event::EventEmitter;
@@ -11,7 +12,7 @@ use super::raw_channel::key::ChannelKey;
 use super::raw_channel::RawChannel;
 
 #[derive(Default, Clone)]
-pub struct EventDispatcher(Arc<Mutex<Vec<Weak<RawChannel>>>>);
+pub struct EventDispatcher(pub(super) Arc<Mutex<Vec<Weak<RawChannel>>>>);
 
 impl EventDispatcher {
     pub fn new() -> Self {
@@ -30,9 +31,13 @@ impl EventDispatcher {
     }
 
     pub async fn get_receiver(&self) -> EventReceiver {
-        let chan = Arc::new(RawChannel::new());
-        self.0.lock().await.push(Arc::downgrade(&chan));
-        EventReceiver::join(chan)
+        let mut receiver = EventReceiver::new();
+        receiver.join(self).await;
+        receiver
+    }
+
+    pub(super) async fn add_receiver(&self, channel: Weak<RawChannel>) {
+        self.0.lock().await.push(channel);
     }
 
     pub(super) async fn emit<E>(&self, event: &E, key: &dyn ChannelKey)
@@ -40,17 +45,17 @@ impl EventDispatcher {
         E: Event + Clone,
     {
         let mut guard = self.0.lock().await;
-        let mut needs_clear = false;
+        let mut clean_list: SmallVec<[usize; 4]> = SmallVec::new();
 
-        for chan in guard.iter() {
+        for (index, chan) in guard.iter().enumerate() {
             match chan.upgrade() {
                 Some(arc) => arc.write(event.clone(), key).await,
-                None => needs_clear = true,
+                None => clean_list.push(index),
             }
         }
 
-        if needs_clear {
-            guard.retain(|x| x.upgrade().is_some());
+        for index in clean_list {
+            guard.remove(index);
         }
     }
 }

@@ -23,15 +23,15 @@ impl Sub for Point {
 }
 
 impl Point {
-    /// Absolutely greater than
+    /// Absolutely greater than or equals
     #[inline]
-    pub fn abs_gt(self, other: Self) -> bool {
+    pub fn abs_ge(self, other: Self) -> bool {
         self.0 >= other.0 && self.1 >= other.1
     }
 
-    /// Absolutely less than
+    /// Absolutely less than or equals
     #[inline]
-    pub fn abs_lt(self, other: Self) -> bool {
+    pub fn abs_le(self, other: Self) -> bool {
         self.0 <= other.0 && self.1 <= other.1
     }
 }

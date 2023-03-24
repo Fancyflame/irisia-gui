@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use crate::event::{EventChanGetter, EventChanSetter, EventEmitter};
-use crate::CacheBox;
+use crate::event::{EventChanGetter, EventChanSetter, EventEmitter, EventReceiver};
 use crate::{style::StyleContainer, Result};
+use crate::{CacheBox, Event};
 
 use crate::structure::{slot::Slot, Node};
 
@@ -44,12 +44,28 @@ pub trait Element: Send + 'static {
         C: Node,
         Self: Element<Children<C> = C>;
 
-    fn start_runtime(
-        slf: Arc<Mutex<Self>>,
-        event_emitter: EventEmitter,
-        chan_getter: EventChanGetter,
-        close_handle: CloseHandle,
-    ) {
-        let _ = (slf, event_emitter, chan_getter, close_handle);
+    fn start_runtime(init: RuntimeInit<Self>) {
+        let _ = init;
+    }
+}
+
+pub struct RuntimeInit<T: ?Sized> {
+    pub(crate) _prevent_new: (),
+    pub app: Arc<Mutex<T>>,
+    pub event_emitter: EventEmitter,
+    pub channels: EventChanGetter,
+    pub close_handle: CloseHandle,
+}
+
+impl<T> RuntimeInit<T> {
+    pub async fn emit<E>(&self, event: &E)
+    where
+        E: Event + Clone,
+    {
+        self.event_emitter.emit(event).await
+    }
+
+    pub async fn get_receiver(&self, name: &'static str) -> EventReceiver {
+        self.channels.get_receiver(name).await
     }
 }
