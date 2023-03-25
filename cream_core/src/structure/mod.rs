@@ -1,7 +1,8 @@
-use std::iter::Empty;
+use anyhow::anyhow;
 
 use crate::{
-    element::render_content::WildRenderContent, style::reader::StyleReader, CacheBox, Result,
+    element::render_content::WildRenderContent, primary::Region, style::reader::StyleReader,
+    CacheBox, Result,
 };
 
 use self::chain::Chain;
@@ -11,6 +12,7 @@ use crate::element::Element;
 pub use self::{
     add_child::add_child,
     branch::Branch,
+    empty::EmptyStructure,
     repeating::Repeating,
     slot::{ApplySlot, Slot},
 };
@@ -19,12 +21,13 @@ pub mod add_child;
 pub mod branch;
 pub mod cache_box;
 pub mod chain;
+pub mod empty;
 mod fn_helper;
 pub mod repeating;
 pub mod slot;
 
-pub trait Node {
-    type Cache: Default + 'static;
+pub trait Node: Sized {
+    type Cache: Default + Send + Sync + 'static;
     type StyleIter<'a, S>: Iterator<Item = S>
     where
         Self: 'a;
@@ -33,22 +36,45 @@ pub trait Node {
     where
         S: StyleReader;
 
-    /*fn finish<S, F, G>(self, cache: &mut Self::Cache, map: F) -> Result<()>
+    fn __finish_iter<S, F>(
+        self,
+        cache: &mut Self::Cache,
+        content: WildRenderContent,
+        map: &mut F,
+    ) -> Result<()>
     where
-        F: for<'r> FuncOnce<'r, Self::StyleIter<'r, S>, G>,
+        F: FnMut(S, Option<Region>) -> Result<Region>,
+        S: StyleReader;
+
+    fn finish_iter<S, F>(
+        self,
+        cache_box: &mut CacheBox,
+        content: WildRenderContent,
+        mut map: F,
+    ) -> Result<()>
+    where
+        F: FnMut(S, Option<Region>) -> Result<Region>,
         S: StyleReader,
-        G: GlobalEventRegister;*/
+    {
+        self.__finish_iter(cache_box.get_cache(), content, &mut map)
+    }
 
-    fn finish_iter<'a, I>(self, cache: &mut Self::Cache, iter: I) -> Result<()>
-    where
-        I: Iterator<Item = WildRenderContent<'a>>;
-
-    fn finish(self, cache: &mut CacheBox, content: WildRenderContent) -> Result<()>
+    fn finish(
+        self,
+        cache_box: &mut CacheBox,
+        content: WildRenderContent,
+        region: Region,
+    ) -> Result<()>
     where
         Self: Sized,
         Self::Cache: Send + Sync,
     {
-        self.finish_iter(cache.get_cache(), std::iter::once(content))
+        let mut region = Some(region);
+        self.__finish_iter(cache_box.get_cache(), content, &mut move |(), _| {
+            region
+                .take()
+                .ok_or_else(|| anyhow!("only one element can be rendered"))
+        })
     }
 
     fn chain<T>(self, other: T) -> Chain<T, Self>
@@ -56,27 +82,5 @@ pub trait Node {
         Self: Sized,
     {
         Chain(other, self)
-    }
-}
-
-#[derive(Clone, Copy)]
-pub struct EmptyStructure;
-
-impl Node for EmptyStructure {
-    type Cache = ();
-    type StyleIter<'a, S> = Empty<S>;
-
-    fn style_iter<S>(&self) -> Empty<S>
-    where
-        S: StyleReader,
-    {
-        std::iter::empty()
-    }
-
-    fn finish_iter<'a, I>(self, _: &mut Self::Cache, _: I) -> Result<()>
-    where
-        I: Iterator<Item = WildRenderContent<'a>>,
-    {
-        Ok(())
     }
 }

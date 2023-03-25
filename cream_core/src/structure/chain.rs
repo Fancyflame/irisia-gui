@@ -1,4 +1,4 @@
-use crate::{element::render_content::WildRenderContent, style::reader::StyleReader};
+use crate::{style::reader::StyleReader, Result};
 
 use super::Node;
 
@@ -25,11 +25,18 @@ where
         self.0.style_iter().chain(self.1.style_iter())
     }
 
-    fn finish_iter<'a, I>(self, cache: &mut Self::Cache, mut iter: I) -> crate::Result<()>
+    fn __finish_iter<S, F>(
+        self,
+        cache: &mut Self::Cache,
+        mut content: crate::element::render_content::WildRenderContent,
+        map: &mut F,
+    ) -> crate::Result<()>
     where
-        I: Iterator<Item = WildRenderContent<'a>>,
+        F: FnMut(S, Option<crate::primary::Region>) -> Result<crate::primary::Region>,
+        S: StyleReader,
     {
-        self.0.finish_iter(&mut cache.0, &mut iter)?;
-        self.1.finish_iter(&mut cache.1, iter)
+        self.0
+            .__finish_iter(&mut cache.0, content.downgrade_lifetime(), map)?;
+        self.1.__finish_iter(&mut cache.1, content, map)
     }
 }

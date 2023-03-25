@@ -1,4 +1,4 @@
-use crate::element::render_content::WildRenderContent;
+use crate::Result;
 
 use super::Node;
 
@@ -39,13 +39,19 @@ where
         }
     }
 
-    fn finish_iter<'a, I>(self, cache: &mut Self::Cache, iter: I) -> crate::Result<()>
+    fn __finish_iter<S, F>(
+        self,
+        cache: &mut Self::Cache,
+        content: crate::element::render_content::WildRenderContent,
+        map: &mut F,
+    ) -> crate::Result<()>
     where
-        I: Iterator<Item = WildRenderContent<'a>>,
+        F: FnMut(S, Option<crate::primary::Region>) -> Result<crate::primary::Region>,
+        S: crate::style::reader::StyleReader,
     {
         match self {
-            Branch::Arm1(a) => a.finish_iter(&mut cache.arm1, iter),
-            Branch::Arm2(a) => a.finish_iter(&mut cache.arm2, iter),
+            Branch::Arm1(a) => a.__finish_iter(&mut cache.arm1, content, map),
+            Branch::Arm2(a) => a.__finish_iter(&mut cache.arm2, content, map),
         }
     }
 }

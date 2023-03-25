@@ -21,24 +21,25 @@ macro_rules! render_fn {
         @init($slf:ident);
         $($tt:tt)*
     } => {
-        fn render<__CreamMacroS, __CreamMacroC>(
+        fn render(
             $slf: &mut Self,
             _: Self::Props<'_>,
-            _: &__CreamMacroS,
-            __chan_setter: &$crate::event::EventChanSetter,
+            _: &impl style::StyleContainer,
             __cache_box: &mut $crate::CacheBox,
-            _: $crate::structure::Slot<__CreamMacroC>,
+            __chan_setter: &$crate::event::EventChanSetter,
+            _: $crate::structure::Slot<impl Node>,
             mut __content: $crate::element::RenderContent,
-        ) -> $crate::Result<()>
-        where
-            __CreamMacroS: $crate::style::StyleContainer,
-            __CreamMacroC: $crate::structure::Node,
-            Self: $crate::element::Element<Children<__CreamMacroC> = __CreamMacroC>,
-        {
-            $crate::render! {
-                @init(__chan_setter, __cache_box, __content.inherit(__content.region()));
-                $($tt)*
-            }
+            __map: &mut dyn FnMut(::std::option::Option<$crate::primary::Region>) -> $crate::Result<$crate::primary::Region>,
+        ) -> $crate::Result<()> {
+            $crate::structure::Node::finish(
+                $crate::build! {
+                    @init(__chan_setter);
+                    $($tt)*
+                },
+                __cache_box,
+                __content.inherit(),
+                __map(::std::option::Option::None)?
+            )
         }
     };
 }

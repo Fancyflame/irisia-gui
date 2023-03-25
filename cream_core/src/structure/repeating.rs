@@ -7,7 +7,7 @@ use std::{
 
 use smallvec::SmallVec;
 
-use crate::{element::render_content::WildRenderContent, style::reader::StyleReader};
+use crate::{style::reader::StyleReader, Result};
 
 use super::Node;
 
@@ -41,7 +41,7 @@ impl<K, T> Repeating<K, T> {
 
 impl<K, T> Node for Repeating<K, T>
 where
-    K: Clone + Hash + Eq + 'static,
+    K: Clone + Hash + Eq + Send + Sync + 'static,
     T: Node,
 {
     type Cache = RepeatingCache<K, <T as Node>::Cache>;
@@ -60,19 +60,25 @@ where
         self.nodes.iter().map(func).flatten()
     }
 
-    fn finish_iter<'a, I>(self, cache: &mut Self::Cache, mut iter: I) -> crate::Result<()>
+    fn __finish_iter<S, F>(
+        self,
+        cache: &mut Self::Cache,
+        mut content: crate::element::render_content::WildRenderContent,
+        map: &mut F,
+    ) -> crate::Result<()>
     where
-        I: Iterator<Item = WildRenderContent<'a>>,
+        F: FnMut(S, Option<crate::primary::Region>) -> Result<crate::primary::Region>,
+        S: StyleReader,
     {
         for (k, x) in self.nodes {
             match cache.0.get_mut(&k) {
                 Some(c) => {
                     c.alive_signal = true;
-                    x.finish_iter(&mut c.value, &mut iter)?
+                    x.__finish_iter(&mut c.value, content.downgrade_lifetime(), map)?
                 }
                 None => {
                     let mut value = T::Cache::default();
-                    x.finish_iter(&mut value, &mut iter)?;
+                    x.__finish_iter(&mut value, content.downgrade_lifetime(), map)?;
                     cache.0.insert(
                         k,
                         CacheUnit {

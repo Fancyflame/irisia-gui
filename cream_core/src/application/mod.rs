@@ -1,5 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
+use anyhow::anyhow;
 use cream_backend::{
     skia_safe::Canvas,
     window_handle::{close_handle::CloseHandle, WindowBuilder, WindowHandle},
@@ -8,7 +9,10 @@ use cream_backend::{
 use tokio::{sync::mpsc, task::JoinHandle};
 
 use crate::{
-    element::{render_content::WildRenderContent, Element, RenderContent},
+    element::{
+        render_content::{RenderContent, WildRenderContent},
+        Element,
+    },
     event::{EventDispatcher, EventEmitter},
     primary::Point,
     structure::{
@@ -26,7 +30,7 @@ pub mod event;
 
 pub async fn new_window<El, F>(window_builder: F) -> Result<WindowHandle<Application<El>>>
 where
-    El: Element<Children<EmptyStructure> = EmptyStructure>,
+    El: Element,
     F: FnOnce(WindowBuilder) -> WindowBuilder + Send + 'static,
 {
     WindowHandle::create(window_builder).await
@@ -45,7 +49,7 @@ pub struct Application<El> {
 
 impl<El> AppWindow for Application<El>
 where
-    El: Element<Children<EmptyStructure> = EmptyStructure>,
+    El: Element,
 {
     fn on_create(window: &std::sync::Arc<WinitWindow>, close_handle: CloseHandle) -> Result<Self> {
         let dispatcher = EventDispatcher::new();
@@ -86,19 +90,23 @@ where
             EmptyStructure,
         );
 
-        add_child.finish_iter(
-            &mut self.application,
-            std::iter::once(WildRenderContent(RenderContent {
-                canvas,
-                region: (Point(0, 0), Point(size.0, size.1)),
-                window: &self.window,
-                delta_time: delta,
-                global_event_receiver: &self.global_event_dispatcher,
-                close_handle: self.close_handle,
-                elem_table_index: None,
-                elem_table_builder: self.elem_table.builder(),
-            })),
-        )
+        let mut region = Some((Point(0, 0), Point(size.0, size.1)));
+
+        let content = WildRenderContent(RenderContent {
+            canvas,
+            window: &self.window,
+            delta_time: delta,
+            global_event_receiver: &self.global_event_dispatcher,
+            close_handle: self.close_handle,
+            elem_table_index: None,
+            elem_table_builder: self.elem_table.builder(),
+        });
+
+        add_child.__finish_iter(&mut self.application, content, &mut move |_: (), _| {
+            region.take().ok_or_else(|| {
+                anyhow!("at most one element is allowed to be rendered as root of the window")
+            })
+        })
     }
 
     fn on_window_event(&mut self, event: WindowEvent) {

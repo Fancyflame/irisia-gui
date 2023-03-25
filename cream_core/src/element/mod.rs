@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use crate::event::{EventChanGetter, EventChanSetter, EventEmitter, EventReceiver};
+use crate::primary::Region;
 use crate::{style::StyleContainer, Result};
 use crate::{CacheBox, Event};
 
@@ -24,25 +25,18 @@ pub struct NoProps {}
 
 pub trait Element: Send + 'static {
     type Props<'a>: Default;
-    type Children<Ch>: Node
-    where
-        Ch: Node;
-
     fn create() -> Self;
 
-    fn render<S, C>(
+    fn render(
         &mut self,
         props: Self::Props<'_>,
-        styles: &S,
-        chan_setter: &EventChanSetter,
+        styles: &impl StyleContainer,
         cache_box: &mut CacheBox,
-        children: Slot<C>,
+        chan_setter: &EventChanSetter,
+        children: Slot<impl Node>,
         content: RenderContent,
-    ) -> Result<()>
-    where
-        S: StyleContainer,
-        C: Node,
-        Self: Element<Children<C> = C>;
+        region_requester: &mut dyn FnMut(Option<Region>) -> Result<Region>,
+    ) -> Result<()>;
 
     fn start_runtime(init: RuntimeInit<Self>) {
         let _ = init;

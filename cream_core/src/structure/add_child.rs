@@ -4,16 +4,16 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::anyhow;
 use tokio::sync::Mutex;
 
 use crate::{
-    element::{render_content::WildRenderContent, RenderContent, RuntimeInit},
+    element::{render_content::WildRenderContent, RuntimeInit},
     event::{
         event_channel::channel_map::{channel_map, getter::ELEMENT_EVENT_CHANNEL},
         standard::ElementDropped,
         EventChanSetter, EventEmitter,
     },
+    primary::Region,
     style::{reader::StyleReader, StyleContainer},
     CacheBox, Result,
 };
@@ -67,7 +67,7 @@ where
 */
 impl<'prop, El, Sty, Ch> Node for AddChild<'prop, El, Sty, Ch>
 where
-    El: Element<Children<Ch> = Ch>,
+    El: Element,
     Sty: StyleContainer,
     Ch: Node,
 {
@@ -81,18 +81,17 @@ where
         iter::once(S::read_style(&self.style))
     }
 
-    fn finish_iter<'a, I>(self, cache: &mut Self::Cache, mut iter: I) -> Result<()>
+    fn __finish_iter<'wrc, S, F>(
+        self,
+        cache: &mut Self::Cache,
+        content: WildRenderContent,
+        map: &mut F,
+    ) -> Result<()>
     where
-        I: Iterator<Item = WildRenderContent<'a>>,
+        F: FnMut(S, Option<Region>) -> Result<Region>,
+        S: StyleReader,
     {
-        let mut content: RenderContent = match iter.next() {
-            Some(content) => content.into_inner(),
-            None => {
-                return Err(anyhow!(
-                    "items of the render content iterator is not enough"
-                ));
-            }
-        };
+        let mut content = content.0;
 
         let cache = match cache {
             Some(c) => c,
@@ -128,18 +127,17 @@ where
                 .push(cache.element_event_emitter.clone()),
         );
 
-        content.set_interact_region(content.region);
-
         let result = cache.element.blocking_lock().render(
             self.prop,
             &self.style,
-            &cache.chan_setter,
             &mut cache.cache_box,
+            &cache.chan_setter,
             Slot {
                 node: self.children,
                 cache: &mut cache.children_cache,
             },
             content.downgrade_lifetime(),
+            &mut |region| map(S::read_style(&self.style), region),
         );
 
         content.elem_table_builder.finish();

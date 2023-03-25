@@ -4,13 +4,13 @@ use cream_core::{
     element::{Element, NoProps, RuntimeInit},
     event::standard::ElementDropped,
     exit_app, match_event,
-    primary::Point,
-    read_style, render_fn,
+    primary::{Point, Region},
+    read_style, render_fn, select_event,
     skia_safe::{Color, Color4f, Paint, Rect},
-    structure::{EmptyStructure, Node},
+    structure::Node,
     style,
     winit::event::{ElementState, MouseButton},
-    Event,
+    Event, Result,
 };
 use cream_macros::Style;
 
@@ -25,7 +25,6 @@ fn main() {
 struct App(u32);
 
 impl Element for App {
-    type Children<Ch: Node> = EmptyStructure;
     type Props<'a> = NoProps;
     fn create() -> Self {
         Self(10)
@@ -83,7 +82,6 @@ struct Rectangle {
 }
 
 impl Element for Rectangle {
-    type Children<Ch: Node> = EmptyStructure;
     type Props<'a> = NoProps;
 
     fn create() -> Self {
@@ -93,20 +91,16 @@ impl Element for Rectangle {
         }
     }
 
-    fn render<S, C>(
+    fn render(
         &mut self,
         _props: Self::Props<'_>,
-        styles: &S,
-        _chan_setter: &cream_core::event::EventChanSetter,
+        styles: &impl style::StyleContainer,
         _cache_box: &mut cream_core::CacheBox,
-        _children: cream_core::structure::Slot<C>,
+        _chan_setter: &cream_core::event::EventChanSetter,
+        _children: cream_core::structure::Slot<impl Node>,
         mut content: cream_core::element::RenderContent,
-    ) -> cream_core::Result<()>
-    where
-        S: cream_core::style::StyleContainer,
-        C: Node,
-        Self: Element<Children<C> = C>,
-    {
+        region_requester: &mut dyn FnMut(Option<Region>) -> Result<Region>,
+    ) -> cream_core::Result<()> {
         read_style!(styles => {
             w: Option<StyleWidth>,
             h: Option<StyleHeight>,
@@ -118,10 +112,9 @@ impl Element for Rectangle {
             h.unwrap_or(StyleHeight(50.0)),
         );
 
-        content.set_interact_region((
-            content.region().0,
-            content.region().0 + Point(w.0 as _, h.0 as _),
-        ));
+        let region = region_requester(None)?;
+
+        content.set_interact_region((region.0, region.0 + Point(w.0 as _, h.0 as _)));
 
         let rect = Rect::new(0.0, 0.0, w.0, h.0);
         let color = if self.is_force {
@@ -140,16 +133,17 @@ impl Element for Rectangle {
     fn start_runtime(init: RuntimeInit<Self>) {
         tokio::spawn(async move {
             let element = init.get_receiver("@element").await;
+            let window = init.get_receiver("@window").await;
             loop {
-                match_event! {
-                    element.recv().await => {
+                select_event! {
+                    element.recv() => {
                         _ as ElementDropped => {
                             println!("element dropped");
                             exit_app(0).await;
                             return;
                         }
 
-                        window_event as WindowEvent, _ as () => match window_event {
+                        window_event as WindowEvent => match window_event {
                             WindowEvent::MouseInput {
                                 state,
                                 ..
@@ -160,15 +154,22 @@ impl Element for Rectangle {
                                 }
                             },
 
+                            _ => {}
+                        },
+
+                        _ as MyEvent => {},
+                    },
+
+                    window.recv()=>{
+                        window_event as WindowEvent => match window_event {
                             WindowEvent::CloseRequested => {
+                                println!("close request");
                                 init.close_handle.close();
                             },
 
                             _ => {}
                         },
-
-                        _ as MyEvent => {},
-                    }
+                    },
                 };
             }
         });

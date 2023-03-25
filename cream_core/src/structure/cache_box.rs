@@ -7,6 +7,10 @@ impl CacheBox {
         CacheBox(None)
     }
 
+    /// Stores the cache of a node cahce of **one type**. If
+    /// different types detected, it will panic under debug mode
+    /// and initialize a new cache under release mode, which will
+    /// heavily effect the performance.
     pub(crate) fn get_cache<T>(&mut self) -> &mut T
     where
         T: Default + Send + Sync + 'static,
@@ -21,7 +25,7 @@ impl CacheBox {
                     cache.downcast_mut().unwrap()
                 } else {
                     if cfg!(debug_assertions) {
-                        panic!("one cache box can only store one cache");
+                        panic!("one cache box can only store one type of cache");
                     } else {
                         *cache = Box::new(T::default());
                         cache.downcast_mut().unwrap()
