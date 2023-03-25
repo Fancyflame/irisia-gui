@@ -19,7 +19,7 @@ use crate::{
     Result,
 };
 
-use self::elem_table::ElemTable;
+use self::{elem_table::ElemTable, event::emit_to_elements};
 
 pub(crate) mod elem_table;
 pub mod event;
@@ -40,6 +40,7 @@ pub struct Application<El> {
     event_sender: mpsc::UnboundedSender<WindowEvent>,
     event_sender_handle: JoinHandle<()>,
     close_handle: CloseHandle,
+    cursor_pos: Point,
 }
 
 impl<El> AppWindow for Application<El>
@@ -73,6 +74,7 @@ where
             event_sender: tx,
             event_sender_handle,
             close_handle,
+            cursor_pos: Default::default(),
         })
     }
 
@@ -88,7 +90,7 @@ where
             &mut self.application,
             std::iter::once(WildRenderContent(RenderContent {
                 canvas,
-                region: (Point(0, size.0), Point(0, size.1)),
+                region: (Point(0, 0), Point(size.0, size.1)),
                 window: &self.window,
                 delta_time: delta,
                 global_event_receiver: &self.global_event_dispatcher,
@@ -101,8 +103,10 @@ where
 
     fn on_window_event(&mut self, event: WindowEvent) {
         self.event_sender
-            .send(event)
+            .send(event.clone())
             .expect("inner error: global window event sender dumped");
+
+        emit_to_elements(&mut self.elem_table, &mut self.cursor_pos, event);
     }
 }
 

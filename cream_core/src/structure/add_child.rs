@@ -128,6 +128,8 @@ where
                 .push(cache.element_event_emitter.clone()),
         );
 
+        content.set_interact_region(content.region);
+
         let result = cache.element.blocking_lock().render(
             self.prop,
             &self.style,

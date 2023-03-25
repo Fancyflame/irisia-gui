@@ -81,7 +81,7 @@ impl Builder<'_> {
             parent: self.builder_stack.last().copied(),
         });
 
-        let index = self.emitters.len();
+        let index = self.emitters.len() - 1;
         self.builder_stack.push(index);
         index
     }
@@ -92,11 +92,5 @@ impl Builder<'_> {
 
     pub fn finish(&mut self) {
         assert!(self.builder_stack.pop().is_some());
-    }
-}
-
-impl Drop for Builder<'_> {
-    fn drop(&mut self) {
-        debug_assert!(self.builder_stack.is_empty());
     }
 }

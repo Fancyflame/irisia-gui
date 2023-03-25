@@ -3,11 +3,13 @@ use cream_core::{
     application::new_window,
     element::{Element, NoProps, RuntimeInit},
     event::standard::ElementDropped,
-    exit_app, match_event, read_style, render_fn, select_event,
+    exit_app, match_event,
+    primary::Point,
+    read_style, render_fn,
     skia_safe::{Color, Color4f, Paint, Rect},
     structure::{EmptyStructure, Node},
     style,
-    winit::event::{ElementState, KeyboardInput, MouseButton, VirtualKeyCode},
+    winit::event::{ElementState, MouseButton},
     Event,
 };
 use cream_macros::Style;
@@ -46,10 +48,10 @@ impl Element for App {
 
     fn start_runtime(init: RuntimeInit<Self>) {
         tokio::spawn(async move {
-            let global = init.get_receiver("@global").await;
+            let element = init.get_receiver("@element").await;
             loop {
                 match_event! {
-                    global.recv().await => {
+                    element.recv().await => {
                         window_event as WindowEvent => match window_event{
                             WindowEvent::MouseInput{ button: MouseButton::Left, state: ElementState::Pressed, ..}=>{
                                 println!("left click");
@@ -116,6 +118,11 @@ impl Element for Rectangle {
             h.unwrap_or(StyleHeight(50.0)),
         );
 
+        content.set_interact_region((
+            content.region().0,
+            content.region().0 + Point(w.0 as _, h.0 as _),
+        ));
+
         let rect = Rect::new(0.0, 0.0, w.0, h.0);
         let color = if self.is_force {
             self.force_color.clone()
@@ -132,27 +139,19 @@ impl Element for Rectangle {
 
     fn start_runtime(init: RuntimeInit<Self>) {
         tokio::spawn(async move {
-            let receiver = init.get_receiver("@window").await;
             let element = init.get_receiver("@element").await;
             loop {
-                select_event! {
-                    element.recv() => {
+                match_event! {
+                    element.recv().await => {
                         _ as ElementDropped => {
                             println!("element dropped");
                             exit_app(0).await;
                             return;
                         }
-                    },
 
-                    receiver.recv() => {
                         window_event as WindowEvent, _ as () => match window_event {
-                            WindowEvent::KeyboardInput {
-                                input:
-                                    KeyboardInput {
-                                        state,
-                                        virtual_keycode: Some(VirtualKeyCode::Space),
-                                        ..
-                                    },
+                            WindowEvent::MouseInput {
+                                state,
                                 ..
                             } => {
                                 init.app.lock().await.is_force = match state {
@@ -169,7 +168,7 @@ impl Element for Rectangle {
                         },
 
                         _ as MyEvent => {},
-                    },
+                    }
                 };
             }
         });

@@ -41,9 +41,7 @@ impl RenderContent<'_> {
     pub fn set_interact_region(&mut self, region: Region) {
         self.elem_table_builder.set_interact_region_for(
             self.elem_table_index.expect(
-                "cannot set interact region, beacause the element not rendered.\
-                consider call this function when render content is generated\
-                by struct `AddChild`.",
+                "inner error: cannot set interact region, beacause the element not rendered",
             ),
             region,
         );
@@ -57,7 +55,7 @@ impl RenderContent<'_> {
             delta_time: self.delta_time,
             global_event_receiver: self.global_event_receiver,
             close_handle: self.close_handle,
-            elem_table_index: None,
+            elem_table_index: self.elem_table_index,
             elem_table_builder: self.elem_table_builder.downgrade_lifetime(),
         }
     }
@@ -72,6 +70,7 @@ impl RenderContent<'_> {
 
         let mut content = self.downgrade_lifetime();
         content.region = new_region;
+        content.elem_table_index = None;
         WildRenderContent(content)
     }
 }
