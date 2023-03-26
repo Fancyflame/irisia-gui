@@ -28,11 +28,11 @@ pub mod slot;
 
 pub trait Node: Sized {
     type Cache: Default + Send + Sync + 'static;
-    type StyleIter<'a, S>: Iterator<Item = S>
+    type Iter<'a, Item>: Iterator<Item = Item>
     where
         Self: 'a;
 
-    fn style_iter<S>(&self) -> Self::StyleIter<'_, S>
+    fn style_iter<S>(&self) -> Self::Iter<'_, S>
     where
         S: StyleReader;
 
