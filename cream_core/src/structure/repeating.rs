@@ -45,14 +45,14 @@ where
     T: Node,
 {
     type Cache = RepeatingCache<K, <T as Node>::Cache>;
-    type StyleIter<'a, S> =
-        Flatten<Map<Iter<'a, (K, T)>, fn(&'a (K, T)) -> <T as Node>::StyleIter<'a, S>>>
+    type Iter<'a, S> =
+        Flatten<Map<Iter<'a, (K, T)>, fn(&'a (K, T)) -> <T as Node>::Iter<'a, S>>>
         where
             Self: 'a;
 
     fn style_iter<'a, S>(
         &'a self,
-    ) -> Flatten<Map<Iter<(K, T)>, fn(&'a (K, T)) -> <T as Node>::StyleIter<'a, S>>>
+    ) -> Flatten<Map<Iter<(K, T)>, fn(&'a (K, T)) -> <T as Node>::Iter<'a, S>>>
     where
         S: StyleReader,
     {

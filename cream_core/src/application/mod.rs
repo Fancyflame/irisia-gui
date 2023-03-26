@@ -100,6 +100,8 @@ where
             close_handle: self.close_handle,
             elem_table_index: None,
             elem_table_builder: self.elem_table.builder(),
+            region_requested: false,
+            region_requester: None,
         });
 
         add_child.__finish_iter(&mut self.application, content, &mut move |_: (), _| {

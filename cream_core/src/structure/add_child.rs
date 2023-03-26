@@ -72,9 +72,9 @@ where
     Ch: Node,
 {
     type Cache = Option<AddChildCache<El, <Ch as Node>::Cache>>;
-    type StyleIter<'a, S> = Once<S> where Self:'a;
+    type Iter<'a, S> = Once<S> where Self:'a;
 
-    fn style_iter<S>(&self) -> Self::StyleIter<'_, S>
+    fn style_iter<S>(&self) -> Self::Iter<'_, S>
     where
         S: StyleReader,
     {
@@ -84,14 +84,14 @@ where
     fn __finish_iter<'wrc, S, F>(
         self,
         cache: &mut Self::Cache,
-        content: WildRenderContent,
+        mut wild: WildRenderContent,
         map: &mut F,
     ) -> Result<()>
     where
         F: FnMut(S, Option<Region>) -> Result<Region>,
         S: StyleReader,
     {
-        let mut content = content.0;
+        let mut content = wild.0.downgrade_lifetime();
 
         let cache = match cache {
             Some(c) => c,
@@ -127,6 +127,9 @@ where
                 .push(cache.element_event_emitter.clone()),
         );
 
+        let mut binding = |region| map(S::read_style(&self.style), region);
+        content.region_requester = Some(&mut binding);
+
         let result = cache.element.blocking_lock().render(
             self.prop,
             &self.style,
@@ -136,11 +139,10 @@ where
                 node: self.children,
                 cache: &mut cache.children_cache,
             },
-            content.downgrade_lifetime(),
-            &mut |region| map(S::read_style(&self.style), region),
+            content,
         );
 
-        content.elem_table_builder.finish();
+        wild.0.elem_table_builder.finish();
         result
     }
 }

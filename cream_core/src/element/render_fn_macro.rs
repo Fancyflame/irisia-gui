@@ -29,8 +29,8 @@ macro_rules! render_fn {
             __chan_setter: &$crate::event::EventChanSetter,
             _: $crate::structure::Slot<impl Node>,
             mut __content: $crate::element::RenderContent,
-            __map: &mut dyn FnMut(::std::option::Option<$crate::primary::Region>) -> $crate::Result<$crate::primary::Region>,
         ) -> $crate::Result<()> {
+            let __region=__content.request_drawing_region(::std::option::Option::None)?;
             $crate::structure::Node::finish(
                 $crate::build! {
                     @init(__chan_setter);
@@ -38,7 +38,7 @@ macro_rules! render_fn {
                 },
                 __cache_box,
                 __content.inherit(),
-                __map(::std::option::Option::None)?
+                __region
             )
         }
     };

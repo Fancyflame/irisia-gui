@@ -35,11 +35,26 @@ pub trait Element: Send + 'static {
         chan_setter: &EventChanSetter,
         children: Slot<impl Node>,
         content: RenderContent,
-        region_requester: &mut dyn FnMut(Option<Region>) -> Result<Region>,
     ) -> Result<()>;
+
+    fn compute_size(&self) -> (Option<Region>, FreezeElement) {
+        (None, FreezeElement::DoNotFreeze)
+    }
 
     fn start_runtime(init: RuntimeInit<Self>) {
         let _ = init;
+    }
+}
+
+#[derive(Clone, Copy)]
+pub enum FreezeElement {
+    DoNotFreeze,
+    FreezeUntilRender,
+}
+
+impl Default for FreezeElement {
+    fn default() -> Self {
+        FreezeElement::DoNotFreeze
     }
 }
 

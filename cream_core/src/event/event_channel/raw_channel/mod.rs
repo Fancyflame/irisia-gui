@@ -1,10 +1,10 @@
 use std::collections::VecDeque;
 
-use tokio::sync::{Mutex, Notify};
+use tokio::sync::{Mutex, MutexGuard, Notify};
 
 use self::{header::Header, key::ChannelKey};
 
-use super::data::Data;
+use super::{data::Data, peek::Peek};
 
 pub(crate) mod header;
 pub(crate) mod key;
@@ -36,7 +36,7 @@ impl RawChannel {
         self.notify.notify_waiters();
     }
 
-    pub async fn read(&self) -> Data {
+    async fn wait_for_validation(&self) -> MutexGuard<VecDeque<u8>> {
         loop {
             let queue = self.ring_buffer.lock().await;
             if queue.is_empty() {
@@ -45,10 +45,18 @@ impl RawChannel {
                 continue;
             }
 
-            unsafe {
-                break Data::from_buffer(queue);
-            }
+            break queue;
         }
+    }
+
+    pub async fn read(&self) -> Data {
+        let queue = self.wait_for_validation().await;
+        unsafe { Data::from_buffer(queue) }
+    }
+
+    pub async fn peek(&self) -> Peek {
+        let queue = self.wait_for_validation().await;
+        unsafe { Peek::from_buffer(queue) }
     }
 }
 

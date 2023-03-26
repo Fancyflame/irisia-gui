@@ -24,12 +24,12 @@ where
     U: Node,
 {
     type Cache = BranchCache<<T as Node>::Cache, <U as Node>::Cache>;
-    type StyleIter<'a, S> =
-        BranchIter<<T as Node>::StyleIter<'a, S>, <U as Node>::StyleIter<'a, S>>
+    type Iter<'a, S> =
+        BranchIter<<T as Node>::Iter<'a, S>, <U as Node>::Iter<'a, S>>
         where
             Self: 'a;
 
-    fn style_iter<S>(&self) -> Self::StyleIter<'_, S>
+    fn style_iter<S>(&self) -> Self::Iter<'_, S>
     where
         S: crate::style::reader::StyleReader,
     {

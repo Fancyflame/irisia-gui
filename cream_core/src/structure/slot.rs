@@ -21,11 +21,11 @@ where
     T: Node,
 {
     type Cache = ();
-    type StyleIter<'b, S> = <T as Node>::StyleIter<'b, S>
+    type Iter<'b, S> = <T as Node>::Iter<'b, S>
     where
         Self: 'b;
 
-    fn style_iter<S>(&self) -> Self::StyleIter<'_, S>
+    fn style_iter<S>(&self) -> Self::Iter<'_, S>
     where
         S: StyleReader,
     {
@@ -53,7 +53,7 @@ impl<'a, T> Slot<'a, T>
 where
     T: Node,
 {
-    pub fn style_iter<S>(&self) -> T::StyleIter<'_, S>
+    pub fn style_iter<S>(&self) -> T::Iter<'_, S>
     where
         S: StyleReader,
     {

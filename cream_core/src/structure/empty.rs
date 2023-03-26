@@ -9,7 +9,7 @@ pub struct EmptyStructure;
 
 impl Node for EmptyStructure {
     type Cache = ();
-    type StyleIter<'a, S> = Empty<S>;
+    type Iter<'a, S> = Empty<S>;
 
     fn style_iter<S>(&self) -> Empty<S>
     where

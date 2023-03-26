@@ -13,12 +13,12 @@ where
     B: Node,
 {
     type Cache = ChainCache<<A as Node>::Cache, <B as Node>::Cache>;
-    type StyleIter<'a, S> =
-        std::iter::Chain<<A as Node>::StyleIter<'a, S>, <B as Node>::StyleIter<'a, S>>
+    type Iter<'a, S> =
+        std::iter::Chain<<A as Node>::Iter<'a, S>, <B as Node>::Iter<'a, S>>
         where
             Self: 'a;
 
-    fn style_iter<S>(&self) -> Self::StyleIter<'_, S>
+    fn style_iter<S>(&self) -> Self::Iter<'_, S>
     where
         S: StyleReader,
     {

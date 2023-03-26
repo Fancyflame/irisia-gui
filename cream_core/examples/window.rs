@@ -4,13 +4,13 @@ use cream_core::{
     element::{Element, NoProps, RuntimeInit},
     event::standard::ElementDropped,
     exit_app, match_event,
-    primary::{Point, Region},
+    primary::Point,
     read_style, render_fn, select_event,
     skia_safe::{Color, Color4f, Paint, Rect},
     structure::Node,
     style,
     winit::event::{ElementState, MouseButton},
-    Event, Result,
+    Event,
 };
 use cream_macros::Style;
 
@@ -99,7 +99,6 @@ impl Element for Rectangle {
         _chan_setter: &cream_core::event::EventChanSetter,
         _children: cream_core::structure::Slot<impl Node>,
         mut content: cream_core::element::RenderContent,
-        region_requester: &mut dyn FnMut(Option<Region>) -> Result<Region>,
     ) -> cream_core::Result<()> {
         read_style!(styles => {
             w: Option<StyleWidth>,
@@ -112,7 +111,7 @@ impl Element for Rectangle {
             h.unwrap_or(StyleHeight(50.0)),
         );
 
-        let region = region_requester(None)?;
+        let region = content.request_drawing_region(None)?;
 
         content.set_interact_region((region.0, region.0 + Point(w.0 as _, h.0 as _)));
 

@@ -1,6 +1,6 @@
 use crate::event::EventDispatcher;
 
-use super::{data::Data, raw_channel::RawChannel};
+use super::{data::Data, peek::Peek, raw_channel::RawChannel};
 use std::{future::pending, sync::Arc};
 
 #[derive(Clone)]
@@ -33,6 +33,13 @@ impl EventReceiver {
     pub async fn recv(&self) -> Data {
         match &self.0 {
             Some(inner) => inner.channel.read().await,
+            None => pending().await,
+        }
+    }
+
+    pub async fn peek(&self) -> Peek {
+        match &self.0 {
+            Some(inner) => inner.channel.peek().await,
             None => pending().await,
         }
     }
