@@ -2,10 +2,11 @@ use std::sync::Arc;
 
 use crate::event::{EventChanGetter, EventChanSetter, EventEmitter, EventReceiver};
 use crate::primary::Region;
+use crate::structure::StructureBuilder;
 use crate::{style::StyleContainer, Result};
 use crate::{CacheBox, Event};
 
-use crate::structure::{slot::Slot, Node};
+use crate::structure::slot::Slot;
 
 use cream_backend::window_handle::close_handle::CloseHandle;
 pub use render_content::RenderContent;
@@ -31,30 +32,19 @@ pub trait Element: Send + 'static {
         &mut self,
         props: Self::Props<'_>,
         styles: &impl StyleContainer,
-        cache_box: &mut CacheBox,
+        drawing_region: Region,
+        cache_box_for_children: &mut CacheBox,
         chan_setter: &EventChanSetter,
-        children: Slot<impl Node>,
+        children: Slot<impl StructureBuilder>,
         content: RenderContent,
     ) -> Result<()>;
 
-    fn compute_size(&self) -> (Option<Region>, FreezeElement) {
-        (None, FreezeElement::DoNotFreeze)
+    fn compute_size(&self) -> (Option<u32>, Option<u32>) {
+        (None, None)
     }
 
     fn start_runtime(init: RuntimeInit<Self>) {
         let _ = init;
-    }
-}
-
-#[derive(Clone, Copy)]
-pub enum FreezeElement {
-    DoNotFreeze,
-    FreezeUntilRender,
-}
-
-impl Default for FreezeElement {
-    fn default() -> Self {
-        FreezeElement::DoNotFreeze
     }
 }
 

@@ -1,6 +1,7 @@
 use std::rc::Rc;
 
 use proc_macro2::TokenStream;
+use quote::quote;
 use syn::{parse::ParseStream, Error, Expr, Result};
 
 use crate::expr::{
@@ -39,7 +40,10 @@ pub fn build(input: ParseStream) -> Result<TokenStream> {
 
     let mut stmts_expr = TokenStream::new();
     stmts_to_tokens(&mut stmts_expr, rest);
-    Ok(stmts_expr)
+    Ok(quote! {{
+        use cream_core::structure::StructureBuilder;
+        #stmts_expr
+    }})
 }
 
 fn walk_tree(root_exprs: &mut [StateExpr<ElementCodegen>], event_src: &Rc<Expr>) -> Result<()> {

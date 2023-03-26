@@ -25,21 +25,20 @@ macro_rules! render_fn {
             $slf: &mut Self,
             _: Self::Props<'_>,
             _: &impl style::StyleContainer,
-            __cache_box: &mut $crate::CacheBox,
+            __region: $crate::primary::Region,
+            __cache_box_for_children: &mut $crate::CacheBox,
             __chan_setter: &$crate::event::EventChanSetter,
-            _: $crate::structure::Slot<impl Node>,
+            _: $crate::structure::Slot<impl $crate::structure::StructureBuilder>,
             mut __content: $crate::element::RenderContent,
         ) -> $crate::Result<()> {
-            let __region=__content.request_drawing_region(::std::option::Option::None)?;
-            $crate::structure::Node::finish(
+            $crate::structure::StructureBuilder::into_rendering(
                 $crate::build! {
                     @init(__chan_setter);
                     $($tt)*
                 },
-                __cache_box,
+                __cache_box_for_children,
                 __content.inherit(),
-                __region
-            )
+            ).finish(__region)
         }
     };
 }

@@ -4,10 +4,10 @@ use std::{
     sync::Arc,
 };
 
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, OwnedMutexGuard};
 
 use crate::{
-    element::{render_content::WildRenderContent, RuntimeInit},
+    element::{RenderContent, RuntimeInit},
     event::{
         event_channel::channel_map::{channel_map, getter::ELEMENT_EVENT_CHANNEL},
         standard::ElementDropped,
@@ -18,7 +18,7 @@ use crate::{
     CacheBox, Result,
 };
 
-use super::{slot::Slot, Element, Node};
+use super::{slot::Slot, Element, RenderingNode};
 
 pub struct AddChildCache<El, Cc> {
     element: Arc<Mutex<El>>,
@@ -37,6 +37,7 @@ where
     style: Sty,
     event_emitter: EventEmitter,
     children: Ch,
+    lock_element: Option<((Option<u32>, Option<u32>), OwnedMutexGuard<El>)>,
 }
 
 pub fn add_child<'a, El, Sty, Ch>(
@@ -54,45 +55,21 @@ where
         style,
         event_emitter,
         children,
+        lock_element: None,
     }
 }
 
-/*
-    El: element
-    Pl: proxy layer
-    FProp: function that returns props
-    Sty: style container
-    Ls: event listeners
-    Ch: children node
-*/
-impl<'prop, El, Sty, Ch> Node for AddChild<'prop, El, Sty, Ch>
+impl<'prop, El, Sty, Ch> RenderingNode for AddChild<'prop, El, Sty, Ch>
 where
     El: Element,
     Sty: StyleContainer,
-    Ch: Node,
+    Ch: RenderingNode,
 {
-    type Cache = Option<AddChildCache<El, <Ch as Node>::Cache>>;
-    type Iter<'a, S> = Once<S> where Self:'a;
+    type Cache = Option<AddChildCache<El, <Ch as RenderingNode>::Cache>>;
+    type StyleIter<'a, S> = Once<S> where Self:'a;
+    type RegionIter<'a> = Once<(Option<u32>,Option<u32>)> where Self:'a;
 
-    fn style_iter<S>(&self) -> Self::Iter<'_, S>
-    where
-        S: StyleReader,
-    {
-        iter::once(S::read_style(&self.style))
-    }
-
-    fn __finish_iter<'wrc, S, F>(
-        self,
-        cache: &mut Self::Cache,
-        mut wild: WildRenderContent,
-        map: &mut F,
-    ) -> Result<()>
-    where
-        F: FnMut(S, Option<Region>) -> Result<Region>,
-        S: StyleReader,
-    {
-        let mut content = wild.0.downgrade_lifetime();
-
+    fn prepare_for_rendering(&mut self, cache: &mut Self::Cache, content: RenderContent) {
         let cache = match cache {
             Some(c) => c,
             c @ None => {
@@ -102,7 +79,7 @@ where
                 El::start_runtime(RuntimeInit {
                     _prevent_new: (),
                     app: el.clone(),
-                    event_emitter: self.event_emitter,
+                    event_emitter: self.event_emitter.clone(),
                     channels: getter,
                     close_handle: content.close_handle,
                 });
@@ -121,18 +98,47 @@ where
             }
         };
 
+        let guard = cache.element.clone().blocking_lock_owned();
+        self.lock_element = Some((guard.compute_size(), guard))
+    }
+
+    fn style_iter<S>(&self) -> Self::StyleIter<'_, S>
+    where
+        S: StyleReader,
+    {
+        iter::once(S::read_style(&self.style))
+    }
+
+    fn region_iter(&self) -> Self::RegionIter<'_> {
+        iter::once(self.lock_element.as_ref().unwrap().0)
+    }
+
+    fn finish<S, F>(
+        self,
+        cache: &mut Self::Cache,
+        mut raw_content: RenderContent,
+        map: &mut F,
+    ) -> Result<()>
+    where
+        F: FnMut(S, (Option<u32>, Option<u32>)) -> Result<Region>,
+        S: StyleReader,
+    {
+        let cache = cache.as_mut().unwrap();
+        let (requested_region, mut el) = self.lock_element.unwrap();
+        let mut content = raw_content.downgrade_lifetime();
+
         content.elem_table_index = Some(
             content
                 .elem_table_builder
                 .push(cache.element_event_emitter.clone()),
         );
 
-        let mut binding = |region| map(S::read_style(&self.style), region);
-        content.region_requester = Some(&mut binding);
+        let region = map(S::read_style(&self.style), requested_region)?;
 
-        let result = cache.element.blocking_lock().render(
+        let result = el.render(
             self.prop,
             &self.style,
+            region,
             &mut cache.cache_box,
             &cache.chan_setter,
             Slot {
@@ -142,7 +148,7 @@ where
             content,
         );
 
-        wild.0.elem_table_builder.finish();
+        raw_content.elem_table_builder.finish();
         result
     }
 }

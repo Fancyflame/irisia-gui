@@ -1,80 +1,73 @@
-use anyhow::anyhow;
-
-use crate::{
-    element::render_content::WildRenderContent, primary::Region, style::reader::StyleReader,
-    CacheBox, Result,
-};
-
-use self::chain::Chain;
-
-use crate::element::Element;
-
-pub use self::{
-    add_child::add_child,
-    branch::Branch,
-    empty::EmptyStructure,
-    repeating::Repeating,
-    slot::{ApplySlot, Slot},
-};
-
 pub mod add_child;
 pub mod branch;
 pub mod cache_box;
 pub mod chain;
 pub mod empty;
-mod fn_helper;
+mod node;
 pub mod repeating;
 pub mod slot;
 
-pub trait Node: Sized {
-    type Cache: Default + Send + Sync + 'static;
-    type Iter<'a, Item>: Iterator<Item = Item>
-    where
-        Self: 'a;
+use anyhow::anyhow;
 
-    fn style_iter<S>(&self) -> Self::Iter<'_, S>
-    where
-        S: StyleReader;
+use crate::{
+    element::{render_content::WildRenderContent, Element, RenderContent},
+    primary::Region,
+    style::reader::StyleReader,
+    CacheBox, Result,
+};
 
-    fn __finish_iter<S, F>(
-        self,
-        cache: &mut Self::Cache,
-        content: WildRenderContent,
-        map: &mut F,
-    ) -> Result<()>
-    where
-        F: FnMut(S, Option<Region>) -> Result<Region>,
-        S: StyleReader;
+pub use self::{
+    add_child::add_child, branch::Branch, empty::EmptyStructure, repeating::Repeating, slot::Slot,
+};
+use self::{chain::Chain, node::RenderingNode};
 
-    fn finish_iter<S, F>(
-        self,
-        cache_box: &mut CacheBox,
-        content: WildRenderContent,
-        mut map: F,
-    ) -> Result<()>
+pub struct IntoRendering<'a, T: RenderingNode> {
+    node: T,
+    cache: &'a mut T::Cache,
+    content: RenderContent<'a>,
+}
+
+impl<'a, T> IntoRendering<'a, T>
+where
+    T: RenderingNode,
+{
+    pub fn style_iter<S>(&self) -> T::StyleIter<'_, S>
     where
-        F: FnMut(S, Option<Region>) -> Result<Region>,
         S: StyleReader,
     {
-        self.__finish_iter(cache_box.get_cache(), content, &mut map)
+        self.node.style_iter()
     }
 
-    fn finish(
-        self,
-        cache_box: &mut CacheBox,
-        content: WildRenderContent,
-        region: Region,
-    ) -> Result<()>
+    pub fn region_iter(&self) -> T::RegionIter<'_> {
+        self.node.region_iter()
+    }
+
+    pub fn finish_iter<S, F>(self, mut map: F) -> Result<()>
     where
-        Self: Sized,
-        Self::Cache: Send + Sync,
+        F: FnMut(S, (Option<u32>, Option<u32>)) -> Result<Region>,
+        S: StyleReader,
     {
+        self.node.finish(self.cache, self.content, &mut map)
+    }
+
+    pub fn finish(self, region: Region) -> Result<()> {
         let mut region = Some(region);
-        self.__finish_iter(cache_box.get_cache(), content, &mut move |(), _| {
+        self.finish_iter(move |(), _| {
             region
                 .take()
                 .ok_or_else(|| anyhow!("only one element can be rendered"))
         })
+    }
+}
+
+impl<T: Sized + RenderingNode> StructureBuilder for T {}
+pub trait StructureBuilder: Sized + RenderingNode {
+    fn into_rendering<'a>(
+        self,
+        cache_box: &'a mut CacheBox,
+        content: WildRenderContent<'a>,
+    ) -> IntoRendering<'a, Self> {
+        into_rendering_raw(self, cache_box.get_cache(), content)
     }
 
     fn chain<T>(self, other: T) -> Chain<T, Self>
@@ -82,5 +75,19 @@ pub trait Node: Sized {
         Self: Sized,
     {
         Chain(other, self)
+    }
+}
+
+pub(crate) fn into_rendering_raw<'a, T: StructureBuilder>(
+    mut node: T,
+    cache: &'a mut T::Cache,
+    mut content: WildRenderContent<'a>,
+) -> IntoRendering<'a, T> {
+    node.prepare_for_rendering(cache, content.0.downgrade_lifetime());
+
+    IntoRendering {
+        node,
+        cache,
+        content: content.0,
     }
 }

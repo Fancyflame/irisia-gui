@@ -1,49 +1,47 @@
+use crate::{primary::Region, style::reader::StyleReader, Result};
+
 use super::*;
 
-pub struct ApplySlot<'a, T>
+impl<'a, T> RenderingNode for Slot<'a, T>
 where
-    T: Node,
-{
-    slot: Slot<'a, T>,
-}
-
-impl<'a, T> ApplySlot<'a, T>
-where
-    T: Node,
-{
-    pub fn new(slot: Slot<'a, T>) -> Self {
-        ApplySlot { slot }
-    }
-}
-
-impl<'a, T> Node for ApplySlot<'a, T>
-where
-    T: Node,
+    T: RenderingNode,
 {
     type Cache = ();
-    type Iter<'b, S> = <T as Node>::Iter<'b, S>
+    type StyleIter<'b, S> = T::StyleIter<'b, S>
     where
         Self: 'b;
 
-    fn style_iter<S>(&self) -> Self::Iter<'_, S>
+    type RegionIter<'b> = T::RegionIter<'b>
     where
-        S: StyleReader,
-    {
-        self.slot.node.style_iter()
+        Self:'b;
+
+    fn prepare_for_rendering(&mut self, _: &mut Self::Cache, content: RenderContent) {
+        self.node.prepare_for_rendering(self.cache, content);
     }
 
-    fn __finish_iter<S, F>(self, _: &mut (), content: WildRenderContent, map: &mut F) -> Result<()>
+    fn style_iter<S>(&self) -> Self::StyleIter<'_, S>
     where
-        F: FnMut(S, Option<Region>) -> Result<Region>,
         S: StyleReader,
     {
-        self.slot.finish(content, map)
+        self.node.style_iter()
+    }
+
+    fn region_iter(&self) -> Self::RegionIter<'_> {
+        self.node.region_iter()
+    }
+
+    fn finish<S, F>(self, _: &mut (), content: RenderContent, map: &mut F) -> Result<()>
+    where
+        F: FnMut(S, (Option<u32>, Option<u32>)) -> Result<Region>,
+        S: StyleReader,
+    {
+        self.finish(content, map)
     }
 }
 
 pub struct Slot<'a, T>
 where
-    T: Node,
+    T: RenderingNode,
 {
     pub(crate) node: T,
     pub(crate) cache: &'a mut T::Cache,
@@ -51,20 +49,20 @@ where
 
 impl<'a, T> Slot<'a, T>
 where
-    T: Node,
+    T: RenderingNode,
 {
-    pub fn style_iter<S>(&self) -> T::Iter<'_, S>
+    pub fn style_iter<S>(&self) -> T::StyleIter<'_, S>
     where
         S: StyleReader,
     {
         self.node.style_iter()
     }
 
-    fn finish<S, F>(self, content: WildRenderContent, map: &mut F) -> Result<()>
+    fn finish<S, F>(self, content: RenderContent, map: &mut F) -> Result<()>
     where
-        F: FnMut(S, Option<Region>) -> Result<Region>,
+        F: FnMut(S, (Option<u32>, Option<u32>)) -> Result<Region>,
         S: StyleReader,
     {
-        self.node.__finish_iter(self.cache, content, map)
+        self.node.finish(self.cache, content, map)
     }
 }

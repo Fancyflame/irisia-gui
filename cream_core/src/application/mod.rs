@@ -1,6 +1,5 @@
 use std::{sync::Arc, time::Duration};
 
-use anyhow::anyhow;
 use cream_backend::{
     skia_safe::Canvas,
     window_handle::{close_handle::CloseHandle, WindowBuilder, WindowHandle},
@@ -17,7 +16,7 @@ use crate::{
     primary::Point,
     structure::{
         add_child::{self, AddChildCache},
-        EmptyStructure, Node,
+        into_rendering_raw, EmptyStructure,
     },
     style::NoStyle,
     Result,
@@ -90,7 +89,7 @@ where
             EmptyStructure,
         );
 
-        let mut region = Some((Point(0, 0), Point(size.0, size.1)));
+        let region = (Point(0, 0), Point(size.0, size.1));
 
         let content = WildRenderContent(RenderContent {
             canvas,
@@ -100,15 +99,9 @@ where
             close_handle: self.close_handle,
             elem_table_index: None,
             elem_table_builder: self.elem_table.builder(),
-            region_requested: false,
-            region_requester: None,
         });
 
-        add_child.__finish_iter(&mut self.application, content, &mut move |_: (), _| {
-            region.take().ok_or_else(|| {
-                anyhow!("at most one element is allowed to be rendered as root of the window")
-            })
-        })
+        into_rendering_raw(add_child, &mut self.application, content).finish(region)
     }
 
     fn on_window_event(&mut self, event: WindowEvent) {

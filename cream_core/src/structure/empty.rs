@@ -1,15 +1,18 @@
 use std::iter::Empty;
 
-use crate::{style::reader::StyleReader, Result};
+use crate::{element::RenderContent, style::reader::StyleReader, Result};
 
-use super::Node;
+use super::RenderingNode;
 
 #[derive(Clone, Copy)]
 pub struct EmptyStructure;
 
-impl Node for EmptyStructure {
+impl RenderingNode for EmptyStructure {
     type Cache = ();
-    type Iter<'a, S> = Empty<S>;
+    type StyleIter<'a, S> = Empty<S>;
+    type RegionIter<'a> = Empty<(Option<u32>, Option<u32>)>;
+
+    fn prepare_for_rendering(&mut self, _: &mut Self::Cache, _: RenderContent) {}
 
     fn style_iter<S>(&self) -> Empty<S>
     where
@@ -18,14 +21,13 @@ impl Node for EmptyStructure {
         std::iter::empty()
     }
 
-    fn __finish_iter<S, F>(
-        self,
-        _: &mut Self::Cache,
-        _: crate::element::render_content::WildRenderContent,
-        _: &mut F,
-    ) -> Result<()>
+    fn region_iter(&self) -> Self::RegionIter<'_> {
+        std::iter::empty()
+    }
+
+    fn finish<S, F>(self, _: &mut Self::Cache, _: RenderContent, _: &mut F) -> Result<()>
     where
-        F: FnMut(S, Option<crate::primary::Region>) -> Result<crate::primary::Region>,
+        F: FnMut(S, (Option<u32>, Option<u32>)) -> Result<crate::primary::Region>,
         S: StyleReader,
     {
         Ok(())

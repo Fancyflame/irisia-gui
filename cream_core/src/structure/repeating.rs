@@ -7,9 +7,9 @@ use std::{
 
 use smallvec::SmallVec;
 
-use crate::{style::reader::StyleReader, Result};
+use crate::{element::RenderContent, style::reader::StyleReader, Result};
 
-use super::Node;
+use super::RenderingNode;
 
 struct CacheUnit<T> {
     value: T,
@@ -39,48 +39,35 @@ impl<K, T> Repeating<K, T> {
     }
 }
 
-impl<K, T> Node for Repeating<K, T>
+impl<K, T> RenderingNode for Repeating<K, T>
 where
     K: Clone + Hash + Eq + Send + Sync + 'static,
-    T: Node,
+    T: RenderingNode,
 {
-    type Cache = RepeatingCache<K, <T as Node>::Cache>;
-    type Iter<'a, S> =
-        Flatten<Map<Iter<'a, (K, T)>, fn(&'a (K, T)) -> <T as Node>::Iter<'a, S>>>
+    type Cache = RepeatingCache<K, T::Cache>;
+
+    type StyleIter<'a, S> =
+        Flatten<Map<Iter<'a, (K, T)>, fn(&'a (K, T)) -> T::StyleIter<'a, S>>>
         where
             Self: 'a;
 
-    fn style_iter<'a, S>(
-        &'a self,
-    ) -> Flatten<Map<Iter<(K, T)>, fn(&'a (K, T)) -> <T as Node>::Iter<'a, S>>>
-    where
-        S: StyleReader,
-    {
-        let func: fn(&'a (_, T)) -> _ = |(_, x)| x.style_iter::<S>();
-        self.nodes.iter().map(func).flatten()
-    }
+    type RegionIter<'a> =
+        Flatten<Map<Iter<'a, (K, T)>, fn(&'a (K, T)) -> T::RegionIter<'a>>>
+        where
+            Self: 'a;
 
-    fn __finish_iter<S, F>(
-        self,
-        cache: &mut Self::Cache,
-        mut content: crate::element::render_content::WildRenderContent,
-        map: &mut F,
-    ) -> crate::Result<()>
-    where
-        F: FnMut(S, Option<crate::primary::Region>) -> Result<crate::primary::Region>,
-        S: StyleReader,
-    {
-        for (k, x) in self.nodes {
-            match cache.0.get_mut(&k) {
+    fn prepare_for_rendering(&mut self, cache: &mut Self::Cache, mut content: RenderContent) {
+        for (k, x) in &mut self.nodes {
+            match cache.0.get_mut(k) {
                 Some(c) => {
                     c.alive_signal = true;
-                    x.__finish_iter(&mut c.value, content.downgrade_lifetime(), map)?
+                    x.prepare_for_rendering(&mut c.value, content.downgrade_lifetime())
                 }
                 None => {
                     let mut value = T::Cache::default();
-                    x.__finish_iter(&mut value, content.downgrade_lifetime(), map)?;
+                    x.prepare_for_rendering(&mut value, content.downgrade_lifetime());
                     cache.0.insert(
-                        k,
+                        k.clone(),
                         CacheUnit {
                             value,
                             alive_signal: true,
@@ -88,6 +75,38 @@ where
                     );
                 }
             }
+        }
+    }
+
+    fn style_iter<'a, S>(&'a self) -> Self::StyleIter<'a, S>
+    where
+        S: StyleReader,
+    {
+        let func: fn(&'a (_, T)) -> _ = |(_, x)| x.style_iter::<S>();
+        self.nodes.iter().map(func).flatten()
+    }
+
+    fn region_iter<'a>(&'a self) -> Self::RegionIter<'a> {
+        let func: fn(&'a (_, T)) -> _ = |(_, x)| x.region_iter();
+        self.nodes.iter().map(func).flatten()
+    }
+
+    fn finish<S, F>(
+        self,
+        cache: &mut Self::Cache,
+        mut content: RenderContent,
+        map: &mut F,
+    ) -> crate::Result<()>
+    where
+        F: FnMut(S, (Option<u32>, Option<u32>)) -> Result<crate::primary::Region>,
+        S: StyleReader,
+    {
+        for (k, x) in self.nodes {
+            x.finish(
+                &mut cache.0.get_mut(&k).unwrap().value,
+                content.downgrade_lifetime(),
+                map,
+            )?;
         }
 
         cache.0.retain(|_, cache_unit| {

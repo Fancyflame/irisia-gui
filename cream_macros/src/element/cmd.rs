@@ -1,4 +1,4 @@
-use quote::{quote, ToTokens};
+use quote::ToTokens;
 use syn::{parenthesized, parse::Parse, punctuated::Punctuated, token::Paren, Expr, Token};
 
 pub enum ElementCommand {
@@ -13,10 +13,7 @@ pub struct InitCommand {
 impl ToTokens for ElementCommand {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         match self {
-            Self::Slot(ex) => quote! {
-                cream_core::structure::ApplySlot::new(#ex)
-            }
-            .to_tokens(tokens),
+            Self::Slot(ex) => ex.to_tokens(tokens),
             Self::Init(_) => unreachable!(),
         }
     }
