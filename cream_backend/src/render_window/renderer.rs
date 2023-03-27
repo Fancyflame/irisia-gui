@@ -1,5 +1,11 @@
+#[cfg(feature = "fps_recorder")]
+use std::{
+    sync::{atomic::AtomicU16, Arc},
+    time::Duration,
+};
+
 use anyhow::{anyhow, Result};
-use pixels::{Pixels, SurfaceTexture};
+use pixels::{wgpu::BlendState, Pixels, PixelsBuilder, SurfaceTexture};
 use skia_safe::{Canvas, Color, ColorSpace, ColorType, ImageInfo, Surface};
 use winit::dpi::PhysicalSize;
 
@@ -10,19 +16,41 @@ pub struct Renderer {
     surface: Surface,
     output_image_info: ImageInfo,
     size: PhysicalSize<u32>,
+    size2x: (u32, u32),
+    #[cfg(feature = "fps_recorder")]
+    counter: Arc<AtomicU16>,
+}
+
+#[cfg(feature = "fps_recorder")]
+fn fps_recorder() -> Arc<AtomicU16> {
+    let counter = Arc::new(AtomicU16::new(0));
+    let counter_cloned = counter.clone();
+
+    std::thread::spawn(move || loop {
+        std::thread::sleep(Duration::from_secs(2));
+        println!(
+            "{}fps",
+            counter.swap(0, std::sync::atomic::Ordering::Relaxed) / 2
+        );
+    });
+    counter_cloned
 }
 
 impl Renderer {
     pub fn new(window: &WinitWindow) -> Result<Self> {
         let PhysicalSize { width, height } = window.inner_size();
 
-        let pixels = Pixels::new(width, height, SurfaceTexture::new(width, height, &window));
+        let (w2x, h2x) = to_size2x(window.inner_size());
 
-        let surface = Surface::new_raster_n32_premul((width as _, height as _))
-            .ok_or_else(|| anyhow!("no surface"))?;
+        let pixels = PixelsBuilder::new(width, height, SurfaceTexture::new(width, height, &window))
+            .blend_state(BlendState::REPLACE)
+            .build()?;
+
+        let surface = Surface::new_raster_n32_premul((w2x as _, h2x as _))
+            .ok_or_else(|| anyhow!("skia surface not found"))?;
 
         Ok(Renderer {
-            window_pixels: pixels?,
+            window_pixels: pixels,
             output_image_info: ImageInfo::new(
                 (width as _, height as _),
                 ColorType::RGBA8888,
@@ -31,6 +59,10 @@ impl Renderer {
             ),
             surface,
             size: window.inner_size(),
+            size2x: (w2x, h2x),
+
+            #[cfg(feature = "fps_recorder")]
+            counter: fps_recorder(),
         })
     }
 
@@ -52,29 +84,34 @@ impl Renderer {
             return Err(anyhow!("cannot read pixels from canvas"));
         }
 
-        self.window_pixels.render()?;
+        self.window_pixels
+            .render_with(|encoder, render_target, context| {
+                context.scaling_renderer.render(encoder, render_target);
+                Ok(())
+            })?;
 
+        #[cfg(feature = "fps_recorder")]
+        self.counter
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         Ok(())
     }
 
     pub fn resize(&mut self, size: PhysicalSize<u32>) -> Result<()> {
-        if self.size == size {
+        if self.size == size || size.width == 0 || size.height == 0 {
             return Ok(());
         }
 
         let PhysicalSize { width, height } = size;
 
-        let size2x = (
-            (width as f32 / 256.0).ceil() as i32 * 256,
-            (height as f32 / 256.0).ceil() as i32 * 256,
-        );
+        let size2x = to_size2x(size);
 
         self.window_pixels.resize_surface(width, height)?;
-        self.window_pixels.resize_buffer(width as _, height as _)?;
+        self.window_pixels.resize_buffer(width, height)?;
 
-        if (self.surface.width(), self.surface.height()) != size2x {
-            self.surface = Surface::new_raster_n32_premul((size2x.0, size2x.1))
-                .ok_or_else(|| anyhow!("no surface"))?;
+        if size2x != self.size2x {
+            self.size2x = size2x;
+            self.surface = Surface::new_raster_n32_premul((size2x.0 as _, size2x.1 as _))
+                .ok_or_else(|| anyhow!("skia surface not found"))?;
         }
 
         self.output_image_info = self
@@ -85,4 +122,12 @@ impl Renderer {
 
         Ok(())
     }
+}
+
+fn to_size2x(size: PhysicalSize<u32>) -> (u32, u32) {
+    let PhysicalSize { width, height } = size;
+    (
+        (width as f32 / 256.0).ceil() as u32 * 256,
+        (height as f32 / 256.0).ceil() as u32 * 256,
+    )
 }

@@ -42,7 +42,7 @@ impl Element for App {
                 Rectangle {
                     +style: style!{
                         width: 100.0;
-                        height: 100.0;
+                        height: 100.0 + 40.0 * index as f32;
                         color: color.clone();
                     }
                 }
