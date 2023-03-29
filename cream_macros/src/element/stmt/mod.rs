@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use syn::{Expr, Ident, LitStr, Type};
+use syn::{Expr, Ident, Type};
 
 use crate::{element::ElementCodegen, expr::StateExpr};
 
@@ -12,14 +12,14 @@ pub struct ElementStmt {
     props: Vec<(Ident, Expr)>,
     rename: Option<Ident>,
     style: Expr,
-    event_setter: Option<Rc<Expr>>,
-    event_listener_channel: Option<(LitStr, Option<Expr>)>,
+    event_dispatcher: Option<Rc<Expr>>,
+    event_emitting_key: Option<Expr>,
     children: Vec<StateExpr<ElementCodegen>>,
 }
 
 impl ElementStmt {
-    pub fn set_event_src(&mut self, expr: Rc<Expr>) {
-        self.event_setter = Some(expr);
+    pub fn set_event_dispatcher(&mut self, expr: Rc<Expr>) {
+        self.event_dispatcher = Some(expr);
     }
 
     pub fn children_mut(&mut self) -> &mut [StateExpr<ElementCodegen>] {

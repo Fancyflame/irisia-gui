@@ -1,6 +1,13 @@
+use crate as cream_core;
 use crate::Event;
 
-#[derive(Clone, Copy)]
-pub struct ElementDropped;
+use super::EventDispatcher;
 
-impl Event for ElementDropped {}
+/// Declares the element won't be used anymore, but may not dropped immediately
+/// due to strong references. This event will be emitted only
+/// once, when received, tasks around this element should handle quiting.
+#[derive(Event, Clone, Copy)]
+pub struct ElementAbondoned;
+
+#[derive(Event, Clone)]
+pub struct EventDispatcherCreated(pub EventDispatcher);

@@ -1,6 +1,6 @@
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
-use syn::{Expr, Ident, LitStr, Type};
+use syn::{Expr, Ident, Type};
 
 use crate::expr::state_block::stmts_to_tokens;
 
@@ -13,8 +13,8 @@ impl ToTokens for ElementStmt {
             props,
             rename,
             style,
-            event_setter,
-            event_listener_channel,
+            event_dispatcher,
+            event_emitting_key,
             children,
         } = self;
 
@@ -26,8 +26,8 @@ impl ToTokens for ElementStmt {
         }
 
         let event_listeners = gen_event_listeners(
-            event_setter.as_ref().map(|x| x.as_ref()),
-            event_listener_channel,
+            event_dispatcher.as_ref().map(|x| x.as_ref()),
+            event_emitting_key.as_ref(),
         );
 
         let children = {
@@ -62,23 +62,19 @@ fn gen_props(element: &Type, props: &[(Ident, Expr)]) -> TokenStream {
 }
 
 fn gen_event_listeners(
-    event_setter: Option<&Expr>,
-    listener: &Option<(LitStr, Option<Expr>)>,
+    event_dispatcher: Option<&Expr>,
+    event_emitting_key: Option<&Expr>,
 ) -> TokenStream {
-    match (event_setter, listener) {
-        (_, None) => quote!(cream_core::event::EventEmitter::new_no_receiver()),
+    match (event_dispatcher, event_emitting_key) {
+        (_, None) => quote!(cream_core::event::EventEmitter::new_empty()),
 
-        (Some(event_setter), Some((name, maybe_with_key))) => match maybe_with_key {
-            None => quote!((#event_setter).to_emitter(#name)),
-            Some(with_key) => quote!((#event_setter).to_emitter_with_key(#name, #with_key)),
-        },
+        (Some(disp), Some(key)) => quote!((#disp).emitter(#key)),
 
-        (None, Some((name, _))) => {
-            let string = format!(
-                "channel `{}` cannot be mount, because no event setter provided",
-                name.value()
-            );
-            quote!(::std::compile_error!(#string))
+        (None, Some(_)) => {
+            quote!(::std::compile_error!(
+                "the event emitter cannot be sent to the target element, \
+                because there is no event dispatcher provided"
+            ))
         }
     }
 }

@@ -1,17 +1,16 @@
 use expr::state_block::{parse_stmts, stmts_to_tokens};
-use match_data::ExprMatchData;
 use proc_macro::TokenStream;
 use quote::quote;
 use style::StyleCodegen;
 use syn::{
     parse::{ParseStream, Parser},
-    parse_macro_input, DeriveInput,
+    parse_macro_input, DeriveInput, ItemFn,
 };
 
 mod derive_style;
 mod element;
 pub(crate) mod expr;
-mod match_data;
+mod main_macro;
 mod style;
 
 #[proc_macro]
@@ -40,6 +39,15 @@ pub fn style(input: TokenStream) -> TokenStream {
     .into()
 }
 
+#[proc_macro_attribute]
+pub fn main(_: TokenStream, input: TokenStream) -> TokenStream {
+    let item_fn = parse_macro_input!(input as ItemFn);
+    match main_macro::main_macro(item_fn) {
+        Ok(t) => t.into(),
+        Err(e) => e.to_compile_error().into(),
+    }
+}
+
 #[proc_macro_derive(Event)]
 pub fn derive_event(input: TokenStream) -> TokenStream {
     let DeriveInput {
@@ -62,10 +70,4 @@ pub fn derive_style(input: TokenStream) -> TokenStream {
         Ok(t) => t.into(),
         Err(e) => e.to_compile_error().into(),
     }
-}
-
-#[proc_macro]
-pub fn match_event(input: TokenStream) -> TokenStream {
-    let match_data = parse_macro_input!(input as ExprMatchData);
-    match_data::expand(match_data).into()
 }

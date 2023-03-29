@@ -63,7 +63,7 @@ fn walk_tree(root_exprs: &mut [StateExpr<ElementCodegen>], event_src: &Rc<Expr>)
 fn proc_one(expr: &mut StateExpr<ElementCodegen>, event_src: &Rc<Expr>) -> Result<()> {
     match expr {
         StateExpr::Raw(r) => {
-            r.set_event_src(event_src.clone());
+            r.set_event_dispatcher(event_src.clone());
             walk_tree(r.children_mut(), event_src)?;
         }
 

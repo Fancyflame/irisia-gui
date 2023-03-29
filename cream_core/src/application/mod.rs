@@ -3,9 +3,9 @@ use std::{sync::Arc, time::Duration};
 use cream_backend::{
     skia_safe::Canvas,
     window_handle::{close_handle::CloseHandle, WindowBuilder, WindowHandle},
+    winit::dpi::PhysicalPosition,
     AppWindow, WindowEvent, WinitWindow,
 };
-use tokio::{sync::mpsc, task::JoinHandle};
 
 use crate::{
     element::{
@@ -22,7 +22,7 @@ use crate::{
     Result,
 };
 
-use self::{elem_table::ElemTable, event::emit_to_elements};
+use self::elem_table::ElemTable;
 
 pub(crate) mod elem_table;
 pub mod event;
@@ -38,12 +38,9 @@ where
 pub struct Application<El> {
     window: Arc<WinitWindow>,
     application: Option<AddChildCache<El, ()>>,
-    global_event_dispatcher: EventDispatcher,
+    window_event_dispatcher: EventDispatcher,
     elem_table: ElemTable,
-    event_sender: mpsc::UnboundedSender<WindowEvent>,
-    event_sender_handle: JoinHandle<()>,
     close_handle: CloseHandle,
-    cursor_pos: Point,
 }
 
 impl<El> AppWindow for Application<El>
@@ -51,33 +48,12 @@ where
     El: Element,
 {
     fn on_create(window: &std::sync::Arc<WinitWindow>, close_handle: CloseHandle) -> Result<Self> {
-        let dispatcher = EventDispatcher::new();
-        let (tx, mut rx) = mpsc::unbounded_channel();
-
-        let event_sender_handle = {
-            let dispatcher = dispatcher.clone();
-            tokio::spawn(async move {
-                let emitter = dispatcher.get_emitter().await;
-                loop {
-                    let event = match rx.recv().await {
-                        Some(event) => event,
-                        None => return,
-                    };
-
-                    emitter.emit(&event).await;
-                }
-            })
-        };
-
         Ok(Application {
             window: window.clone(),
             application: None,
-            global_event_dispatcher: dispatcher,
+            window_event_dispatcher: EventDispatcher::new(),
             elem_table: ElemTable::new(),
-            event_sender: tx,
-            event_sender_handle,
             close_handle,
-            cursor_pos: Default::default(),
         })
     }
 
@@ -85,7 +61,7 @@ where
         let add_child = add_child::add_child::<El, _, _>(
             Default::default(),
             NoStyle,
-            EventEmitter::new_no_receiver(),
+            EventEmitter::new_empty(),
             EmptyStructure,
         );
 
@@ -95,7 +71,7 @@ where
             canvas,
             window: &self.window,
             delta_time: delta,
-            global_event_receiver: &self.global_event_dispatcher,
+            window_event_receiver: &self.window_event_dispatcher,
             close_handle: self.close_handle,
             elem_table_index: None,
             elem_table_builder: self.elem_table.builder(),
@@ -105,16 +81,16 @@ where
     }
 
     fn on_window_event(&mut self, event: WindowEvent) {
-        self.event_sender
-            .send(event.clone())
-            .expect("inner error: global window event sender dumped");
+        match event {
+            WindowEvent::CursorMoved {
+                position: PhysicalPosition { x, y },
+                ..
+            } => self.elem_table.update_cursor(Some(Point(x as _, y as _))),
+            //WindowEvent::CursorLeft { .. } => self.elem_table.update_cursor(None),
+            _ => {}
+        }
 
-        emit_to_elements(&mut self.elem_table, &mut self.cursor_pos, event);
-    }
-}
-
-impl<El> Drop for Application<El> {
-    fn drop(&mut self) {
-        self.event_sender_handle.abort();
+        self.window_event_dispatcher.emit(&event, &());
+        self.elem_table.emit(&event);
     }
 }

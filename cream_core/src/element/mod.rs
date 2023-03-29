@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use crate::event::{EventChanGetter, EventChanSetter, EventEmitter, EventReceiver};
+use crate::event::event_dispatcher::RecvOnly;
+use crate::event::{EventDispatcher, EventEmitter, EventReceive};
 use crate::primary::Region;
 use crate::structure::StructureBuilder;
 use crate::{style::StyleContainer, Result};
@@ -34,7 +35,7 @@ pub trait Element: Send + 'static {
         styles: &impl StyleContainer,
         drawing_region: Region,
         cache_box_for_children: &mut CacheBox,
-        chan_setter: &EventChanSetter,
+        event_dispatcher: &EventDispatcher,
         children: Slot<impl StructureBuilder>,
         content: RenderContent,
     ) -> Result<()>;
@@ -51,20 +52,18 @@ pub trait Element: Send + 'static {
 pub struct RuntimeInit<T: ?Sized> {
     pub(crate) _prevent_new: (),
     pub app: Arc<Mutex<T>>,
-    pub event_emitter: EventEmitter,
-    pub channels: EventChanGetter,
+    pub output_event_emitter: EventEmitter,
+    pub event_dispatcher: EventDispatcher,
+    pub window_event_dispatcher: RecvOnly,
     pub close_handle: CloseHandle,
 }
 
-impl<T> RuntimeInit<T> {
-    pub async fn emit<E>(&self, event: &E)
+impl<T: ?Sized> RuntimeInit<T> {
+    pub fn recv<E, K>(&self) -> EventReceive<E, K>
     where
-        E: Event + Clone,
+        E: Event,
+        K: Clone + Send + Unpin + 'static,
     {
-        self.event_emitter.emit(event).await
-    }
-
-    pub async fn get_receiver(&self, name: &'static str) -> EventReceiver {
-        self.channels.get_receiver(name).await
+        self.event_dispatcher.recv()
     }
 }

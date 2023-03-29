@@ -9,9 +9,9 @@ use tokio::sync::{Mutex, OwnedMutexGuard};
 use crate::{
     element::{RenderContent, RuntimeInit},
     event::{
-        event_channel::channel_map::{channel_map, getter::ELEMENT_EVENT_CHANNEL},
-        standard::ElementDropped,
-        EventChanSetter, EventEmitter,
+        event_dispatcher::EventDispatcher,
+        standard::{ElementAbondoned, EventDispatcherCreated},
+        ElementEventKey, EventEmitter,
     },
     primary::Region,
     style::{reader::StyleReader, StyleContainer},
@@ -23,7 +23,7 @@ use super::{slot::Slot, Element, RenderingNode};
 pub struct AddChildCache<El, Cc> {
     element: Arc<Mutex<El>>,
     cache_box: CacheBox,
-    chan_setter: EventChanSetter,
+    event_dispatcher: EventDispatcher,
     element_event_emitter: EventEmitter,
     children_cache: Cc,
 }
@@ -74,22 +74,25 @@ where
             Some(c) => c,
             c @ None => {
                 let el = Arc::new(Mutex::new(El::create()));
-                let (setter, getter) = channel_map(content.global_event_receiver.clone());
+                let event_dispatcher = EventDispatcher::new();
+
+                self.event_emitter
+                    .emit(&EventDispatcherCreated(event_dispatcher.clone()));
 
                 El::start_runtime(RuntimeInit {
                     _prevent_new: (),
                     app: el.clone(),
-                    event_emitter: self.event_emitter.clone(),
-                    channels: getter,
+                    output_event_emitter: self.event_emitter.clone(),
+                    window_event_dispatcher: content.window_event_receiver.to_recv_only(),
+                    event_dispatcher: event_dispatcher.clone(),
                     close_handle: content.close_handle,
                 });
 
                 let cache = AddChildCache {
                     element: el,
                     cache_box: CacheBox::new(),
-                    element_event_emitter: tokio::runtime::Handle::current()
-                        .block_on(setter.to_special_event_emitter(ELEMENT_EVENT_CHANNEL)),
-                    chan_setter: setter,
+                    element_event_emitter: event_dispatcher.emitter(ElementEventKey(())),
+                    event_dispatcher,
                     children_cache: Default::default(),
                 };
 
@@ -140,7 +143,7 @@ where
             &self.style,
             region,
             &mut cache.cache_box,
-            &cache.chan_setter,
+            &cache.event_dispatcher,
             Slot {
                 node: self.children,
                 cache: &mut cache.children_cache,
@@ -155,13 +158,7 @@ where
 
 impl<El, Cc> Drop for AddChildCache<El, Cc> {
     fn drop(&mut self) {
-        let chan_setter = self.chan_setter.clone();
-        tokio::spawn(async move {
-            chan_setter
-                .to_special_event_emitter(ELEMENT_EVENT_CHANNEL)
-                .await
-                .emit(&ElementDropped)
-                .await;
-        });
+        self.event_dispatcher
+            .emit(&ElementAbondoned, &ElementEventKey(()));
     }
 }

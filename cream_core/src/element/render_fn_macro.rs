@@ -27,13 +27,13 @@ macro_rules! render_fn {
             _: &impl style::StyleContainer,
             __region: $crate::primary::Region,
             __cache_box_for_children: &mut $crate::CacheBox,
-            __chan_setter: &$crate::event::EventChanSetter,
+            __event_dispatcher: &$crate::event::EventDispatcher,
             _: $crate::structure::Slot<impl $crate::structure::StructureBuilder>,
             mut __content: $crate::element::RenderContent,
         ) -> $crate::Result<()> {
             $crate::structure::StructureBuilder::into_rendering(
                 $crate::build! {
-                    @init(__chan_setter);
+                    @init(__event_dispatcher);
                     $($tt)*
                 },
                 __cache_box_for_children,

@@ -17,7 +17,7 @@ pub mod style;
 #[doc(hidden)]
 pub use __macro_helper::*;
 
-pub use cream_backend::{runtime::exit_app, skia_safe, winit};
+pub use cream_backend::{runtime::exit_app, skia_safe, start_runtime, winit};
 pub use cream_macros::*;
 pub use event::Event;
 pub use structure::cache_box::CacheBox;

@@ -12,7 +12,7 @@ impl Parse for ElementStmt {
         let mut props: Vec<(Ident, Expr)> = Vec::new();
         let mut rename: Option<Ident> = None;
         let mut style: Option<Expr> = None;
-        let mut event_listener_channel: Option<(LitStr, Option<Expr>)> = None;
+        let mut event_emitting_key: Option<Expr> = None;
 
         let content;
         braced!(content in input);
@@ -30,9 +30,7 @@ impl Parse for ElementStmt {
                 let is_ok = match &*cmd.to_string() {
                     "name" => rename.replace(call_rename(&content)?).is_none(),
                     "style" => style.replace(call_style(&content)?).is_none(),
-                    "listen" => event_listener_channel
-                        .replace(call_listen(&content)?)
-                        .is_none(),
+                    "listen" => event_emitting_key.replace(call_listen(&content)?).is_none(),
                     other => {
                         return Err(Error::new(cmd.span(), format!("unknown command `{other}`")))
                     }
@@ -60,8 +58,8 @@ impl Parse for ElementStmt {
             props,
             rename,
             style: style.unwrap_or_else(|| parse_quote!(cream_core::style::NoStyle)),
-            event_setter: None,
-            event_listener_channel,
+            event_dispatcher: None,
+            event_emitting_key,
             children,
         })
     }
@@ -80,14 +78,7 @@ fn call_style(input: ParseStream) -> Result<Expr> {
     input.parse()
 }
 
-fn call_listen(input: ParseStream) -> Result<(LitStr, Option<Expr>)> {
-    let name = input.parse()?;
-    let key = if input.peek(Token![=>]) {
-        input.parse::<Token![=>]>()?;
-        Some(input.parse()?)
-    } else {
-        None
-    };
-
-    Ok((name, key))
+fn call_listen(input: ParseStream) -> Result<Expr> {
+    input.parse::<Token![:]>()?;
+    input.parse()
 }

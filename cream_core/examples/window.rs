@@ -1,11 +1,11 @@
-use cream_backend::{start_runtime, WindowEvent};
+use cream_backend::WindowEvent;
 use cream_core::{
     application::new_window,
     element::{Element, NoProps, RuntimeInit},
-    event::standard::ElementDropped,
-    exit_app, match_event,
+    event::{standard::ElementAbondoned, ElementEventKey, EventDispatcher},
+    exit_app,
     primary::{Point, Region},
-    read_style, render_fn, select_event,
+    read_style, render_fn,
     skia_safe::{Color, Color4f, Paint, Rect},
     structure::StructureBuilder,
     style,
@@ -13,13 +13,13 @@ use cream_core::{
     Event,
 };
 use cream_macros::Style;
+use tokio::select;
 
-fn main() {
-    start_runtime(async {
-        new_window::<App, _>(|builder| builder.with_title("test"))
-            .await
-            .unwrap();
-    });
+#[cream_core::main]
+async fn main() {
+    new_window::<App, _>(|builder| builder.with_title("test"))
+        .await
+        .unwrap();
 }
 
 struct App {
@@ -40,6 +40,7 @@ impl Element for App {
             for (index, color) in self.rects.iter().enumerate() {
                 @key index;
                 Rectangle {
+                    +listen: ("rect", index),
                     +style: style!{
                         width: 100.0;
                         height: 100.0 + 40.0 * index as f32;
@@ -52,19 +53,34 @@ impl Element for App {
 
     fn start_runtime(init: RuntimeInit<Self>) {
         tokio::spawn(async move {
-            let element = init.get_receiver("@element").await;
-            loop {
-                match_event! {
-                    element.recv().await => {
-                        window_event as WindowEvent => match window_event{
-                            WindowEvent::MouseInput{ button: MouseButton::Left, state: ElementState::Pressed, ..}=>{
-                                println!("left click");
-                            },
-                            _=>{}
+            let a = async {
+                loop {
+                    let (event, _) = init
+                        .event_dispatcher
+                        .recv::<WindowEvent, ElementEventKey>()
+                        .await;
+
+                    match event {
+                        WindowEvent::MouseInput {
+                            button: MouseButton::Left,
+                            state: ElementState::Pressed,
+                            ..
+                        } => {
+                            println!("left click");
                         }
+                        _ => {}
                     }
                 }
-            }
+            };
+
+            let b = async {
+                let (_, key): (MyRequestClose, (&'static str, usize)) =
+                    init.event_dispatcher.recv().await;
+                println!("close request event received(sent by {:?})", key);
+                init.close_handle.close();
+            };
+
+            tokio::join!(a, b);
         });
     }
 }
@@ -101,8 +117,8 @@ impl Element for Rectangle {
         _props: Self::Props<'_>,
         styles: &impl style::StyleContainer,
         region: Region,
-        _cache_box: &mut cream_core::CacheBox,
-        _chan_setter: &cream_core::event::EventChanSetter,
+        _cache_box_for_children: &mut cream_core::CacheBox,
+        _event_dispatcher: &cream_core::event::EventDispatcher,
         _children: cream_core::structure::Slot<impl StructureBuilder>,
         mut content: cream_core::element::RenderContent,
     ) -> cream_core::Result<()> {
@@ -140,18 +156,31 @@ impl Element for Rectangle {
 
     fn start_runtime(init: RuntimeInit<Self>) {
         tokio::spawn(async move {
-            let element = init.get_receiver("@element").await;
-            let window = init.get_receiver("@window").await;
-            loop {
-                select_event! {
-                    element.recv() => {
-                        _ as ElementDropped => {
+            let a = async {
+                loop {
+                    let (window_event, _) =
+                        init.window_event_dispatcher.recv::<WindowEvent, ()>().await;
+                    match window_event {
+                        WindowEvent::CloseRequested => {
+                            println!("close event sent");
+                            init.output_event_emitter.emit(&MyRequestClose);
+                        }
+
+                        _ => {}
+                    }
+                }
+            };
+
+            let b = async {
+                loop {
+                    select! {
+                        _ = init.recv::<ElementAbondoned, ElementEventKey>() => {
                             println!("element dropped");
                             exit_app(0).await;
                             return;
-                        }
+                        },
 
-                        window_event as WindowEvent => match window_event {
+                        (window_event,_) = init.recv::<WindowEvent, ElementEventKey>() => match window_event {
                             WindowEvent::MouseInput {
                                 state,
                                 ..
@@ -164,28 +193,17 @@ impl Element for Rectangle {
 
                             _ => {}
                         },
+                    }
+                }
+            };
 
-                        _ as MyEvent => {},
-                    },
-
-                    window.recv()=>{
-                        window_event as WindowEvent => match window_event {
-                            WindowEvent::CloseRequested => {
-                                println!("close request");
-                                init.close_handle.close();
-                            },
-
-                            _ => {}
-                        },
-                    },
-                };
-            }
+            tokio::join!(a, b);
         });
     }
 }
 
-#[derive(Event)]
-pub struct MyEvent;
+#[derive(Event, Clone)]
+pub struct MyRequestClose;
 
 struct Flex;
 
@@ -202,7 +220,7 @@ impl Element for Flex {
         _styles: &impl style::StyleContainer,
         drawing_region: Region,
         cache_box_for_children: &mut cream_core::CacheBox,
-        _: &cream_core::event::EventChanSetter,
+        _: &EventDispatcher,
         children: cream_core::structure::Slot<impl StructureBuilder>,
         mut content: cream_core::element::RenderContent,
     ) -> cream_core::Result<()> {

@@ -11,6 +11,7 @@ struct Item {
 }
 
 pub(crate) struct ElemTable {
+    cursor_position: Option<Point>,
     emitters: Vec<Item>,
     builder_stack: Vec<usize>,
 }
@@ -18,6 +19,7 @@ pub(crate) struct ElemTable {
 impl ElemTable {
     pub fn new() -> Self {
         ElemTable {
+            cursor_position: None,
             emitters: Vec::new(),
             builder_stack: Vec::new(),
         }
@@ -32,10 +34,18 @@ impl ElemTable {
         builder
     }
 
-    pub async fn emit<E>(&self, point: Point, event: &E)
+    pub fn update_cursor(&mut self, position: Option<Point>) {
+        self.cursor_position = position;
+    }
+
+    pub fn emit<E>(&self, event: &E)
     where
-        E: Event + Clone,
+        E: Event,
     {
+        let Some(point) = self.cursor_position else {
+            return;
+        };
+
         let mut selected = None;
 
         for (
@@ -55,7 +65,7 @@ impl ElemTable {
 
         while let Some(index) = selected {
             let item = &self.emitters[index];
-            item.event_emitter.emit(event).await;
+            item.event_emitter.emit(event);
             selected = item.parent;
         }
     }
