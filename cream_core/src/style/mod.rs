@@ -29,9 +29,12 @@ pub mod branch;
 pub mod chain;
 pub mod reader;
 
+use crate as cream_core;
 pub use add_style::*;
 pub use branch::*;
 pub use chain::*;
+use cream_backend::skia_safe::Color;
+use cream_macros::Style;
 
 use self::reader::StyleReader;
 
@@ -39,6 +42,16 @@ pub trait Style: Clone + 'static {}
 
 #[derive(Default, Clone, Copy)]
 pub struct Pixel(pub f32);
+
+impl Pixel {
+    pub fn to_physical(self) -> u32 {
+        self.0 as _
+    }
+}
+
+#[derive(Style, Clone)]
+#[cream(from)]
+pub struct StyleColor(pub Color);
 
 #[derive(Clone, Copy)]
 pub struct NoStyle;

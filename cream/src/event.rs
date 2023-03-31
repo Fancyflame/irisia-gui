@@ -8,5 +8,3 @@ pub struct PointerDown {
     pub x: f32,
     pub y: f32,
 }
-
-impl Event for WindowResized {}

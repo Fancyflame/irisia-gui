@@ -11,7 +11,3 @@ cream_backend = { path = "../cream_backend" }
 anyhow = "1"
 smallvec = "1.9"
 tokio = { version = "1.26", features = ["sync", "rt-multi-thread"] }
-
-[dev-dependencies]
-tokio = { version = "1.26", features = ["sync", "rt-multi-thread", "macros"] }
-cream_backend = { path = "../cream_backend", features = ["fps_recorder"] }

@@ -1,6 +1,6 @@
 use std::any::Any;
 
-pub struct CacheBox(Option<Box<dyn Any + Send + Sync>>);
+pub struct CacheBox(Option<Box<dyn Any + Send + Sync + 'static>>);
 
 impl CacheBox {
     pub const fn new() -> Self {

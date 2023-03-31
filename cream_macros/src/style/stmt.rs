@@ -26,6 +26,15 @@ impl Parse for StyleStmt {
             }
         }
 
+        if input.peek(Token![;]) {
+            input.parse::<Token![;]>()?;
+            return Ok(StyleStmt {
+                style_ty,
+                args: Vec::new(),
+                options: Vec::new(),
+            });
+        }
+
         input.parse::<Token![:]>()?;
 
         let mut args = Vec::new();

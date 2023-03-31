@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use proc_macro2::Span;
 use syn::{
-    spanned::Spanned, Attribute, Error, ExprPath, Fields, FieldsNamed, FieldsUnnamed, Ident, Index,
+    spanned::Spanned, Attribute, Error, Expr, Fields, FieldsNamed, FieldsUnnamed, Ident, Index,
     Member, Result, Type,
 };
 
@@ -12,11 +12,12 @@ use super::attr_parse::DeriveAttr;
 pub struct ExtractResult {
     pub paths: Vec<Vec<Member>>,
     pub metadatas: HashMap<Member, FieldMetadata>,
+    pub impl_default: bool,
 }
 
 #[derive(Debug)]
 pub struct FieldMetadata {
-    pub default: Option<Option<ExprPath>>,
+    pub default: Option<Option<Expr>>,
     pub ty: Type,
     pub option: Option<Ident>,
     pub option_set_true: bool,
@@ -24,6 +25,7 @@ pub struct FieldMetadata {
 
 pub fn analyze_fields(attrs: Vec<Attribute>, fields: &Fields) -> Result<ExtractResult> {
     let fields_and_attrs: Vec<(Member, Vec<DeriveAttr>, Type)> = fields_and_attrs(&fields)?;
+    let mut impl_default = false;
 
     let paths: Vec<Vec<Member>> = {
         let mut vec = Vec::new();
@@ -31,6 +33,15 @@ pub fn analyze_fields(attrs: Vec<Attribute>, fields: &Fields) -> Result<ExtractR
             match attr {
                 DeriveAttr::From { expr: Some(p) } => vec.extend(p),
                 DeriveAttr::From { expr: None } => vec.push(auto_from(&fields_and_attrs)),
+                DeriveAttr::ImplDefault => {
+                    if impl_default {
+                        return Err(Error::new_spanned(
+                            fields,
+                            "`impl_default` attribute has declared",
+                        ));
+                    }
+                    impl_default = true;
+                }
                 _ => continue,
             }
         }
@@ -39,7 +50,11 @@ pub fn analyze_fields(attrs: Vec<Attribute>, fields: &Fields) -> Result<ExtractR
 
     let metadatas = get_metadata(&fields_and_attrs)?;
 
-    Ok(ExtractResult { paths, metadatas })
+    Ok(ExtractResult {
+        paths,
+        metadatas,
+        impl_default,
+    })
 }
 
 fn fields_and_attrs(fields: &Fields) -> Result<Vec<(Member, Vec<DeriveAttr>, Type)>> {
@@ -97,8 +112,8 @@ fn get_metadata(faa: &[(Member, Vec<DeriveAttr>, Type)]) -> Result<HashMap<Membe
 
         for attr in attrs {
             match attr {
-                DeriveAttr::Default { with } => {
-                    if default.replace(with.clone()).is_some() {
+                DeriveAttr::Default { expr } => {
+                    if default.replace(expr.clone()).is_some() {
                         return Err(Error::new_spanned(member, "duplicated default declaration"));
                     }
                 }

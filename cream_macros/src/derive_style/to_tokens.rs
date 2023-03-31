@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
 use syn::{
-    parse_quote, punctuated::Punctuated, Expr, Fields, Generics, Ident, Index, Member, Token,
-    TypeTuple, Visibility,
+    parse_quote, punctuated::Punctuated, Error, Expr, Fields, Generics, Ident, Index, Member,
+    Token, TypeTuple, Visibility,
 };
 
 use super::extract_paths::{ExtractResult, FieldMetadata};
@@ -16,7 +16,11 @@ pub fn write_stream(
     vis: &Visibility,
     ident: &Ident,
     generics: &Generics,
-    ExtractResult { paths, metadatas }: ExtractResult,
+    ExtractResult {
+        paths,
+        metadatas,
+        impl_default,
+    }: ExtractResult,
 ) {
     let (impl_gen, type_gen, where_clause) = generics.split_for_impl();
 
@@ -41,6 +45,23 @@ pub fn write_stream(
             #where_clause
             {
                 #func
+            }
+        }
+        .to_tokens(tokens);
+    }
+
+    if impl_default {
+        let group = do_impl_default(fields, &metadatas);
+        println!("{}", group.to_string());
+
+        let colon2 = variant.map(|_| <Token![::]>::default());
+        quote! {
+            impl #impl_gen ::std::default::Default for #ident #type_gen
+            #where_clause
+            {
+                fn default() -> Self {
+                    Self #colon2 #variant #group
+                }
             }
         }
         .to_tokens(tokens);
@@ -111,7 +132,7 @@ fn path_func(
     metadatas: &HashMap<Member, FieldMetadata>,
 ) -> (TypeTuple, TokenStream) {
     let use_default: Expr = parse_quote!(::std::default::Default::default());
-    let mut from_tuple = TypeTuple {
+    let mut tuple = TypeTuple {
         paren_token: Default::default(),
         elems: Punctuated::new(),
     };
@@ -123,7 +144,7 @@ fn path_func(
             span: Span::call_site(),
         };
 
-        from_tuple.elems.push(
+        tuple.elems.push(
             metadatas
                 .get(seg)
                 .expect("inner error: member not contained in hashmap")
@@ -133,7 +154,7 @@ fn path_func(
         fields_init.push((seg, parse_quote!(value.#index)));
     }
 
-    from_tuple.elems.push_punct(Default::default());
+    tuple.elems.push_punct(Default::default());
 
     for (member, metadata) in metadatas.iter() {
         if path.contains(member) {
@@ -149,7 +170,7 @@ fn path_func(
                 parse_quote!(::std::compile_error!(#string))
             }
             Some(None) => use_default.clone(),
-            Some(Some(with)) => parse_quote!((#with)()),
+            Some(Some(expr)) => expr.clone(),
         };
 
         fields_init.push((member, default_behavior));
@@ -170,10 +191,68 @@ fn path_func(
 
     let variant_path = variant.map(|v| quote!(::#v));
     let from_fn = quote! {
-        fn from(value: #from_tuple) -> Self {
+        fn from(value: #tuple) -> Self {
             Self #variant_path #setter
         }
     };
 
-    (from_tuple, from_fn)
+    (tuple, from_fn)
+}
+
+fn do_impl_default(fields: &Fields, metadatas: &HashMap<Member, FieldMetadata>) -> TokenStream {
+    fn default_of_field(field_member: &Member, default: &Option<Option<Expr>>) -> TokenStream {
+        let (ident, colon) = match field_member {
+            Member::Named(id) => (Some(id), Some(<Token![:]>::default())),
+            Member::Unnamed(_) => (None, None),
+        };
+
+        let default_default_expr: Expr = parse_quote!(::std::default::Default::default());
+
+        let default_behavior=match default{
+            Some(Some(expr))=>expr,
+            Some(None)=>&default_default_expr,
+            None=>return Error::new(
+                match ident{
+                    Some(id)=>id.span(),
+                    None=>Span::call_site()
+                },
+                &format!(
+                    "field `{}` has no default behavior, which is required due to `impl_default` attribute",
+                    match field_member{
+                        Member::Named(id)=>id.to_string(),
+                        Member::Unnamed(Index { index, .. })=>index.to_string()
+                    }
+                )
+            ).to_compile_error()
+        };
+
+        quote! {
+            #ident #colon #default_behavior
+        }
+    }
+
+    match fields {
+        Fields::Unit => quote!(),
+        Fields::Named(_) => {
+            let iter = metadatas
+                .iter()
+                .map(|(member, FieldMetadata { default, .. })| default_of_field(member, default));
+            quote! {
+                {#(#iter),*}
+            }
+        }
+        Fields::Unnamed(_) => {
+            let mut metadata_sorted: Vec<(&Member, &FieldMetadata)> = metadatas.iter().collect();
+            metadata_sorted.sort_by_key(|(m, _)| match m {
+                Member::Named(_) => unreachable!(),
+                Member::Unnamed(Index { index, .. }) => index,
+            });
+            let iter = metadata_sorted
+                .iter()
+                .map(|(member, FieldMetadata { default, .. })| default_of_field(member, default));
+            quote! {
+                (#(#iter),*)
+            }
+        }
+    }
 }

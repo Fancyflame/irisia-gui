@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::event::event_dispatcher::RecvOnly;
 use crate::event::{EventDispatcher, EventEmitter, EventReceive};
 use crate::primary::Region;
-use crate::structure::StructureBuilder;
+use crate::structure::{StructureBuilder, VisitIter};
 use crate::{style::StyleContainer, Result};
 use crate::{CacheBox, Event};
 
@@ -21,22 +21,20 @@ pub mod render_fn_macro;
 /// This trait is close to the native rendering, if you are not a
 /// component maker, please using exist element or using macros to
 /// custom one.
-
-#[derive(Clone, Copy, Default)]
-pub struct NoProps {}
-
 pub trait Element: Send + 'static {
     type Props<'a>: Default;
+    type ChildProps<'a>;
+
     fn create() -> Self;
 
-    fn render(
+    fn render<'r>(
         &mut self,
         props: Self::Props<'_>,
         styles: &impl StyleContainer,
         drawing_region: Region,
         cache_box_for_children: &mut CacheBox,
         event_dispatcher: &EventDispatcher,
-        children: Slot<impl StructureBuilder>,
+        children: Slot<impl StructureBuilder + VisitIter<Self::ChildProps<'r>>>,
         content: RenderContent,
     ) -> Result<()>;
 
@@ -47,6 +45,23 @@ pub trait Element: Send + 'static {
     fn start_runtime(init: RuntimeInit<Self>) {
         let _ = init;
     }
+}
+
+#[derive(Clone, Copy, Default)]
+pub struct NoProps {}
+
+pub trait PropsAsChild<T>: Element {
+    fn props_as_child(&self, props: &Self::Props<'_>, style: &impl StyleContainer) -> T;
+}
+
+impl<El: Element> PropsAsChild<()> for El {
+    fn props_as_child(&self, _: &Self::Props<'_>, _: &impl StyleContainer) -> () {
+        ()
+    }
+}
+
+pub struct NeverInitalized {
+    _never_initialized: (),
 }
 
 pub struct RuntimeInit<T: ?Sized> {

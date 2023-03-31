@@ -31,15 +31,16 @@ impl<'a, T> IntoRendering<'a, T>
 where
     T: RenderingNode,
 {
-    pub fn style_iter<S>(&self) -> T::StyleIter<'_, S>
-    where
-        S: StyleReader,
-    {
-        self.node.style_iter()
+    pub fn children_count(&self) -> usize {
+        self.node.element_count()
     }
 
-    pub fn region_iter(&self) -> T::RegionIter<'_> {
-        self.node.region_iter()
+    pub fn visit_iter<S, Prop>(&self) -> T::VisitIter<'_, S>
+    where
+        S: StyleReader,
+        T: VisitIter<Prop>,
+    {
+        self.node.visit_iter()
     }
 
     pub fn finish_iter<S, F>(self, mut map: F) -> Result<()>
@@ -58,6 +59,24 @@ where
                 .ok_or_else(|| anyhow!("only one element can be rendered"))
         })
     }
+}
+
+pub trait VisitIter<Prop>: RenderingNode {
+    type VisitIter<'a, S>: Iterator<Item = VisitItem<S, Prop>>
+    where
+        S: StyleReader,
+        Self: 'a;
+
+    fn visit_iter<S>(&self) -> Self::VisitIter<'_, S>
+    where
+        S: StyleReader;
+}
+
+#[derive(Clone)]
+pub struct VisitItem<S, P> {
+    pub style: S,
+    pub request_size: (Option<u32>, Option<u32>),
+    pub child_props: P,
 }
 
 impl<T: Sized + RenderingNode> StructureBuilder for T {}

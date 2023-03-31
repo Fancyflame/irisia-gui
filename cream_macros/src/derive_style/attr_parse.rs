@@ -1,6 +1,5 @@
 use syn::{
-    Attribute, Error, ExprPath, Ident, Lit, Member, Meta, MetaList, MetaNameValue, NestedMeta,
-    Result,
+    Attribute, Error, Expr, Ident, Lit, Member, Meta, MetaList, MetaNameValue, NestedMeta, Result,
 };
 
 #[derive(Debug)]
@@ -10,12 +9,13 @@ pub enum DeriveAttr {
         expr: Option<Vec<Vec<Member>>>,
     },
     Default {
-        with: Option<ExprPath>,
+        expr: Option<Expr>,
     },
     Option {
         rename: Option<Ident>,
         set_true: bool,
     },
+    ImplDefault,
 }
 
 impl DeriveAttr {
@@ -50,6 +50,7 @@ impl DeriveAttr {
             };
 
             let a = match &*name {
+                "impl_default" => Self::ImplDefault,
                 "skip" => Self::Skip,
                 "from" => Self::From {
                     expr: super::parse_paths::parse_paths(meta2)?,
@@ -72,21 +73,17 @@ impl DeriveAttr {
 }
 
 fn parse_default(meta: Meta) -> Result<DeriveAttr> {
-    let nested = match meta {
-        Meta::Path(_) => return Ok(DeriveAttr::Default { with: None }),
-        Meta::List(MetaList { nested, .. }) => nested,
-        Meta::NameValue(_) => return Err(Error::new_spanned(meta, "unexpected name-value")),
+    let lit = match meta {
+        Meta::Path(_) => return Ok(DeriveAttr::Default { expr: None }),
+        Meta::List(list) => return Err(Error::new_spanned(list, "unexpected meta-list")),
+        Meta::NameValue(MetaNameValue { lit, .. }) => lit,
     };
 
-    match nested.into_iter().next() {
-        Some(NestedMeta::Meta(Meta::NameValue(MetaNameValue {
-            path,
-            lit: Lit::Str(s),
-            ..
-        }))) if path.is_ident("with") => syn::parse_str::<ExprPath>(&s.value())
-            .map(|path| DeriveAttr::Default { with: Some(path) }),
-
-        _ => return Ok(DeriveAttr::Default { with: None }),
+    match lit {
+        Lit::Str(s) => {
+            syn::parse_str(&s.value()).map(|expr| DeriveAttr::Default { expr: Some(expr) })
+        }
+        _ => Err(Error::new_spanned(lit, "expected string literal")),
     }
 }
 

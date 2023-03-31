@@ -1,0 +1,14 @@
+[package]
+name = "examples"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[[example]]
+name = "window"
+path = "window.rs"
+
+[dev-dependencies]
+tokio = { version = "1.26", features = ["sync", "rt-multi-thread", "macros"] }
+cream_core = { path = "../cream_core" }
+cream_backend = { path = "../cream_backend", features = ["fps_recorder"] }

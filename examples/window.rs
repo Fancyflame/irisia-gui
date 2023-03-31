@@ -1,18 +1,19 @@
 use cream_backend::WindowEvent;
 use cream_core::{
     application::new_window,
-    element::{Element, NoProps, RuntimeInit},
+    element::{Element, NeverInitalized, NoProps, RuntimeInit},
     event::{standard::ElementAbondoned, ElementEventKey, EventDispatcher},
     exit_app,
     primary::{Point, Region},
-    read_style, render_fn,
+    read_style,
+    render_fn,
     skia_safe::{Color, Color4f, Paint, Rect},
-    structure::StructureBuilder,
+    structure::{StructureBuilder, VisitIter},
     style,
     winit::event::{ElementState, MouseButton},
     Event,
+    Style, //Style,
 };
-use cream_macros::Style;
 use tokio::select;
 
 #[cream_core::main]
@@ -28,6 +29,8 @@ struct App {
 
 impl Element for App {
     type Props<'a> = NoProps;
+    type ChildProps<'a> = NeverInitalized;
+
     fn create() -> Self {
         Self {
             rects: vec![Color::BLACK, Color::GREEN, Color::RED, Color::BLUE],
@@ -104,6 +107,7 @@ struct Rectangle {
 
 impl Element for Rectangle {
     type Props<'a> = NoProps;
+    type ChildProps<'a> = ();
 
     fn create() -> Self {
         Self {
@@ -112,14 +116,16 @@ impl Element for Rectangle {
         }
     }
 
-    fn render(
+    fn render<'r>(
         &mut self,
         _props: Self::Props<'_>,
         styles: &impl style::StyleContainer,
         region: Region,
         _cache_box_for_children: &mut cream_core::CacheBox,
-        _event_dispatcher: &cream_core::event::EventDispatcher,
-        _children: cream_core::structure::Slot<impl StructureBuilder>,
+        _event_dispatcher: &EventDispatcher,
+        _children: cream_core::structure::Slot<
+            impl StructureBuilder + cream_core::structure::VisitIter<Self::ChildProps<'r>>,
+        >,
         mut content: cream_core::element::RenderContent,
     ) -> cream_core::Result<()> {
         read_style!(styles => {
@@ -209,26 +215,29 @@ struct Flex;
 
 impl Element for Flex {
     type Props<'a> = NoProps;
+    type ChildProps<'a> = ();
 
     fn create() -> Self {
         Flex
     }
 
-    fn render(
+    fn render<'r>(
         &mut self,
         _props: Self::Props<'_>,
         _styles: &impl style::StyleContainer,
         drawing_region: Region,
         cache_box_for_children: &mut cream_core::CacheBox,
         _: &EventDispatcher,
-        children: cream_core::structure::Slot<impl StructureBuilder>,
+        children: cream_core::structure::Slot<
+            impl StructureBuilder + VisitIter<Self::ChildProps<'r>>,
+        >,
         mut content: cream_core::element::RenderContent,
     ) -> cream_core::Result<()> {
         let (start, end) = drawing_region;
         let abs = end - start;
 
         let rendering = children.into_rendering(cache_box_for_children, content.inherit());
-        let len = rendering.region_iter().count();
+        let len = rendering.children_count();
         let width = abs.0 / len as u32;
 
         let mut index = 0;

@@ -5,7 +5,7 @@ use skia_safe::Canvas;
 
 use crate::{window_handle::close_handle::CloseHandle, WinitWindow};
 
-pub trait AppWindow: Send + Sync + 'static {
+pub trait AppWindow: Send + 'static {
     fn on_create(window: &Arc<WinitWindow>, close_handle: CloseHandle) -> Result<Self>
     where
         Self: Sized;

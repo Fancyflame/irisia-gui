@@ -7,7 +7,7 @@ use std::{
 use tokio::sync::{Mutex, OwnedMutexGuard};
 
 use crate::{
-    element::{RenderContent, RuntimeInit},
+    element::{PropsAsChild, RenderContent, RuntimeInit},
     event::{
         event_dispatcher::EventDispatcher,
         standard::{ElementAbondoned, EventDispatcherCreated},
@@ -18,7 +18,7 @@ use crate::{
     CacheBox, Result,
 };
 
-use super::{slot::Slot, Element, RenderingNode};
+use super::{slot::Slot, Element, RenderingNode, VisitItem, VisitIter};
 
 pub struct AddChildCache<El, Cc> {
     element: Arc<Mutex<El>>,
@@ -63,11 +63,9 @@ impl<'prop, El, Sty, Ch> RenderingNode for AddChild<'prop, El, Sty, Ch>
 where
     El: Element,
     Sty: StyleContainer,
-    Ch: RenderingNode,
+    Ch: for<'a> VisitIter<El::ChildProps<'a>>,
 {
     type Cache = Option<AddChildCache<El, <Ch as RenderingNode>::Cache>>;
-    type StyleIter<'a, S> = Once<S> where Self:'a;
-    type RegionIter<'a> = Once<(Option<u32>,Option<u32>)> where Self:'a;
 
     fn prepare_for_rendering(&mut self, cache: &mut Self::Cache, content: RenderContent) {
         let cache = match cache {
@@ -105,15 +103,8 @@ where
         self.lock_element = Some((guard.compute_size(), guard))
     }
 
-    fn style_iter<S>(&self) -> Self::StyleIter<'_, S>
-    where
-        S: StyleReader,
-    {
-        iter::once(S::read_style(&self.style))
-    }
-
-    fn region_iter(&self) -> Self::RegionIter<'_> {
-        iter::once(self.lock_element.as_ref().unwrap().0)
+    fn element_count(&self) -> usize {
+        1
     }
 
     fn finish<S, F>(
@@ -153,6 +144,34 @@ where
 
         raw_content.elem_table_builder.finish();
         result
+    }
+}
+
+impl<Prop, El, Sty, Ch> VisitIter<Prop> for AddChild<'_, El, Sty, Ch>
+where
+    El: Element + PropsAsChild<Prop>,
+    Sty: StyleContainer,
+    Ch: for<'a> VisitIter<El::ChildProps<'a>>,
+{
+    type VisitIter<'a, S> = Once<VisitItem<S, Prop>>
+    where
+        S:StyleReader,
+        Self:'a;
+
+    fn visit_iter<S>(&self) -> Self::VisitIter<'_, S>
+    where
+        S: StyleReader,
+    {
+        let locked = &self
+            .lock_element
+            .as_ref()
+            .expect("inner error: not prepared");
+
+        iter::once(VisitItem {
+            style: S::read_style(&self.style),
+            request_size: locked.0,
+            child_props: locked.1.props_as_child(&self.prop, &self.style),
+        })
     }
 }
 

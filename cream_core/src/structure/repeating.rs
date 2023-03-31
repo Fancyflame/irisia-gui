@@ -9,7 +9,7 @@ use smallvec::SmallVec;
 
 use crate::{element::RenderContent, style::reader::StyleReader, Result};
 
-use super::RenderingNode;
+use super::{RenderingNode, VisitIter};
 
 struct CacheUnit<T> {
     value: T,
@@ -46,16 +46,6 @@ where
 {
     type Cache = RepeatingCache<K, T::Cache>;
 
-    type StyleIter<'a, S> =
-        Flatten<Map<Iter<'a, (K, T)>, fn(&'a (K, T)) -> T::StyleIter<'a, S>>>
-        where
-            Self: 'a;
-
-    type RegionIter<'a> =
-        Flatten<Map<Iter<'a, (K, T)>, fn(&'a (K, T)) -> T::RegionIter<'a>>>
-        where
-            Self: 'a;
-
     fn prepare_for_rendering(&mut self, cache: &mut Self::Cache, mut content: RenderContent) {
         for (k, x) in &mut self.nodes {
             match cache.0.get_mut(k) {
@@ -78,17 +68,8 @@ where
         }
     }
 
-    fn style_iter<'a, S>(&'a self) -> Self::StyleIter<'a, S>
-    where
-        S: StyleReader,
-    {
-        let func: fn(&'a (_, T)) -> _ = |(_, x)| x.style_iter::<S>();
-        self.nodes.iter().map(func).flatten()
-    }
-
-    fn region_iter<'a>(&'a self) -> Self::RegionIter<'a> {
-        let func: fn(&'a (_, T)) -> _ = |(_, x)| x.region_iter();
-        self.nodes.iter().map(func).flatten()
+    fn element_count(&self) -> usize {
+        self.nodes.len()
     }
 
     fn finish<S, F>(
@@ -116,5 +97,25 @@ where
         });
 
         Ok(())
+    }
+}
+
+impl<K, T, Prop> VisitIter<Prop> for Repeating<K, T>
+where
+    K: Clone + Hash + Eq + Send + Sync + 'static,
+    T: VisitIter<Prop>,
+{
+    type VisitIter<'a, S> =
+        Flatten<Map<Iter<'a, (K, T)>, fn(&'a (K, T)) -> T::VisitIter<'a, S>>>
+        where
+            S:StyleReader,
+            Self: 'a;
+
+    fn visit_iter<'a, S>(&'a self) -> Self::VisitIter<'a, S>
+    where
+        S: StyleReader,
+    {
+        let func: fn(&'a (_, T)) -> _ = |(_, x)| x.visit_iter::<S>();
+        self.nodes.iter().map(func).flatten()
     }
 }
