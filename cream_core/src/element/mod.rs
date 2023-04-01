@@ -50,13 +50,19 @@ pub trait Element: 'static {
 #[derive(Clone, Copy, Default)]
 pub struct NoProps {}
 
-pub trait PropsAsChild<T>: Element {
-    fn props_as_child(&self, props: &Self::Props<'_>, style: &impl StyleContainer) -> T;
+pub trait PropsAsChild<'a, T>: Element {
+    fn props_as_child(&'a self, props: &Self::Props<'_>, style: &impl StyleContainer) -> T;
 }
 
-impl<El: Element> PropsAsChild<()> for El {
+impl<El: Element> PropsAsChild<'_, ()> for El {
     fn props_as_child(&self, _: &Self::Props<'_>, _: &impl StyleContainer) -> () {
         ()
+    }
+}
+
+impl<'a, El: Element> PropsAsChild<'a, &'a El> for El {
+    fn props_as_child(&self, _: &Self::Props<'_>, _: &impl StyleContainer) -> &El {
+        self
     }
 }
 

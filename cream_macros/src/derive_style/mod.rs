@@ -25,7 +25,7 @@ pub fn derive_style(derive: DeriveInput) -> Result<TokenStream> {
     let mut tokens = {
         let (impl_gen, type_gen, where_clause) = generics.split_for_impl();
         quote! {
-            impl #impl_gen cream_core::Style for #ident #type_gen
+            impl #impl_gen cream::Style for #ident #type_gen
             #where_clause
             {}
         }

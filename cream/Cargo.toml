@@ -7,4 +7,3 @@ edition = "2021"
 
 [dependencies]
 cream_core = { path = "../cream_core" }
-cream_backend = { path = "../cream_backend" }

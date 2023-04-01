@@ -1,12 +1,15 @@
-use cream_backend::skia_safe::font_style::{Slant, Weight};
-use cream_core::{style::Pixel, Style};
+use cream_core::{
+    skia_safe::font_style::{Slant, Weight},
+    style::Pixel,
+    Style,
+};
 
 #[derive(Style, Clone, Copy)]
 #[cream(from, impl_default)]
 pub struct StyleFontSize(#[cream(default = "Pixel(40.0)")] pub Pixel);
 
 #[derive(Style, Clone)]
-#[cream(from, impl_default)]
+#[cream(from = "", impl_default)]
 pub struct StyleFontSlant(#[cream(default = "Slant::Upright")] pub Slant);
 
 impl StyleFontSlant {

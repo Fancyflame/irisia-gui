@@ -1,22 +1,21 @@
-use cream_backend::WindowEvent;
-use cream_core::{
+use cream::{
     application::new_window,
     element::{Element, NeverInitalized, NoProps, RuntimeInit},
     event::{standard::ElementAbondoned, ElementEventKey, EventDispatcher},
     exit_app,
     primary::{Point, Region},
-    read_style,
-    render_fn,
+    read_style, render_fn,
     skia_safe::{Color, Color4f, Paint, Rect},
     structure::{StructureBuilder, VisitIter},
     style,
+    style::StyleColor,
+    textbox::{styles::*, TextBox},
     winit::event::{ElementState, MouseButton},
-    Event,
-    Style, //Style,
+    Event, Style, WindowEvent,
 };
 use tokio::select;
 
-#[cream_core::main]
+#[cream::main]
 async fn main() {
     new_window::<App, _>(|builder| builder.with_title("test"))
         .await
@@ -33,13 +32,22 @@ impl Element for App {
 
     fn create() -> Self {
         Self {
-            rects: vec![Color::BLACK, Color::GREEN, Color::RED, Color::BLUE],
+            rects: vec![Color::GREEN, Color::RED, Color::BLUE],
         }
     }
 
     render_fn! {
         @init(self);
         Flex {
+            TextBox {
+                text: "hello世界🌏",
+                +style: style!{
+                    color: Color::MAGENTA;
+                    font_slant: .normal;
+                    font_size: 50px;
+                }
+            }
+
             for (index, color) in self.rects.iter().enumerate() {
                 @key index;
                 Rectangle {
@@ -96,10 +104,6 @@ struct StyleWidth(f32);
 #[cream(from)]
 struct StyleHeight(f32);
 
-#[derive(Style, Clone)]
-#[cream(from)]
-struct StyleColor(Color);
-
 struct Rectangle {
     is_force: bool,
     force_color: Color,
@@ -121,13 +125,13 @@ impl Element for Rectangle {
         _props: Self::Props<'_>,
         styles: &impl style::StyleContainer,
         region: Region,
-        _cache_box_for_children: &mut cream_core::CacheBox,
+        _cache_box_for_children: &mut cream::CacheBox,
         _event_dispatcher: &EventDispatcher,
-        _children: cream_core::structure::Slot<
-            impl StructureBuilder + cream_core::structure::VisitIter<Self::ChildProps<'r>>,
+        _children: cream::structure::Slot<
+            impl StructureBuilder + cream::structure::VisitIter<Self::ChildProps<'r>>,
         >,
-        mut content: cream_core::element::RenderContent,
-    ) -> cream_core::Result<()> {
+        mut content: cream::element::RenderContent,
+    ) -> cream::Result<()> {
         read_style!(styles => {
             w: Option<StyleWidth>,
             h: Option<StyleHeight>,
@@ -226,13 +230,11 @@ impl Element for Flex {
         _props: Self::Props<'_>,
         _styles: &impl style::StyleContainer,
         drawing_region: Region,
-        cache_box_for_children: &mut cream_core::CacheBox,
+        cache_box_for_children: &mut cream::CacheBox,
         _: &EventDispatcher,
-        children: cream_core::structure::Slot<
-            impl StructureBuilder + VisitIter<Self::ChildProps<'r>>,
-        >,
-        mut content: cream_core::element::RenderContent,
-    ) -> cream_core::Result<()> {
+        children: cream::structure::Slot<impl StructureBuilder + VisitIter<Self::ChildProps<'r>>>,
+        mut content: cream::element::RenderContent,
+    ) -> cream::Result<()> {
         let (start, end) = drawing_region;
         let abs = end - start;
 

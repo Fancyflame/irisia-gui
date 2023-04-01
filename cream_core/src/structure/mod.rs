@@ -89,11 +89,11 @@ pub trait StructureBuilder: Sized + RenderingNode {
         into_rendering_raw(self, cache_box.get_cache(), content)
     }
 
-    fn chain<T>(self, other: T) -> Chain<T, Self>
+    fn chain<T>(self, other: T) -> Chain<Self, T>
     where
         Self: Sized,
     {
-        Chain(other, self)
+        Chain(self, other)
     }
 }
 

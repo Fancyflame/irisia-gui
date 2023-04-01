@@ -52,7 +52,6 @@ pub fn write_stream(
 
     if impl_default {
         let group = do_impl_default(fields, &metadatas);
-        println!("{}", group.to_string());
 
         let colon2 = variant.map(|_| <Token![::]>::default());
         quote! {
@@ -151,10 +150,9 @@ fn path_func(
                 .ty
                 .clone(),
         );
+        tuple.elems.push_punct(Default::default());
         fields_init.push((seg, parse_quote!(value.#index)));
     }
-
-    tuple.elems.push_punct(Default::default());
 
     for (member, metadata) in metadatas.iter() {
         if path.contains(member) {

@@ -18,7 +18,7 @@ impl Parse for ElementStmt {
         braced!(content in input);
 
         while !content.is_empty() {
-            if content.peek(Ident) {
+            if content.peek(Ident) && content.peek2(Token![:]) {
                 // parse props-value pair
                 props.push((content.parse()?, {
                     content.parse::<Token![:]>()?;
@@ -57,7 +57,7 @@ impl Parse for ElementStmt {
             element,
             props,
             rename,
-            style: style.unwrap_or_else(|| parse_quote!(cream_core::style::NoStyle)),
+            style: style.unwrap_or_else(|| parse_quote!(cream::style::NoStyle)),
             event_dispatcher: None,
             event_emitting_key,
             children,

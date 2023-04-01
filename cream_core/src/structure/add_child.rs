@@ -149,7 +149,7 @@ where
 
 impl<Prop, El, Sty, Ch> VisitIter<Prop> for AddChild<'_, El, Sty, Ch>
 where
-    El: Element + PropsAsChild<Prop>,
+    El: Element + for<'a> PropsAsChild<'a, Prop>,
     Sty: StyleContainer,
     Ch: for<'a> VisitIter<El::ChildProps<'a>>,
 {

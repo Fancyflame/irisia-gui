@@ -1,11 +1,11 @@
-use cream_backend::skia_safe::{
-    font_style::Width,
-    textlayout::{FontCollection, Paragraph, ParagraphBuilder, ParagraphStyle, TextStyle},
-    FontMgr, FontStyle, Point,
-};
 use cream_core::{
     element::{Element, NeverInitalized},
     read_style,
+    skia_safe::{
+        font_style::Width,
+        textlayout::{FontCollection, Paragraph, ParagraphBuilder, ParagraphStyle, TextStyle},
+        Color, FontMgr, FontStyle, Point,
+    },
     structure::VisitIter,
     style::StyleColor,
 };
@@ -54,6 +54,7 @@ impl Element for TextBox {
             weight: StyleFontWeight,
             color: Option<StyleColor>,
         });
+
         let para_style = {
             let mut ps = ParagraphStyle::new();
             ps.set_height((drawing_region.1 .1 - drawing_region.0 .1) as _);
@@ -68,9 +69,10 @@ impl Element for TextBox {
                 .set_font_style(FontStyle::new(weight.0, Width::NORMAL, slant.0))
                 .set_font_size(size.0.to_physical() as _);
 
-            if let Some(color) = color {
-                text_style.set_color(color.0);
-            }
+            text_style.set_color(match color {
+                Some(c) => c.0,
+                None => Color::BLACK,
+            });
 
             text_style
         };

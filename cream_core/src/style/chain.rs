@@ -12,7 +12,9 @@ where
     E: StyleContainer,
 {
     fn get_style<T: Style>(&self) -> Option<T> {
-        self.basic.get_style().or_else(|| self.extend.get_style())
+        self.basic
+            .get_style::<T>()
+            .or_else(|| self.extend.get_style())
     }
 }
 

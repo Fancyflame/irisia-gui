@@ -34,6 +34,7 @@ where
     WindowRegiterMutex::init(event_loop.create_proxy());
 
     event_loop.run(move |event, event_loop, flow| {
+        flow.set_poll();
         match event {
             Event::NewEvents(StartCause::Init) => {
                 let future = future_option
@@ -74,7 +75,6 @@ where
 
                 WindowReg::Exit(code) => {
                     flow.set_exit_with_code(code);
-                    return;
                 }
             },
 
@@ -89,6 +89,5 @@ where
                 _ => unreachable!(),
             },
         }
-        flow.set_wait();
     });
 }

@@ -37,7 +37,7 @@ impl ToTokens for ElementStmt {
         };
 
         quote! {
-            cream_core::structure::add_child::<#element, _, _>(
+            cream::structure::add_child::<#element, _, _>(
                 #props,
                 #style,
                 #event_listeners,
@@ -52,8 +52,8 @@ fn gen_props(element: &Type, props: &[(Ident, Expr)]) -> TokenStream {
     let idents = props.iter().map(|x| &x.0);
     let exprs = props.iter().map(|x| &x.1);
     quote! {
-        cream_core::__TypeHelper::<
-            <#element as cream_core::element::Element>::Props<'_>
+        cream::__TypeHelper::<
+            <#element as cream::element::Element>::Props<'_>
         > {
             #(#idents: #exprs,)*
             ..::std::default::Default::default()
@@ -66,7 +66,7 @@ fn gen_event_listeners(
     event_emitting_key: Option<&Expr>,
 ) -> TokenStream {
     match (event_dispatcher, event_emitting_key) {
-        (_, None) => quote!(cream_core::event::EventEmitter::new_empty()),
+        (_, None) => quote!(cream::event::EventEmitter::new_empty()),
 
         (Some(disp), Some(key)) => quote!((#disp).emitter(#key)),
 

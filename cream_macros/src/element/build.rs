@@ -41,7 +41,7 @@ pub fn build(input: ParseStream) -> Result<TokenStream> {
     let mut stmts_expr = TokenStream::new();
     stmts_to_tokens(&mut stmts_expr, rest);
     Ok(quote! {{
-        use cream_core::structure::StructureBuilder;
+        use cream::structure::StructureBuilder;
         #stmts_expr
     }})
 }

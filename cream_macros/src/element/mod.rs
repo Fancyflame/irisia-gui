@@ -19,7 +19,7 @@ impl Codegen for ElementCodegen {
     const IN_BLOCK: bool = false;
 
     fn empty(tokens: &mut proc_macro2::TokenStream) {
-        quote!(cream_core::structure::EmptyStructure).to_tokens(tokens);
+        quote!(cream::structure::EmptyStructure).to_tokens(tokens);
     }
 
     fn repetitive_applicate<F>(tokens: &mut proc_macro2::TokenStream, f: F)
@@ -27,14 +27,14 @@ impl Codegen for ElementCodegen {
         F: FnOnce(&mut proc_macro2::TokenStream),
     {
         quote! {
-            cream_core::structure::Repeating::new
+            cream::structure::Repeating::new
         }
         .to_tokens(tokens);
         Paren::default().surround(tokens, f);
     }
 
     fn conditional_applicate(count: usize) -> Self::Ca {
-        DefaultConditionalApplicator::new(count, parse_quote!(cream_core::structure::Branch))
+        DefaultConditionalApplicator::new(count, parse_quote!(cream::structure::Branch))
     }
 
     fn parse_command(

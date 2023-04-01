@@ -1,4 +1,4 @@
-use crate as cream_core;
+use crate as cream;
 use crate::{event::Event, primary::Point};
 use cream_backend::WindowEvent;
 use cream_macros::Event;

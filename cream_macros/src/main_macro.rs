@@ -13,7 +13,7 @@ pub fn main_macro(mut item: ItemFn) -> Result<TokenStream> {
     let block = &item.block;
 
     item.block = parse_quote! {{
-        cream_core::start_runtime(
+        cream::start_runtime(
             async move #block
         )
     }};

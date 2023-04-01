@@ -29,7 +29,7 @@ pub mod branch;
 pub mod chain;
 pub mod reader;
 
-use crate as cream_core;
+use crate as cream;
 pub use add_style::*;
 pub use branch::*;
 pub use chain::*;
@@ -49,7 +49,7 @@ impl Pixel {
     }
 }
 
-#[derive(Style, Clone)]
+#[derive(Debug, Style, Clone)]
 #[cream(from)]
 pub struct StyleColor(pub Color);
 

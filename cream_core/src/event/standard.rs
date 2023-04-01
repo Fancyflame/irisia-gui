@@ -1,4 +1,4 @@
-use crate as cream_core;
+use crate as cream;
 use crate::Event;
 
 use super::EventDispatcher;

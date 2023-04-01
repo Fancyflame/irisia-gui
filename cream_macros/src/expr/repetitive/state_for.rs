@@ -45,7 +45,7 @@ impl<T: Codegen> ToTokens for StateForLoop<T> {
                 )
             },
             None => quote! {
-                cream_core::__for_loop_iter_item_as_key(#iter, |#pat| #body)
+                cream::__for_loop_iter_item_as_key(#iter, |#pat| #body)
             },
         };
 

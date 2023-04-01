@@ -33,7 +33,7 @@ pub fn style(input: TokenStream) -> TokenStream {
     stmts_to_tokens(&mut stmt_tokens, &stmts);
 
     quote! {{
-        use cream_core::style::StyleContainer;
+        use cream::style::StyleContainer;
         #stmt_tokens
     }}
     .into()
@@ -57,7 +57,7 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
     let (impl_gen, type_gen, where_clause) = generics.split_for_impl();
 
     quote! {
-        impl #impl_gen cream_core::Event for #ident #type_gen
+        impl #impl_gen cream::Event for #ident #type_gen
         #where_clause
         {}
     }
