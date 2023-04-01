@@ -1,12 +1,12 @@
 use cream_backend::skia_safe::{
     font_style::Width,
-    textlayout::{Block, FontCollection, ParagraphBuilder, ParagraphStyle, TextStyle, Paragraph},
+    textlayout::{FontCollection, Paragraph, ParagraphBuilder, ParagraphStyle, TextStyle},
     FontMgr, FontStyle, Point,
 };
 use cream_core::{
     element::{Element, NeverInitalized},
     read_style,
-    structure::{StructureBuilder, VisitIter},
+    structure::VisitIter,
     style::StyleColor,
 };
 use styles::*;
@@ -30,7 +30,10 @@ impl Element for TextBox {
     fn create() -> Self {
         let mut font_collection = FontCollection::new();
         font_collection.set_default_font_manager(FontMgr::new(), None);
-        TextBox { font_collection,paragraph:None }
+        TextBox {
+            font_collection,
+            paragraph: None,
+        }
     }
 
     fn render<'r>(
@@ -39,11 +42,11 @@ impl Element for TextBox {
         styles: &impl cream_core::style::StyleContainer,
         drawing_region: cream_core::primary::Region,
         _cache_box_for_children: &mut cream_core::CacheBox,
-        event_dispatcher: &cream_core::event::EventDispatcher,
+        _event_dispatcher: &cream_core::event::EventDispatcher,
         _children: cream_core::structure::Slot<
             impl cream_core::structure::StructureBuilder + VisitIter<Self::ChildProps<'r>>,
         >,
-        content: cream_core::element::RenderContent,
+        mut content: cream_core::element::RenderContent,
     ) -> cream_core::Result<()> {
         read_style!(styles => {
             size: StyleFontSize,
@@ -78,6 +81,12 @@ impl Element for TextBox {
 
         let mut paragraph = paragraph_builder.build();
         paragraph.layout((drawing_region.1 .0 - drawing_region.0 .0) as _);
-        paragraph.paint(content.canvas(), Point::new(drawing_region.0.0 as _, drawing_region.0.1 as _));
+        paragraph.paint(
+            content.canvas(),
+            Point::new(drawing_region.0 .0 as _, drawing_region.0 .1 as _),
+        );
+        self.paragraph = Some(paragraph);
+
+        Ok(())
+    }
 }
- 

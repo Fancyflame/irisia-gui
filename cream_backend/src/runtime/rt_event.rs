@@ -15,7 +15,7 @@ pub(crate) enum WindowReg {
     },
 
     WindowRegister {
-        app: Arc<Mutex<dyn AppWindow>>,
+        app: Box<dyn FnOnce() -> Arc<Mutex<dyn AppWindow>> + Send>,
         raw_window: Arc<WinitWindow>,
     },
 

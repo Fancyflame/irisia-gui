@@ -13,7 +13,6 @@ pub mod event;
 pub mod primary;
 pub mod structure;
 pub mod style;
-pub mod thread_guard;
 
 #[doc(hidden)]
 pub use __macro_helper::*;

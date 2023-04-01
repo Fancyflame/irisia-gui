@@ -27,12 +27,12 @@ use self::elem_table::ElemTable;
 pub(crate) mod elem_table;
 pub mod event;
 
-pub async fn new_window<El, F>(window_builder: F) -> Result<WindowHandle<Application<El>>>
+pub async fn new_window<El, F>(window_builder: F) -> Result<WindowHandle>
 where
     El: Element,
     F: FnOnce(WindowBuilder) -> WindowBuilder + Send + 'static,
 {
-    WindowHandle::create(window_builder).await
+    WindowHandle::create::<Application<El>, _>(window_builder).await
 }
 
 pub struct Application<El> {
@@ -47,14 +47,14 @@ impl<El> AppWindow for Application<El>
 where
     El: Element,
 {
-    fn on_create(window: &std::sync::Arc<WinitWindow>, close_handle: CloseHandle) -> Result<Self> {
-        Ok(Application {
-            window: window.clone(),
+    fn on_create(window: std::sync::Arc<WinitWindow>, close_handle: CloseHandle) -> Self {
+        Application {
+            window,
             application: None,
             window_event_dispatcher: EventDispatcher::new(),
             elem_table: ElemTable::new(),
             close_handle,
-        })
+        }
     }
 
     fn on_redraw(&mut self, canvas: &mut Canvas, size: (u32, u32), delta: Duration) -> Result<()> {

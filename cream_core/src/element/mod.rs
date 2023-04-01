@@ -21,7 +21,7 @@ pub mod render_fn_macro;
 /// This trait is close to the native rendering, if you are not a
 /// component maker, please using exist element or using macros to
 /// custom one.
-pub trait Element: Send + 'static {
+pub trait Element: 'static {
     type Props<'a>: Default;
     type ChildProps<'a>;
 

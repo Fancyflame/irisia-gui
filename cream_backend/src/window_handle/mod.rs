@@ -1,8 +1,6 @@
 use std::{ops::Deref, sync::Arc};
 
-use tokio::sync::Mutex;
-
-use crate::{AppWindow, WinitWindow};
+use crate::WinitWindow;
 
 pub use winit::window::WindowBuilder;
 
@@ -11,22 +9,17 @@ use self::close_handle::CloseHandle;
 pub mod close_handle;
 pub mod create;
 
-pub struct WindowHandle<A: AppWindow> {
-    app: Arc<Mutex<A>>,
+pub struct WindowHandle {
     raw_window: Arc<WinitWindow>,
 }
 
-impl<A: AppWindow> WindowHandle<A> {
-    pub fn app(&self) -> &Arc<Mutex<A>> {
-        &self.app
-    }
-
+impl WindowHandle {
     pub fn close(&self) {
         CloseHandle(self.id()).close();
     }
 }
 
-impl<A: AppWindow> Deref for WindowHandle<A> {
+impl Deref for WindowHandle {
     type Target = WinitWindow;
     fn deref(&self) -> &Self::Target {
         &self.raw_window

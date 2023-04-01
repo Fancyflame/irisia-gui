@@ -1,7 +1,7 @@
 use crate::{element::RenderContent, primary::Region, style::reader::StyleReader, Result};
 
 pub trait RenderingNode: Sized {
-    type Cache: Default + Send + Sync + 'static;
+    type Cache: Default + 'static;
 
     fn element_count(&self) -> usize;
 

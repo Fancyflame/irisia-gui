@@ -11,9 +11,10 @@ use winit::window::WindowBuilder;
 
 use super::{close_handle::CloseHandle, WindowHandle};
 
-impl<A: AppWindow> WindowHandle<A> {
-    pub async fn create<F>(f: F) -> Result<Self>
+impl WindowHandle {
+    pub async fn create<A, F>(f: F) -> Result<Self>
     where
+        A: AppWindow,
         F: FnOnce(WindowBuilder) -> WindowBuilder + Send + 'static,
     {
         let (window_giver, window_receiver) = oneshot::channel();
@@ -31,18 +32,22 @@ impl<A: AppWindow> WindowHandle<A> {
                 .expect("inner error: cannot receive window initializing result from runtime")?,
         );
 
-        let app = Arc::new(Mutex::new(A::on_create(
-            &raw_window,
-            CloseHandle(raw_window.id()),
-        )?));
+        let raw_window_cloned = raw_window.clone();
+        let app = move || {
+            let window_id = raw_window_cloned.id();
+            Arc::new(Mutex::new(A::on_create(
+                raw_window_cloned,
+                CloseHandle(window_id),
+            ))) as Arc<Mutex<dyn AppWindow>>
+        };
 
         WindowRegiterMutex::lock()
             .await
             .send(WindowReg::WindowRegister {
-                app: app.clone() as _,
+                app: Box::new(app) as _,
                 raw_window: raw_window.clone(),
             });
 
-        Ok(WindowHandle { app, raw_window })
+        Ok(WindowHandle { raw_window })
     }
 }

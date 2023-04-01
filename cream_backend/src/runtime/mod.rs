@@ -64,7 +64,7 @@ where
                 WindowReg::WindowRegister { app, raw_window } => {
                     let window_id = raw_window.id();
                     let render_window =
-                        RenderWindow::new(app, raw_window).expect("cannot load renderer");
+                        RenderWindow::new(app(), raw_window).expect("cannot load renderer");
                     window_map.insert(window_id, render_window);
                 }
 
