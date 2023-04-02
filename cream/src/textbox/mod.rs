@@ -1,13 +1,13 @@
 use cream_core::{
-    element::{Element, NeverInitalized},
-    read_style,
+    element::{Element, Frame, NeverInitalized},
     skia_safe::{
         font_style::Width,
         textlayout::{FontCollection, Paragraph, ParagraphBuilder, ParagraphStyle, TextStyle},
         Color, FontMgr, FontStyle, Point,
     },
     structure::VisitIter,
-    style::StyleColor,
+    style::{StyleColor, StyleContainer},
+    StyleReader,
 };
 use styles::*;
 
@@ -16,6 +16,25 @@ pub mod styles;
 pub struct TextBox {
     font_collection: FontCollection,
     paragraph: Option<Paragraph>,
+}
+
+#[derive(StyleReader)]
+struct TextBoxStyles {
+    size: StyleFontSize,
+    slant: StyleFontSlant,
+    weight: StyleFontWeight,
+    color: Option<StyleColor>,
+}
+
+impl Default for TextBox {
+    fn default() -> Self {
+        let mut font_collection = FontCollection::new();
+        font_collection.set_default_font_manager(FontMgr::new(), None);
+        TextBox {
+            font_collection,
+            paragraph: None,
+        }
+    }
 }
 
 #[derive(Default)]
@@ -27,33 +46,21 @@ impl Element for TextBox {
     type Props<'a> = Props<'a>;
     type ChildProps<'a> = NeverInitalized;
 
-    fn create() -> Self {
-        let mut font_collection = FontCollection::new();
-        font_collection.set_default_font_manager(FontMgr::new(), None);
-        TextBox {
-            font_collection,
-            paragraph: None,
-        }
-    }
-
-    fn render<'r>(
+    fn render<'a>(
         &mut self,
-        props: Self::Props<'_>,
-        styles: &impl cream_core::style::StyleContainer,
-        drawing_region: cream_core::primary::Region,
-        _cache_box_for_children: &mut cream_core::CacheBox,
-        _event_dispatcher: &cream_core::event::EventDispatcher,
-        _children: cream_core::structure::Slot<
-            impl cream_core::structure::StructureBuilder + VisitIter<Self::ChildProps<'r>>,
+        Frame {
+            props,
+            styles,
+            drawing_region,
+            mut content,
+            ..
+        }: cream_core::element::Frame<
+            Self,
+            impl StyleContainer,
+            impl VisitIter<Self::ChildProps<'a>>,
         >,
-        mut content: cream_core::element::RenderContent,
     ) -> cream_core::Result<()> {
-        read_style!(styles => {
-            size: StyleFontSize,
-            slant: StyleFontSlant,
-            weight: StyleFontWeight,
-            color: Option<StyleColor>,
-        });
+        let style = TextBoxStyles::read_style(styles);
 
         let para_style = {
             let mut ps = ParagraphStyle::new();
@@ -66,10 +73,10 @@ impl Element for TextBox {
         let text_style = {
             let mut text_style = TextStyle::new();
             text_style
-                .set_font_style(FontStyle::new(weight.0, Width::NORMAL, slant.0))
-                .set_font_size(size.0.to_physical() as _);
+                .set_font_style(FontStyle::new(style.weight.0, Width::NORMAL, style.slant.0))
+                .set_font_size(style.size.0.to_physical() as _);
 
-            text_style.set_color(match color {
+            text_style.set_color(match style.color {
                 Some(c) => c.0,
                 None => Color::BLACK,
             });

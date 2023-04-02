@@ -1,9 +1,9 @@
 use cream::{
-    application::new_window,
-    element::{Element, NeverInitalized, NoProps, RuntimeInit},
-    event::{standard::ElementAbondoned, ElementEventKey, EventDispatcher},
+    application::Window,
+    element::{Element, Frame, NeverInitalized, NoProps, RuntimeInit},
+    event::{standard::ElementAbondoned, ElementEvent},
     exit_app,
-    primary::{Point, Region},
+    primary::Point,
     read_style, render_fn,
     skia_safe::{Color, Color4f, Paint, Rect},
     structure::{StructureBuilder, VisitIter},
@@ -17,24 +17,28 @@ use tokio::select;
 
 #[cream::main]
 async fn main() {
-    new_window::<App, _>(|builder| builder.with_title("test"))
+    Window::new::<App>("test".into())
         .await
-        .unwrap();
+        .unwrap()
+        .recv_destroyed()
+        .await;
 }
 
 struct App {
     rects: Vec<Color>,
 }
 
-impl Element for App {
-    type Props<'a> = NoProps;
-    type ChildProps<'a> = NeverInitalized;
-
-    fn create() -> Self {
+impl Default for App {
+    fn default() -> Self {
         Self {
             rects: vec![Color::GREEN, Color::RED, Color::BLUE],
         }
     }
+}
+
+impl Element for App {
+    type Props<'a> = NoProps;
+    type ChildProps<'a> = NeverInitalized;
 
     render_fn! {
         @init(self);
@@ -68,7 +72,7 @@ impl Element for App {
                 loop {
                     let (event, _) = init
                         .event_dispatcher
-                        .recv::<WindowEvent, ElementEventKey>()
+                        .recv::<WindowEvent, ElementEvent>()
                         .await;
 
                     match event {
@@ -109,28 +113,31 @@ struct Rectangle {
     force_color: Color,
 }
 
-impl Element for Rectangle {
-    type Props<'a> = NoProps;
-    type ChildProps<'a> = ();
-
-    fn create() -> Self {
+impl Default for Rectangle {
+    fn default() -> Self {
         Self {
             is_force: false,
             force_color: Color::CYAN,
         }
     }
+}
 
-    fn render<'r>(
+impl Element for Rectangle {
+    type Props<'a> = NoProps;
+    type ChildProps<'a> = ();
+
+    fn render<'a>(
         &mut self,
-        _props: Self::Props<'_>,
-        styles: &impl style::StyleContainer,
-        region: Region,
-        _cache_box_for_children: &mut cream::CacheBox,
-        _event_dispatcher: &EventDispatcher,
-        _children: cream::structure::Slot<
-            impl StructureBuilder + cream::structure::VisitIter<Self::ChildProps<'r>>,
+        Frame {
+            styles,
+            drawing_region: region,
+            mut content,
+            ..
+        }: cream::element::Frame<
+            Self,
+            impl style::StyleContainer,
+            impl VisitIter<Self::ChildProps<'a>>,
         >,
-        mut content: cream::element::RenderContent,
     ) -> cream::Result<()> {
         read_style!(styles => {
             w: Option<StyleWidth>,
@@ -184,13 +191,13 @@ impl Element for Rectangle {
             let b = async {
                 loop {
                     select! {
-                        _ = init.recv::<ElementAbondoned, ElementEventKey>() => {
+                        _ = init.recv::<ElementAbondoned, ElementEvent>() => {
                             println!("element dropped");
                             exit_app(0).await;
                             return;
                         },
 
-                        (window_event,_) = init.recv::<WindowEvent, ElementEventKey>() => match window_event {
+                        (window_event,_) = init.recv::<WindowEvent, ElementEvent>() => match window_event {
                             WindowEvent::MouseInput {
                                 state,
                                 ..
@@ -215,25 +222,22 @@ impl Element for Rectangle {
 #[derive(Event, Clone)]
 pub struct MyRequestClose;
 
+#[derive(Default)]
 struct Flex;
 
 impl Element for Flex {
     type Props<'a> = NoProps;
     type ChildProps<'a> = ();
 
-    fn create() -> Self {
-        Flex
-    }
-
-    fn render<'r>(
+    fn render<'a>(
         &mut self,
-        _props: Self::Props<'_>,
-        _styles: &impl style::StyleContainer,
-        drawing_region: Region,
-        cache_box_for_children: &mut cream::CacheBox,
-        _: &EventDispatcher,
-        children: cream::structure::Slot<impl StructureBuilder + VisitIter<Self::ChildProps<'r>>>,
-        mut content: cream::element::RenderContent,
+        Frame {
+            drawing_region,
+            cache_box_for_children,
+            mut content,
+            children,
+            ..
+        }: Frame<Self, impl style::StyleContainer, impl VisitIter<Self::ChildProps<'a>>>,
     ) -> cream::Result<()> {
         let (start, end) = drawing_region;
         let abs = end - start;

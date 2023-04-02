@@ -1,0 +1,23 @@
+use std::{ops::Deref, sync::Arc};
+
+use crate::WinitWindow;
+
+pub use winit::window::WindowBuilder;
+
+use self::close_handle::CloseHandle;
+
+pub mod close_handle;
+pub mod create;
+
+#[derive(Clone)]
+pub struct RawWindowHandle {
+    pub raw_window: Arc<WinitWindow>,
+    pub close_handle: CloseHandle,
+}
+
+impl Deref for RawWindowHandle {
+    type Target = WinitWindow;
+    fn deref(&self) -> &Self::Target {
+        &self.raw_window
+    }
+}
