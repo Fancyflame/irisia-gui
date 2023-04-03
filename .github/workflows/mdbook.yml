@@ -29,7 +29,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      MDBOOK_VERSION: 0.4.21
+      MDBOOK_VERSION: 0.4
     steps:
       - uses: actions/checkout@v3
       - name: Install mdBook
@@ -41,11 +41,11 @@ jobs:
         id: pages
         uses: actions/configure-pages@v3
       - name: Build with mdBook
-        run: mdbook build cream-book
+        run: mdbook build cream-book -d book
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v1
         with:
-          path: ./book
+          path: ./cream-book/book
 
   # Deployment job
   deploy:
