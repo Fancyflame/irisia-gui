@@ -31,7 +31,13 @@ struct App {
 impl Default for App {
     fn default() -> Self {
         Self {
-            rects: vec![Color::GREEN, Color::RED, Color::BLUE],
+            rects: vec![
+                Color::RED,
+                Color::YELLOW,
+                Color::BLUE,
+                Color::GREEN,
+                Color::BLACK,
+            ],
         }
     }
 }

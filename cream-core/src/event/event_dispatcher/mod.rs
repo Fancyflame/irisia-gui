@@ -1,57 +1,31 @@
-use tokio::{
-    sync::{Mutex as AsyncMutex, MutexGuard as AsyncMutexGuard},
-    task::JoinHandle,
-};
-
-use self::{emitter::CreatedEventEmitter, item::Item};
+use self::{emit_scheduler::EmitScheduler, emitter::CreatedEventEmitter, item_map::ItemMap};
 use crate::Event;
-use std::{
-    any::{Any, TypeId},
-    collections::HashMap,
-    sync::{Arc, Mutex as StdMutex, MutexGuard as StdMutexGuard},
-};
+use std::sync::{Arc, Mutex as StdMutex};
 
 use super::{standard::EventDispatcherCreated, EventMetadata, EventReceive};
 
+mod emit_scheduler;
 pub mod emitter;
-mod item;
+mod item_map;
 pub mod receive;
 
 #[derive(Clone)]
 pub struct RecvOnly(EventDispatcher);
 
 #[derive(Clone)]
-pub struct EventDispatcher(Arc<EventDispatcherInner>);
-
-type ItemMap = HashMap<TypeId, Box<dyn Any + Send>>;
+pub struct EventDispatcher(Arc<StdMutex<EventDispatcherInner>>);
 
 struct EventDispatcherInner {
-    item_map: StdMutex<ItemMap>,
-    wait_yield: AsyncMutex<Option<JoinHandle<()>>>,
-}
-
-fn get_item<'a, E: Event>(map: &'a mut StdMutexGuard<ItemMap>) -> Option<&'a mut Item<E>> {
-    map.get_mut(&TypeId::of::<E>()).map(|any| {
-        any.downcast_mut()
-            .expect("inner error: cannot downcast to item")
-    })
-}
-
-fn get_exist_item<'a, E: Event>(map: &'a mut StdMutexGuard<ItemMap>) -> &'a mut Item<E> {
-    match get_item(map) {
-        Some(item) => item,
-        None => {
-            panic!("inner error: item not found");
-        }
-    }
+    item_map: ItemMap,
+    emit_sch: EmitScheduler,
 }
 
 impl EventDispatcher {
     pub fn new() -> Self {
-        EventDispatcher(Arc::new(EventDispatcherInner {
-            item_map: Default::default(),
-            wait_yield: AsyncMutex::new(None),
-        }))
+        EventDispatcher(Arc::new(StdMutex::new(EventDispatcherInner {
+            item_map: ItemMap::new(),
+            emit_sch: EmitScheduler::new(),
+        })))
     }
 
     pub fn emit(&self, event: impl Event) {
@@ -62,55 +36,14 @@ impl EventDispatcher {
         self.emit_raw(event, EventMetadata::new_sys())
     }
 
-    fn emit_raw<E: Event>(&self, event: E, metadata: EventMetadata) {
-        let emit =
-            move |this: &EventDispatcher,
-                  yield_guard: &mut AsyncMutexGuard<'_, Option<JoinHandle<()>>>| {
-                yield_guard.replace(tokio::spawn(tokio::task::yield_now()));
-                let mut guard = this.0.item_map.lock().unwrap();
-                if let Some(item) = get_item(&mut guard) {
-                    item.finish(event, metadata);
-                }
-            };
-
-        // fast emit
-        if let Ok(mut yield_guard) = self.0.wait_yield.try_lock() {
-            let finished = match &*yield_guard {
-                Some(last) => last.is_finished(),
-                None => true,
-            };
-
-            if finished {
-                emit(self, &mut yield_guard);
-                return;
-            }
-        }
-
-        let this = self.clone();
-        tokio::spawn(async move {
-            let mut yield_guard = this.0.wait_yield.lock().await;
-
-            // we can `take().unwrap()` here, because we checked it must be `Some` before
-            yield_guard.take().unwrap().await.unwrap();
-
-            emit(&this, &mut yield_guard);
-        });
-    }
-
     pub fn recv<E: Event>(&self) -> EventReceive<E> {
-        let tid = TypeId::of::<E>();
-        let mut guard = self.0.item_map.lock().unwrap();
-
-        let id;
-        match get_item::<E>(&mut guard) {
-            Some(item) => id = item.register(),
-            None => {
-                let mut item = Item::<E>::new();
-                id = item.register();
-                guard.insert(tid, Box::new(item) as _);
-            }
-        }
-
+        let id = self
+            .0
+            .lock()
+            .unwrap()
+            .item_map
+            .get_or_insert::<E>()
+            .register();
         EventReceive::new(self, id)
     }
 

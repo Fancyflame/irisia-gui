@@ -1,6 +1,42 @@
-use std::{collections::HashMap, task::Waker};
+use std::{
+    any::{Any, TypeId},
+    collections::HashMap,
+    task::Waker,
+};
 
 use crate::{event::EventMetadata, Event};
+
+pub(super) struct ItemMap(HashMap<TypeId, Box<dyn Any + Send>>);
+
+impl ItemMap {
+    pub fn new() -> Self {
+        ItemMap(HashMap::new())
+    }
+
+    pub fn get<E: Event>(&mut self) -> Option<&mut Item<E>> {
+        self.0.get_mut(&TypeId::of::<E>()).map(|any| {
+            any.downcast_mut()
+                .expect("inner error: cannot downcast to item")
+        })
+    }
+
+    pub fn get_or_insert<E: Event>(&mut self) -> &mut Item<E> {
+        self.0
+            .entry(TypeId::of::<E>())
+            .or_insert_with(|| Box::new(Item::<E>::new()))
+            .downcast_mut()
+            .expect("inner error: cannot downcast to item")
+    }
+
+    pub fn get_exist<E: Event>(&mut self) -> &mut Item<E> {
+        match self.get() {
+            Some(item) => item,
+            None => {
+                panic!("inner error: item not exits, but expected does");
+            }
+        }
+    }
+}
 
 enum Ltnr<E> {
     Pending(Option<Waker>),

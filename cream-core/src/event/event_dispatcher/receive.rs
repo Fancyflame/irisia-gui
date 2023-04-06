@@ -1,9 +1,6 @@
 use std::{future::Future, marker::PhantomData, task::Poll};
 
-use crate::{
-    event::{event_dispatcher::get_exist_item, EventMetadata},
-    Event,
-};
+use crate::{event::EventMetadata, Event};
 
 use super::EventDispatcher;
 
@@ -30,7 +27,13 @@ impl<E: Event> Future for EventReceive<'_, E> {
     fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
         assert!(!self.taken);
 
-        match get_exist_item(&mut self.dispatcher.0.item_map.lock().unwrap())
+        match self
+            .dispatcher
+            .0
+            .lock()
+            .unwrap()
+            .item_map
+            .get_exist::<E>()
             .poll(self.id, cx.waker().clone())
         {
             Some(pair) => {
@@ -46,7 +49,12 @@ impl<E: Event> Future for EventReceive<'_, E> {
 impl<E: Event> Drop for EventReceive<'_, E> {
     fn drop(&mut self) {
         if !self.taken {
-            get_exist_item::<E>(&mut self.dispatcher.0.item_map.lock().unwrap())
+            self.dispatcher
+                .0
+                .lock()
+                .unwrap()
+                .item_map
+                .get_exist::<E>()
                 .clear_by_id(self.id);
         }
     }
