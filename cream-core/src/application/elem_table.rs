@@ -1,11 +1,11 @@
 use crate::{
-    event::EventEmitter,
+    event::EventDispatcher,
     primary::{Point, Region},
     Event,
 };
 
 struct Item {
-    event_emitter: EventEmitter,
+    event_dispatcher: EventDispatcher,
     interact_region: Option<Region>,
     parent: Option<usize>,
 }
@@ -28,7 +28,7 @@ impl ElemTable {
     pub fn builder(&mut self) -> Builder {
         self.emitters.clear();
         Builder {
-            emitters: &mut self.emitters,
+            items: &mut self.emitters,
             builder_stack: &mut self.builder_stack,
         }
     }
@@ -37,7 +37,7 @@ impl ElemTable {
         self.cursor_position = position;
     }
 
-    pub fn emit<E>(&self, event: &E)
+    pub fn emit_sys<E>(&self, event: E)
     where
         E: Event,
     {
@@ -64,39 +64,39 @@ impl ElemTable {
 
         while let Some(index) = selected {
             let item = &self.emitters[index];
-            item.event_emitter.emit(event);
+            item.event_dispatcher.emit_sys(event.clone());
             selected = item.parent;
         }
     }
 }
 
 pub(crate) struct Builder<'a> {
-    emitters: &'a mut Vec<Item>,
+    items: &'a mut Vec<Item>,
     builder_stack: &'a mut Vec<usize>,
 }
 
 impl Builder<'_> {
     pub fn downgrade_lifetime(&mut self) -> Builder {
         Builder {
-            emitters: self.emitters,
+            items: self.items,
             builder_stack: self.builder_stack,
         }
     }
 
-    pub fn push(&mut self, event_emitter: EventEmitter) -> usize {
-        self.emitters.push(Item {
-            event_emitter,
+    pub fn push(&mut self, event_dispatcher: EventDispatcher) -> usize {
+        self.items.push(Item {
+            event_dispatcher,
             interact_region: None,
             parent: self.builder_stack.last().copied(),
         });
 
-        let index = self.emitters.len() - 1;
+        let index = self.items.len() - 1;
         self.builder_stack.push(index);
         index
     }
 
     pub fn set_interact_region_for(&mut self, index: usize, r: Region) {
-        self.emitters[index].interact_region = Some(r);
+        self.items[index].interact_region = Some(r);
     }
 
     pub fn finish(&mut self) {

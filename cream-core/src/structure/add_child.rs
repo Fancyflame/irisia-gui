@@ -1,6 +1,5 @@
 use std::{
     iter::{self, Once},
-    marker::PhantomData,
     sync::Arc,
 };
 
@@ -9,9 +8,8 @@ use tokio::sync::{Mutex, OwnedMutexGuard};
 use crate::{
     element::{Frame, PropsAsChild, RenderContent, RuntimeInit},
     event::{
-        event_dispatcher::EventDispatcher,
-        standard::{ElementAbondoned, EventDispatcherCreated},
-        ElementEvent, EventEmitter,
+        event_dispatcher::{emitter::CreatedEventEmitter, EventDispatcher},
+        standard::ElementAbondoned,
     },
     primary::Region,
     style::{reader::StyleReader, StyleContainer},
@@ -24,68 +22,79 @@ pub struct AddChildCache<El, Cc> {
     element: Arc<Mutex<El>>,
     cache_box: CacheBox,
     event_dispatcher: EventDispatcher,
-    element_event_emitter: EventEmitter,
     children_cache: Cc,
 }
 
-struct Snapshot<El> {
-    requested_size: (Option<u32>, Option<u32>),
-    el: OwnedMutexGuard<El>,
-}
+pub struct AddChild<'a, El, Sty, K, Ch>(AddChildInner<'a, El, Sty, K, Ch>)
+where
+    El: Element;
 
-pub struct AddChild<'a, El, Sty, Ch>
+enum AddChildInner<'a, El, Sty, K, Ch>
 where
     El: Element,
 {
-    _phantom: PhantomData<El>,
-    prop: <El as Element>::Props<'a>,
-    style: Sty,
-    event_emitter: EventEmitter,
-    children: Ch,
-    lock_element: Option<Snapshot<El>>,
+    New {
+        props: <El as Element>::Props<'a>,
+        styles: Sty,
+        ce_emitter: CreatedEventEmitter<'a, K>,
+        children: Ch,
+    },
+
+    Preparing,
+
+    Prepared {
+        props: <El as Element>::Props<'a>,
+        styles: Sty,
+        children: Ch,
+        requested_size: (Option<u32>, Option<u32>),
+        el: OwnedMutexGuard<El>,
+    },
 }
 
-pub fn add_child<El, Sty, Ch>(
-    prop: <El as Element>::Props<'_>,
-    style: Sty,
-    event_emitter: EventEmitter,
+pub fn add_child<'a, El, Sty, K, Ch>(
+    props: <El as Element>::Props<'a>,
+    styles: Sty,
+    event_emitter: CreatedEventEmitter<'a, K>,
     children: Ch,
-) -> AddChild<El, Sty, Ch>
+) -> AddChild<'a, El, Sty, K, Ch>
 where
     El: Element,
 {
-    AddChild {
-        _phantom: PhantomData,
-        prop,
-        style,
-        event_emitter,
+    AddChild(AddChildInner::New {
+        props,
+        styles,
+        ce_emitter: event_emitter,
         children,
-        lock_element: None,
-    }
+    })
 }
 
-impl<'prop, El, Sty, Ch> RenderingNode for AddChild<'prop, El, Sty, Ch>
+impl<'env, El, Sty, K, Ch> RenderingNode for AddChild<'env, El, Sty, K, Ch>
 where
     El: Element,
     Sty: StyleContainer,
+    K: Clone + Unpin + Send + 'static,
     Ch: for<'a> VisitIter<El::ChildProps<'a>>,
 {
     type Cache = Option<AddChildCache<El, <Ch as RenderingNode>::Cache>>;
 
     fn prepare_for_rendering(&mut self, cache: &mut Self::Cache, content: RenderContent) {
+        let AddChildInner::New { props: prop, styles: style, ce_emitter, children } = 
+            std::mem::replace(&mut self.0, AddChildInner::Preparing)
+        else {
+            panic!("inner error: this node has prepared");
+        };
+
         let cache = match cache {
             Some(c) => c,
             c @ None => {
                 let el = Arc::new(Mutex::new(El::default()));
                 let event_dispatcher = EventDispatcher::new();
 
-                self.event_emitter
-                    .emit(&EventDispatcherCreated(event_dispatcher.clone()));
+                ce_emitter.emit(&event_dispatcher);
 
                 El::start_runtime(RuntimeInit {
                     _prevent_new: (),
                     app: el.clone(),
-                    output_event_emitter: self.event_emitter.clone(),
                     window_event_dispatcher: content.window_event_receiver.to_recv_only(),
                     event_dispatcher: event_dispatcher.clone(),
                     close_handle: content.close_handle,
@@ -94,7 +103,6 @@ where
                 let cache = AddChildCache {
                     element: el,
                     cache_box: CacheBox::new(),
-                    element_event_emitter: event_dispatcher.emitter(ElementEvent(())),
                     event_dispatcher,
                     children_cache: Default::default(),
                 };
@@ -105,10 +113,14 @@ where
         };
 
         let guard = cache.element.clone().blocking_lock_owned();
-        self.lock_element = Some(Snapshot {
+
+        self.0 = AddChildInner::Prepared {
+            props: prop,
+            styles: style,
+            children,
             requested_size: guard.compute_size(),
             el: guard,
-        });
+        };
     }
 
     fn element_count(&self) -> usize {
@@ -125,29 +137,30 @@ where
         F: FnMut(S, (Option<u32>, Option<u32>)) -> Result<Region>,
         S: StyleReader,
     {
+        let AddChildInner::Prepared { props, styles, children, requested_size, mut el } = self.0
+        else {
+            panic!("inner error: this node is not prepared");
+        };
+
         let cache = cache.as_mut().unwrap();
-        let Snapshot {
-            requested_size,
-            mut el,
-        } = self.lock_element.unwrap();
         let mut content = raw_content.downgrade_lifetime();
 
         content.elem_table_index = Some(
             content
                 .elem_table_builder
-                .push(cache.element_event_emitter.clone()),
+                .push(cache.event_dispatcher.clone()),
         );
 
-        let region = map(S::read_style(&self.style), requested_size)?;
+        let region = map(S::read_style(&styles), requested_size)?;
 
         let result = el.render(Frame {
-            props: self.prop,
-            styles: &self.style,
+            props,
+            styles: &styles,
             drawing_region: region,
             cache_box_for_children: &mut cache.cache_box,
             event_dispatcher: &cache.event_dispatcher,
             children: Slot {
-                node: self.children,
+                node: children,
                 cache: &mut cache.children_cache,
             },
             content,
@@ -158,10 +171,11 @@ where
     }
 }
 
-impl<Prop, El, Sty, Ch> VisitIter<Prop> for AddChild<'_, El, Sty, Ch>
+impl<Prop, El, Sty, K, Ch> VisitIter<Prop> for AddChild<'_, El, Sty, K, Ch>
 where
     El: Element + for<'a> PropsAsChild<'a, Prop>,
     Sty: StyleContainer,
+    K: Clone + Unpin + Send + 'static,
     Ch: for<'a> VisitIter<El::ChildProps<'a>>,
 {
     type VisitIter<'a, S> = Once<VisitItem<S, Prop>>
@@ -173,22 +187,21 @@ where
     where
         S: StyleReader,
     {
-        let locked = &self
-            .lock_element
-            .as_ref()
-            .expect("inner error: not prepared");
+        let AddChildInner::Prepared { props, styles, requested_size, el, .. } = &self.0
+        else {
+            panic!("inner error: this node is not prepared");
+        };
 
         iter::once(VisitItem {
-            style: S::read_style(&self.style),
-            request_size: locked.requested_size,
-            child_props: locked.el.props_as_child(&self.prop, &self.style),
+            style: S::read_style(styles),
+            request_size: *requested_size,
+            child_props: el.props_as_child(props, styles),
         })
     }
 }
 
 impl<El, Cc> Drop for AddChildCache<El, Cc> {
     fn drop(&mut self) {
-        self.event_dispatcher
-            .emit(&ElementAbondoned, &ElementEvent(()));
+        self.event_dispatcher.emit_sys(ElementAbondoned);
     }
 }

@@ -12,7 +12,7 @@ use crate::{
         render_content::{RenderContent, WildRenderContent},
         Element,
     },
-    event::{EventDispatcher, EventEmitter},
+    event::{event_dispatcher::emitter::CreatedEventEmitter, EventDispatcher},
     primary::Point,
     structure::{
         add_child::{self, AddChildCache},
@@ -65,10 +65,10 @@ where
     El: Element,
 {
     fn on_redraw(&mut self, canvas: &mut Canvas, size: (u32, u32), delta: Duration) -> Result<()> {
-        let add_child = add_child::add_child::<El, _, _>(
+        let add_child = add_child::add_child::<El, _, (), _>(
             Default::default(),
             NoStyle,
-            EventEmitter::new_empty(),
+            CreatedEventEmitter::new_empty(),
             EmptyStructure,
         );
 
@@ -98,7 +98,7 @@ where
             _ => {}
         }
 
-        self.window_event_dispatcher.emit(&event, &());
-        self.elem_table.emit(&event);
+        self.window_event_dispatcher.emit_sys(event.clone());
+        self.elem_table.emit_sys(event);
     }
 }

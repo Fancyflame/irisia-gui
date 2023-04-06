@@ -1,28 +1,22 @@
-use std::{any::Any, collections::HashMap, task::Waker};
+use std::{collections::HashMap, task::Waker};
 
-use crate::Event;
+use crate::{event::EventMetadata, Event};
 
-pub(super) trait Visitor: Send + 'static {
-    fn as_any_mut(&mut self) -> &mut dyn Any;
-    fn emit(&mut self, el: &dyn Any, key: &dyn Any);
+enum Ltnr<E> {
+    Pending(Option<Waker>),
+    Ready { event: E, metadata: EventMetadata },
 }
 
-pub(super) struct Item<E, K> {
+pub(super) struct Item<E> {
     counter: u32,
-    pending: HashMap<u32, Option<Waker>>,
-    ready: HashMap<u32, (E, K)>,
+    listeners: HashMap<u32, Ltnr<E>>,
 }
 
-impl<E, K> Item<E, K>
-where
-    E: Event,
-    K: Clone + Send + 'static,
-{
+impl<E: Event> Item<E> {
     pub fn new() -> Self {
         Item {
             counter: 0,
-            pending: HashMap::new(),
-            ready: HashMap::new(),
+            listeners: Default::default(),
         }
     }
 
@@ -31,61 +25,51 @@ where
             self.counter = self.counter.wrapping_add(1);
             let id = self.counter;
 
-            if self.ready.contains_key(&id) {
-                continue;
-            }
-
-            if let Some(old_waker) = self.pending.insert(id, None) {
-                self.pending.insert(id, old_waker).unwrap();
+            if let Some(old) = self.listeners.insert(id, Ltnr::Pending(None)) {
+                self.listeners.insert(id, old).unwrap();
             } else {
                 break id;
             }
         }
     }
 
-    pub fn update_waker(&mut self, id: u32, waker: Waker) {
-        match self.pending.get_mut(&id) {
-            Some(option) => *option = Some(waker),
+    pub fn finish(&mut self, ev: E, metadata: EventMetadata) {
+        for ltnr in self.listeners.values_mut() {
+            if let Ltnr::Pending(waker_option) = ltnr {
+                if let Some(waker) = waker_option.take() {
+                    waker.wake();
+                }
+                *ltnr = Ltnr::Ready {
+                    event: ev.clone(),
+                    metadata,
+                };
+            }
+        }
+    }
+
+    pub fn poll(&mut self, id: u32, waker: Waker) -> Option<(E, EventMetadata)> {
+        match self.listeners.get_mut(&id) {
+            Some(Ltnr::Ready { .. }) => match self.listeners.remove(&id).unwrap() {
+                Ltnr::Ready { event, metadata } => Some((event, metadata)),
+                _ => unreachable!(),
+            },
+
+            Some(Ltnr::Pending(option)) => {
+                option.replace(waker);
+                None
+            }
+
             None => {
-                #[cfg(debug_assertions)]
-                panic!("inner error: id not exists");
+                if cfg!(debug_assertions) {
+                    panic!("inner error: cannot call `take` on this id");
+                } else {
+                    None
+                }
             }
         }
-    }
-
-    pub fn finish(&mut self, ev: &E, key: &K) {
-        for (id, waker) in self.pending.drain() {
-            if let Some(waker) = waker {
-                waker.wake();
-            }
-            debug_assert!(self.ready.insert(id, (ev.clone(), key.clone())).is_none());
-        }
-    }
-
-    pub fn take(&mut self, id: u32) -> Option<(E, K)> {
-        self.ready.remove(&id)
     }
 
     pub fn clear_by_id(&mut self, id: u32) {
-        self.pending.remove(&id);
-        self.ready.remove(&id);
-    }
-}
-
-impl<E, K> Visitor for Item<E, K>
-where
-    E: Event,
-    K: Clone + Send + 'static,
-{
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    fn emit(&mut self, ev: &dyn Any, key: &dyn Any) {
-        self.finish(
-            ev.downcast_ref()
-                .expect("inner error: element type mismatch"),
-            key.downcast_ref().expect("inner error: key type mismatch"),
-        );
+        self.listeners.remove(&id);
     }
 }

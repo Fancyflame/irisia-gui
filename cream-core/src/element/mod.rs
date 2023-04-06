@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::event::event_dispatcher::RecvOnly;
-use crate::event::{EventDispatcher, EventEmitter, EventReceive};
+use crate::event::{EventDispatcher, EventReceive};
 use crate::primary::Region;
 use crate::structure::{StructureBuilder, VisitIter};
 use crate::{style::StyleContainer, Result};
@@ -77,18 +77,17 @@ pub struct NeverInitalized {
 pub struct RuntimeInit<T: ?Sized> {
     pub(crate) _prevent_new: (),
     pub app: Arc<Mutex<T>>,
-    pub output_event_emitter: EventEmitter,
     pub event_dispatcher: EventDispatcher,
     pub window_event_dispatcher: RecvOnly,
     pub close_handle: CloseHandle,
 }
 
 impl<T: ?Sized> RuntimeInit<T> {
-    pub fn recv<E, K>(&self) -> EventReceive<E, K>
-    where
-        E: Event,
-        K: Clone + Send + Unpin + 'static,
-    {
+    pub fn recv<E: Event>(&self) -> EventReceive<E> {
         self.event_dispatcher.recv()
+    }
+
+    pub async fn recv_sys<E: Event>(&self) -> E {
+        self.event_dispatcher.recv_sys().await
     }
 }

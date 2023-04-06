@@ -14,7 +14,13 @@ pub mod window_event;
 pub struct ElementAbondoned;
 
 #[derive(Event, Clone)]
-pub struct EventDispatcherCreated(pub EventDispatcher);
+pub struct EventDispatcherCreated<K>
+where
+    K: Clone + Unpin + Send + 'static,
+{
+    pub result: EventDispatcher,
+    pub key: K,
+}
 
 #[derive(Event, Clone)]
 pub struct PointerDown {

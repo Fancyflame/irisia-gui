@@ -52,7 +52,7 @@ impl Window {
         &self.event_dispatcher
     }
 
-    pub async fn recv_destroyed(&self) {
-        self.event_dispatcher.recv::<WindowDestroyed, ()>().await;
+    pub async fn join(&self) {
+        self.event_dispatcher.recv_sys::<WindowDestroyed>().await;
     }
 }

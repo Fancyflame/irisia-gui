@@ -1,7 +1,7 @@
 use cream::{
     application::Window,
     element::{Element, Frame, NeverInitalized, NoProps, RuntimeInit},
-    event::{standard::ElementAbondoned, ElementEvent},
+    event::standard::ElementAbondoned,
     exit_app,
     primary::Point,
     read_style, render_fn,
@@ -20,7 +20,7 @@ async fn main() {
     Window::new::<App>("test".into())
         .await
         .unwrap()
-        .recv_destroyed()
+        .join()
         .await;
 }
 
@@ -70,10 +70,7 @@ impl Element for App {
         tokio::spawn(async move {
             let a = async {
                 loop {
-                    let (event, _) = init
-                        .event_dispatcher
-                        .recv::<WindowEvent, ElementEvent>()
-                        .await;
+                    let event = init.event_dispatcher.recv_sys::<WindowEvent>().await;
 
                     match event {
                         WindowEvent::MouseInput {
@@ -89,10 +86,20 @@ impl Element for App {
             };
 
             let b = async {
-                let (_, key): (MyRequestClose, (&'static str, usize)) =
-                    init.event_dispatcher.recv().await;
-                println!("close request event received(sent by {:?})", key);
-                init.close_handle.close();
+                loop {
+                    let rect = init
+                        .event_dispatcher
+                        .get_element_checked(|(s, _): &(&str, usize)| *s == "rect")
+                        .await;
+
+                    tokio::spawn(async move {
+                        println!("recv{} got", rect.key.1);
+
+                        rect.result.recv::<MyRequestClose>().await;
+                        println!("close request event received(sent by {:?})", rect.key.1);
+                        init.close_handle.close();
+                    });
+                }
             };
 
             tokio::join!(a, b);
@@ -175,12 +182,11 @@ impl Element for Rectangle {
         tokio::spawn(async move {
             let a = async {
                 loop {
-                    let (window_event, _) =
-                        init.window_event_dispatcher.recv::<WindowEvent, ()>().await;
+                    let window_event = init.window_event_dispatcher.recv_sys::<WindowEvent>().await;
                     match window_event {
                         WindowEvent::CloseRequested => {
                             println!("close event sent");
-                            init.output_event_emitter.emit(&MyRequestClose);
+                            init.event_dispatcher.emit(MyRequestClose);
                         }
 
                         _ => {}
@@ -191,13 +197,13 @@ impl Element for Rectangle {
             let b = async {
                 loop {
                     select! {
-                        _ = init.recv::<ElementAbondoned, ElementEvent>() => {
+                        _ = init.recv_sys::<ElementAbondoned>() => {
                             println!("element dropped");
                             exit_app(0).await;
                             return;
                         },
 
-                        (window_event,_) = init.recv::<WindowEvent, ElementEvent>() => match window_event {
+                        window_event = init.recv_sys::<WindowEvent>() => match window_event {
                             WindowEvent::MouseInput {
                                 state,
                                 ..

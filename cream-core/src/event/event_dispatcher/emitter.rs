@@ -1,24 +1,37 @@
-use std::{any::Any, sync::Arc};
+use crate::event::standard::EventDispatcherCreated;
 
-use crate::Event;
+use super::EventDispatcher;
 
-type SendFn = Arc<dyn Fn(&dyn Any) + Send + Sync>;
+pub struct CreatedEventEmitter<'a, K>(Option<Inner<'a, K>>);
 
-#[derive(Clone)]
-pub struct EventEmitter(Option<SendFn>);
+struct Inner<'a, K> {
+    event_dispatcher: &'a EventDispatcher,
+    key: K,
+}
 
-impl EventEmitter {
-    pub(super) fn new_keyed(send_fn: SendFn) -> Self {
-        Self(Some(send_fn))
+impl<'a, K> CreatedEventEmitter<'a, K>
+where
+    K: Clone + Unpin + Send + 'static,
+{
+    pub(super) fn new(event_dispatcher: &'a EventDispatcher, key: K) -> Self {
+        Self(Some(Inner {
+            event_dispatcher,
+            key,
+        }))
     }
 
+    pub(crate) fn emit(self, ed: &EventDispatcher) {
+        if let Some(inner) = self.0 {
+            inner.event_dispatcher.emit_sys(EventDispatcherCreated {
+                result: ed.clone(),
+                key: inner.key,
+            });
+        }
+    }
+}
+
+impl CreatedEventEmitter<'static, ()> {
     pub const fn new_empty() -> Self {
         Self(None)
-    }
-
-    pub fn emit<E: Event>(&self, event: &E) {
-        if let Some(send_fn) = &self.0 {
-            send_fn(event);
-        }
     }
 }

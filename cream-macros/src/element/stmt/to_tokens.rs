@@ -37,7 +37,7 @@ impl ToTokens for ElementStmt {
         };
 
         quote! {
-            cream::structure::add_child::<#element, _, _>(
+            cream::structure::add_child::<#element, _, _, _>(
                 #props,
                 #style,
                 #event_listeners,
@@ -66,9 +66,11 @@ fn gen_event_listeners(
     event_emitting_key: Option<&Expr>,
 ) -> TokenStream {
     match (event_dispatcher, event_emitting_key) {
-        (_, None) => quote!(cream::event::EventEmitter::new_empty()),
+        (_, None) => {
+            quote!(cream::event::event_dispatcher::emitter::CreatedEventEmitter::new_empty())
+        }
 
-        (Some(disp), Some(key)) => quote!((#disp).emitter(#key)),
+        (Some(disp), Some(key)) => quote!((#disp).created_event_emitter(#key)),
 
         (None, Some(_)) => {
             quote!(::std::compile_error!(
