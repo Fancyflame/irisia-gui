@@ -1,15 +1,18 @@
 # 简介
+
 Cream GUI是一个基于Rust程序设计语言的一个跨平台，高性能的图形用户界面框架。它以
 [winit](https://crates.io/crates/winit)
-为窗口生成器，[skia](https://skia.org/)为渲染后端，[tokio](https://crates.io/crates/tokio)为异步执行器。
+为窗口启动器，[skia](https://skia.org/)为渲染后端，[tokio](https://crates.io/crates/tokio)为异步执行器。
 
-# 快速浏览
+## 快速浏览
+
 一个简单的窗体程序看起来是这样的。最新的例子可以移步github上的
 [examples](https://github.com/Fancyflame/cream-rs/tree/main/examples)文件夹。
+
 ```rust,ignore
 #[cream::main]
 async fn main() {
-    cream::new::<App>("my window".into()).await.unwrap().recv_destroyed().await;
+    cream::new::<App>("test".into()).await.unwrap().join().await;
 }
 
 struct App {
@@ -19,7 +22,13 @@ struct App {
 impl Default for App {
     fn default() -> Self {
         Self {
-            rects: vec![Color::GREEN, Color::RED, Color::BLUE],
+            rects: vec![
+                Color::RED,
+                Color::YELLOW,
+                Color::BLUE,
+                Color::GREEN,
+                Color::BLACK,
+            ],
         }
     }
 }
@@ -43,7 +52,7 @@ impl Element for App {
             for (index, color) in self.rects.iter().enumerate() {
                 @key index;
                 Rectangle {
-                    +listen: ("rect", index),
+                    +id: ("rect", index),
                     +style: style!{
                         width: 100.0;
                         height: 100.0 + 40.0 * index as f32;
@@ -57,20 +66,22 @@ impl Element for App {
     fn start_runtime(init: RuntimeInit<Self>) {
         tokio::spawn(async move {
             loop {
-                let (event, _) = init
-                    .event_dispatcher
-                    .recv::<WindowEvent, ElementEvent>()
-                    .await;
+                let event = init.event_dispatcher.recv_sys::<WindowEvent>().await;
 
-                if let WindowEvent::MouseInput {
-                    button: MouseButton::Left,
-                    state: ElementState::Pressed,
-                    ..
-                } = event {
-                    println!("mouse pressing");
+                match event {
+                    WindowEvent::MouseInput {
+                        button: MouseButton::Left,
+                        state: ElementState::Pressed,
+                        ..
+                    } => {
+                        println!("left click");
+                    }
+                    _ => {}
                 }
             }
         });
     }
 }
 ```
+
+![渲染结果](window.jpg)

@@ -14,7 +14,7 @@ macro_rules! render_fn {
         ) -> $crate::Result<()> {
             $crate::structure::StructureBuilder::into_rendering(
                 $crate::build! {
-                    @init(__frame.event_dispatcher);
+                    @init(__frame.event_dispatcher, __frame.children);
                     $($tt)*
                 },
                 __frame.cache_box_for_children,

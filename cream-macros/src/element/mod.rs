@@ -42,7 +42,7 @@ impl Codegen for ElementCodegen {
         input: syn::parse::ParseStream,
     ) -> syn::Result<Option<Self::Command>> {
         Ok(Some(match cmd {
-            "slot" => ElementCommand::Slot(input.parse()?),
+            "slot" => ElementCommand::Slot(None),
             "init" => ElementCommand::Init(input.parse()?),
             _ => return Ok(None),
         }))

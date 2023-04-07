@@ -10,10 +10,9 @@ mod to_tokens;
 pub struct ElementStmt {
     element: Type,
     props: Vec<(Ident, Expr)>,
-    rename: Option<Ident>,
     style: Expr,
     event_dispatcher: Option<Rc<Expr>>,
-    event_emitting_key: Option<Expr>,
+    identity: Option<Expr>,
     children: Vec<StateExpr<ElementCodegen>>,
 }
 

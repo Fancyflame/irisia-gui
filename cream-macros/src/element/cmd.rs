@@ -2,7 +2,7 @@ use quote::ToTokens;
 use syn::{parenthesized, parse::Parse, punctuated::Punctuated, token::Paren, Expr, Token};
 
 pub enum ElementCommand {
-    Slot(Expr),
+    Slot(Option<Expr>),
     Init(InitCommand),
 }
 
@@ -13,7 +13,7 @@ pub struct InitCommand {
 impl ToTokens for ElementCommand {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         match self {
-            Self::Slot(ex) => ex.to_tokens(tokens),
+            Self::Slot(ex) => ex.as_ref().unwrap().to_tokens(tokens),
             Self::Init(_) => unreachable!(),
         }
     }

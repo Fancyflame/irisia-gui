@@ -17,41 +17,44 @@ use super::{
 
 pub fn build(input: ParseStream) -> Result<TokenStream> {
     let mut stmts = parse_stmts::<ElementCodegen>(input)?;
-    let (args, rest) = match stmts.split_first_mut() {
+    let stmts = match stmts.split_first_mut() {
         Some((
             StateExpr::Command(StateCommand {
                 body: StateCommandBody::Custom(ElementCommand::Init(InitCommand { args })),
                 ..
             }),
             rest,
-        )) => (args, rest),
-        _ => return Err(input.error("missing `init` command")),
+        )) => {
+            let mut args = args.into_iter();
+            let event_dispatcher = args.next().map(|ex| Rc::new(ex.clone()));
+            let mut slot = args.next().map(|ex| ex.clone());
+            if let Some(expr) = args.next() {
+                return Err(Error::new_spanned(expr, "unused argument found here"));
+            }
+            walk_tree(rest, &event_dispatcher, &mut slot)?;
+            rest
+        }
+        _ => &mut stmts,
     };
 
-    let mut args = args.into_iter();
-
-    if let Some(setter) = args.next() {
-        walk_tree(rest, &Rc::new(setter.clone()))?;
-    }
-
-    if let Some(expr) = args.next() {
-        return Err(Error::new_spanned(expr, "unused argument found here"));
-    }
-
-    let mut stmts_expr = TokenStream::new();
-    stmts_to_tokens(&mut stmts_expr, rest);
+    let mut stmts_tokened = TokenStream::new();
+    stmts_to_tokens(&mut stmts_tokened, stmts);
     Ok(quote! {{
         use cream::structure::StructureBuilder;
-        #stmts_expr
+        #stmts_tokened
     }})
 }
 
-fn walk_tree(root_exprs: &mut [StateExpr<ElementCodegen>], event_src: &Rc<Expr>) -> Result<()> {
+fn walk_tree(
+    root_exprs: &mut [StateExpr<ElementCodegen>],
+    event_dispatcher: &Option<Rc<Expr>>,
+    slot: &mut Option<Expr>,
+) -> Result<()> {
     for expr in root_exprs {
         let mut result = Ok(());
         expr.visit_unit_mut(&mut |expr2| {
             if result.is_ok() {
-                result = proc_one(expr2, event_src);
+                result = handle_one(expr2, event_dispatcher, slot);
             }
         });
 
@@ -60,11 +63,17 @@ fn walk_tree(root_exprs: &mut [StateExpr<ElementCodegen>], event_src: &Rc<Expr>)
     Ok(())
 }
 
-fn proc_one(expr: &mut StateExpr<ElementCodegen>, event_src: &Rc<Expr>) -> Result<()> {
+fn handle_one(
+    expr: &mut StateExpr<ElementCodegen>,
+    event_dispatcher: &Option<Rc<Expr>>,
+    slot: &mut Option<Expr>,
+) -> Result<()> {
     match expr {
         StateExpr::Raw(r) => {
-            r.set_event_dispatcher(event_src.clone());
-            walk_tree(r.children_mut(), event_src)?;
+            if let Some(ed) = event_dispatcher {
+                r.set_event_dispatcher(ed.clone());
+            }
+            walk_tree(r.children_mut(), event_dispatcher, slot)?;
         }
 
         StateExpr::Command(StateCommand {
@@ -78,7 +87,15 @@ fn proc_one(expr: &mut StateExpr<ElementCodegen>, event_src: &Rc<Expr>) -> Resul
                 ));
             }
 
-            ElementCommand::Slot(_) => {}
+            ElementCommand::Slot(slot_cmd) => match slot.take() {
+                Some(expr) => *slot_cmd = Some(expr),
+                None => {
+                    return Err(Error::new(
+                        *span,
+                        "no slot provided in `@init` command or has been used",
+                    ))
+                }
+            },
         },
 
         _ => {}

@@ -61,7 +61,7 @@ impl Element for App {
             for (index, color) in self.rects.iter().enumerate() {
                 @key index;
                 Rectangle {
-                    +listen: ("rect", index),
+                    +id: ("rect", index),
                     +style: style!{
                         width: 100.0;
                         height: 100.0 + 40.0 * index as f32;

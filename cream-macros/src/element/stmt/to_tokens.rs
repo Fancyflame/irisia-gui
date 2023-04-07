@@ -11,23 +11,17 @@ impl ToTokens for ElementStmt {
         let ElementStmt {
             element,
             props,
-            rename,
             style,
             event_dispatcher,
-            event_emitting_key,
+            identity,
             children,
         } = self;
 
         let props = gen_props(element, props);
 
-        if rename.is_some() {
-            quote!(::std::compile_error("rename is not support yet")).to_tokens(tokens);
-            return;
-        }
-
         let event_listeners = gen_event_listeners(
             event_dispatcher.as_ref().map(|x| x.as_ref()),
-            event_emitting_key.as_ref(),
+            identity.as_ref(),
         );
 
         let children = {
