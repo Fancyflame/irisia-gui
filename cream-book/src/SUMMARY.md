@@ -1,9 +1,9 @@
 # Summary
 
-[简介](README.md)
+[简介](../../README.md)
 [为什么选择cream？](why_cream_gui.md)
 
-## 开始吧
+## 从这里开始
 
 1. [安装环境](get_started/installation.md)
     - [Windows环境](get_started/on_windows.md)
@@ -19,6 +19,7 @@
     - [循环结构](build_syntax/repetitive_structure.md)
 4. [style语法](style_syntax/index.md)
     - [选择结构]()
+    - [动画](style_syntax/animation.md)
 
 ## 事件
 
