@@ -1,15 +1,15 @@
 #![allow(unused)]
 
-use cream_macros::Style;
+use irisia_macros::Style;
 
 fn main() {}
 
 #[derive(Style, Clone)]
 enum MyStyle {
-    #[cream(from)]
+    #[irisia(from)]
     XY { x: u32, y: u32 },
 
-    #[cream(from)]
+    #[irisia(from)]
     Quant {
         left: u32,
         top: u32,
@@ -19,16 +19,16 @@ enum MyStyle {
 }
 
 #[derive(Style, Clone)]
-#[cream(from = "t, l[, b, r] | l")]
+#[irisia(from = "t, l[, b, r] | l")]
 struct StructualStyle {
     l: u32,
 
-    #[cream(default)]
+    #[irisia(default)]
     r: u32,
 
-    #[cream(default)]
+    #[irisia(default)]
     t: u32,
 
-    #[cream(default)]
+    #[irisia(default)]
     b: u32,
 }

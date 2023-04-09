@@ -1,4 +1,4 @@
-use cream::{
+use irisia::{
     application::Window,
     element::{Element, Frame, NeverInitalized, NoProps, RuntimeInit},
     event::standard::ElementAbondoned,
@@ -15,7 +15,7 @@ use cream::{
 };
 use tokio::select;
 
-#[cream::main]
+#[irisia::main]
 async fn main() {
     Window::new::<App>("test".into())
         .await
@@ -114,11 +114,11 @@ impl Element for App {
 }
 
 #[derive(Style, Clone)]
-#[cream(from)]
+#[irisia(from)]
 struct StyleWidth(f32);
 
 #[derive(Style, Clone)]
-#[cream(from)]
+#[irisia(from)]
 struct StyleHeight(f32);
 
 struct Rectangle {
@@ -146,12 +146,12 @@ impl Element for Rectangle {
             drawing_region: region,
             mut content,
             ..
-        }: cream::element::Frame<
+        }: irisia::element::Frame<
             Self,
             impl style::StyleContainer,
             impl VisitIter<Self::ChildProps<'a>>,
         >,
-    ) -> cream::Result<()> {
+    ) -> irisia::Result<()> {
         read_style!(styles => {
             w: Option<StyleWidth>,
             h: Option<StyleHeight>,
@@ -250,7 +250,7 @@ impl Element for Flex {
             children,
             ..
         }: Frame<Self, impl style::StyleContainer, impl VisitIter<Self::ChildProps<'a>>>,
-    ) -> cream::Result<()> {
+    ) -> irisia::Result<()> {
         let (start, end) = drawing_region;
         let abs = end - start;
 

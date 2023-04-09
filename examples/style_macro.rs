@@ -1,15 +1,15 @@
 #![allow(unused)]
 
-use cream_core::style::AddStyle;
-use cream_core::style::NoStyle;
-use cream_core::style::Pixel;
-use cream_core::style::Style;
-use cream_core::style::StyleContainer;
-use cream_macros::style;
+use irisia_core::style::AddStyle;
+use irisia_core::style::NoStyle;
+use irisia_core::style::Pixel;
+use irisia_core::style::Style;
+use irisia_core::style::StyleContainer;
+use irisia_macros::style;
 
 fn main() {
-    type ExtStyle = cream_core::style::Chain<
-        cream_core::style::Chain<NoStyle, AddStyle<StyleStyle2>>,
+    type ExtStyle = irisia_core::style::Chain<
+        irisia_core::style::Chain<NoStyle, AddStyle<StyleStyle2>>,
         AddStyle<StyleStyle1>,
     >;
 

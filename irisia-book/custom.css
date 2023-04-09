@@ -1,0 +1,60 @@
+/* 定义一个名为 "warning" 的CSS类，用于控制警告框的样式 */
+.warning {
+    border: 1px solid #f7d46a;
+    background-color: #fefcea;
+    padding: 1em;
+    margin: 1em 0;
+}
+
+div.tip {
+    margin: 1em 0;
+    padding: 1em;
+    border: 2px solid #0074D9;
+    border-radius: 4px;
+    background-color: #E1F5FE;
+    display: flex;
+    align-items: center;
+}
+
+div.tip::before {
+    content: "💡";
+    font-size: 1.5em;
+    margin-right: 0.5em;
+    color: #0074D9;
+}
+
+/* 错误框 */
+div.error {
+    margin: 1em 0;
+    padding: 1em;
+    border: 2px solid #FF4136;
+    border-radius: 4px;
+    background-color: #FFDCDC;
+    display: flex;
+    align-items: center;
+}
+
+div.error::before {
+    content: "❌";
+    font-size: 1.5em;
+    margin-right: 0.5em;
+    color: #FF4136;
+}
+
+/* 警告框 */
+div.warning {
+    margin: 1em 0;
+    padding: 1em;
+    border: 2px solid #FF851B;
+    border-radius: 4px;
+    background-color: #FFE8CC;
+    display: flex;
+    align-items: center;
+}
+
+div.warning::before {
+    content: "⚠";
+    font-size: 1.5em;
+    margin-right: 0.5em;
+    color: #FF851B;
+}

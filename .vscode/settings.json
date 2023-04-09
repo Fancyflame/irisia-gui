@@ -1,6 +1,9 @@
 {
     "rust-analyzer.showUnlinkedFileNotification": false,
     "markdownlint.ignore": [
-        "cream-book/src/SUMMARY.md"
-    ]
+        "irisia-book/src/SUMMARY.md"
+    ],
+    "markdownlint.config": {
+        "MD033": false
+    }
 }

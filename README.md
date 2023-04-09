@@ -1,8 +1,8 @@
-# Cream-rs
+# Irisia-rs
 
-Cream GUI is a GUI framework based on Rust programming language, featured high-performance, cross-platform, flexible, empowers everyone to build an morden applications with accuracy and efficiency.
+Irisia GUI is a GUI framework based on Rust programming language, featured high-performance, cross-platform, flexible, empowers everyone to build an morden applications with accuracy and efficiency.
 
-Cream is heavily depend on following crates:
+Irisia is heavily depend on following crates:
 
 - [winit](https://crates.io/crates/winit): A window launcher, which is widely used in Rust.
 - [skia-safe](https://crates.io/crates/skia-safe): Bindings to [Skia](https://skia.org/). Skia is a graphics library developed by Google, used by lots of project, most famously Chrome and Android.
@@ -11,25 +11,25 @@ Cream is heavily depend on following crates:
 ## About English Documentation
 
 - We are sorry but English documentation is not available now. We will add as soon as possible.
-- How about take a look at [`window`](https://github.com/Fancyflame/cream-rs/blob/main/examples/window.rs) example?
+- How about take a look at [`window`](https://github.com/Fancyflame/irisia-rs/blob/main/examples/window.rs) example?
 - If you tend to translate the documentation into English, please feel free to open an issue. Thanks a lot.
 
-## Cream Book
+## Irisia Book
 
 Only Chinese is available now :/\
 目前只有中文可用\
 👇\
-<https://fancyflame.github.io/cream-rs/>
+<https://fancyflame.github.io/irisia-rs/>
 
 ## Take a quick look
 
 A simple window application is looks like following. Newest examples please take a look at
-[examples](https://github.com/Fancyflame/cream-rs/tree/main/examples) directory.
+[examples](https://github.com/Fancyflame/irisia-rs/tree/main/examples) directory.
 
 ```rust,ignore
-#[cream::main]
+#[irisia::main]
 async fn main() {
-    cream::new::<App>("test".into()).await.unwrap().join().await;
+    irisia::new::<App>("test".into()).await.unwrap().join().await;
 }
 
 struct App {
@@ -54,7 +54,7 @@ impl Element for App {
     type Props<'a> = NoProps;
     type ChildProps<'a> = NeverInitalized;
 
-    cream::render_fn! {
+    irisia::render_fn! {
         @init(self);
         Flex {
             TextBox {
@@ -101,4 +101,4 @@ impl Element for App {
 }
 ```
 
-![rendering result](cream-book/src/window.jpg)
+![rendering result](irisia-book/src/window.jpg)

@@ -1,3 +1,9 @@
 [workspace]
 resolver = "2"
-members = ["cream-core", "cream", "cream-backend", "cream-macros", "examples"]
+members = [
+    "irisia-core",
+    "irisia",
+    "irisia-backend",
+    "irisia-macros",
+    "examples",
+]

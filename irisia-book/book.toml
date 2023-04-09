@@ -1,0 +1,9 @@
+[book]
+authors = ["FancyFlame"]
+language = "zh"
+multilingual = false
+src = "src"
+title = "Book of Irisia GUI"
+
+[output.html]
+additional-css = ["custom.css"]

@@ -10,4 +10,4 @@ path = "window.rs"
 
 [dev-dependencies]
 tokio = { version = "1.26", features = ["sync", "rt-multi-thread", "macros"] }
-cream = { path = "../cream" }
+irisia = { path = "../irisia" }
