@@ -1,4 +1,4 @@
-![banner](images/banner_mirrored.jpg)
+![banner](images/banner_with_shadow_mirrored.jpg)
 
 Irisia GUI is a GUI framework based on Rust programming language, featured high-performance, cross-platform, flexible, empowers everyone to build an morden applications with accuracy and efficiency.
 
