@@ -1,4 +1,6 @@
-# Irisia-rs
+![banner](images/banner.png)
+
+# Irisia GUI
 
 Irisia GUI is a GUI framework based on Rust programming language, featured high-performance, cross-platform, flexible, empowers everyone to build an morden applications with accuracy and efficiency.
 
@@ -18,7 +20,8 @@ Irisia is heavily depend on following crates:
 
 Only Chinese is available now :/\
 目前只有中文可用\
-👇\
+👇
+
 <https://fancyflame.github.io/irisia-rs/>
 
 ## Take a quick look
@@ -101,4 +104,4 @@ impl Element for App {
 }
 ```
 
-![rendering result](irisia-book/src/window.jpg)
+![rendering result](images/window.jpg)

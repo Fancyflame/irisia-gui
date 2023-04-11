@@ -4,6 +4,7 @@
         "irisia-book/src/SUMMARY.md"
     ],
     "markdownlint.config": {
-        "MD033": false
+        "MD033": false,
+        "MD041": false
     }
 }
