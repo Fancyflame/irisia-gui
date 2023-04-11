@@ -20,7 +20,7 @@ Only Chinese is available now :/\
 目前只有中文可用\
 👇
 
-<https://fancyflame.github.io/irisia-rs/>
+<https://fancyflame.github.io/irisia-gui/>
 
 ## Take a quick look
 
