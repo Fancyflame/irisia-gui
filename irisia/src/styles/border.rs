@@ -21,11 +21,11 @@ pub enum DashStyle {
 }
 
 #[derive(Style, Clone)]
-#[irisia(from = "width[,color][,style | ,style: sliced_style(&'static [Pixel], Pixel)]")]
+#[irisia(from = "width, [color,] [style | style: sliced_style(&'static [Pixel], Pixel)]")]
 pub struct Border {
     pub width: Pixel,
 
-    #[irisia(default = "Color::BLACK")]
+    #[irisia(default = "Color::BLACK", option)]
     pub color: Color,
 
     #[irisia(default = "DashStyle::Solid", option)]

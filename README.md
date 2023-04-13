@@ -10,6 +10,20 @@ Irisia is heavily depend on following crates:
 - [skia-safe](https://crates.io/crates/skia-safe): Bindings to [Skia](https://skia.org/). Skia is a graphics library developed by Google, used by lots of project, most famously Chrome and Android.
 - [tokio](https://crates.io/crates/tokio): A asynchronous library with runtime and useful utils, which is high-speed and reliable.
 
+## About English Documentation
+
+- We are sorry but English documentation is not available now. We will add as soon as possible.
+- How about take a look at [`window`](https://github.com/Fancyflame/irisia-rs/blob/main/examples/window.rs) example?
+- If you tend to translate the documentation into English, please feel free to open an issue. Thanks a lot.
+
+## Irisia Book
+
+Only Chinese is available now :/\
+目前只有中文可用\
+👇
+
+<https://fancyflame.github.io/irisia-gui/>
+
 ## Take a quick look
 
 A simple window application is looks like following. Newest examples please take a look at
