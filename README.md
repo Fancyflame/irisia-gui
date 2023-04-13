@@ -1,5 +1,7 @@
 ![banner](images/banner_with_shadow_mirrored.jpg)
 
+# Irisia GUI
+
 Irisia GUI is a GUI framework based on Rust programming language, featured high-performance, cross-platform, flexible, empowers everyone to build an morden applications with accuracy and efficiency.
 
 Irisia is heavily depend on following crates:
@@ -8,26 +10,12 @@ Irisia is heavily depend on following crates:
 - [skia-safe](https://crates.io/crates/skia-safe): Bindings to [Skia](https://skia.org/). Skia is a graphics library developed by Google, used by lots of project, most famously Chrome and Android.
 - [tokio](https://crates.io/crates/tokio): A asynchronous library with runtime and useful utils, which is high-speed and reliable.
 
-## About English Documentation
-
-- We are sorry but English documentation is not available now. We will add as soon as possible.
-- How about take a look at [`window`](https://github.com/Fancyflame/irisia-rs/blob/main/examples/window.rs) example?
-- If you tend to translate the documentation into English, please feel free to open an issue. Thanks a lot.
-
-## Irisia Book
-
-Only Chinese is available now :/\
-目前只有中文可用\
-👇
-
-<https://fancyflame.github.io/irisia-rs/>
-
 ## Take a quick look
 
 A simple window application is looks like following. Newest examples please take a look at
 [examples](https://github.com/Fancyflame/irisia-rs/tree/main/examples) directory.
 
-```rust,ignore
+```rust
 #[irisia::main]
 async fn main() {
     irisia::new::<App>("test".into()).await.unwrap().join().await;
@@ -103,3 +91,17 @@ impl Element for App {
 ```
 
 ![rendering result](images/window.jpg)
+
+## About English Documentation
+
+- We are sorry but English documentation is not available now. We will add as soon as possible.
+- How about take a look at [`window`](https://github.com/Fancyflame/irisia-rs/blob/main/examples/window.rs) example?
+- If you tend to translate the documentation into English, please feel free to open an issue. Thanks a lot.
+
+## Irisia Book
+
+Only Chinese is available now :/\
+目前只有中文可用\
+👇
+
+<https://fancyflame.github.io/irisia-rs/>

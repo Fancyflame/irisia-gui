@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 irisia_core = { path = "../irisia-core" }
+smallvec = "1.10"

@@ -42,7 +42,7 @@ impl<T: Codegen> Parse for StateMatch<T> {
         let brace_token = braced!(match_body in input);
         let arms = Punctuated::<_, Nothing>::parse_terminated_with(&match_body, |input| {
             Ok(Arm {
-                pat: input.parse()?,
+                pat: Pat::parse_multi_with_leading_vert(input)?,
                 guard: {
                     if input.peek(Token![if]) {
                         Some((input.parse()?, input.parse()?))

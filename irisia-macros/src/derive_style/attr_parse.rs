@@ -1,12 +1,12 @@
-use syn::{
-    Attribute, Error, Expr, Ident, Lit, Member, Meta, MetaList, MetaNameValue, NestedMeta, Result,
-};
+use syn::{meta::ParseNestedMeta, token::Paren, Attribute, Expr, Ident, LitStr, Result, Token};
+
+use super::parse_paths::Segment;
 
 #[derive(Debug)]
 pub enum DeriveAttr {
     Skip,
     From {
-        expr: Option<Vec<Vec<Member>>>,
+        expr: Option<Vec<Vec<Segment>>>,
     },
     Default {
         expr: Option<Expr>,
@@ -20,109 +20,84 @@ pub enum DeriveAttr {
 
 impl DeriveAttr {
     pub fn parse_attr(attr: &Attribute) -> Result<Vec<Self>> {
-        if !attr.path.is_ident("irisia") {
+        if !attr.path().is_ident("irisia") {
             return Ok(vec![]);
         }
 
-        let meta = match attr.parse_meta()? {
-            Meta::List(MetaList { path, nested, .. }) if path.is_ident("irisia") => nested,
-            other => {
-                return Err(Error::new_spanned(other, "expected list"));
-            }
-        };
-
         let mut attrs = Vec::new();
-
-        for meta2 in meta {
-            let meta2 = match meta2 {
-                NestedMeta::Meta(m) => m,
-                NestedMeta::Lit(_) => continue,
-            };
-
-            let name = match meta2.path().get_ident() {
-                Some(n) => n.to_string(),
-                None => {
-                    return Err(Error::new_spanned(
-                        meta2,
-                        "attribute path is unsupported".to_string(),
-                    ))
-                }
-            };
-
-            let a = match &*name {
-                "impl_default" => Self::ImplDefault,
-                "skip" => Self::Skip,
-                "from" => Self::From {
-                    expr: super::parse_paths::parse_paths(meta2)?,
-                },
-                "default" => parse_default(meta2)?,
-                "option" => parse_option(meta2)?,
-                other => {
-                    return Err(Error::new_spanned(
-                        meta2,
-                        format!("unknown attribute `{other}`"),
-                    ))
-                }
-            };
-
-            attrs.push(a)
-        }
+        attr.parse_nested_meta(|meta| {
+            attrs.push(parse_logic(meta)?);
+            Ok(())
+        })?;
 
         Ok(attrs)
     }
 }
 
-fn parse_default(meta: Meta) -> Result<DeriveAttr> {
-    let lit = match meta {
-        Meta::Path(_) => return Ok(DeriveAttr::Default { expr: None }),
-        Meta::List(list) => return Err(Error::new_spanned(list, "unexpected meta-list")),
-        Meta::NameValue(MetaNameValue { lit, .. }) => lit,
+fn parse_logic(meta: ParseNestedMeta) -> Result<DeriveAttr> {
+    let name = match meta.path.get_ident() {
+        Some(name) => name.to_string(),
+        None => return Err(meta.error("expected path")),
     };
 
-    match lit {
-        Lit::Str(s) => {
-            syn::parse_str(&s.value()).map(|expr| DeriveAttr::Default { expr: Some(expr) })
-        }
-        _ => Err(Error::new_spanned(lit, "expected string literal")),
+    match &*name {
+        "impl_default" => Ok(DeriveAttr::ImplDefault),
+        "skip" => Ok(DeriveAttr::Skip),
+        "from" => parse_from(meta),
+        "default" => parse_default(meta),
+        "option" => parse_option(meta),
+        other => Err(meta.error(format!("unknown attribute `{other}`"))),
     }
 }
 
-fn parse_option(meta: Meta) -> Result<DeriveAttr> {
-    match meta {
-        Meta::NameValue(MetaNameValue {
-            lit: Lit::Str(s), ..
-        }) => syn::parse_str::<Ident>(&s.value()).map(|x| DeriveAttr::Option {
-            rename: Some(x),
-            set_true: false,
-        }),
+fn parse_from(input: ParseNestedMeta) -> Result<DeriveAttr> {
+    Ok(DeriveAttr::From {
+        expr: if input.input.peek(Token![=]) {
+            Some(super::parse_paths::parse_paths(input.value()?)?)
+        } else {
+            None
+        },
+    })
+}
 
-        Meta::List(MetaList { nested, .. }) => {
-            let mut rename = None;
-            let mut set_true = false;
-            for nested_meta in nested.into_iter() {
-                match nested_meta {
-                    NestedMeta::Meta(Meta::Path(p)) if p.is_ident("set_true") => {
-                        set_true = true;
-                    }
+fn parse_default(input: ParseNestedMeta) -> Result<DeriveAttr> {
+    if input.input.peek(Token![=]) {
+        let litstr: LitStr = input.value()?.parse()?;
+        syn::parse_str(&litstr.value()).map(|expr| DeriveAttr::Default { expr: Some(expr) })
+    } else {
+        Ok(DeriveAttr::Default { expr: None })
+    }
+}
 
-                    NestedMeta::Meta(Meta::NameValue(MetaNameValue {
-                        path,
-                        lit: Lit::Str(s),
-                        ..
-                    })) if path.is_ident("rename") => {
-                        rename = Some(syn::parse_str::<Ident>(&s.value())?);
-                    }
+fn parse_option(meta: ParseNestedMeta) -> Result<DeriveAttr> {
+    let mut rename = None;
+    let mut set_true = false;
 
-                    _ => continue,
+    let mut exec_rename = |m: ParseNestedMeta| -> Result<()> {
+        let value = m.value()?.parse::<LitStr>()?.value();
+        rename = Some(syn::parse_str::<Ident>(&value)?);
+        Ok(())
+    };
+
+    if meta.input.peek(Token![=]) {
+        exec_rename(meta)?;
+    } else if meta.input.peek(Paren) {
+        meta.parse_nested_meta(|meta2| {
+            let path2 = &meta2.path;
+            if path2.is_ident("set_true") {
+                set_true = true;
+                Ok(())
+            } else if path2.is_ident("rename") {
+                exec_rename(meta2)?;
+                Ok(())
+            } else {
+                match path2.get_ident() {
+                    Some(i) => Err(meta2.error(format!("unknown method `{i}`"))),
+                    None => Err(meta2.error("expected method name")),
                 }
             }
-
-            Ok(DeriveAttr::Option { rename, set_true })
-        }
-
-        _ => Ok(DeriveAttr::Option {
-            rename: None,
-            set_true: false,
-        }),
+        })?;
     }
+
+    Ok(DeriveAttr::Option { rename, set_true })
 }

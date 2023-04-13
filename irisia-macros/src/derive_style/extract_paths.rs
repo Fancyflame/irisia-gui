@@ -6,11 +6,11 @@ use syn::{
     Member, Result, Type,
 };
 
-use super::attr_parse::DeriveAttr;
+use super::{attr_parse::DeriveAttr, parse_paths::Segment};
 
 #[derive(Debug)]
 pub struct ExtractResult {
-    pub paths: Vec<Vec<Member>>,
+    pub paths: Vec<Vec<Segment>>,
     pub metadatas: HashMap<Member, FieldMetadata>,
     pub impl_default: bool,
 }
@@ -27,11 +27,33 @@ pub fn analyze_fields(attrs: Vec<Attribute>, fields: &Fields) -> Result<ExtractR
     let fields_and_attrs: Vec<(Member, Vec<DeriveAttr>, Type)> = fields_and_attrs(fields)?;
     let mut impl_default = false;
 
-    let paths: Vec<Vec<Member>> = {
+    let paths: Vec<Vec<Segment>> = {
         let mut vec = Vec::new();
         for attr in get_attrs(&attrs)? {
             match attr {
-                DeriveAttr::From { expr: Some(p) } => vec.extend(p),
+                DeriveAttr::From { expr: Some(paths) } => {
+                    for seg in paths.iter().flatten() {
+                        if let Segment::Member(seg_member) = seg {
+                            if fields_and_attrs
+                                .iter()
+                                .position(|(member, _, _)| member == seg_member)
+                                .is_none()
+                            {
+                                return Err(Error::new(
+                                    Span::call_site(),
+                                    format!(
+                                        "field `{}` doesn't exist, but it appears in `from` expression of style derive macros",
+                                        match seg_member {
+                                            Member::Named(id) => id.to_string(),
+                                            Member::Unnamed(index) => index.index.to_string(),
+                                        }
+                                    ),
+                                ));
+                            }
+                        }
+                    }
+                    vec.extend(paths);
+                }
                 DeriveAttr::From { expr: None } => vec.push(auto_from(&fields_and_attrs)),
                 DeriveAttr::ImplDefault => {
                     if impl_default {
@@ -81,7 +103,7 @@ fn fields_and_attrs(fields: &Fields) -> Result<Vec<(Member, Vec<DeriveAttr>, Typ
     }
 }
 
-fn auto_from(faa: &[(Member, Vec<DeriveAttr>, Type)]) -> Vec<Member> {
+fn auto_from(faa: &[(Member, Vec<DeriveAttr>, Type)]) -> Vec<Segment> {
     let mut path = Vec::new();
 
     for (member, attrs, _) in faa {
@@ -89,7 +111,7 @@ fn auto_from(faa: &[(Member, Vec<DeriveAttr>, Type)]) -> Vec<Member> {
             continue;
         }
 
-        path.push(member.clone());
+        path.push(Segment::Member(member.clone()));
     }
 
     path

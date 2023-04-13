@@ -7,7 +7,10 @@ use syn::{
     Token, TypeTuple, Visibility,
 };
 
-use super::extract_paths::{ExtractResult, FieldMetadata};
+use super::{
+    extract_paths::{ExtractResult, FieldMetadata},
+    parse_paths::Segment,
+};
 
 pub fn write_stream(
     tokens: &mut TokenStream,
@@ -31,6 +34,7 @@ pub fn write_stream(
         };
 
         quote! {
+            #[automatically_derived]
             impl #impl_gen #ident #type_gen #where_clause {
                 #vis #func
             }
@@ -41,6 +45,7 @@ pub fn write_stream(
     for path in paths.iter() {
         let (type_tuple, func) = path_func(fields, variant, path, &metadatas);
         quote! {
+            #[automatically_derived]
             impl #impl_gen ::std::convert::From<#type_tuple> for #ident #type_gen
             #where_clause
             {
@@ -55,6 +60,7 @@ pub fn write_stream(
 
         let colon2 = variant.map(|_| <Token![::]>::default());
         quote! {
+            #[automatically_derived]
             impl #impl_gen ::std::default::Default for #ident #type_gen
             #where_clause
             {
@@ -127,7 +133,7 @@ fn option_func(
 fn path_func(
     fields: &Fields,
     variant: Option<&Ident>,
-    path: &[Member],
+    path: &[Segment],
     metadatas: &HashMap<Member, FieldMetadata>,
 ) -> (TypeTuple, TokenStream) {
     let use_default: Expr = parse_quote!(::std::default::Default::default());
@@ -137,26 +143,53 @@ fn path_func(
     };
     let mut fields_init: Vec<(&Member, Expr)> = Vec::new();
 
-    for (index, seg) in path.iter().enumerate() {
-        let index = Index {
-            index: index as _,
+    let mut index_counter = 0u32;
+    let mut index_iter = std::iter::from_fn(|| {
+        let r = Some(Index {
+            index: index_counter,
             span: Span::call_site(),
-        };
+        });
+        index_counter += 1;
+        r
+    });
 
-        tuple.elems.push(
-            metadatas
-                .get(seg)
-                .expect("inner error: member not contained in hashmap")
-                .ty
-                .clone(),
-        );
-        tuple.elems.push_punct(Default::default());
-        fields_init.push((seg, parse_quote!(value.#index)));
+    for seg in path.iter() {
+        match seg {
+            Segment::Member(member) => {
+                tuple.elems.push(
+                    metadatas
+                        .get(member)
+                        .expect("inner error: member not contained in hashmap")
+                        .ty
+                        .clone(),
+                );
+
+                let index = index_iter.next().unwrap();
+
+                fields_init.push((member, parse_quote!(value.#index)));
+            }
+            Segment::Fn {
+                bind,
+                path,
+                arg_types,
+            } => {
+                tuple
+                    .elems
+                    .extend(arg_types.pairs().map(|pair| pair.cloned()));
+
+                let iter = (&mut index_iter).take(arg_types.len());
+
+                fields_init.push((bind, parse_quote!( (#path)(#(value.#iter),*) )))
+            }
+        }
     }
 
-    for (member, metadata) in metadatas.iter() {
-        if path.contains(member) {
-            continue;
+    'field_loop: for (member, metadata) in metadatas.iter() {
+        for seg in path {
+            let (Segment::Fn { bind, .. } | Segment::Member(bind)) = seg;
+            if bind == member {
+                continue 'field_loop;
+            }
         }
 
         let default_behavior = match &metadata.default {
@@ -174,8 +207,17 @@ fn path_func(
         fields_init.push((member, default_behavior));
     }
 
+    if tuple.elems.len() == 1 && !tuple.elems.trailing_punct() {
+        tuple.elems.push_punct(Default::default())
+    }
+
     let members = fields_init.iter().map(|x| x.0);
     let exprs = fields_init.iter().map(|x| &x.1);
+
+    dbg!(exprs
+        .clone()
+        .map(|e| e.to_token_stream().to_string())
+        .collect::<Vec<_>>());
 
     let setter = match fields {
         Fields::Named(_) => Some(quote! {

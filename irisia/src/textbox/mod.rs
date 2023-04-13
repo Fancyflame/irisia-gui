@@ -20,7 +20,7 @@ pub struct TextBox {
 
 #[derive(StyleReader)]
 struct TextBoxStyles {
-    size: StyleFontSize,
+    font_size: StyleFontSize,
     slant: StyleFontSlant,
     weight: StyleFontWeight,
     color: Option<StyleColor>,
@@ -74,7 +74,7 @@ impl Element for TextBox {
             let mut text_style = TextStyle::new();
             text_style
                 .set_font_style(FontStyle::new(style.weight.0, Width::NORMAL, style.slant.0))
-                .set_font_size(style.size.0.to_physical() as _);
+                .set_font_size(style.font_size.0.to_physical() as _);
 
             text_style.set_color(match style.color {
                 Some(c) => c.0,

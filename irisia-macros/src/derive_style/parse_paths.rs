@@ -1,31 +1,34 @@
 use syn::{
     bracketed, parenthesized,
     parse::{ParseStream, Parser},
+    punctuated::Punctuated,
     spanned::Spanned,
     token::{Bracket, Paren},
-    Error, Ident, Lit, LitInt, Member, Meta, MetaNameValue, Result, Token,
+    ExprPath, Ident, LitInt, LitStr, Member, Result, Token, Type,
 };
 
-pub fn parse_paths(meta: Meta) -> Result<Option<Vec<Vec<Member>>>> {
-    let lit_str = match meta {
-        Meta::NameValue(MetaNameValue {
-            lit: Lit::Str(lit_str),
-            ..
-        }) => lit_str,
-        Meta::Path(_) => return Ok(None),
-        _ => return Err(Error::new_spanned(meta, "unexpected list")),
-    };
+#[derive(Clone, Debug)]
+pub enum Segment {
+    Member(Member),
+    Fn {
+        bind: Member,
+        path: ExprPath,
+        arg_types: Punctuated<Type, Token![,]>,
+    },
+}
+
+pub fn parse_paths(input: ParseStream) -> Result<Vec<Vec<Segment>>> {
+    let lit_str: LitStr = input.parse()?;
 
     let parser = |input: ParseStream| parse_style_path(input, &[PathRecorder::new()]);
-    match parser.parse_str(&lit_str.value()) {
-        Ok(recorders) => Ok(Some(recorders.into_iter().map(|x| x.path).collect())),
-        Err(e) => Err(Error::new_spanned(lit_str, e)),
-    }
+    parser
+        .parse_str(&lit_str.value())
+        .map(|recorders| recorders.into_iter().map(|x| x.path).collect())
 }
 
 #[derive(Clone)]
 struct PathRecorder {
-    path: Vec<Member>,
+    path: Vec<Segment>,
     next_is_comma: bool,
 }
 
@@ -49,11 +52,17 @@ impl PathRecorder {
         }
     }
 
-    fn push_field(&mut self, field: Member) -> Result<()> {
+    fn push_seg(&mut self, seg: Segment) -> Result<()> {
         if self.next_is_comma {
-            Err(syn::Error::new(field.span(), "expect a comma"))
+            Err(syn::Error::new(
+                match &seg {
+                    Segment::Member(m) => m.span(),
+                    Segment::Fn { bind, .. } => bind.span(),
+                },
+                "expect a comma",
+            ))
         } else {
-            self.path.push(field);
+            self.path.push(seg);
             self.next_is_comma = true;
             Ok(())
         }
@@ -73,8 +82,24 @@ fn parse_style_path(input: ParseStream, recorders: &[PathRecorder]) -> Result<Ve
                 }
             } else if input.peek(Ident) || input.peek(LitInt) {
                 let member: Member = input.parse()?;
+
+                let seg = if input.peek(Token![:]) {
+                    input.parse::<Token![:]>()?;
+                    Segment::Fn {
+                        bind: member,
+                        path: input.parse()?,
+                        arg_types: {
+                            let content;
+                            parenthesized!(content in input);
+                            Punctuated::parse_terminated(&content)?
+                        },
+                    }
+                } else {
+                    Segment::Member(member)
+                };
+
                 for r in &mut recorders {
-                    r.push_field(member.clone())?;
+                    r.push_seg(seg.clone())?;
                 }
             } else if input.peek(Bracket) {
                 let content;

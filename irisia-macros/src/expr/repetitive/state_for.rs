@@ -13,7 +13,7 @@ pub struct StateForLoop<T: Codegen> {
 impl<T: Codegen> Parse for StateForLoop<T> {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         input.parse::<Token![for]>()?;
-        let pat = input.parse()?;
+        let pat = Pat::parse_multi_with_leading_vert(input)?;
         input.parse::<Token![in]>()?;
         let iter = Expr::parse_without_eager_brace(input)?;
         let body: StateBlock<T> = input.parse()?;
