@@ -207,17 +207,8 @@ fn path_func(
         fields_init.push((member, default_behavior));
     }
 
-    if tuple.elems.len() == 1 && !tuple.elems.trailing_punct() {
-        tuple.elems.push_punct(Default::default())
-    }
-
     let members = fields_init.iter().map(|x| x.0);
     let exprs = fields_init.iter().map(|x| &x.1);
-
-    dbg!(exprs
-        .clone()
-        .map(|e| e.to_token_stream().to_string())
-        .collect::<Vec<_>>());
 
     let setter = match fields {
         Fields::Named(_) => Some(quote! {
