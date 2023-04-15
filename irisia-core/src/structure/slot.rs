@@ -16,7 +16,7 @@ where
 {
     type Cache = ();
 
-    fn prepare_for_rendering(&mut self, _: &mut Self::Cache, content: RenderContent) {
+    fn prepare_for_rendering(&mut self, _: &mut Self::Cache, content: &BareContentWrapper) {
         self.node.prepare_for_rendering(self.cache, content);
     }
 
@@ -24,7 +24,7 @@ where
         self.node.element_count()
     }
 
-    fn finish<S, F>(self, _: &mut (), content: RenderContent, map: &mut F) -> Result<()>
+    fn finish<S, F>(self, _: &mut (), content: BareContentWrapper, map: &mut F) -> Result<()>
     where
         F: FnMut(S, (Option<u32>, Option<u32>)) -> Result<Region>,
         S: StyleReader,

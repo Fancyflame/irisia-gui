@@ -9,5 +9,5 @@ name = "window"
 path = "window.rs"
 
 [dev-dependencies]
-tokio = { version = "1.26", features = ["sync", "rt-multi-thread", "macros"] }
+tokio = { version = "1.27", features = ["sync", "rt-multi-thread", "macros"] }
 irisia = { path = "../irisia" }

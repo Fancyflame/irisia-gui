@@ -21,7 +21,7 @@ pub use application::Window;
 pub use element::{Element, Frame};
 pub use event::Event;
 pub use irisia_backend::{
-    runtime::exit_app, skia_safe, start_runtime, winit, WindowEvent, WinitWindow,
+    runtime::exit_app, skia_safe, start_runtime, winit, StaticWindowEvent, WinitWindow,
 };
 pub use irisia_macros::*;
 pub use structure::cache_box::CacheBox;

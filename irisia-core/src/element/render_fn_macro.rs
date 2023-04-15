@@ -17,8 +17,7 @@ macro_rules! render_fn {
                     @init(__frame.event_dispatcher, __frame.children);
                     $($tt)*
                 },
-                __frame.cache_box_for_children,
-                __frame.content.inherit(),
+                &mut __frame.content,
             ).finish(__frame.drawing_region)
         }
     };

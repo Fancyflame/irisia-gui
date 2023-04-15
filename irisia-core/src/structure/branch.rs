@@ -1,6 +1,6 @@
-use crate::{element::RenderContent, style::reader::StyleReader, Result};
+use crate::{style::reader::StyleReader, Result};
 
-use super::{RenderingNode, VisitIter};
+use super::{node::BareContentWrapper, RenderingNode, VisitIter};
 
 #[derive(Default)]
 pub struct BranchCache<T, U> {
@@ -20,7 +20,7 @@ where
 {
     type Cache = BranchCache<<T as RenderingNode>::Cache, <U as RenderingNode>::Cache>;
 
-    fn prepare_for_rendering(&mut self, cache: &mut Self::Cache, content: RenderContent) {
+    fn prepare_for_rendering(&mut self, cache: &mut Self::Cache, content: &BareContentWrapper) {
         match self {
             Branch::Arm1(a) => a.prepare_for_rendering(&mut cache.arm1, content),
             Branch::Arm2(a) => a.prepare_for_rendering(&mut cache.arm2, content),
@@ -36,7 +36,7 @@ where
     fn finish<S, F>(
         self,
         cache: &mut Self::Cache,
-        content: RenderContent,
+        content: BareContentWrapper,
         map: &mut F,
     ) -> crate::Result<()>
     where

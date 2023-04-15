@@ -23,6 +23,11 @@ impl Sub for Point {
 }
 
 impl Point {
+    pub fn abs_diff(self, other: Self) -> u32 {
+        (self.0.abs_diff(other.0).pow(2) as f32 + self.1.abs_diff(other.1).pow(2) as f32).sqrt()
+            as _
+    }
+
     /// Absolutely greater than or equals
     #[inline]
     pub fn abs_ge(self, other: Self) -> bool {

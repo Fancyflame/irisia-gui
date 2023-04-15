@@ -7,9 +7,9 @@ edition = "2021"
 
 [dependencies]
 winit = { version = "0.28", features = ["android-native-activity"] }
-pixels = { git = "https://github.com/parasyte/pixels.git" }
+pixels = "0.12"
 skia-safe = { version = "0.60", features = ["textlayout", "binary-cache"] }
-tokio = { version = "1.26", features = ["rt-multi-thread"] }
+tokio = { version = "1.27", features = ["rt-multi-thread"] }
 anyhow = "1"
 lazy_static = "1"
 

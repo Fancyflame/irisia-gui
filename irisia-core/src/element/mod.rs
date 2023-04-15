@@ -1,11 +1,10 @@
 use std::sync::Arc;
 
-use crate::event::event_dispatcher::RecvOnly;
 use crate::event::{EventDispatcher, EventReceive};
 use crate::primary::Region;
 use crate::structure::{StructureBuilder, VisitIter};
+use crate::Event;
 use crate::{style::StyleContainer, Result};
-use crate::{CacheBox, Event};
 
 use crate::structure::slot::Slot;
 
@@ -24,7 +23,6 @@ where
     pub props: El::Props<'prop>,
     pub styles: &'a St,
     pub drawing_region: Region,
-    pub cache_box_for_children: &'a mut CacheBox,
     pub event_dispatcher: &'a EventDispatcher,
     pub children: Slot<'a, Ch>,
     pub content: RenderContent<'a>,
@@ -78,7 +76,7 @@ pub struct RuntimeInit<T: ?Sized> {
     pub(crate) _prevent_new: (),
     pub app: Arc<Mutex<T>>,
     pub event_dispatcher: EventDispatcher,
-    pub window_event_dispatcher: RecvOnly,
+    pub window_event_dispatcher: EventDispatcher,
     pub close_handle: CloseHandle,
 }
 

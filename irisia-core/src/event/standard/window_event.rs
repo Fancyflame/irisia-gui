@@ -11,10 +11,10 @@ use irisia_backend::{
         },
         window::Theme,
     },
-    WindowEvent,
+    StaticWindowEvent,
 };
 
-impl Event for WindowEvent {}
+impl Event for StaticWindowEvent {}
 
 macro_rules! impl_window_event {
     ()=>{};

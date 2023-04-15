@@ -11,7 +11,7 @@ use irisia::{
     style::StyleColor,
     textbox::{styles::*, TextBox},
     winit::event::{ElementState, MouseButton},
-    Event, Style, WindowEvent,
+    Event, StaticWindowEvent, Style,
 };
 use tokio::select;
 
@@ -76,10 +76,10 @@ impl Element for App {
         tokio::spawn(async move {
             let a = async {
                 loop {
-                    let event = init.event_dispatcher.recv_sys::<WindowEvent>().await;
+                    let event = init.event_dispatcher.recv_sys::<StaticWindowEvent>().await;
 
                     match event {
-                        WindowEvent::MouseInput {
+                        StaticWindowEvent::MouseInput {
                             button: MouseButton::Left,
                             state: ElementState::Pressed,
                             ..
@@ -188,9 +188,12 @@ impl Element for Rectangle {
         tokio::spawn(async move {
             let a = async {
                 loop {
-                    let window_event = init.window_event_dispatcher.recv_sys::<WindowEvent>().await;
+                    let window_event = init
+                        .window_event_dispatcher
+                        .recv_sys::<StaticWindowEvent>()
+                        .await;
                     match window_event {
-                        WindowEvent::CloseRequested => {
+                        StaticWindowEvent::CloseRequested => {
                             println!("close event sent");
                             init.event_dispatcher.emit(MyRequestClose);
                         }
@@ -209,8 +212,8 @@ impl Element for Rectangle {
                             return;
                         },
 
-                        window_event = init.recv_sys::<WindowEvent>() => match window_event {
-                            WindowEvent::MouseInput {
+                        window_event = init.recv_sys::<StaticWindowEvent>() => match window_event {
+                            StaticWindowEvent::MouseInput {
                                 state,
                                 ..
                             } => {

@@ -10,21 +10,24 @@ pub mod slot;
 use anyhow::anyhow;
 
 use crate::{
-    element::{render_content::WildRenderContent, Element, RenderContent},
+    element::{render_content::BareContent, Element, RenderContent},
     primary::Region,
     style::reader::StyleReader,
-    CacheBox, Result,
+    Result,
 };
 
 pub use self::{
     add_child::add_child, branch::Branch, empty::EmptyStructure, repeating::Repeating, slot::Slot,
 };
-use self::{chain::Chain, node::RenderingNode};
+use self::{
+    chain::Chain,
+    node::{BareContentWrapper, RenderingNode},
+};
 
 pub struct IntoRendering<'a, T: RenderingNode> {
     node: T,
     cache: &'a mut T::Cache,
-    content: RenderContent<'a>,
+    content: BareContentWrapper<'a>,
 }
 
 impl<'a, T> IntoRendering<'a, T>
@@ -81,12 +84,13 @@ pub struct VisitItem<S, P> {
 
 impl<T: Sized + RenderingNode> StructureBuilder for T {}
 pub trait StructureBuilder: Sized + RenderingNode {
-    fn into_rendering<'a>(
-        self,
-        cache_box: &'a mut CacheBox,
-        content: WildRenderContent<'a>,
-    ) -> IntoRendering<'a, Self> {
-        into_rendering_raw(self, cache_box.get_cache(), content)
+    fn into_rendering<'a>(self, content: &'a mut RenderContent) -> IntoRendering<'a, Self> {
+        let content = content.downgrade_lifetime();
+        into_rendering_raw(
+            self,
+            content.cache_box_for_children.get_cache(),
+            content.bare,
+        )
     }
 
     fn chain<T>(self, other: T) -> Chain<Self, T>
@@ -100,13 +104,15 @@ pub trait StructureBuilder: Sized + RenderingNode {
 pub(crate) fn into_rendering_raw<'a, T: StructureBuilder>(
     mut node: T,
     cache: &'a mut T::Cache,
-    mut content: WildRenderContent<'a>,
+    mut content_for_children: BareContent<'a>,
 ) -> IntoRendering<'a, T> {
-    node.prepare_for_rendering(cache, content.0.downgrade_lifetime());
+    let wrapper = BareContentWrapper(content_for_children);
+
+    node.prepare_for_rendering(cache, &wrapper);
 
     IntoRendering {
         node,
         cache,
-        content: content.0,
+        content: wrapper,
     }
 }

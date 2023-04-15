@@ -1,6 +1,6 @@
 use self::{emit_scheduler::EmitScheduler, emitter::CreatedEventEmitter, item_map::ItemMap};
 use crate::Event;
-use std::sync::{Arc, Mutex as StdMutex};
+use std::sync::{Arc, Mutex as StdMutex, Weak};
 
 use super::{standard::EventDispatcherCreated, EventMetadata, EventReceive};
 
@@ -10,10 +10,10 @@ mod item_map;
 pub mod receive;
 
 #[derive(Clone)]
-pub struct RecvOnly(EventDispatcher);
+pub struct EventDispatcher(Arc<StdMutex<EventDispatcherInner>>);
 
 #[derive(Clone)]
-pub struct EventDispatcher(Arc<StdMutex<EventDispatcherInner>>);
+pub struct WeakEventDispatcher(Weak<StdMutex<EventDispatcherInner>>);
 
 struct EventDispatcherInner {
     item_map: ItemMap,
@@ -92,8 +92,12 @@ impl EventDispatcher {
         }
     }
 
-    pub fn to_recv_only(&self) -> RecvOnly {
-        RecvOnly(self.clone())
+    pub fn downgrade(&self) -> WeakEventDispatcher {
+        WeakEventDispatcher(Arc::downgrade(&self.0))
+    }
+
+    pub fn is_same(&self, other: &EventDispatcher) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
     }
 }
 
@@ -103,12 +107,16 @@ impl Default for EventDispatcher {
     }
 }
 
-impl RecvOnly {
-    pub fn recv<E: Event>(&self) -> EventReceive<E> {
-        self.0.recv()
+impl WeakEventDispatcher {
+    pub fn upgrade(&self) -> Option<EventDispatcher> {
+        self.0.upgrade().map(|arc| EventDispatcher(arc))
     }
 
-    pub async fn recv_sys<E: Event>(&self) -> E {
-        self.0.recv_sys().await
+    pub(crate) fn as_ptr(&self) -> *const () {
+        Weak::as_ptr(&self.0) as _
+    }
+
+    pub fn is_same(&self, other: &Self) -> bool {
+        self.0.ptr_eq(&other.0)
     }
 }

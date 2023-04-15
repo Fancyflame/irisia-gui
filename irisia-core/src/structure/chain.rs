@@ -1,6 +1,6 @@
-use crate::{element::RenderContent, style::reader::StyleReader, Result};
+use crate::{style::reader::StyleReader, Result};
 
-use super::{RenderingNode, VisitIter};
+use super::{node::BareContentWrapper, RenderingNode, VisitIter};
 
 #[derive(Default)]
 pub struct ChainCache<A, B>(pub(super) A, pub(super) B);
@@ -14,10 +14,9 @@ where
 {
     type Cache = ChainCache<A::Cache, B::Cache>;
 
-    fn prepare_for_rendering(&mut self, cache: &mut Self::Cache, mut content: RenderContent) {
-        self.0
-            .prepare_for_rendering(&mut cache.0, content.downgrade_lifetime());
-        self.1.prepare_for_rendering(&mut cache.1, content)
+    fn prepare_for_rendering(&mut self, cache: &mut Self::Cache, mut content: &BareContentWrapper) {
+        self.0.prepare_for_rendering(&mut cache.0, content);
+        self.1.prepare_for_rendering(&mut cache.1, content);
     }
 
     fn element_count(&self) -> usize {
@@ -27,15 +26,18 @@ where
     fn finish<S, F>(
         self,
         cache: &mut Self::Cache,
-        mut content: RenderContent,
+        mut content: BareContentWrapper,
         map: &mut F,
     ) -> crate::Result<()>
     where
         F: FnMut(S, (Option<u32>, Option<u32>)) -> Result<crate::primary::Region>,
         S: StyleReader,
     {
-        self.0
-            .finish(&mut cache.0, content.downgrade_lifetime(), map)?;
+        self.0.finish(
+            &mut cache.0,
+            BareContentWrapper(content.0.downgrade_lifetime()),
+            map,
+        )?;
         self.1.finish(&mut cache.1, content, map)
     }
 }

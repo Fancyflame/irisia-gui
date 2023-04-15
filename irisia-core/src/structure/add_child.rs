@@ -16,7 +16,7 @@ use crate::{
     CacheBox, Result,
 };
 
-use super::{slot::Slot, Element, RenderingNode, VisitItem, VisitIter};
+use super::{slot::Slot, Element, RenderingNode, VisitItem, VisitIter, node::BareContentWrapper};
 
 pub struct AddChildCache<El, Cc> {
     element: Arc<Mutex<El>>,
@@ -77,7 +77,7 @@ where
 {
     type Cache = Option<AddChildCache<El, <Ch as RenderingNode>::Cache>>;
 
-    fn prepare_for_rendering(&mut self, cache: &mut Self::Cache, content: RenderContent) {
+    fn prepare_for_rendering(&mut self, cache: &mut Self::Cache, content: &BareContentWrapper) {
         let AddChildInner::New { props: prop, styles: style, ce_emitter, children } = 
             std::mem::replace(&mut self.0, AddChildInner::Preparing)
         else {
@@ -95,9 +95,9 @@ where
                 El::start_runtime(RuntimeInit {
                     _prevent_new: (),
                     app: el.clone(),
-                    window_event_dispatcher: content.window_event_receiver.to_recv_only(),
+                    window_event_dispatcher: content.0.window_event_receiver.clone(),
                     event_dispatcher: event_dispatcher.clone(),
-                    close_handle: content.close_handle,
+                    close_handle: content.0.close_handle,
                 });
 
                 let cache = AddChildCache {
@@ -130,7 +130,7 @@ where
     fn finish<S, F>(
         self,
         cache: &mut Self::Cache,
-        mut raw_content: RenderContent,
+        mut raw_content: BareContentWrapper,
         map: &mut F,
     ) -> Result<()>
     where
@@ -143,13 +143,14 @@ where
         };
 
         let cache = cache.as_mut().unwrap();
-        let mut content = raw_content.downgrade_lifetime();
 
-        content.elem_table_index = Some(
-            content
+        let mut content = RenderContent{
+            cache_box_for_children: &mut cache.cache_box,
+            elem_table_index:raw_content.0
                 .elem_table_builder
                 .push(cache.event_dispatcher.clone()),
-        );
+            bare: raw_content.0,
+        };
 
         let region = map(S::read_style(&styles), requested_size)?;
 
@@ -157,16 +158,15 @@ where
             props,
             styles: &styles,
             drawing_region: region,
-            cache_box_for_children: &mut cache.cache_box,
             event_dispatcher: &cache.event_dispatcher,
             children: Slot {
                 node: children,
                 cache: &mut cache.children_cache,
             },
-            content,
+            content:content.downgrade_lifetime(),
         });
 
-        raw_content.elem_table_builder.finish();
+        content.bare.elem_table_builder.finish();
         result
     }
 }

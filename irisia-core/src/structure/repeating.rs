@@ -2,9 +2,9 @@ use std::{collections::HashMap, hash::Hash, iter::FlatMap, slice::Iter};
 
 use smallvec::SmallVec;
 
-use crate::{element::RenderContent, style::reader::StyleReader, Result};
+use crate::{style::reader::StyleReader, Result};
 
-use super::{RenderingNode, VisitIter};
+use super::{node::BareContentWrapper, RenderingNode, VisitIter};
 
 struct CacheUnit<T> {
     value: T,
@@ -41,16 +41,16 @@ where
 {
     type Cache = RepeatingCache<K, T::Cache>;
 
-    fn prepare_for_rendering(&mut self, cache: &mut Self::Cache, mut content: RenderContent) {
+    fn prepare_for_rendering(&mut self, cache: &mut Self::Cache, mut content: &BareContentWrapper) {
         for (k, x) in &mut self.nodes {
             match cache.0.get_mut(k) {
                 Some(c) => {
                     c.alive_signal = true;
-                    x.prepare_for_rendering(&mut c.value, content.downgrade_lifetime())
+                    x.prepare_for_rendering(&mut c.value, content)
                 }
                 None => {
                     let mut value = T::Cache::default();
-                    x.prepare_for_rendering(&mut value, content.downgrade_lifetime());
+                    x.prepare_for_rendering(&mut value, content);
                     cache.0.insert(
                         k.clone(),
                         CacheUnit {
@@ -70,7 +70,7 @@ where
     fn finish<S, F>(
         self,
         cache: &mut Self::Cache,
-        mut content: RenderContent,
+        mut content: BareContentWrapper,
         map: &mut F,
     ) -> crate::Result<()>
     where
@@ -80,7 +80,7 @@ where
         for (k, x) in self.nodes {
             x.finish(
                 &mut cache.0.get_mut(&k).unwrap().value,
-                content.downgrade_lifetime(),
+                BareContentWrapper(content.0.downgrade_lifetime()),
                 map,
             )?;
         }

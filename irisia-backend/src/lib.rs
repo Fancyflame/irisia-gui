@@ -14,4 +14,4 @@ pub use winit;
 pub type WinitWindow = winit::window::Window;
 
 // only for export, shouldn't use in crate, which may cause confusion
-pub type WindowEvent = winit::event::WindowEvent<'static>;
+pub type StaticWindowEvent = winit::event::WindowEvent<'static>;

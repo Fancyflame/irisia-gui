@@ -3,15 +3,11 @@ use std::{sync::Arc, time::Duration};
 use irisia_backend::{
     skia_safe::Canvas,
     window_handle::{close_handle::CloseHandle, RawWindowHandle, WindowBuilder},
-    winit::dpi::PhysicalPosition,
-    AppWindow, WindowEvent, WinitWindow,
+    AppWindow, StaticWindowEvent, WinitWindow,
 };
 
 use crate::{
-    element::{
-        render_content::{RenderContent, WildRenderContent},
-        Element,
-    },
+    element::{render_content::BareContent, Element},
     event::{event_dispatcher::emitter::CreatedEventEmitter, EventDispatcher},
     primary::Point,
     structure::{
@@ -35,8 +31,7 @@ where
     let create_app = move |window: Arc<WinitWindow>, close_handle: CloseHandle| Application::<El> {
         window,
         application: None,
-        window_event_dispatcher: ev_disp_cloned,
-        elem_table: ElemTable::new(),
+        elem_table: ElemTable::new(ev_disp_cloned),
         close_handle,
     };
 
@@ -55,7 +50,6 @@ where
 pub(super) struct Application<El> {
     window: Arc<WinitWindow>,
     application: Option<AddChildCache<El, ()>>,
-    window_event_dispatcher: EventDispatcher,
     elem_table: ElemTable,
     close_handle: CloseHandle,
 }
@@ -74,31 +68,20 @@ where
 
         let region = (Point(0, 0), Point(size.0, size.1));
 
-        let content = WildRenderContent(RenderContent {
+        let (elem_table_builder, window_event_receiver) = self.elem_table.builder();
+        let content = BareContent {
             canvas,
             window: &self.window,
             delta_time: delta,
-            window_event_receiver: &self.window_event_dispatcher,
+            window_event_receiver,
             close_handle: self.close_handle,
-            elem_table_index: None,
-            elem_table_builder: self.elem_table.builder(),
-        });
+            elem_table_builder,
+        };
 
         into_rendering_raw(add_child, &mut self.application, content).finish(region)
     }
 
-    fn on_window_event(&mut self, event: WindowEvent) {
-        #[allow(clippy::single_match)]
-        match event {
-            WindowEvent::CursorMoved {
-                position: PhysicalPosition { x, y },
-                ..
-            } => self.elem_table.update_cursor(Some(Point(x as _, y as _))),
-            //WindowEvent::CursorLeft { .. } => self.elem_table.update_cursor(None),
-            _ => {}
-        }
-
-        self.window_event_dispatcher.emit_sys(event.clone());
-        self.elem_table.emit_sys(event);
+    fn on_window_event(&mut self, event: StaticWindowEvent) {
+        self.elem_table.emit_window_event(event);
     }
 }

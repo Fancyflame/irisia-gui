@@ -1,8 +1,8 @@
 use std::iter::Empty;
 
-use crate::{element::RenderContent, style::reader::StyleReader, Result};
+use crate::{style::reader::StyleReader, Result};
 
-use super::{RenderingNode, VisitItem, VisitIter};
+use super::{node::BareContentWrapper, RenderingNode, VisitItem, VisitIter};
 
 #[derive(Clone, Copy)]
 pub struct EmptyStructure;
@@ -10,13 +10,13 @@ pub struct EmptyStructure;
 impl RenderingNode for EmptyStructure {
     type Cache = ();
 
-    fn prepare_for_rendering(&mut self, _: &mut Self::Cache, _: RenderContent) {}
+    fn prepare_for_rendering(&mut self, _: &mut Self::Cache, _: &BareContentWrapper) {}
 
     fn element_count(&self) -> usize {
         0
     }
 
-    fn finish<S, F>(self, _: &mut Self::Cache, _: RenderContent, _: &mut F) -> Result<()>
+    fn finish<S, F>(self, _: &mut Self::Cache, _: BareContentWrapper, _: &mut F) -> Result<()>
     where
         F: FnMut(S, (Option<u32>, Option<u32>)) -> Result<crate::primary::Region>,
         S: StyleReader,
