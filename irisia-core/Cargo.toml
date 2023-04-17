@@ -11,4 +11,4 @@ irisia_backend = { path = "../irisia-backend", features = ["fps_recorder"] }
 anyhow = "1"
 take_mut = "0.2"
 smallvec = "1.9"
-tokio = { version = "1.26", features = ["sync", "rt-multi-thread"] }
+tokio = { version = "1.26", features = ["sync", "time", "rt-multi-thread"] }

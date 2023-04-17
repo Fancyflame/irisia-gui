@@ -26,8 +26,8 @@ pub fn build(input: ParseStream) -> Result<TokenStream> {
             rest,
         )) => {
             let mut args = args.into_iter();
-            let event_dispatcher = args.next().map(|ex| Rc::new(ex.clone()));
             let mut slot = args.next().map(|ex| ex.clone());
+            let event_dispatcher = args.next().map(|ex| Rc::new(ex.clone()));
             if let Some(expr) = args.next() {
                 return Err(Error::new_spanned(expr, "unused argument found here"));
             }

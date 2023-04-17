@@ -1,3 +1,7 @@
+use std::sync::Arc;
+
+use tokio::sync::Mutex;
+
 use crate::event::{
     standard::{Blured, Focused},
     EventDispatcher,
@@ -28,62 +32,92 @@ mod protected {
     }
 }
 
-pub struct Focusing(Inner);
+pub(crate) type SharedFocusing = Arc<Mutex<Focusing>>;
 
-enum Inner {
+pub(crate) struct Focusing {
+    current_frame: CurrentFrame,
+    next_frame: NextFrame,
+}
+
+enum NextFrame {
+    Keep,
+    ChangeTo(EventDispatcher),
+    Clear,
+}
+
+enum CurrentFrame {
     NotConfirmed(Protected),
+    NotConfirmedUnprotected(EventDispatcher),
     Confirmed { protected: Protected, index: usize },
     None,
 }
 
 impl Focusing {
     pub fn new() -> Self {
-        Focusing(Inner::None)
+        Focusing {
+            current_frame: CurrentFrame::None,
+            next_frame: NextFrame::Keep,
+        }
     }
 
-    pub fn get_focused(&self) -> Option<usize> {
-        match &self.0 {
-            Inner::Confirmed { index, .. } => Some(*index),
-            Inner::NotConfirmed(_) => {
+    pub(super) fn get_focused(&self) -> Option<usize> {
+        match &self.current_frame {
+            CurrentFrame::Confirmed { index, .. } => Some(*index),
+            CurrentFrame::NotConfirmed(_) | CurrentFrame::NotConfirmedUnprotected(_) => {
                 if cfg!(debug_assertions) {
                     panic!("inner error: focused element not confirmed since last redrawing");
                 }
                 None
             }
-            Inner::None => None,
+            CurrentFrame::None => None,
         }
     }
 
-    pub fn focus_on(&mut self, ed: EventDispatcher, index: usize) {
-        self.0 = Inner::Confirmed {
-            protected: Protected::new(ed),
-            index,
-        };
+    pub fn focus_on(&mut self, ed: EventDispatcher) {
+        self.next_frame = NextFrame::ChangeTo(ed);
     }
 
-    pub fn blur(&mut self) {
-        self.0 = Inner::None;
-    }
-
-    pub fn to_not_confirmed(&mut self) {
-        take_mut::take(&mut self.0, |mut this| {
-            if let Inner::Confirmed { protected: ev, .. } = this {
-                this = Inner::NotConfirmed(ev);
+    pub fn blur(&mut self, check: &EventDispatcher) {
+        if let CurrentFrame::Confirmed { protected, .. } = &self.current_frame {
+            if protected.get().is_same(check) && matches!(self.next_frame, NextFrame::Keep) {
+                self.next_frame = NextFrame::Clear
             }
-            this
-        });
-    }
-
-    pub fn drop_not_confirmed(&mut self) {
-        if let Inner::NotConfirmed(_) = &self.0 {
-            self.0 = Inner::None;
         }
     }
 
-    pub fn try_confirm(&mut self, other: &EventDispatcher, index: usize) {
-        take_mut::take(&mut self.0, |this| match this {
-            Inner::NotConfirmed(protected) if protected.get().is_same(other) => {
-                Inner::Confirmed { protected, index }
+    pub(super) fn to_not_confirmed(&mut self) {
+        match std::mem::replace(&mut self.next_frame, NextFrame::Keep) {
+            NextFrame::ChangeTo(next) => {
+                self.current_frame = CurrentFrame::NotConfirmedUnprotected(next)
+            }
+            NextFrame::Keep => take_mut::take(&mut self.current_frame, |mut this| {
+                if let CurrentFrame::Confirmed { protected: ev, .. } = this {
+                    this = CurrentFrame::NotConfirmed(ev);
+                }
+                this
+            }),
+            NextFrame::Clear => self.current_frame = CurrentFrame::None,
+        }
+    }
+
+    pub(super) fn drop_not_confirmed(&mut self) {
+        if let CurrentFrame::NotConfirmed(_) | CurrentFrame::NotConfirmedUnprotected(_) =
+            &self.current_frame
+        {
+            self.current_frame = CurrentFrame::None;
+        }
+    }
+
+    pub(super) fn try_confirm(&mut self, other: &EventDispatcher, index: usize) {
+        take_mut::take(&mut self.current_frame, |this| match this {
+            CurrentFrame::NotConfirmed(protected) if protected.get().is_same(other) => {
+                CurrentFrame::Confirmed { protected, index }
+            }
+            CurrentFrame::NotConfirmedUnprotected(ed) if ed.is_same(other) => {
+                CurrentFrame::Confirmed {
+                    protected: Protected::new(ed),
+                    index,
+                }
             }
             _ => this,
         });

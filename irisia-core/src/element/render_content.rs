@@ -2,15 +2,21 @@ use std::time::Duration;
 
 use irisia_backend::{skia_safe::Canvas, window_handle::close_handle::CloseHandle, WinitWindow};
 
-use crate::{application::elem_table, event::EventDispatcher, primary::Region, CacheBox};
+use crate::{
+    application::elem_table::{self, focus::SharedFocusing},
+    event::EventDispatcher,
+    primary::Region,
+    CacheBox,
+};
 
 pub(crate) struct BareContent<'a> {
     pub canvas: &'a mut Canvas,
     pub window: &'a WinitWindow,
     pub delta_time: Duration,
-    pub window_event_receiver: &'a EventDispatcher,
+    pub window_event_dispatcher: &'a EventDispatcher,
     pub close_handle: CloseHandle,
     pub elem_table_builder: elem_table::Builder<'a>,
+    pub focusing: &'a SharedFocusing,
 }
 
 impl BareContent<'_> {
@@ -19,9 +25,10 @@ impl BareContent<'_> {
             canvas: self.canvas,
             window: self.window,
             delta_time: self.delta_time,
-            window_event_receiver: self.window_event_receiver,
+            window_event_dispatcher: self.window_event_dispatcher,
             close_handle: self.close_handle,
             elem_table_builder: self.elem_table_builder.downgrade_lifetime(),
+            focusing: self.focusing,
         }
     }
 }

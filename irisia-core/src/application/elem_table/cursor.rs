@@ -34,7 +34,7 @@ struct Alive {
 #[derive(Default)]
 pub struct CursorWatcher {
     cursor_pos: Option<Point>,
-    entered: HashMap<*const (), Alive>,
+    entered: HashMap<usize, Alive>,
     over: Option<LeaveProtected>,
 }
 
@@ -63,7 +63,7 @@ impl CursorWatcher {
         let mut next = index.map(|index| &registered[index]);
         while let Some(item) = next {
             next = item.parent.map(|index| &registered[index]);
-            let entry = self.entered.entry(item.event_dispatcher.as_ptr());
+            let entry = self.entered.entry(item.event_dispatcher.as_ptr() as usize);
             match entry {
                 Entry::Vacant(vacant) => {
                     item.event_dispatcher.emit_sys(PointerEntered);

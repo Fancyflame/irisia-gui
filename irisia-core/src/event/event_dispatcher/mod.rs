@@ -2,7 +2,7 @@ use self::{emit_scheduler::EmitScheduler, emitter::CreatedEventEmitter, item_map
 use crate::Event;
 use std::sync::{Arc, Mutex as StdMutex, Weak};
 
-use super::{standard::EventDispatcherCreated, EventMetadata, EventReceive};
+use super::{element_handle::ElementHandle, standard::ElementCreated, EventMetadata, EventReceive};
 
 mod emit_scheduler;
 pub mod emitter;
@@ -26,6 +26,13 @@ impl EventDispatcher {
             item_map: ItemMap::new(),
             emit_sch: EmitScheduler::new(),
         })))
+    }
+
+    pub fn recv_element_created<K>(&self, key: K) -> CreatedEventEmitter<K>
+    where
+        K: Clone + Unpin + Send + 'static,
+    {
+        CreatedEventEmitter::new(self, key)
     }
 
     pub fn emit(&self, event: impl Event) {
@@ -56,21 +63,14 @@ impl EventDispatcher {
         }
     }
 
-    pub fn created_event_emitter<K>(&self, key: K) -> CreatedEventEmitter<K>
-    where
-        K: Clone + Unpin + Send + 'static,
-    {
-        CreatedEventEmitter::new(self, key)
-    }
-
-    pub async fn get_element<K>(&self) -> EventDispatcherCreated<K>
+    pub async fn get_element<K>(&self) -> ElementCreated<K>
     where
         K: Clone + Unpin + Send + 'static,
     {
         self.get_element_checked(|_: &K| true).await
     }
 
-    pub async fn get_element_eq<K>(&self, key: &K) -> EventDispatcher
+    pub async fn get_element_eq<K>(&self, key: &K) -> ElementHandle
     where
         K: Eq + Clone + Unpin + Send + 'static,
     {
@@ -79,13 +79,13 @@ impl EventDispatcher {
             .result
     }
 
-    pub async fn get_element_checked<K, F>(&self, check: F) -> EventDispatcherCreated<K>
+    pub async fn get_element_checked<K, F>(&self, check: F) -> ElementCreated<K>
     where
         K: Clone + Unpin + Send + 'static,
         F: Fn(&K) -> bool,
     {
         loop {
-            let (result, metadata) = self.recv::<EventDispatcherCreated<K>>().await;
+            let (result, metadata) = self.recv::<ElementCreated<K>>().await;
             if metadata.is_system_event && check(&result.key) {
                 return result;
             }

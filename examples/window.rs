@@ -76,7 +76,7 @@ impl Element for App {
         tokio::spawn(async move {
             let a = async {
                 loop {
-                    let event = init.event_dispatcher.recv_sys::<StaticWindowEvent>().await;
+                    let event = init.element_handle.recv_sys::<StaticWindowEvent>().await;
 
                     match event {
                         StaticWindowEvent::MouseInput {
@@ -94,7 +94,7 @@ impl Element for App {
             let b = async {
                 loop {
                     let rect = init
-                        .event_dispatcher
+                        .element_handle
                         .get_element_checked(|(s, _): &(&str, usize)| *s == "rect")
                         .await;
 
@@ -195,7 +195,7 @@ impl Element for Rectangle {
                     match window_event {
                         StaticWindowEvent::CloseRequested => {
                             println!("close event sent");
-                            init.event_dispatcher.emit(MyRequestClose);
+                            init.element_handle.emit(MyRequestClose);
                         }
 
                         _ => {}

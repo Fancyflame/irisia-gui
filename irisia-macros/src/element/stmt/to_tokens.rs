@@ -64,7 +64,7 @@ fn gen_event_listeners(
             quote!(irisia::event::event_dispatcher::emitter::CreatedEventEmitter::new_empty())
         }
 
-        (Some(disp), Some(key)) => quote!((#disp).created_event_emitter(#key)),
+        (Some(disp), Some(key)) => quote!((#disp).recv_element_created(#key)),
 
         (None, Some(_)) => {
             quote!(::std::compile_error!(

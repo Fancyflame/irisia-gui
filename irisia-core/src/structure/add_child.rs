@@ -9,7 +9,7 @@ use crate::{
     element::{Frame, PropsAsChild, RenderContent, RuntimeInit},
     event::{
         event_dispatcher::{emitter::CreatedEventEmitter, EventDispatcher},
-        standard::ElementAbondoned,
+        standard::ElementAbondoned, element_handle::ElementHandle,
     },
     primary::Region,
     style::{reader::StyleReader, StyleContainer},
@@ -88,15 +88,16 @@ where
             Some(c) => c,
             c @ None => {
                 let el = Arc::new(Mutex::new(El::default()));
-                let event_dispatcher = EventDispatcher::new();
+                let event_dispatcher=EventDispatcher::new();
+                let element_handle=ElementHandle::new(event_dispatcher.clone(), content.0.focusing.clone());
 
-                ce_emitter.emit(&event_dispatcher);
+                ce_emitter.emit(&element_handle);
 
                 El::start_runtime(RuntimeInit {
                     _prevent_new: (),
                     app: el.clone(),
-                    window_event_dispatcher: content.0.window_event_receiver.clone(),
-                    event_dispatcher: event_dispatcher.clone(),
+                    window_event_dispatcher: content.0.window_event_dispatcher.clone(),
+                    element_handle,
                     close_handle: content.0.close_handle,
                 });
 
@@ -158,11 +159,11 @@ where
             props,
             styles: &styles,
             drawing_region: region,
-            event_dispatcher: &cache.event_dispatcher,
             children: Slot {
                 node: children,
                 cache: &mut cache.children_cache,
             },
+            event_dispatcher: &cache.event_dispatcher,
             content:content.downgrade_lifetime(),
         });
 

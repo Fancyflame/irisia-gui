@@ -2,7 +2,7 @@ use crate as irisia;
 use crate::primary::Point;
 use crate::Event;
 
-use super::EventDispatcher;
+use super::element_handle::ElementHandle;
 
 pub mod window_event;
 
@@ -14,11 +14,11 @@ pub mod window_event;
 pub struct ElementAbondoned;
 
 #[derive(Event, Clone)]
-pub struct EventDispatcherCreated<K>
+pub struct ElementCreated<K>
 where
     K: Clone + Unpin + Send + 'static,
 {
-    pub result: EventDispatcher,
+    pub result: ElementHandle,
     pub key: K,
 }
 
@@ -34,31 +34,31 @@ pub struct PointerDown {
     pub position: Point,
 }
 
-#[derive(Event, Clone)]
+#[derive(Event, Clone, Copy)]
 pub struct PointerUp {
     pub is_current: bool,
     pub position: Point,
 }
 
-#[derive(Event, Clone)]
+#[derive(Event, Clone, Copy)]
 pub struct PointerMove {
     pub is_current: bool,
     pub position: Point,
 }
 
-#[derive(Event, Clone)]
+#[derive(Event, Clone, Copy)]
 pub struct PointerEntered;
 
-#[derive(Event, Clone)]
-pub struct PointerOver;
-
-#[derive(Event, Clone)]
+#[derive(Event, Clone, Copy)]
 pub struct PointerOut;
 
-#[derive(Event, Clone)]
+#[derive(Event, Clone, Copy)]
+pub struct PointerOver;
+
+#[derive(Event, Clone, Copy)]
 pub struct PointerLeft;
 
-#[derive(Event, Clone)]
+#[derive(Event, Clone, Copy)]
 pub struct Click {
     pub is_current: bool,
 }

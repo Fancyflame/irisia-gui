@@ -27,12 +27,14 @@ where
 {
     let ev_disp = EventDispatcher::new();
 
-    let ev_disp_cloned = ev_disp.clone();
-    let create_app = move |window: Arc<WinitWindow>, close_handle: CloseHandle| Application::<El> {
-        window,
-        application: None,
-        elem_table: ElemTable::new(ev_disp_cloned),
-        close_handle,
+    let create_app = {
+        let elem_table = ElemTable::new(ev_disp.clone());
+        move |window: Arc<WinitWindow>, close_handle: CloseHandle| Application::<El> {
+            window,
+            application: None,
+            elem_table,
+            close_handle,
+        }
     };
 
     let RawWindowHandle {
@@ -68,17 +70,20 @@ where
 
         let region = (Point(0, 0), Point(size.0, size.1));
 
-        let (elem_table_builder, window_event_receiver) = self.elem_table.builder();
-        let content = BareContent {
-            canvas,
-            window: &self.window,
-            delta_time: delta,
-            window_event_receiver,
-            close_handle: self.close_handle,
-            elem_table_builder,
-        };
+        self.elem_table
+            .rebuild(|elem_table_builder, window_event_receiver, focusing| {
+                let content = BareContent {
+                    canvas,
+                    window: &self.window,
+                    delta_time: delta,
+                    window_event_dispatcher: window_event_receiver,
+                    close_handle: self.close_handle,
+                    elem_table_builder,
+                    focusing,
+                };
 
-        into_rendering_raw(add_child, &mut self.application, content).finish(region)
+                into_rendering_raw(add_child, &mut self.application, content).finish(region)
+            })
     }
 
     fn on_window_event(&mut self, event: StaticWindowEvent) {

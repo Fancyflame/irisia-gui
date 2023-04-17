@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use crate::event::element_handle::ElementHandle;
 use crate::event::{EventDispatcher, EventReceive};
 use crate::primary::Region;
 use crate::structure::{StructureBuilder, VisitIter};
@@ -23,9 +24,9 @@ where
     pub props: El::Props<'prop>,
     pub styles: &'a St,
     pub drawing_region: Region,
-    pub event_dispatcher: &'a EventDispatcher,
     pub children: Slot<'a, Ch>,
     pub content: RenderContent<'a>,
+    pub event_dispatcher: &'a EventDispatcher,
 }
 
 /// Element is a thing can draw itself on the given canvas,
@@ -75,17 +76,17 @@ pub struct NeverInitalized {
 pub struct RuntimeInit<T: ?Sized> {
     pub(crate) _prevent_new: (),
     pub app: Arc<Mutex<T>>,
-    pub event_dispatcher: EventDispatcher,
+    pub element_handle: ElementHandle,
     pub window_event_dispatcher: EventDispatcher,
     pub close_handle: CloseHandle,
 }
 
 impl<T: ?Sized> RuntimeInit<T> {
     pub fn recv<E: Event>(&self) -> EventReceive<E> {
-        self.event_dispatcher.recv()
+        self.element_handle.recv()
     }
 
     pub async fn recv_sys<E: Event>(&self) -> E {
-        self.event_dispatcher.recv_sys().await
+        self.element_handle.recv_sys().await
     }
 }
