@@ -1,7 +1,7 @@
 use irisia::{
     application::Window,
     element::{Element, Frame, NeverInitalized, NoProps, RuntimeInit},
-    event::standard::ElementAbondoned,
+    event::standard::{Click, ElementAbondoned, PointerEntered, PointerOut},
     exit_app,
     primary::Point,
     read_style, render_fn,
@@ -212,24 +212,36 @@ impl Element for Rectangle {
                             return;
                         },
 
-                        window_event = init.recv_sys::<StaticWindowEvent>() => match window_event {
-                            StaticWindowEvent::MouseInput {
-                                state,
-                                ..
-                            } => {
-                                init.app.lock().await.is_force = match state {
-                                    ElementState::Pressed => true,
-                                    ElementState::Released => false,
-                                }
-                            },
+                        _=init.recv_sys::<PointerEntered>()=>{
+                            init.app.lock().await.is_force=true;
+                        }
 
-                            _ => {}
+                        _=init.recv_sys::<PointerOut>()=>{
+                            init.app.lock().await.is_force=false;
+                        }
+
+                        _ = init.recv_sys::<Click>() =>  {
+                            println!("click")
                         },
                     }
                 }
             };
 
-            tokio::join!(a, b);
+            let c = async {
+                loop {
+                    select! {
+                        _ = init.recv_sys::<PointerEntered>() => {
+                            println!("pointer entered");
+                        },
+
+                        _ = init.recv_sys::<PointerOut>() => {
+                            println!("pointer out");
+                        },
+                    }
+                }
+            };
+
+            tokio::join!(a, b, c);
         });
     }
 }
@@ -248,7 +260,6 @@ impl Element for Flex {
         &mut self,
         Frame {
             drawing_region,
-            cache_box_for_children,
             mut content,
             children,
             ..
@@ -257,7 +268,7 @@ impl Element for Flex {
         let (start, end) = drawing_region;
         let abs = end - start;
 
-        let rendering = children.into_rendering(cache_box_for_children, content.inherit());
+        let rendering = children.into_rendering(&mut content);
         let len = rendering.children_count();
         let width = abs.0 / len as u32;
 

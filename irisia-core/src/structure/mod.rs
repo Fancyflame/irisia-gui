@@ -104,7 +104,7 @@ pub trait StructureBuilder: Sized + RenderingNode {
 pub(crate) fn into_rendering_raw<'a, T: StructureBuilder>(
     mut node: T,
     cache: &'a mut T::Cache,
-    mut content_for_children: BareContent<'a>,
+    content_for_children: BareContent<'a>,
 ) -> IntoRendering<'a, T> {
     let wrapper = BareContentWrapper(content_for_children);
 

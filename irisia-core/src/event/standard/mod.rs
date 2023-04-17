@@ -47,16 +47,16 @@ pub struct PointerMove {
 }
 
 #[derive(Event, Clone)]
-pub struct PointerEnter;
+pub struct PointerEntered;
 
 #[derive(Event, Clone)]
-pub struct PointOver;
+pub struct PointerOver;
+
+#[derive(Event, Clone)]
+pub struct PointerOut;
 
 #[derive(Event, Clone)]
 pub struct PointerLeft;
-
-#[derive(Event, Clone)]
-pub struct PointerLeave;
 
 #[derive(Event, Clone)]
 pub struct Click {

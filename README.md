@@ -10,7 +10,34 @@ Irisia is heavily depend on following crates:
 - [skia-safe](https://crates.io/crates/skia-safe): Bindings to [Skia](https://skia.org/). Skia is a graphics library developed by Google, used by lots of project, most famously Chrome and Android.
 - [tokio](https://crates.io/crates/tokio): A asynchronous library with runtime and useful utils, which is high-speed and reliable.
 
-## Take a quick look
+## 📕 Irisia Book
+
+Only Chinese is available now\
+目前只有中文可用
+
+<https://fancyflame.github.io/irisia-gui/>
+
+## 💻 CONTRIBUTING
+Welcome to Irisia GUI! This is a project in progress and we're actively seeking contributors to help us develop and improve it.
+
+### Project Status
+We're in the early stages of development and there's a lot of work to be done. We're looking for developers, designers, and testers who are interested in contributing to this project.
+
+We welcome all types of contributions, from code and documentation to bug reports and feature requests.
+
+### How to contribute
+Contributing documentation is lack now, all we have is examples in [examples directory](https://github.com/Fancyflame/irisia-gui/tree/main/examples) and some implementation of common components in [`irisia` crate](https://github.com/Fancyflame/irisia-gui/tree/main/irisia/src). Please *feel free* to ask any questions about this project in issues or discussion tab.
+
+**If you are tend to participate in our project, please contact me via <fancyflame@163.com>. Thanks! ❤**
+
+## 🌍 About English Documentation
+
+- We are sorry but due to my(or our) limited English proficiency, documentation is not available now. We will add as soon as possible.
+- How about take a look at [`window`](https://github.com/Fancyflame/irisia-rs/blob/main/examples/window.rs) example?
+- If you tend to translate the documentation into English, please feel free to open an issue to let me(us) know. Thanks a lot.
+- **If you in need of English documentation, also please open an issue to let us know!**
+
+## 👀 Take a quick look
 
 A simple window application is looks like following. Newest examples please take a look at
 [examples](https://github.com/Fancyflame/irisia-rs/tree/main/examples) directory.
@@ -92,16 +119,33 @@ impl Element for App {
 
 ![rendering result](images/window.jpg)
 
-## About English Documentation
+## 💬 Discussion Guidelines
 
-- We are sorry but English documentation is not available now. We will add as soon as possible.
-- How about take a look at [`window`](https://github.com/Fancyflame/irisia-rs/blob/main/examples/window.rs) example?
-- If you tend to translate the documentation into English, please feel free to open an issue. Thanks a lot.
+Welcome to the discussion section of this project. We encourage constructive and respectful communication among all participants.
 
-## Irisia Book
+### What to discuss
+Please feel free to discuss any topics related to the project, such as:
 
-Only Chinese is available now :/\
-目前只有中文可用\
-👇
+- Ask for help about usage
+- Bug reports and feature requests
+- Code review and technical questions
+- Suggestions and improvements
+- Other relevant topics
 
-<https://fancyflame.github.io/irisia-rs/>
+### What not to discuss
+To ensure a positive and inclusive environment, we ask that you refrain from discussing the following topics:
+
+- Politics, religion, or other sensitive topics that are not relevant to the project
+- Offensive or inappropriate language, behavior, or content
+- Personal attacks, insults, or harassment of any kind
+
+### Guidelines for communication
+We encourage participants to follow these guidelines when communicating in the discussion section:
+
+- Discuss in English if possible
+- Be respectful and considerate of others' opinions and ideas
+- Stay on a constructive tone and avoid negative or aggressive language
+- Provide constructive feedback and suggestions for improvement when appropriate
+- If you have a disagreement with someone, try to address it politely and professionally
+
+Thank you for your cooperation in making this a positive and productive discussion environment.

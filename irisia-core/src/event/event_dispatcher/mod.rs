@@ -96,6 +96,10 @@ impl EventDispatcher {
         WeakEventDispatcher(Arc::downgrade(&self.0))
     }
 
+    pub(crate) fn as_ptr(&self) -> *const () {
+        Arc::as_ptr(&self.0) as _
+    }
+
     pub fn is_same(&self, other: &EventDispatcher) -> bool {
         Arc::ptr_eq(&self.0, &other.0)
     }
@@ -110,10 +114,6 @@ impl Default for EventDispatcher {
 impl WeakEventDispatcher {
     pub fn upgrade(&self) -> Option<EventDispatcher> {
         self.0.upgrade().map(|arc| EventDispatcher(arc))
-    }
-
-    pub(crate) fn as_ptr(&self) -> *const () {
-        Weak::as_ptr(&self.0) as _
     }
 
     pub fn is_same(&self, other: &Self) -> bool {

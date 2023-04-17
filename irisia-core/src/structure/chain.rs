@@ -14,7 +14,7 @@ where
 {
     type Cache = ChainCache<A::Cache, B::Cache>;
 
-    fn prepare_for_rendering(&mut self, cache: &mut Self::Cache, mut content: &BareContentWrapper) {
+    fn prepare_for_rendering(&mut self, cache: &mut Self::Cache, content: &BareContentWrapper) {
         self.0.prepare_for_rendering(&mut cache.0, content);
         self.1.prepare_for_rendering(&mut cache.1, content);
     }

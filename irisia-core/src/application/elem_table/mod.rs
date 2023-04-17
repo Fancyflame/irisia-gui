@@ -7,11 +7,11 @@ use crate::{
 use focus::Focusing;
 use irisia_backend::StaticWindowEvent;
 
-//use self::state::{InputState, StateRecorder};
+use self::cursor::CursorWatcher;
 
+mod advanced;
 mod cursor;
 mod focus;
-//mod state;
 
 struct Item {
     event_dispatcher: EventDispatcher,
@@ -21,30 +21,30 @@ struct Item {
 
 pub(crate) struct ElemTable {
     global: EventDispatcher,
-    focusing: Focusing,
-    emitters: Vec<Item>,
+    registered: Vec<Item>,
     builder_stack: Vec<usize>,
-    state_recorder: StateRecorder,
+    focusing: Focusing,
+    cursor_watcher: CursorWatcher,
 }
 
 impl ElemTable {
     pub fn new(global: EventDispatcher) -> Self {
         ElemTable {
             global,
-            focusing: Focusing::new(),
-            emitters: Vec::new(),
+            registered: Vec::new(),
             builder_stack: Vec::new(),
-            state_recorder: StateRecorder::new(),
+            focusing: Focusing::new(),
+            cursor_watcher: CursorWatcher::new(),
         }
     }
 
     pub fn builder(&mut self) -> (Builder, &EventDispatcher) {
-        self.emitters.clear();
+        self.registered.clear();
         self.focusing.to_not_confirmed();
         (
             Builder {
                 is_root: true,
-                items: &mut self.emitters,
+                items: &mut self.registered,
                 focusing: &mut self.focusing,
                 builder_stack: &mut self.builder_stack,
             },
@@ -52,46 +52,15 @@ impl ElemTable {
         )
     }
 
-    fn cursor_on(&self, point: Point) -> Option<usize> {
-        let mut selected = None;
-
-        for (
-            index,
-            Item {
-                interact_region, ..
-            },
-        ) in self.emitters.iter().enumerate().rev()
-        {
-            if let Some(re) = interact_region {
-                if point.abs_ge(re.0) && point.abs_le(re.1) {
-                    selected = Some(index);
-                    break;
-                }
-            }
-        }
-
-        selected
-    }
-
     pub fn emit_window_event(&mut self, event: StaticWindowEvent) {
-        let input_state = self.state_recorder.update(&event);
+        self.cursor_watcher.update(&self.registered, &event);
 
-        if let InputState {
-            clicked: true,
-            position: Some(pos),
-        } = input_state
-        {
-            match self.cursor_on(pos) {
-                Some(index) => self
-                    .focusing
-                    .focus_on(self.emitters[index].event_dispatcher.clone(), index),
-                None => self.focusing.blur(),
-            }
-        }
-
-        let mut selected = self.focusing.get_focused();
+        let mut selected = self
+            .cursor_watcher
+            .cursor_pos()
+            .and_then(|point| cursor_on(&self.registered, point));
         while let Some(index) = selected {
-            let item = &self.emitters[index];
+            let item = &self.registered[index];
             item.event_dispatcher.emit_sys(event.clone());
             selected = item.parent;
         }
@@ -104,6 +73,21 @@ impl ElemTable {
     {
         self.global.emit_sys(event);
     }
+}
+
+fn cursor_on(registered: &[Item], point: Point) -> Option<usize> {
+    let mut selected = None;
+
+    for (index, item) in registered.iter().enumerate().rev() {
+        if let Some(re) = item.interact_region {
+            if point.abs_ge(re.0) && point.abs_le(re.1) {
+                selected = Some(index);
+                break;
+            }
+        }
+    }
+
+    selected
 }
 
 pub(crate) struct Builder<'a> {
@@ -130,7 +114,6 @@ impl Builder<'_> {
         self.items.push(Item {
             event_dispatcher,
             interact_region: None,
-            can_focus_on: false,
             parent: self.builder_stack.last().copied(),
         });
         self.builder_stack.push(index);
@@ -140,10 +123,6 @@ impl Builder<'_> {
 
     pub fn set_interact_region_for(&mut self, index: usize, r: Region) {
         self.items[index].interact_region = Some(r);
-    }
-
-    pub fn set_can_recv_focus_for(&mut self, index: usize) {
-        self.items[index].can_focus_on = true;
     }
 
     pub fn finish(&mut self) {

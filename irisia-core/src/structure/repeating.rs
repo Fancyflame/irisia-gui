@@ -41,7 +41,7 @@ where
 {
     type Cache = RepeatingCache<K, T::Cache>;
 
-    fn prepare_for_rendering(&mut self, cache: &mut Self::Cache, mut content: &BareContentWrapper) {
+    fn prepare_for_rendering(&mut self, cache: &mut Self::Cache, content: &BareContentWrapper) {
         for (k, x) in &mut self.nodes {
             match cache.0.get_mut(k) {
                 Some(c) => {
