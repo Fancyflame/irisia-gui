@@ -67,17 +67,29 @@ impl ElemTable {
     }
 
     pub fn emit_window_event(&mut self, event: StaticWindowEvent) {
-        self.cursor_watcher.update(&self.registered, &event);
+        let clicked = self.cursor_watcher.update(&self.registered, &event);
+
+        match (clicked, self.cursor_watcher.top_element()) {
+            (true, Some(ed)) => {
+                self.focusing.blocking_lock().focus_on(ed.clone());
+            }
+            (true, None) => {
+                self.focusing.blocking_lock().blur();
+            }
+            (false, _) => {}
+        }
 
         let mut selected = self
             .cursor_watcher
             .cursor_pos()
             .and_then(|point| cursor_on(&self.registered, point));
+
         while let Some(index) = selected {
             let item = &self.registered[index];
             item.event_dispatcher.emit_sys(event.clone());
             selected = item.parent;
         }
+
         self.handle_event(event);
     }
 

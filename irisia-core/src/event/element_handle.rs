@@ -26,7 +26,10 @@ impl ElementHandle {
     }
 
     pub async fn blur(&self) {
-        self.focusing.lock().await.blur(&self.event_dispatcher)
+        self.focusing
+            .lock()
+            .await
+            .blur_checked(&self.event_dispatcher)
     }
 }
 

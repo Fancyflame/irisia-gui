@@ -1,7 +1,9 @@
 use irisia::{
     application::Window,
     element::{Element, Frame, NeverInitalized, NoProps, RuntimeInit},
-    event::standard::{Click, ElementAbondoned, PointerEntered, PointerOut},
+    event::standard::{
+        Blured, Click, ElementAbondoned, ElementCreated, Focused, PointerEntered, PointerOut,
+    },
     exit_app,
     primary::Point,
     read_style, render_fn,
@@ -10,7 +12,6 @@ use irisia::{
     style,
     style::StyleColor,
     textbox::{styles::*, TextBox},
-    winit::event::{ElementState, MouseButton},
     Event, StaticWindowEvent, Style,
 };
 use tokio::select;
@@ -76,39 +77,37 @@ impl Element for App {
         tokio::spawn(async move {
             let a = async {
                 loop {
-                    let event = init.element_handle.recv_sys::<StaticWindowEvent>().await;
-
-                    match event {
-                        StaticWindowEvent::MouseInput {
-                            button: MouseButton::Left,
-                            state: ElementState::Pressed,
-                            ..
-                        } => {
-                            println!("left click");
-                        }
-                        _ => {}
-                    }
-                }
-            };
-
-            let b = async {
-                loop {
-                    let rect = init
+                    let ElementCreated { result, key } = init
                         .element_handle
                         .get_element_checked(|(s, _): &(&str, usize)| *s == "rect")
                         .await;
 
                     tokio::spawn(async move {
-                        println!("recv{} got", rect.key.1);
+                        println!("recv{} got", key.1);
 
-                        rect.result.recv::<MyRequestClose>().await;
-                        println!("close request event received(sent by {:?})", rect.key.1);
-                        init.close_handle.close();
+                        loop {
+                            tokio::select! {
+                                _ = result.recv_sys::<Focused>() => {
+                                    println!("rectangle {} gained focus",key.1);
+                                }
+                                _ = result.recv_sys::<Blured>() => {
+                                    println!("rectangle {} lost focus",key.1);
+                                }
+                                _ = result.recv_sys::<Click>() => {
+                                    println!("rectangle {} clicked", key.1);
+                                }
+                                _ = result.recv::<MyRequestClose>() => {
+                                    println!("close request event received(sent by {:?})", key.1);
+                                    init.close_handle.close();
+                                    break;
+                                }
+                            }
+                        }
                     });
                 }
             };
 
-            tokio::join!(a, b);
+            a.await;
         });
     }
 }
@@ -219,10 +218,6 @@ impl Element for Rectangle {
                         _=init.recv_sys::<PointerOut>()=>{
                             init.app.lock().await.is_force=false;
                         }
-
-                        _ = init.recv_sys::<Click>() =>  {
-                            println!("click")
-                        },
                     }
                 }
             };

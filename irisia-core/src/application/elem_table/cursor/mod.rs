@@ -1,6 +1,6 @@
 use std::collections::{hash_map::Entry, HashMap};
 
-use irisia_backend::{winit::dpi::PhysicalPosition, StaticWindowEvent};
+use irisia_backend::StaticWindowEvent;
 
 use crate::{
     event::{
@@ -9,6 +9,10 @@ use crate::{
     },
     primary::Point,
 };
+
+use self::pointer_event::Advanced;
+
+mod pointer_event;
 
 struct OutProtected(EventDispatcher);
 
@@ -28,12 +32,13 @@ impl Drop for LeaveProtected {
 
 struct Alive {
     alive: bool,
-    _ed: OutProtected,
+    ed: OutProtected,
 }
 
 #[derive(Default)]
 pub struct CursorWatcher {
     cursor_pos: Option<Point>,
+    advanced: Advanced,
     entered: HashMap<usize, Alive>,
     over: Option<LeaveProtected>,
 }
@@ -41,6 +46,10 @@ pub struct CursorWatcher {
 impl CursorWatcher {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn top_element(&self) -> Option<&EventDispatcher> {
+        self.over.as_ref().map(|x| &x.0)
     }
 
     fn update_pointer_over(&mut self, new: Option<&EventDispatcher>) {
@@ -61,6 +70,8 @@ impl CursorWatcher {
         }
 
         let mut next = index.map(|index| &registered[index]);
+        self.update_pointer_over(next.map(|x| &x.event_dispatcher));
+
         while let Some(item) = next {
             next = item.parent.map(|index| &registered[index]);
             let entry = self.entered.entry(item.event_dispatcher.as_ptr() as usize);
@@ -69,35 +80,26 @@ impl CursorWatcher {
                     item.event_dispatcher.emit_sys(PointerEntered);
                     vacant.insert(Alive {
                         alive: true,
-                        _ed: OutProtected(item.event_dispatcher.clone()),
+                        ed: OutProtected(item.event_dispatcher.clone()),
                     });
                 }
                 Entry::Occupied(mut occupied) => occupied.get_mut().alive = true,
             }
         }
         self.entered.retain(|_, v| v.alive);
-
-        self.update_pointer_over(next.map(|x| &x.event_dispatcher));
     }
 
     pub(super) fn cursor_pos(&self) -> Option<Point> {
         self.cursor_pos
     }
 
-    pub(super) fn update(&mut self, registered: &[super::Item], event: &StaticWindowEvent) {
-        self.cursor_pos = match event {
-            StaticWindowEvent::CursorLeft { .. } => None,
-            StaticWindowEvent::CursorMoved {
-                position: PhysicalPosition { x, y },
-                ..
-            } => Some(Point(*x as _, *y as _)),
-            _ => return,
-        };
-
+    // returns clicked element
+    pub(super) fn update(&mut self, registered: &[super::Item], event: &StaticWindowEvent) -> bool {
         self.update_chain_in_place(
             registered,
             self.cursor_pos
                 .and_then(|point| super::cursor_on(registered, point)),
         );
+        self.update_advanced(event)
     }
 }

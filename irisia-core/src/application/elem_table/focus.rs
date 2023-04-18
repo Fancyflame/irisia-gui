@@ -60,6 +60,7 @@ impl Focusing {
         }
     }
 
+    #[allow(dead_code)]
     pub(super) fn get_focused(&self) -> Option<usize> {
         match &self.current_frame {
             CurrentFrame::Confirmed { index, .. } => Some(*index),
@@ -77,11 +78,17 @@ impl Focusing {
         self.next_frame = NextFrame::ChangeTo(ed);
     }
 
-    pub fn blur(&mut self, check: &EventDispatcher) {
+    pub fn blur_checked(&mut self, check: &EventDispatcher) {
         if let CurrentFrame::Confirmed { protected, .. } = &self.current_frame {
-            if protected.get().is_same(check) && matches!(self.next_frame, NextFrame::Keep) {
-                self.next_frame = NextFrame::Clear
+            if protected.get().is_same(check) {
+                self.blur();
             }
+        }
+    }
+
+    pub fn blur(&mut self) {
+        if matches!(self.next_frame, NextFrame::Keep) {
+            self.next_frame = NextFrame::Clear
         }
     }
 
