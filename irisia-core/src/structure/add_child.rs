@@ -155,6 +155,7 @@ where
 
         let region = map(S::read_style(&styles), requested_size)?;
 
+        content.set_interact_region(region);
         let result = el.render(Frame {
             props,
             styles: &styles,

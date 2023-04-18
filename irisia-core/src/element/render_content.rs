@@ -59,7 +59,13 @@ impl RenderContent<'_> {
     pub fn set_interact_region(&mut self, region: Region) {
         self.bare
             .elem_table_builder
-            .set_interact_region_for(self.elem_table_index, region);
+            .set_interact_region_for(self.elem_table_index, Some(region));
+    }
+
+    pub fn clear_interact_region(&mut self) {
+        self.bare
+            .elem_table_builder
+            .set_interact_region_for(self.elem_table_index, None);
     }
 
     pub(crate) fn downgrade_lifetime(&mut self) -> RenderContent {

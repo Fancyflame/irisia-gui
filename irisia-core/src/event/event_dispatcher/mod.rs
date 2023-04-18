@@ -6,6 +6,7 @@ use super::{element_handle::ElementHandle, standard::ElementCreated, EventMetada
 
 mod emit_scheduler;
 pub mod emitter;
+mod extension;
 mod item_map;
 pub mod receive;
 

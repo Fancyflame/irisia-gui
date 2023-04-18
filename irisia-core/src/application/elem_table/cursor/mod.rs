@@ -89,10 +89,6 @@ impl CursorWatcher {
         self.entered.retain(|_, v| v.alive);
     }
 
-    pub(super) fn cursor_pos(&self) -> Option<Point> {
-        self.cursor_pos
-    }
-
     // returns clicked element
     pub(super) fn update(&mut self, registered: &[super::Item], event: &StaticWindowEvent) -> bool {
         self.update_chain_in_place(

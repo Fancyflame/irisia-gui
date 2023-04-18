@@ -2,7 +2,8 @@ use irisia::{
     application::Window,
     element::{Element, Frame, NeverInitalized, NoProps, RuntimeInit},
     event::standard::{
-        Blured, Click, ElementAbondoned, ElementCreated, Focused, PointerEntered, PointerOut,
+        Blured, Click, ElementAbondoned, ElementCreated, Focused, PointerEntered, PointerMove,
+        PointerOut,
     },
     exit_app,
     primary::Point,
@@ -52,6 +53,7 @@ impl Element for App {
         Flex {
             TextBox {
                 text: "hello世界🌏",
+                +id: "textbox",
                 +style: style!{
                     color: Color::MAGENTA;
                     font_slant: .normal;
@@ -107,7 +109,20 @@ impl Element for App {
                 }
             };
 
-            a.await;
+            let b = async {
+                let ele = init.element_handle.get_element_eq(&"textbox").await;
+                ele.recv_sys::<PointerMove>().await;
+                tokio::spawn(async move {
+                    loop {
+                        ele.hover().await;
+                        println!("cursor hovering on textbox");
+                        ele.hover_canceled().await;
+                        println!("cursor hovering canceled");
+                    }
+                });
+            };
+
+            tokio::join!(a, b);
         });
     }
 }

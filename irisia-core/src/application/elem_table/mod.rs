@@ -3,7 +3,6 @@ use std::sync::Arc;
 use crate::{
     event::EventDispatcher,
     primary::{Point, Region},
-    Event,
 };
 
 use tokio::sync::Mutex;
@@ -69,34 +68,17 @@ impl ElemTable {
     pub fn emit_window_event(&mut self, event: StaticWindowEvent) {
         let clicked = self.cursor_watcher.update(&self.registered, &event);
 
-        match (clicked, self.cursor_watcher.top_element()) {
-            (true, Some(ed)) => {
-                self.focusing.blocking_lock().focus_on(ed.clone());
+        if clicked {
+            match self.cursor_watcher.top_element() {
+                Some(ed) => {
+                    self.focusing.blocking_lock().focus_on(ed.clone());
+                }
+                None => {
+                    self.focusing.blocking_lock().blur();
+                }
             }
-            (true, None) => {
-                self.focusing.blocking_lock().blur();
-            }
-            (false, _) => {}
         }
 
-        let mut selected = self
-            .cursor_watcher
-            .cursor_pos()
-            .and_then(|point| cursor_on(&self.registered, point));
-
-        while let Some(index) = selected {
-            let item = &self.registered[index];
-            item.event_dispatcher.emit_sys(event.clone());
-            selected = item.parent;
-        }
-
-        self.handle_event(event);
-    }
-
-    fn handle_event<E>(&self, event: E)
-    where
-        E: Event,
-    {
         self.global.emit_sys(event);
     }
 }
@@ -145,8 +127,8 @@ impl Builder<'_> {
         index
     }
 
-    pub fn set_interact_region_for(&mut self, index: usize, r: Region) {
-        self.items[index].interact_region = Some(r);
+    pub fn set_interact_region_for(&mut self, index: usize, r: Option<Region>) {
+        self.items[index].interact_region = r;
     }
 
     pub fn finish(&mut self) {
