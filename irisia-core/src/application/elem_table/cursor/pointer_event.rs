@@ -1,7 +1,4 @@
-use std::{
-    collections::HashMap,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 use irisia_backend::{
     winit::{
@@ -24,11 +21,11 @@ use super::CursorWatcher;
 
 #[derive(Default)]
 pub(super) struct Advanced {
-    pressed_ids: HashMap<usize, EventDispatcher>,
     state: Option<Pressed>,
 }
 
 struct Pressed {
+    ed: EventDispatcher,
     time: Instant,
     position: Option<Point>,
 }
@@ -71,14 +68,7 @@ impl super::CursorWatcher {
                 let is_leading = match &mut self.advanced.state {
                     Some(_) => false,
                     None => {
-                        self.advanced.state = Some(Pressed {
-                            time: Instant::now(),
-                            position: self.cursor_pos,
-                        });
-                        self.advanced.pressed_ids.clear();
-                        self.advanced
-                            .pressed_ids
-                            .extend(self.entered.iter().map(|(k, v)| (*k, v.ed.0.clone())));
+                        self.set_pressed();
                         true
                     }
                 };
@@ -135,6 +125,19 @@ impl super::CursorWatcher {
         false
     }
 
+    fn set_pressed(&mut self) {
+        let protected = self
+            .over
+            .as_ref()
+            .expect("inner error: cursor is on nothing");
+
+        self.advanced.state = Some(Pressed {
+            ed: protected.0.clone(),
+            time: Instant::now(),
+            position: self.cursor_pos,
+        });
+    }
+
     fn handle_click(&mut self) -> bool {
         const CLICK_LONGEST_INTERVAL: Duration = Duration::from_millis(300);
 
@@ -160,22 +163,17 @@ impl super::CursorWatcher {
         .sqrt();
 
         if press_info.time.elapsed() > CLICK_LONGEST_INTERVAL || distance > 40.0 {
-            return true;
+            return false;
         }
 
-        let top_el = match &self.over {
-            Some(x) => &x.0,
-            None => return true,
-        };
-
-        for (key, ed) in self.advanced.pressed_ids.drain() {
-            if self.entered.contains_key(&key) {
-                ed.emit_sys(Click {
-                    is_current: top_el.is_same(&ed),
-                });
-            }
+        match &self.over {
+            Some(x) if press_info.ed.is_same(&x.0) => {}
+            _ => return false,
         }
 
+        emit_event(&self, |is_first| Click {
+            is_current: is_first,
+        });
         true
     }
 }

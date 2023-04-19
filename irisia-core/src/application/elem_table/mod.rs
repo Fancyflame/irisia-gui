@@ -52,15 +52,16 @@ impl ElemTable {
         };
         focusing.to_not_confirmed();
 
-        let ret = f(
-            Builder {
-                items: &mut self.registered,
-                focusing: &mut focusing,
-                builder_stack: &mut self.builder_stack,
-            },
-            &self.global,
-            &self.focusing,
-        );
+        let mut builder = Builder {
+            items: &mut self.registered,
+            focusing: &mut focusing,
+            builder_stack: &mut self.builder_stack,
+        };
+
+        builder.push(self.global.clone());
+        let ret = f(builder.downgrade_lifetime(), &self.global, &self.focusing);
+        builder.finish();
+
         focusing.drop_not_confirmed();
         ret
     }

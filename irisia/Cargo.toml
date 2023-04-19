@@ -8,3 +8,5 @@ edition = "2021"
 [dependencies]
 irisia_core = { path = "../irisia-core" }
 smallvec = "1.10"
+tokio = { version = "1.27", features = ["sync"] }
+lazy_static = "1"

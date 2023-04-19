@@ -1,6 +1,8 @@
-use std::ops::Deref;
+use std::{future::Future, ops::Deref};
 
-use crate::application::elem_table::focus::SharedFocusing;
+use tokio::task::JoinHandle;
+
+use crate::{application::elem_table::focus::SharedFocusing, event::standard::ElementAbondoned};
 
 use super::EventDispatcher;
 
@@ -30,6 +32,20 @@ impl ElementHandle {
             .lock()
             .await
             .blur_checked(&self.event_dispatcher)
+    }
+
+    pub fn spawn<F, Ret>(&self, future: F) -> JoinHandle<Option<Ret>>
+    where
+        F: Future<Output = Ret> + Send + 'static,
+        Ret: Send + 'static,
+    {
+        let eh = self.clone();
+        tokio::spawn(async move {
+            tokio::select! {
+                _ = eh.recv_sys::<ElementAbondoned>() => None,
+                r = future => Some(r)
+            }
+        })
     }
 }
 

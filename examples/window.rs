@@ -52,7 +52,7 @@ impl Element for App {
         @init(self);
         Flex {
             TextBox {
-                text: "hello世界🌏",
+                text: "this is a 句子 with emoji: \"hello世界🌏\"",
                 +id: "textbox",
                 +style: style!{
                     color: Color::MAGENTA;

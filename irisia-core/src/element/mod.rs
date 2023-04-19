@@ -73,6 +73,7 @@ pub struct NeverInitalized {
     _never_initialized: (),
 }
 
+#[derive(Clone)]
 pub struct RuntimeInit<T: ?Sized> {
     pub(crate) _prevent_new: (),
     pub app: Arc<Mutex<T>>,

@@ -36,7 +36,7 @@ struct Alive {
 }
 
 #[derive(Default)]
-pub struct CursorWatcher {
+pub(super) struct CursorWatcher {
     cursor_pos: Option<Point>,
     advanced: Advanced,
     entered: HashMap<usize, Alive>,
