@@ -24,7 +24,8 @@ pub struct Window {
 }
 
 impl Window {
-    pub async fn new<El: Element>(title: String) -> Result<Self> {
+    pub async fn new<El: Element>(title: impl Into<String>) -> Result<Self> {
+        let title = title.into();
         new_window::<El, _>(move |wb| wb.with_title(title)).await
     }
 

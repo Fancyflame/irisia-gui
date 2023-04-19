@@ -27,7 +27,7 @@ impl StyleFontSlant {
 }
 
 #[derive(Style, Clone, Copy, PartialEq)]
-#[irisia(from, impl_default)]
+#[irisia(from = "[0]", impl_default)]
 pub struct StyleFontWeight(#[irisia(default = "Weight::NORMAL")] pub Weight);
 
 impl StyleFontWeight {

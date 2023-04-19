@@ -28,7 +28,7 @@ We welcome all types of contributions, from code and documentation to bug report
 ### How to contribute
 Contributing documentation is lack now, all we have is examples in [examples directory](https://github.com/Fancyflame/irisia-gui/tree/main/examples) and some implementation of common components in [`irisia` crate](https://github.com/Fancyflame/irisia-gui/tree/main/irisia/src). Please *feel free* to ask any questions about this project in issues or discussion tab.
 
-**If you are tend to participate in our project, please contact me via <fancyflame@163.com>. Thanks! ❤**
+**If you are tend to participate in our project, please contact me via <fancyflame@163.com>. Thanks!**
 
 ## 🌍 About English Documentation
 
@@ -39,46 +39,54 @@ Contributing documentation is lack now, all we have is examples in [examples dir
 
 ## 👀 Take a quick look
 
-A simple window application is looks like following. Newest examples please take a look at
+A simple window application demo(located at [examples/simple_window.rs](https://github.com/Fancyflame/irisia-rs/tree/main/examples/simple_window.rs)) is looks like following. Newest examples please take a look at
 [examples](https://github.com/Fancyflame/irisia-rs/tree/main/examples) directory.
 
 ```rust
+use irisia::{
+    application::Window,
+    element::{Element, NeverInitalized, NoProps, RuntimeInit},
+    event::standard::{Click, ElementCreated},
+    render_fn,
+    skia_safe::Color,
+    style,
+    style::StyleColor,
+    textbox::{styles::*, TextBox},
+};
+use window_backend::{Flex, Rectangle, StyleHeight, StyleWidth};
+
+mod window_backend;
+
 #[irisia::main]
 async fn main() {
-    irisia::new::<App>("test".into()).await.unwrap().join().await;
+    Window::new::<App>("hello irisia")
+        .await
+        .unwrap()
+        .join()
+        .await;
 }
 
 struct App {
     rects: Vec<Color>,
 }
 
-impl Default for App {
-    fn default() -> Self {
-        Self {
-            rects: vec![
-                Color::RED,
-                Color::YELLOW,
-                Color::BLUE,
-                Color::GREEN,
-                Color::BLACK,
-            ],
-        }
-    }
-}
-
 impl Element for App {
     type Props<'a> = NoProps;
     type ChildProps<'a> = NeverInitalized;
 
-    irisia::render_fn! {
+    render_fn! {
         @init(self);
         Flex {
             TextBox {
-                text: "hello世界🌏",
+                text: "Hello\n привет\n こんにちは\n 你好\n\n Irisia GUI🌺",
+                user_select: true,
+                +id: "textbox",
                 +style: style!{
-                    color: Color::MAGENTA;
-                    font_slant: .normal;
-                    font_size: 50px;
+                    if 1 + 1 == 2{
+                        color: Color::MAGENTA;
+                    }
+                    font_weight: .bold;
+                    font_size: 30px;
                 }
             }
 
@@ -96,25 +104,35 @@ impl Element for App {
         }
     }
 
-    fn start_runtime(init: RuntimeInit<Self>) {
-        tokio::spawn(async move {
+    fn create(init: RuntimeInit<Self>) -> Self {
+        let handle = init.element_handle.clone();
+        init.element_handle.spawn(async move {
             loop {
-                let event = init.event_dispatcher.recv_sys::<WindowEvent>().await;
+                let ElementCreated { result, key } = handle
+                    .get_element_checked(|(s, _): &(&str, usize)| *s == "rect")
+                    .await;
 
-                match event {
-                    WindowEvent::MouseInput {
-                        button: MouseButton::Left,
-                        state: ElementState::Pressed,
-                        ..
-                    } => {
-                        println!("left click");
+                tokio::spawn(async move {
+                    loop {
+                        result.recv_sys::<Click>().await;
+                        println!("rectangle {} clicked", key.1);
                     }
-                    _ => {}
-                }
+                });
             }
         });
+
+        Self {
+            rects: vec![
+                Color::RED,
+                Color::YELLOW,
+                Color::BLUE,
+                Color::GREEN,
+                Color::BLACK,
+            ],
+        }
     }
 }
+
 ```
 
 ![rendering result](images/window.jpg)

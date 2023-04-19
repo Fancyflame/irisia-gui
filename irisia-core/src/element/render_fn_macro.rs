@@ -9,7 +9,7 @@ macro_rules! render_fn {
             mut __frame: $crate::element::Frame<
                 Self,
                 impl $crate::style::StyleContainer,
-                impl VisitIter<Self::ChildProps<'a>>,
+                impl $crate::structure::VisitIter<Self::ChildProps<'a>>,
             >,
         ) -> $crate::Result<()> {
             $crate::structure::StructureBuilder::into_rendering(
