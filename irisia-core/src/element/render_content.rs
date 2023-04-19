@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use irisia_backend::{skia_safe::Canvas, window_handle::close_handle::CloseHandle, WinitWindow};
 
@@ -11,7 +11,7 @@ use crate::{
 
 pub(crate) struct BareContent<'a> {
     pub canvas: &'a mut Canvas,
-    pub window: &'a WinitWindow,
+    pub window: &'a Arc<WinitWindow>,
     pub delta_time: Duration,
     pub window_event_dispatcher: &'a EventDispatcher,
     pub close_handle: CloseHandle,
@@ -48,7 +48,7 @@ impl RenderContent<'_> {
         self.bare.canvas
     }
 
-    pub fn window(&self) -> &WinitWindow {
+    pub fn window(&self) -> &Arc<WinitWindow> {
         self.bare.window
     }
 

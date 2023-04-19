@@ -4,11 +4,11 @@ use irisia_core::{
     Style,
 };
 
-#[derive(Style, Clone, Copy)]
+#[derive(Style, Clone, Copy, PartialEq)]
 #[irisia(from, impl_default)]
 pub struct StyleFontSize(#[irisia(default = "Pixel(40.0)")] pub Pixel);
 
-#[derive(Style, Clone)]
+#[derive(Style, Clone, PartialEq)]
 #[irisia(from = "", impl_default)]
 pub struct StyleFontSlant(#[irisia(default = "Slant::Upright")] pub Slant);
 
@@ -26,7 +26,7 @@ impl StyleFontSlant {
     }
 }
 
-#[derive(Style, Clone, Copy)]
+#[derive(Style, Clone, Copy, PartialEq)]
 #[irisia(from, impl_default)]
 pub struct StyleFontWeight(#[irisia(default = "Weight::NORMAL")] pub Weight);
 

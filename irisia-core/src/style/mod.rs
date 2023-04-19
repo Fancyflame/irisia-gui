@@ -40,7 +40,7 @@ use self::reader::StyleReader;
 
 pub trait Style: Clone + 'static {}
 
-#[derive(Default, Clone, Copy)]
+#[derive(Default, Clone, Copy, PartialEq, PartialOrd)]
 pub struct Pixel(pub f32);
 
 impl Pixel {
@@ -49,7 +49,7 @@ impl Pixel {
     }
 }
 
-#[derive(Debug, Style, Clone)]
+#[derive(Debug, Style, Clone, PartialEq)]
 #[irisia(from)]
 pub struct StyleColor(pub Color);
 

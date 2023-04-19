@@ -87,19 +87,23 @@ where
         let cache = match cache {
             Some(c) => c,
             c @ None => {
-                let el = Arc::new(Mutex::new(El::default()));
                 let event_dispatcher=EventDispatcher::new();
                 let element_handle=ElementHandle::new(event_dispatcher.clone(), content.0.focusing.clone());
 
                 ce_emitter.emit(&element_handle);
 
-                El::start_runtime(RuntimeInit {
-                    _prevent_new: (),
-                    app: el.clone(),
-                    window_event_dispatcher: content.0.window_event_dispatcher.clone(),
-                    element_handle,
-                    close_handle: content.0.close_handle,
+                let el = Arc::new_cyclic(|weak|{
+                    let el=El::create(RuntimeInit {
+                        _prevent_new: (),
+                        app: weak.clone(),
+                        window_event_dispatcher: content.0.window_event_dispatcher.clone(),
+                        window: content.0.window.clone(),
+                        element_handle,
+                        close_handle: content.0.close_handle,
+                    });
+                    Mutex::new(el)
                 });
+                
 
                 let cache = AddChildCache {
                     element: el,

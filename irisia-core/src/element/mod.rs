@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 
 use crate::event::element_handle::ElementHandle;
 use crate::event::{EventDispatcher, EventReceive};
@@ -10,6 +10,7 @@ use crate::{style::StyleContainer, Result};
 use crate::structure::slot::Slot;
 
 use irisia_backend::window_handle::close_handle::CloseHandle;
+use irisia_backend::WinitWindow;
 pub use render_content::RenderContent;
 use tokio::sync::Mutex;
 
@@ -34,9 +35,11 @@ where
 /// This trait is close to the native rendering, if you are not a
 /// component maker, please using exist element or using macros to
 /// custom one.
-pub trait Element: Default + Sized + 'static {
+pub trait Element: Sized + 'static {
     type Props<'a>: Default;
     type ChildProps<'a>;
+
+    fn create(init: RuntimeInit<Self>) -> Self;
 
     fn render<'a>(
         &mut self,
@@ -45,10 +48,6 @@ pub trait Element: Default + Sized + 'static {
 
     fn compute_size(&self) -> (Option<u32>, Option<u32>) {
         (None, None)
-    }
-
-    fn start_runtime(init: RuntimeInit<Self>) {
-        let _ = init;
     }
 }
 
@@ -69,16 +68,15 @@ impl<'a, El: Element> PropsAsChild<'a, &'a El> for El {
     }
 }
 
-pub struct NeverInitalized {
-    _never_initialized: (),
-}
+pub struct NeverInitalized(());
 
 #[derive(Clone)]
 pub struct RuntimeInit<T: ?Sized> {
     pub(crate) _prevent_new: (),
-    pub app: Arc<Mutex<T>>,
+    pub app: Weak<Mutex<T>>,
     pub element_handle: ElementHandle,
     pub window_event_dispatcher: EventDispatcher,
+    pub window: Arc<WinitWindow>,
     pub close_handle: CloseHandle,
 }
 

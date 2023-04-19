@@ -30,20 +30,6 @@ struct App {
     rects: Vec<Color>,
 }
 
-impl Default for App {
-    fn default() -> Self {
-        Self {
-            rects: vec![
-                Color::RED,
-                Color::YELLOW,
-                Color::BLUE,
-                Color::GREEN,
-                Color::BLACK,
-            ],
-        }
-    }
-}
-
 impl Element for App {
     type Props<'a> = NoProps;
     type ChildProps<'a> = NeverInitalized;
@@ -53,6 +39,7 @@ impl Element for App {
         Flex {
             TextBox {
                 text: "this is a 句子 with emoji: \"hello世界🌏\"",
+                user_select: true,
                 +id: "textbox",
                 +style: style!{
                     color: Color::MAGENTA;
@@ -75,7 +62,7 @@ impl Element for App {
         }
     }
 
-    fn start_runtime(init: RuntimeInit<Self>) {
+    fn create(init: RuntimeInit<Self>) -> Self {
         tokio::spawn(async move {
             let a = async {
                 loop {
@@ -124,6 +111,16 @@ impl Element for App {
 
             tokio::join!(a, b);
         });
+
+        Self {
+            rects: vec![
+                Color::RED,
+                Color::YELLOW,
+                Color::BLUE,
+                Color::GREEN,
+                Color::BLACK,
+            ],
+        }
     }
 }
 
@@ -138,15 +135,6 @@ struct StyleHeight(f32);
 struct Rectangle {
     is_force: bool,
     force_color: Color,
-}
-
-impl Default for Rectangle {
-    fn default() -> Self {
-        Self {
-            is_force: false,
-            force_color: Color::CYAN,
-        }
-    }
 }
 
 impl Element for Rectangle {
@@ -198,8 +186,10 @@ impl Element for Rectangle {
         Ok(())
     }
 
-    fn start_runtime(init: RuntimeInit<Self>) {
+    fn create(init: RuntimeInit<Self>) -> Self {
         tokio::spawn(async move {
+            let app = init.app.upgrade().unwrap();
+
             let a = async {
                 loop {
                     let window_event = init
@@ -227,11 +217,11 @@ impl Element for Rectangle {
                         },
 
                         _=init.recv_sys::<PointerEntered>()=>{
-                            init.app.lock().await.is_force=true;
+                            app.lock().await.is_force=true;
                         }
 
                         _=init.recv_sys::<PointerOut>()=>{
-                            init.app.lock().await.is_force=false;
+                            app.lock().await.is_force=false;
                         }
                     }
                 }
@@ -253,18 +243,26 @@ impl Element for Rectangle {
 
             tokio::join!(a, b, c);
         });
+
+        Self {
+            is_force: false,
+            force_color: Color::CYAN,
+        }
     }
 }
 
 #[derive(Event, Clone)]
 pub struct MyRequestClose;
 
-#[derive(Default)]
 struct Flex;
 
 impl Element for Flex {
     type Props<'a> = NoProps;
     type ChildProps<'a> = ();
+
+    fn create(_: RuntimeInit<Self>) -> Self {
+        Flex
+    }
 
     fn render<'a>(
         &mut self,
