@@ -94,15 +94,20 @@ impl Focusing {
 
     pub(super) fn to_not_confirmed(&mut self) {
         match std::mem::replace(&mut self.next_frame, NextFrame::Keep) {
-            NextFrame::ChangeTo(next) => {
-                self.current_frame = CurrentFrame::NotConfirmedUnprotected(next)
-            }
             NextFrame::Keep => take_mut::take(&mut self.current_frame, |mut this| {
                 if let CurrentFrame::Confirmed { protected: ev, .. } = this {
                     this = CurrentFrame::NotConfirmed(ev);
                 }
                 this
             }),
+            NextFrame::ChangeTo(next) => {
+                take_mut::take(&mut self.current_frame, |this| match this {
+                    CurrentFrame::Confirmed { protected, .. } if protected.get().is_same(&next) => {
+                        CurrentFrame::NotConfirmed(protected)
+                    }
+                    _ => CurrentFrame::NotConfirmedUnprotected(next),
+                })
+            }
             NextFrame::Clear => self.current_frame = CurrentFrame::None,
         }
     }
