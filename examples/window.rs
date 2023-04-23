@@ -14,11 +14,9 @@ mod window_backend;
 
 #[irisia::main]
 async fn main() {
-    Window::new::<App>("hello irisia")
-        .await
-        .unwrap()
-        .join()
-        .await;
+    let win = Window::new::<App>("hello irisia").await;
+    println!("window recv");
+    win.unwrap().join().await;
 }
 
 struct App {

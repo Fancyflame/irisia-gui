@@ -11,10 +11,10 @@ use crate::{
     Result,
 };
 
-mod app_inner;
+mod backend;
 pub(crate) mod elem_table;
 
-use app_inner::new_window;
+use backend::new_window;
 
 #[derive(Clone)]
 pub struct Window {

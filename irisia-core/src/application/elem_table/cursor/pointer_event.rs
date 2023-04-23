@@ -25,7 +25,7 @@ pub(super) struct Advanced {
 }
 
 struct Pressed {
-    ed: EventDispatcher,
+    ed: Option<EventDispatcher>,
     time: Instant,
     position: Option<Point>,
 }
@@ -126,13 +126,8 @@ impl super::CursorWatcher {
     }
 
     fn set_pressed(&mut self) {
-        let protected = self
-            .over
-            .as_ref()
-            .expect("inner error: cursor is on nothing");
-
         self.advanced.state = Some(Pressed {
-            ed: protected.0.clone(),
+            ed: self.over.as_ref().map(|protected| protected.0.clone()),
             time: Instant::now(),
             position: self.cursor_pos,
         });
@@ -166,8 +161,8 @@ impl super::CursorWatcher {
             return false;
         }
 
-        match &self.over {
-            Some(x) if press_info.ed.is_same(&x.0) => {}
+        match (&self.over, &press_info.ed) {
+            (Some(x), Some(ed)) if ed.is_same(&x.0) => {}
             _ => return false,
         }
 

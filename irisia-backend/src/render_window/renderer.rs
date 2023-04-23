@@ -5,7 +5,10 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
-use pixels::{wgpu::BlendState, Pixels, PixelsBuilder, SurfaceTexture};
+use pixels::{
+    wgpu::{BlendState, DeviceDescriptor, Features, Limits},
+    Pixels, PixelsBuilder, SurfaceTexture,
+};
 use skia_safe::{Canvas, Color, ColorSpace, ColorType, ImageInfo, Surface};
 use winit::dpi::PhysicalSize;
 
@@ -37,26 +40,40 @@ fn fps_recorder() -> Arc<AtomicU16> {
 }
 
 impl Renderer {
-    pub fn new(window: &WinitWindow) -> Result<Self> {
+    pub async fn new(window: &Arc<WinitWindow>) -> Result<Self> {
         let PhysicalSize { width, height } = window.inner_size();
 
         let (w2x, h2x) = to_size2x(window.inner_size());
 
-        let pixels = PixelsBuilder::new(width, height, SurfaceTexture::new(width, height, &window))
-            .blend_state(BlendState::REPLACE)
-            .build()?;
+        let pixels = {
+            let window = window.clone();
+            tokio::task::spawn_blocking(move || {
+                PixelsBuilder::new(width, height, SurfaceTexture::new(width, height, &*window))
+                    .blend_state(BlendState::REPLACE)
+                    .enable_vsync(false)
+                    .device_descriptor(DeviceDescriptor {
+                        label: Default::default(),
+                        features: Features::empty(),
+                        limits: Limits::downlevel_defaults(),
+                    })
+                    .build()
+            })
+            .await??
+        };
+
+        let image_info = ImageInfo::new(
+            (width as _, height as _),
+            ColorType::RGBA8888,
+            skia_safe::AlphaType::Opaque,
+            Some(ColorSpace::new_srgb()),
+        );
 
         let surface = Surface::new_raster_n32_premul((w2x as _, h2x as _))
             .ok_or_else(|| anyhow!("skia surface not found"))?;
 
         Ok(Renderer {
             window_pixels: pixels,
-            output_image_info: ImageInfo::new(
-                (width as _, height as _),
-                ColorType::RGBA8888,
-                skia_safe::AlphaType::Opaque,
-                Some(ColorSpace::new_srgb()),
-            ),
+            output_image_info: image_info,
             surface,
             size: window.inner_size(),
             size2x: (w2x, h2x),
@@ -84,11 +101,7 @@ impl Renderer {
             return Err(anyhow!("cannot read pixels from canvas"));
         }
 
-        self.window_pixels
-            .render_with(|encoder, render_target, context| {
-                context.scaling_renderer.render(encoder, render_target);
-                Ok(())
-            })?;
+        self.window_pixels.render()?;
 
         #[cfg(feature = "fps_recorder")]
         self.counter
@@ -110,7 +123,9 @@ impl Renderer {
 
         if size2x != self.size2x {
             self.size2x = size2x;
-            self.surface = Surface::new_raster_n32_premul((size2x.0 as _, size2x.1 as _))
+            self.surface = self
+                .surface
+                .new_surface_with_dimensions((size2x.0 as _, size2x.1 as _))
                 .ok_or_else(|| anyhow!("skia surface not found"))?;
         }
 

@@ -64,7 +64,7 @@ impl CursorWatcher {
         }
     }
 
-    fn update_chain_in_place(&mut self, registered: &[super::Item], index: Option<usize>) {
+    fn update_pointer_entered(&mut self, registered: &[super::Item], index: Option<usize>) {
         for alive in self.entered.values_mut() {
             alive.alive = false;
         }
@@ -91,7 +91,7 @@ impl CursorWatcher {
 
     // returns clicked element
     pub(super) fn update(&mut self, registered: &[super::Item], event: &StaticWindowEvent) -> bool {
-        self.update_chain_in_place(
+        self.update_pointer_entered(
             registered,
             self.cursor_pos
                 .and_then(|point| super::cursor_on(registered, point)),
