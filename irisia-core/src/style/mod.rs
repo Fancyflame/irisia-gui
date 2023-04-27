@@ -27,7 +27,10 @@
 pub mod add_style;
 pub mod branch;
 pub mod chain;
+pub mod pixel;
 pub mod reader;
+
+use std::any::Any;
 
 use crate as irisia;
 pub use add_style::*;
@@ -35,19 +38,11 @@ pub use branch::*;
 pub use chain::*;
 use irisia_backend::skia_safe::Color;
 use irisia_macros::Style;
+pub use pixel::Pixel;
 
 use self::reader::StyleReader;
 
 pub trait Style: Clone + 'static {}
-
-#[derive(Default, Clone, Copy, PartialEq, PartialOrd)]
-pub struct Pixel(pub f32);
-
-impl Pixel {
-    pub fn to_physical(self) -> u32 {
-        self.0 as _
-    }
-}
 
 #[derive(Debug, Style, Clone, PartialEq)]
 #[irisia(from)]
@@ -71,5 +66,11 @@ pub trait StyleContainer: Sized + Clone {
 impl StyleContainer for NoStyle {
     fn get_style<T: Style>(&self) -> Option<T> {
         None
+    }
+}
+
+impl<S: Style> StyleContainer for S {
+    fn get_style<T: Style>(&self) -> Option<T> {
+        (self as &dyn Any).downcast_ref::<T>().cloned()
     }
 }

@@ -101,3 +101,15 @@ fn parse_option(meta: ParseNestedMeta) -> Result<DeriveAttr> {
 
     Ok(DeriveAttr::Option { rename, set_true })
 }
+
+impl DeriveAttr {
+    pub fn attr_name(&self) -> &'static str {
+        match self {
+            DeriveAttr::Default { .. } => "default",
+            DeriveAttr::From { .. } => "from",
+            DeriveAttr::ImplDefault => "impl_default",
+            DeriveAttr::Option { .. } => "option",
+            DeriveAttr::Skip => "skip",
+        }
+    }
+}

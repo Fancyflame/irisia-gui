@@ -8,7 +8,7 @@ use syn::{
 };
 
 use super::{
-    extract_paths::{ExtractResult, FieldMetadata},
+    anaylyze_fields::{ExtractResult, FieldMetadata},
     parse_paths::Segment,
 };
 

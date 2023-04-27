@@ -1,5 +1,8 @@
+//#![windows_subsystem = "windows"]
+
 use irisia::{
     application::Window,
+    box_styles::*,
     element::{Element, NeverInitalized, NoProps, RuntimeInit},
     event::standard::{Blured, Click, ElementCreated, Focused, PointerMove},
     render_fn,
@@ -38,6 +41,10 @@ impl Element for App {
                     if 1 + 1 == 2{
                         color: Color::MAGENTA;
                     }
+                    border: 5px, Color::GREEN, .round_cap;
+                    border_radius: 30px;
+                    box_shadow: 20px, Color::MAGENTA;
+                    margin: .left 20px, .top 30px;
                     font_weight: .bold;
                     font_size: 30px;
                 }

@@ -79,13 +79,13 @@ macro_rules! read_style {
         $($name:ident: $Style: ty,)*
     }) => {
         let $binding = {
-            struct __CreamMacroAnonymousReader {
+            struct __IrisiaAnonymousStyleReader {
                 $($name: $Style,)*
             }
 
             let style_container = $container;
 
-            __CreamMacroAnonymousReader {
+            __IrisiaAnonymousStyleReader {
                 $($name: <$Style as $crate::style::reader::StyleReader>::read_style(style_container),)*
             }
         };

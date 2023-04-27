@@ -54,8 +54,9 @@ impl Renderer {
                     .device_descriptor(DeviceDescriptor {
                         label: Default::default(),
                         features: Features::empty(),
-                        limits: Limits::downlevel_defaults(),
+                        limits: Limits::downlevel_defaults().using_resolution(Limits::default()),
                     })
+                    .clear_color(pixels::wgpu::Color::WHITE)
                     .build()
             })
             .await??
@@ -118,8 +119,8 @@ impl Renderer {
 
         let size2x = to_size2x(size);
 
-        self.window_pixels.resize_surface(width, height)?;
         self.window_pixels.resize_buffer(width, height)?;
+        self.window_pixels.resize_surface(width, height)?;
 
         if size2x != self.size2x {
             self.size2x = size2x;

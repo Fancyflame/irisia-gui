@@ -7,8 +7,8 @@ use syn::{
 
 use self::to_tokens::write_stream;
 
+mod anaylyze_fields;
 mod attr_parse;
-mod extract_paths;
 mod parse_paths;
 mod to_tokens;
 
@@ -48,12 +48,12 @@ pub fn derive_style(derive: DeriveInput) -> Result<TokenStream> {
         Data::Union(_) => return Err(Error::new(item_span, "union is unspported")),
 
         Data::Struct(DataStruct { fields, .. }) => {
-            let result = extract_paths::analyze_fields(attrs, &fields)?;
+            let result = anaylyze_fields::analyze_fields(attrs, &fields)?;
             write(&fields, None, result);
         }
 
         Data::Enum(DataEnum { variants, .. }) => {
-            if !extract_paths::get_attrs(&attrs)?.is_empty() {
+            if !anaylyze_fields::get_attrs(&attrs)?.is_empty() {
                 return Err(Error::new(
                     Span::call_site(),
                     "item-level irisia-macro is invalid for enum",
@@ -67,7 +67,7 @@ pub fn derive_style(derive: DeriveInput) -> Result<TokenStream> {
                 ..
             } in variants
             {
-                let result = extract_paths::analyze_fields(attrs, &fields)?;
+                let result = anaylyze_fields::analyze_fields(attrs, &fields)?;
                 write(&fields, Some(&ident), result);
             }
         }

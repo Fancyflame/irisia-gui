@@ -63,10 +63,20 @@ impl SelectionRtMgr {
 
     pub fn get_selection_range(
         &self,
+        cursor_offset: Point,
         paragraph: &Option<Paragraph>,
         s: &str,
     ) -> Option<Range<usize>> {
-        let two_point = self.sel.lock().unwrap().cursor?;
+        let two_point = {
+            let (start, end) = self.sel.lock().unwrap().cursor?;
+            let checked_sub = |point: Point| {
+                Point(
+                    point.0.checked_sub(cursor_offset.0).unwrap_or_default(),
+                    point.1.checked_sub(cursor_offset.1).unwrap_or_default(),
+                )
+            };
+            (checked_sub(start), checked_sub(end))
+        };
         let paragraph = paragraph.as_ref()?;
 
         let get_word_b = |point: Point| {

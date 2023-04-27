@@ -17,6 +17,8 @@ use irisia_core::{
 };
 use styles::*;
 
+use crate::box_styles::BoxStyleRenderer;
+
 use self::selection::SelectionRtMgr;
 
 mod selection;
@@ -86,10 +88,15 @@ impl Element for TextBox {
             impl VisitIter<Self::ChildProps<'a>>,
         >,
     ) -> irisia_core::Result<()> {
+        let drawing_region =
+            BoxStyleRenderer::draw_border_limited(styles, content.canvas(), drawing_region);
+
         let styles = TextBoxStyles::read_style(styles);
-        let selection = self
-            .selection_rt_mgr
-            .get_selection_range(&self.paragraph, &props.text);
+        let selection = self.selection_rt_mgr.get_selection_range(
+            drawing_region.0,
+            &self.paragraph,
+            &props.text,
+        );
 
         if let (Some(p), false) = (
             &self.paragraph,
@@ -111,6 +118,7 @@ impl Element for TextBox {
         };
 
         let mut paragraph = self.render_paragraph(
+            selection.clone(),
             ParagraphBuilder::new(&para_style, &self.font_collection),
             props.text,
             &parse_text_style(&styles),
@@ -156,14 +164,12 @@ impl TextBox {
 
     fn render_paragraph(
         &self,
+        selection: Option<Range<usize>>,
         mut paragraph_builder: ParagraphBuilder,
         text: &str,
         text_style: &TextStyle,
     ) -> Paragraph {
-        match self
-            .selection_rt_mgr
-            .get_selection_range(&self.paragraph, text)
-        {
+        match selection {
             Some(range) => {
                 let (start, end) = (range.start, range.end);
                 let mut selection_style = text_style.clone();

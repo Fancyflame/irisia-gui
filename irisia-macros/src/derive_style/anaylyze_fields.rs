@@ -64,7 +64,12 @@ pub fn analyze_fields(attrs: Vec<Attribute>, fields: &Fields) -> Result<ExtractR
                     }
                     impl_default = true;
                 }
-                _ => continue,
+                _ => {
+                    return Err(Error::new(
+                        Span::call_site(),
+                        format!("unexpected attribute `{}`", attr.attr_name()),
+                    ))
+                }
             }
         }
         vec

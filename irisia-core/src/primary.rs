@@ -1,4 +1,4 @@
-use std::ops::{Add, Sub};
+use std::ops::{Add, AddAssign, Sub, SubAssign};
 
 pub type Region = (Point, Point);
 pub type Result<T> = anyhow::Result<T>;
@@ -14,11 +14,23 @@ impl Add for Point {
     }
 }
 
+impl AddAssign for Point {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs;
+    }
+}
+
 impl Sub for Point {
     type Output = Self;
     #[inline]
     fn sub(self, rhs: Self) -> Self::Output {
         Point(self.0 - rhs.0, self.1 - rhs.1)
+    }
+}
+
+impl SubAssign for Point {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = *self - rhs;
     }
 }
 
@@ -51,5 +63,14 @@ impl From<(u32, u32)> for Point {
 impl From<Point> for (u32, u32) {
     fn from(v: Point) -> Self {
         (v.0, v.1)
+    }
+}
+
+impl From<Point> for irisia_backend::skia_safe::Point {
+    fn from(value: Point) -> Self {
+        Self {
+            x: value.0 as _,
+            y: value.1 as _,
+        }
     }
 }
