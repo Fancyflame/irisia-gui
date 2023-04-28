@@ -37,6 +37,7 @@ use irisia::{
     textbox::TextBox,
     Element,
     render_fn,
+    element::{NeverInitalized, NoProps},
 };
 
 #[derive(Default)]
@@ -49,6 +50,13 @@ impl Element for MyApp {
             text: "hello world"
         }
     }
+
+    fn create(_: irisia::element::RuntimeInit<Self>) -> Self {
+        Self{}
+    }
+
+    type Props<'a> = NoProps;
+    type ChildProps<'a> = NeverInitalized;
 }
 ```
 
@@ -81,7 +89,7 @@ use irisia::{
 #
 #[irisia::main]
 async fn main() {
-    Window::new::<MyApp>("my first app").await.join().await;
+    Window::new::<MyApp>("my first app").await.unwrap().join().await;
 }
 ```
 
