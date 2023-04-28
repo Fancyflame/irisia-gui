@@ -16,7 +16,7 @@
 打开`Cargo.toml`文件，并在项目的`[dependencies]`下添加依赖。由于该库尚未正式发布，因此仅能通过git链接进行安装。
 
 ```toml
-irisia = { git = "https://github.com/Fancyflame/irisia-rs.git" }
+irisia = { git = "https://github.com/Fancyflame/irisia-gui.git" }
 ```
 
 然后等待安装完成。
