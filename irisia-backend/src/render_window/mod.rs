@@ -8,7 +8,7 @@ use std::{
 
 use anyhow::Result;
 use tokio::sync::Mutex;
-use winit::event::{Event, WindowEvent};
+use winit::event::Event;
 
 use crate::{AppWindow, WinitWindow};
 
@@ -24,7 +24,6 @@ enum RendererGetter {
 
 pub struct RenderWindow {
     app: Arc<Mutex<dyn AppWindow>>,
-    is_first_render: bool,
     window: Arc<WinitWindow>,
     renderer: RendererGetter,
     last_frame_instant: Option<Instant>,
@@ -41,7 +40,6 @@ impl RenderWindow {
 
         Ok(RenderWindow {
             app: app as _,
-            is_first_render: true,
             renderer: renderer_creation,
             window,
             last_frame_instant: None,
@@ -86,11 +84,8 @@ impl RenderWindow {
         };
 
         if let Some(renderer) = Self::renderer(&mut self.renderer) {
-            if self.is_first_render {
-                if let Err(err) = renderer.resize(self.window.inner_size()) {
-                    eprintln!("cannot resize window: {err}");
-                }
-                self.is_first_render = false;
+            if let Err(err) = renderer.resize(self.window.inner_size()) {
+                eprintln!("cannot resize window: {err}");
             }
 
             if let Err(err) = renderer.render(|canvas, size| app.on_redraw(canvas, size, delta)) {
@@ -118,14 +113,6 @@ impl RenderWindow {
             }
 
             Event::WindowEvent { event, .. } => {
-                if let (WindowEvent::Resized(_), Some(renderer)) =
-                    (&event, Self::renderer(&mut self.renderer))
-                {
-                    if let Err(err) = renderer.resize(self.window.inner_size()) {
-                        eprintln!("cannot resize window: {err}");
-                    }
-                }
-
                 if let Some(static_event) = event.to_static() {
                     self.app.blocking_lock().on_window_event(static_event);
                 }
