@@ -89,7 +89,7 @@ use irisia::{
 #
 #[irisia::main]
 async fn main() {
-    Window::new::<MyApp>("my first app").await.join().await;
+    Window::new::<MyApp>("my first app").await.unwrap().join().await;
 }
 ```
 
