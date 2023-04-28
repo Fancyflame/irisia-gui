@@ -48,8 +48,3 @@ div.warning::before {
     margin-right: 0.5em;
     color: #FF851B;
 }
-
-img {
-    border-radius: 5px;
-    box-shadow: 0 0 10px -5px;
-}

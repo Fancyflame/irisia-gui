@@ -2,6 +2,7 @@
 
 [简介](index.md)
 [为什么选择irisia？](why_irisia_gui.md)
+[设计原理](principle.md)
 [征集开发者！](contributing.md)
 [关于我和Irisia](irisia_and_me.md)
 
