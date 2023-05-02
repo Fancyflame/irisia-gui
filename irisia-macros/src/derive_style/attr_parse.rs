@@ -26,8 +26,14 @@ impl DeriveAttr {
 
         let mut attrs = Vec::new();
         attr.parse_nested_meta(|meta| {
-            attrs.push(parse_logic(meta)?);
-            Ok(())
+            if meta.path.is_ident("style") {
+                meta.parse_nested_meta(|meta2| {
+                    attrs.push(parse_logic(meta2)?);
+                    Ok(())
+                })
+            } else {
+                Ok(())
+            }
         })?;
 
         Ok(attrs)

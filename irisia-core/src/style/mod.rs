@@ -45,7 +45,7 @@ use self::reader::StyleReader;
 pub trait Style: Clone + 'static {}
 
 #[derive(Debug, Style, Clone, PartialEq)]
-#[irisia(from)]
+#[irisia(style(from))]
 pub struct StyleColor(pub Color);
 
 #[derive(Clone, Copy)]

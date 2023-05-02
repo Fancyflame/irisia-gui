@@ -1,10 +1,9 @@
 //#![windows_subsystem = "windows"]
-
 use irisia::{
     application::Window,
     box_styles::*,
     element::{Element, NeverInitalized, NoProps, RuntimeInit},
-    event::standard::{Blured, Click, ElementCreated, Focused, PointerMove},
+    event::standard::{Blured, Click, ElementCreated, Focused},
     render_fn,
     skia_safe::Color,
     style,
@@ -64,51 +63,56 @@ impl Element for App {
         }
     }
 
+    // TODO: simplify callback mechanism
     fn create(init: RuntimeInit<Self>) -> Self {
-        tokio::spawn(async move {
+        init.element_handle.clone().spawn(async move {
             let a = async {
+                let mut lock = init.element_handle.lock();
                 loop {
-                    let ElementCreated { result, key } = init
-                        .element_handle
-                        .get_element_checked(|(s, _): &(&str, usize)| *s == "rect")
+                    let ElementCreated { result, key } = lock
+                        .get_element_checked(|(s, _): &(&'static str, usize)| *s == "rect")
                         .await;
+                    println!("rectangle {} got!", key.1);
 
-                    tokio::spawn(async move {
-                        println!("rectangle {} got!", key.1);
+                    let init_cloned = init.clone();
+                    init.element_handle.spawn(async move {
+                        let a = init_cloned.on(
+                            || result.recv_sys::<Focused>(),
+                            |_, _| async { println!("rectangle {} gained focus", key.1) },
+                        );
 
-                        loop {
-                            tokio::select! {
-                                _ = result.recv_sys::<Focused>() => {
-                                    println!("rectangle {} gained focus",key.1);
-                                }
-                                _ = result.recv_sys::<Blured>() => {
-                                    println!("rectangle {} lost focus",key.1);
-                                }
-                                _ = result.recv_sys::<Click>() => {
-                                    println!("rectangle {} clicked", key.1);
-                                }
-                                _ = result.recv::<MyRequestClose>() => {
-                                    println!("close request event received(sent by {:?})", key.1);
-                                    init.close_handle.close();
-                                    break;
-                                }
-                            }
-                        }
+                        let b = init_cloned.on(
+                            || result.recv_sys::<Blured>(),
+                            |_, _| async { println!("rectangle {} lost focus", key.1) },
+                        );
+
+                        let c = init_cloned.on(
+                            || result.recv_sys::<Click>(),
+                            |_, _| async { println!("rectangle {} clicked", key.1) },
+                        );
+
+                        let d = init_cloned.on(
+                            || result.recv::<MyRequestClose>(),
+                            |_, _| async {
+                                println!("close request event received(sent by {:?})", key.1);
+                                init.close_handle.close();
+                            },
+                        );
+
+                        tokio::join!(a, b, c, d);
                     });
                 }
             };
 
+            let mut lock2 = init.element_handle.lock();
             let b = async {
-                let ele = init.element_handle.get_element_eq(&"textbox").await;
-                ele.recv_sys::<PointerMove>().await;
-                tokio::spawn(async move {
-                    loop {
-                        ele.hover().await;
-                        println!("cursor hovering on textbox");
-                        ele.hover_canceled().await;
-                        println!("cursor hovering canceled");
-                    }
-                });
+                let ele = lock2.get_element_by_id(&"textbox").await;
+                loop {
+                    ele.hover().await;
+                    println!("cursor hovering on textbox");
+                    ele.hover_canceled().await;
+                    println!("cursor hovering canceled");
+                }
             };
 
             tokio::join!(a, b);

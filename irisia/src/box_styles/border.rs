@@ -9,21 +9,21 @@ use irisia_core::{
 use smallvec::SmallVec;
 
 #[derive(Style, Clone)]
-#[irisia(
+#[irisia(style(
     impl_default,
     from = "width, [color,] [style | style: sliced_style(&'static [Pixel], Pixel)]"
-)]
+))]
 pub struct StyleBorder {
-    #[irisia(default)]
+    #[irisia(style(default))]
     pub width: Pixel,
 
-    #[irisia(default = "Color::BLACK", option)]
+    #[irisia(style(default = "Color::BLACK", option))]
     pub color: Color,
 
-    #[irisia(default = "DashStyle::Solid", option)]
+    #[irisia(style(default = "DashStyle::Solid", option))]
     pub style: DashStyle,
 
-    #[irisia(default = "Cap::Square", option)]
+    #[irisia(style(default = "Cap::Square", option))]
     pub cap: Cap,
 }
 

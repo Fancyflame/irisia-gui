@@ -1,4 +1,6 @@
-use self::{emit_scheduler::EmitScheduler, emitter::CreatedEventEmitter, item_map::ItemMap};
+use self::{
+    emit_scheduler::EmitScheduler, emitter::CreatedEventEmitter, lock::EventDispatcherLock,
+};
 use crate::Event;
 use std::sync::{Arc, Mutex as StdMutex, Weak};
 
@@ -7,26 +9,20 @@ use super::{element_handle::ElementHandle, standard::ElementCreated, EventMetada
 mod emit_scheduler;
 pub mod emitter;
 mod extension;
-mod item_map;
+pub mod lock;
+mod maybe_confirmed;
 pub mod receive;
+mod stock;
 
 #[derive(Clone)]
-pub struct EventDispatcher(Arc<StdMutex<EventDispatcherInner>>);
+pub struct EventDispatcher(Arc<StdMutex<EmitScheduler>>);
 
 #[derive(Clone)]
-pub struct WeakEventDispatcher(Weak<StdMutex<EventDispatcherInner>>);
-
-struct EventDispatcherInner {
-    item_map: ItemMap,
-    emit_sch: EmitScheduler,
-}
+pub struct WeakEventDispatcher(Weak<StdMutex<EmitScheduler>>);
 
 impl EventDispatcher {
     pub fn new() -> Self {
-        EventDispatcher(Arc::new(StdMutex::new(EventDispatcherInner {
-            item_map: ItemMap::new(),
-            emit_sch: EmitScheduler::new(),
-        })))
+        EventDispatcher(Arc::new(StdMutex::new(EmitScheduler::new())))
     }
 
     pub fn recv_element_created<K>(&self, key: K) -> CreatedEventEmitter<K>
@@ -37,11 +33,11 @@ impl EventDispatcher {
     }
 
     pub fn emit(&self, event: impl Event) {
-        self.emit_raw(event, EventMetadata::new())
+        EmitScheduler::emit_raw(&self.0, event, EventMetadata::new());
     }
 
     pub(crate) fn emit_sys(&self, event: impl Event) {
-        self.emit_raw(event, EventMetadata::new_sys())
+        EmitScheduler::emit_raw(&self.0, event, EventMetadata::new_sys());
     }
 
     pub fn recv<E: Event>(&self) -> EventReceive<E> {
@@ -49,9 +45,9 @@ impl EventDispatcher {
             .0
             .lock()
             .unwrap()
-            .item_map
+            .stock()
             .get_or_insert::<E>()
-            .register();
+            .register(false);
         EventReceive::new(self, id)
     }
 
@@ -71,7 +67,7 @@ impl EventDispatcher {
         self.get_element_checked(|_: &K| true).await
     }
 
-    pub async fn get_element_eq<K>(&self, key: &K) -> ElementHandle
+    pub async fn get_element_by_id<K>(&self, key: &K) -> ElementHandle
     where
         K: Eq + Clone + Unpin + Send + 'static,
     {
@@ -103,6 +99,10 @@ impl EventDispatcher {
 
     pub fn is_same(&self, other: &EventDispatcher) -> bool {
         Arc::ptr_eq(&self.0, &other.0)
+    }
+
+    pub fn lock(&self) -> EventDispatcherLock {
+        EventDispatcherLock::from_event_dispatcher(self)
     }
 }
 

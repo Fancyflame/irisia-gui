@@ -1,18 +1,18 @@
 use irisia_core::{style::Pixel, Style};
 
 #[derive(Style, Clone, Copy)]
-#[irisia(from, from = "", impl_default)]
+#[irisia(style(from, from = "", impl_default))]
 pub struct StyleMargin {
-    #[irisia(option, default)]
+    #[irisia(style(option, default))]
     pub left: Pixel,
 
-    #[irisia(option, default)]
+    #[irisia(style(option, default))]
     pub top: Pixel,
 
-    #[irisia(option, default)]
+    #[irisia(style(option, default))]
     pub right: Pixel,
 
-    #[irisia(option, default)]
+    #[irisia(style(option, default))]
     pub bottom: Pixel,
 }
 

@@ -1,21 +1,16 @@
-use std::sync::{Arc, Weak};
-
-use crate::event::element_handle::ElementHandle;
-use crate::event::{EventDispatcher, EventReceive};
+use crate::event::EventDispatcher;
 use crate::primary::Region;
 use crate::structure::{StructureBuilder, VisitIter};
-use crate::Event;
 use crate::{style::StyleContainer, Result};
 
 use crate::structure::slot::Slot;
 
-use irisia_backend::window_handle::close_handle::CloseHandle;
-use irisia_backend::WinitWindow;
 pub use render_content::RenderContent;
-use tokio::sync::Mutex;
+pub use runtime_init::RuntimeInit;
 
 pub mod render_content;
 pub mod render_fn_macro;
+pub mod runtime_init;
 
 pub struct Frame<'a, 'prop, El, St, Ch>
 where
@@ -69,23 +64,3 @@ impl<'a, El: Element> PropsAsChild<'a, &'a El> for El {
 }
 
 pub struct NeverInitalized(());
-
-#[derive(Clone)]
-pub struct RuntimeInit<T: ?Sized> {
-    pub(crate) _prevent_new: (),
-    pub app: Weak<Mutex<T>>,
-    pub element_handle: ElementHandle,
-    pub window_event_dispatcher: EventDispatcher,
-    pub window: Arc<WinitWindow>,
-    pub close_handle: CloseHandle,
-}
-
-impl<T: ?Sized> RuntimeInit<T> {
-    pub fn recv<E: Event>(&self) -> EventReceive<E> {
-        self.element_handle.recv()
-    }
-
-    pub async fn recv_sys<E: Event>(&self) -> E {
-        self.element_handle.recv_sys().await
-    }
-}

@@ -5,14 +5,14 @@ use irisia_core::skia_safe::{
 };
 
 #[derive(Style, Clone)]
-#[irisia(from = "radius, [spread,] [color]")]
+#[irisia(style(from = "radius, [spread,] [color]"))]
 pub struct StyleBoxShadow {
     pub radius: Pixel,
 
-    #[irisia(default)]
+    #[irisia(style(default))]
     pub spread: Pixel,
 
-    #[irisia(default = "Color::BLACK")]
+    #[irisia(style(default = "Color::BLACK"))]
     pub color: Color,
 }
 

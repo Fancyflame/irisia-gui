@@ -12,7 +12,7 @@ pub struct EventReceive<'ed, E: Event> {
 }
 
 impl<'ed, E: Event> EventReceive<'ed, E> {
-    pub fn new(dispatcher: &'ed EventDispatcher, id: u32) -> Self {
+    pub(super) fn new(dispatcher: &'ed EventDispatcher, id: u32) -> Self {
         EventReceive {
             _phantom: PhantomData,
             dispatcher,
@@ -32,7 +32,7 @@ impl<E: Event> Future for EventReceive<'_, E> {
             .0
             .lock()
             .unwrap()
-            .item_map
+            .stock()
             .get_exist::<E>()
             .poll(self.id, cx.waker().clone())
         {
@@ -53,7 +53,7 @@ impl<E: Event> Drop for EventReceive<'_, E> {
                 .0
                 .lock()
                 .unwrap()
-                .item_map
+                .stock()
                 .get_exist::<E>()
                 .clear_by_id(self.id);
         }

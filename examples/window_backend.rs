@@ -13,11 +13,11 @@ use irisia::{
 use tokio::select;
 
 #[derive(Style, Clone)]
-#[irisia(from)]
+#[irisia(style(from))]
 pub struct StyleWidth(f32);
 
 #[derive(Style, Clone)]
-#[irisia(from)]
+#[irisia(style(from))]
 pub struct StyleHeight(f32);
 
 pub struct Rectangle {
