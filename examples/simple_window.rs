@@ -1,9 +1,10 @@
 use irisia::{
     application::Window,
-    element::{Element, NeverInitalized, NoProps, RuntimeInit},
-    event::standard::{Click, ElementCreated},
-    render_fn,
+    build,
+    element::{Element, ElementHandle, NeverInitalized, NoProps, RuntimeInit},
+    event::standard::Click,
     skia_safe::Color,
+    structure::StructureBuilder,
     style,
     style::StyleColor,
     textbox::{styles::*, TextBox},
@@ -29,53 +30,48 @@ impl Element for App {
     type Props<'a> = NoProps;
     type ChildProps<'a> = NeverInitalized;
 
-    render_fn! {
-        @init(self);
-        Flex {
-            TextBox {
-                text: "Hello\n привет\n こんにちは\n 你好\n\n Irisia GUI🌺",
-                user_select: true,
-                +id: "textbox",
-                +style: style!{
-                    if 1 + 1 == 2{
-                        color: Color::MAGENTA;
-                    }
-                    font_weight: .bold;
-                    font_size: 30px;
-                }
-            }
-
-            for (index, color) in self.rects.iter().enumerate() {
-                @key index;
-                Rectangle {
-                    +id: ("rect", index),
+    fn render<'a>(
+        &mut self,
+        mut frame: irisia::Frame<
+            Self,
+            impl style::StyleContainer,
+            impl irisia::structure::VisitIter<Self::ChildProps<'a>>,
+        >,
+    ) -> irisia::Result<()> {
+        build! {
+            Flex {
+                TextBox {
+                    text: "Hello\nпpивeт\nこんにちは\n你好\n\nIrisia GUI🌺",
+                    user_select: true,
                     +style: style!{
-                        width: 100.0;
-                        height: 100.0 + 40.0 * index as f32;
-                        color: color.clone();
+                        if 1 + 1 == 2{
+                            color: Color::MAGENTA;
+                        }
+                        font_weight: .bold;
+                        font_size: 30px;
+                    }
+                }
+
+                for (index, color) in self.rects.iter().enumerate() {
+                    @key index;
+                    Rectangle {
+                        +style: style!{
+                            width: 100.0;
+                            height: 100.0 + 40.0 * index as f32;
+                            color: color.clone();
+                        },
+                        +oncreate: move |eh| {
+                            rect_rt(eh, index);
+                        },
                     }
                 }
             }
         }
+        .into_rendering(&mut frame.content)
+        .finish(frame.drawing_region)
     }
 
-    fn create(init: RuntimeInit<Self>) -> Self {
-        let handle = init.element_handle.clone();
-        init.element_handle.spawn(async move {
-            loop {
-                let ElementCreated { result, key } = handle
-                    .get_element_checked(|(s, _): &(&str, usize)| *s == "rect")
-                    .await;
-
-                tokio::spawn(async move {
-                    loop {
-                        result.recv_sys::<Click>().await;
-                        println!("rectangle {} clicked", key.1);
-                    }
-                });
-            }
-        });
-
+    fn create(_: &RuntimeInit<Self>) -> Self {
         Self {
             rects: vec![
                 Color::RED,
@@ -86,4 +82,15 @@ impl Element for App {
             ],
         }
     }
+}
+
+fn rect_rt(eh: &ElementHandle, index: usize) {
+    println!("rectangle {index} got");
+    let eh = eh.clone();
+    eh.clone().spawn(async move {
+        loop {
+            eh.recv_sys::<Click>().await;
+            println!("rectangle {} clicked", index);
+        }
+    });
 }

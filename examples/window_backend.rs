@@ -1,6 +1,6 @@
 use irisia::{
     element::{Element, Frame, NoProps, RuntimeInit},
-    event::standard::{ElementAbondoned, PointerEntered, PointerOut},
+    event::standard::{ElementAbandoned, PointerEntered, PointerOut},
     exit_app,
     primary::Point,
     read_style,
@@ -74,7 +74,8 @@ impl Element for Rectangle {
         Ok(())
     }
 
-    fn create(init: RuntimeInit<Self>) -> Self {
+    fn create(init: &RuntimeInit<Self>) -> Self {
+        let init = init.clone();
         tokio::spawn(async move {
             let app = init.app.upgrade().unwrap();
 
@@ -98,7 +99,7 @@ impl Element for Rectangle {
             let b = async {
                 loop {
                     select! {
-                        _ = init.recv_sys::<ElementAbondoned>() => {
+                        _ = init.recv_sys::<ElementAbandoned>() => {
                             println!("element dropped");
                             exit_app(0).await;
                             return;
@@ -148,7 +149,7 @@ impl Element for Flex {
     type Props<'a> = NoProps;
     type ChildProps<'a> = ();
 
-    fn create(_: RuntimeInit<Self>) -> Self {
+    fn create(_: &RuntimeInit<Self>) -> Self {
         Flex
     }
 

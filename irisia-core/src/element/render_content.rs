@@ -35,7 +35,7 @@ impl BareContent<'_> {
 
 pub struct RenderContent<'a> {
     pub(crate) bare: BareContent<'a>,
-    pub(crate) cache_box_for_children: &'a mut CacheBox,
+    pub(crate) cache_box_for_children: Option<&'a mut CacheBox>,
     pub(crate) elem_table_index: usize,
 }
 
@@ -71,7 +71,10 @@ impl RenderContent<'_> {
     pub(crate) fn downgrade_lifetime(&mut self) -> RenderContent {
         RenderContent {
             bare: self.bare.downgrade_lifetime(),
-            cache_box_for_children: self.cache_box_for_children,
+            cache_box_for_children: match self.cache_box_for_children {
+                Some(ref mut cb) => Some(cb),
+                None => None,
+            },
             elem_table_index: self.elem_table_index,
         }
     }

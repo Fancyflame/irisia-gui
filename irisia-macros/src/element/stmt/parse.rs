@@ -11,7 +11,7 @@ impl Parse for ElementStmt {
         let element: Type = input.parse()?;
         let mut props: Vec<(Ident, Expr)> = Vec::new();
         let mut style: Option<Expr> = None;
-        let mut identity: Option<Expr> = None;
+        let mut oncreate: Option<Expr> = None;
 
         let content;
         braced!(content in input);
@@ -26,9 +26,11 @@ impl Parse for ElementStmt {
             } else if content.peek(Token![+]) {
                 content.parse::<Token![+]>()?;
                 let cmd: Ident = content.parse()?;
+                content.parse::<Token![:]>()?;
+
                 let is_ok = match &*cmd.to_string() {
                     "style" => style.replace(call_style(&content)?).is_none(),
-                    "id" => identity.replace(call_id(&content)?).is_none(),
+                    "oncreate" => oncreate.replace(call_oncreate(&content)?).is_none(),
                     other => {
                         return Err(Error::new(cmd.span(), format!("unknown command `{other}`")))
                     }
@@ -55,19 +57,16 @@ impl Parse for ElementStmt {
             element,
             props,
             style: style.unwrap_or_else(|| parse_quote!(irisia::style::NoStyle)),
-            event_dispatcher: None,
-            identity,
+            oncreate,
             children,
         })
     }
 }
 
 fn call_style(input: ParseStream) -> Result<Expr> {
-    input.parse::<Token![:]>()?;
     input.parse()
 }
 
-fn call_id(input: ParseStream) -> Result<Expr> {
-    input.parse::<Token![:]>()?;
+fn call_oncreate(input: ParseStream) -> Result<Expr> {
     input.parse()
 }

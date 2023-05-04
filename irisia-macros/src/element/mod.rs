@@ -3,17 +3,14 @@ use syn::{parse_quote, token::Paren};
 
 use crate::expr::{conditional::ca::DefaultConditionalApplicator, Codegen};
 
-use self::cmd::ElementCommand;
-
 pub mod build;
-pub mod cmd;
 pub mod stmt;
 
 pub struct ElementCodegen;
 
 impl Codegen for ElementCodegen {
     type Ca = DefaultConditionalApplicator;
-    type Command = cmd::ElementCommand;
+    type Command = Cmd;
     type Stmt = stmt::ElementStmt;
 
     const IN_BLOCK: bool = false;
@@ -37,15 +34,8 @@ impl Codegen for ElementCodegen {
         DefaultConditionalApplicator::new(count, parse_quote!(irisia::structure::Branch))
     }
 
-    fn parse_command(
-        cmd: &str,
-        input: syn::parse::ParseStream,
-    ) -> syn::Result<Option<Self::Command>> {
-        Ok(Some(match cmd {
-            "slot" => ElementCommand::Slot(None),
-            "init" => ElementCommand::Init(input.parse()?),
-            _ => return Ok(None),
-        }))
+    fn parse_command(_: &str, _: syn::parse::ParseStream) -> syn::Result<Option<Self::Command>> {
+        Ok(None)
     }
 
     fn chain_applicate<F>(tokens: &mut proc_macro2::TokenStream, f: F)
@@ -54,5 +44,13 @@ impl Codegen for ElementCodegen {
     {
         quote!(.chain).to_tokens(tokens);
         Paren::default().surround(tokens, f);
+    }
+}
+
+pub struct Cmd;
+
+impl ToTokens for Cmd {
+    fn to_tokens(&self, _: &mut proc_macro2::TokenStream) {
+        unreachable!();
     }
 }

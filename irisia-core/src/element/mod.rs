@@ -1,15 +1,15 @@
-use crate::event::EventDispatcher;
 use crate::primary::Region;
 use crate::structure::{StructureBuilder, VisitIter};
 use crate::{style::StyleContainer, Result};
 
 use crate::structure::slot::Slot;
 
+pub use element_handle::ElementHandle;
 pub use render_content::RenderContent;
 pub use runtime_init::RuntimeInit;
 
+pub mod element_handle;
 pub mod render_content;
-pub mod render_fn_macro;
 pub mod runtime_init;
 
 pub struct Frame<'a, 'prop, El, St, Ch>
@@ -22,7 +22,7 @@ where
     pub drawing_region: Region,
     pub children: Slot<'a, Ch>,
     pub content: RenderContent<'a>,
-    pub event_dispatcher: &'a EventDispatcher,
+    pub ri: &'a RuntimeInit<El>,
 }
 
 /// Element is a thing can draw itself on the given canvas,
@@ -34,7 +34,7 @@ pub trait Element: Sized + 'static {
     type Props<'a>: Default;
     type ChildProps<'a>;
 
-    fn create(init: RuntimeInit<Self>) -> Self;
+    fn create(init: &RuntimeInit<Self>) -> Self;
 
     fn render<'a>(
         &mut self,

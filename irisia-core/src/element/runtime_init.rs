@@ -1,16 +1,16 @@
 use std::future::Future;
 use std::sync::{Arc, Weak};
 
-use crate::event::element_handle::ElementHandle;
-use crate::event::{EventDispatcher, EventReceive};
-use crate::Event;
+use crate::event::{Event, EventDispatcher, EventReceive};
 
 use irisia_backend::window_handle::close_handle::CloseHandle;
 use irisia_backend::WinitWindow;
 use tokio::sync::Mutex;
 
+use super::ElementHandle;
+
 pub struct RuntimeInit<T: ?Sized> {
-    pub(crate) _prevent_new: (),
+    pub(crate) _prevent_user_init: (),
     pub app: Weak<Mutex<T>>,
     pub element_handle: ElementHandle,
     pub window_event_dispatcher: EventDispatcher,
@@ -21,7 +21,7 @@ pub struct RuntimeInit<T: ?Sized> {
 impl<T: ?Sized> Clone for RuntimeInit<T> {
     fn clone(&self) -> Self {
         Self {
-            _prevent_new: (),
+            _prevent_user_init: (),
             app: self.app.clone(),
             element_handle: self.element_handle.clone(),
             window_event_dispatcher: self.window_event_dispatcher.clone(),

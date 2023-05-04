@@ -1,13 +1,13 @@
-use self::{
-    emit_scheduler::EmitScheduler, emitter::CreatedEventEmitter, lock::EventDispatcherLock,
+use self::{emit_scheduler::EmitScheduler, lock::EventDispatcherLock};
+use crate::{event::standard::ElementAbandoned, Event};
+use std::{
+    future::Future,
+    sync::{Arc, Mutex as StdMutex, Weak},
 };
-use crate::Event;
-use std::sync::{Arc, Mutex as StdMutex, Weak};
 
-use super::{element_handle::ElementHandle, standard::ElementCreated, EventMetadata, EventReceive};
+use super::{EventMetadata, EventReceive};
 
 mod emit_scheduler;
-pub mod emitter;
 mod extension;
 pub mod lock;
 mod maybe_confirmed;
@@ -23,13 +23,6 @@ pub struct WeakEventDispatcher(Weak<StdMutex<EmitScheduler>>);
 impl EventDispatcher {
     pub fn new() -> Self {
         EventDispatcher(Arc::new(StdMutex::new(EmitScheduler::new())))
-    }
-
-    pub fn recv_element_created<K>(&self, key: K) -> CreatedEventEmitter<K>
-    where
-        K: Clone + Unpin + Send + 'static,
-    {
-        CreatedEventEmitter::new(self, key)
     }
 
     pub fn emit(&self, event: impl Event) {
@@ -60,32 +53,13 @@ impl EventDispatcher {
         }
     }
 
-    pub async fn get_element<K>(&self) -> ElementCreated<K>
+    pub(crate) async fn cancel_on_abandoned<F>(&self, f: F) -> Option<F::Output>
     where
-        K: Clone + Unpin + Send + 'static,
+        F: Future,
     {
-        self.get_element_checked(|_: &K| true).await
-    }
-
-    pub async fn get_element_by_id<K>(&self, key: &K) -> ElementHandle
-    where
-        K: Eq + Clone + Unpin + Send + 'static,
-    {
-        self.get_element_checked(|key_recv: &K| key_recv == key)
-            .await
-            .result
-    }
-
-    pub async fn get_element_checked<K, F>(&self, check: F) -> ElementCreated<K>
-    where
-        K: Clone + Unpin + Send + 'static,
-        F: Fn(&K) -> bool,
-    {
-        loop {
-            let (result, metadata) = self.recv::<ElementCreated<K>>().await;
-            if metadata.is_system_event && check(&result.key) {
-                return result;
-            }
+        tokio::select! {
+            _ = self.recv_sys::<ElementAbandoned>() => None,
+            r = f => Some(r)
         }
     }
 

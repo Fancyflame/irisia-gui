@@ -1,7 +1,6 @@
 pub use event_dispatcher::{receive::EventReceive, EventDispatcher};
 pub use metadata::EventMetadata;
 
-pub mod element_handle;
 pub mod event_dispatcher;
 pub mod metadata;
 pub mod standard;

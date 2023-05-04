@@ -85,12 +85,14 @@ pub struct VisitItem<S, P> {
 impl<T: Sized + RenderingNode> StructureBuilder for T {}
 pub trait StructureBuilder: Sized + RenderingNode {
     fn into_rendering<'a>(self, content: &'a mut RenderContent) -> IntoRendering<'a, Self> {
-        let content = content.downgrade_lifetime();
-        into_rendering_raw(
-            self,
-            content.cache_box_for_children.get_cache(),
-            content.bare,
-        )
+        let cache_box = match content.cache_box_for_children.take() {
+            Some(c) => c.get_cache(),
+            None => {
+                panic!("this render content has been used to render once");
+            }
+        };
+
+        into_rendering_raw(self, cache_box, content.bare.downgrade_lifetime())
     }
 
     fn chain<T>(self, other: T) -> Chain<Self, T>

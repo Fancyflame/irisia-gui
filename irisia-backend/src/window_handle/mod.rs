@@ -4,7 +4,7 @@ use crate::WinitWindow;
 
 pub use winit::window::WindowBuilder;
 
-use self::close_handle::CloseHandle;
+pub use self::close_handle::CloseHandle;
 
 pub mod close_handle;
 pub mod create;

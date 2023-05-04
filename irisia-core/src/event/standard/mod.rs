@@ -2,8 +2,6 @@ use crate as irisia;
 use crate::primary::Point;
 use crate::Event;
 
-use super::element_handle::ElementHandle;
-
 pub mod window_event;
 
 /// Declares the element won't be used by the origin structure anymore,
@@ -11,16 +9,7 @@ pub mod window_event;
 /// This event will be emitted only
 /// once, when received, runtimes of this element should handle quiting.
 #[derive(Event, Clone, Copy)]
-pub struct ElementAbondoned;
-
-#[derive(Event, Clone)]
-pub struct ElementCreated<K>
-where
-    K: Clone + Unpin + Send + 'static,
-{
-    pub result: ElementHandle,
-    pub key: K,
-}
+pub struct ElementAbandoned;
 
 #[derive(Event, Clone, Copy)]
 pub struct Blured;

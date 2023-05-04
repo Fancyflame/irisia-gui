@@ -1,6 +1,6 @@
 [package]
 name = "irisia_core"
-version = "0.1.0"
+version = "0.0.1"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -11,4 +11,9 @@ irisia_backend = { path = "../irisia-backend", features = ["fps_recorder"] }
 anyhow = "1"
 take_mut = "0.2"
 smallvec = "1.9"
-tokio = { version = "1.28", features = ["sync", "time", "macros", "rt-multi-thread"] }
+tokio = { version = "1.28", features = [
+    "sync",
+    "time",
+    "macros",
+    "rt-multi-thread",
+] }

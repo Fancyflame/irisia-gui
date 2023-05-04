@@ -8,7 +8,7 @@ use irisia_backend::{
 
 use crate::{
     element::{render_content::BareContent, Element},
-    event::{event_dispatcher::emitter::CreatedEventEmitter, EventDispatcher},
+    event::EventDispatcher,
     primary::Point,
     structure::{
         add_child::{self, AddChildCache},
@@ -61,10 +61,10 @@ where
     El: Element,
 {
     fn on_redraw(&mut self, canvas: &mut Canvas, size: (u32, u32), delta: Duration) -> Result<()> {
-        let add_child = add_child::add_child::<El, _, (), _>(
+        let add_child = add_child::add_child::<El, _, _, _>(
             Default::default(),
             NoStyle,
-            CreatedEventEmitter::new_empty(),
+            |_| {},
             EmptyStructure,
         );
 

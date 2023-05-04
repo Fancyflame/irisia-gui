@@ -1,9 +1,6 @@
 use std::sync::Arc;
 
-use irisia_backend::{
-    window_handle::{close_handle::CloseHandle, WindowBuilder},
-    WinitWindow,
-};
+use irisia_backend::{window_handle::WindowBuilder, WinitWindow};
 
 use crate::{
     element::Element,
@@ -15,6 +12,8 @@ mod backend;
 pub(crate) mod elem_table;
 
 use backend::new_window;
+
+pub use irisia_backend::window_handle::CloseHandle;
 
 #[derive(Clone)]
 pub struct Window {

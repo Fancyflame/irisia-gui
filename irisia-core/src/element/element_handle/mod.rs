@@ -2,9 +2,16 @@ use std::{future::Future, ops::Deref};
 
 use tokio::task::JoinHandle;
 
-use crate::{application::elem_table::focus::SharedFocusing, event::standard::ElementAbondoned};
+use crate::{
+    application::elem_table::focus::SharedFocusing,
+    event::{EventDispatcher, EventMetadata},
+    Event,
+};
 
-use super::EventDispatcher;
+use self::callback::On;
+
+pub mod callback;
+mod closure_patch;
 
 #[derive(Clone)]
 pub struct ElementHandle {
@@ -34,18 +41,29 @@ impl ElementHandle {
             .blur_checked(&self.event_dispatcher)
     }
 
+    pub fn on<E, F>(&self, f: F) -> JoinHandle<()>
+    where
+        E: Event,
+        F: FnMut(E, EventMetadata) + Send + 'static,
+    {
+        On::new(self).spawn(f)
+    }
+
+    pub fn listen(&self) -> On<(), (), ()> {
+        On::new(self)
+    }
+
     pub fn spawn<F, Ret>(&self, future: F) -> JoinHandle<Option<Ret>>
     where
         F: Future<Output = Ret> + Send + 'static,
         Ret: Send + 'static,
     {
-        let eh = self.clone();
-        tokio::spawn(async move {
-            tokio::select! {
-                _ = eh.recv_sys::<ElementAbondoned>() => None,
-                r = future => Some(r)
-            }
-        })
+        let ed = self.event_dispatcher.clone();
+        tokio::spawn(async move { ed.cancel_on_abandoned(future).await })
+    }
+
+    pub fn event_dispatcher(&self) -> &EventDispatcher {
+        &self
     }
 }
 

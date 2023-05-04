@@ -58,7 +58,7 @@ impl Element for TextBox {
     type Props<'a> = Props<'a>;
     type ChildProps<'a> = NeverInitalized;
 
-    fn create(init: RuntimeInit<Self>) -> Self {
+    fn create(init: &RuntimeInit<Self>) -> Self {
         let mut font_collection = FontCollection::new();
         font_collection.set_default_font_manager(FontMgr::new(), None);
         TextBox {
@@ -67,9 +67,9 @@ impl Element for TextBox {
             paragraph: None,
             selection: None,
             selection_rt_mgr: SelectionRtMgr::new(
-                init.window,
-                init.window_event_dispatcher,
-                init.element_handle,
+                init.window.clone(),
+                init.window_event_dispatcher.clone(),
+                init.element_handle.clone(),
             ),
         }
     }

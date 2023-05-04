@@ -1,9 +1,6 @@
 use std::sync::Arc;
 
-use crate::{
-    event::{element_handle::ElementHandle, standard::ElementCreated, EventReceive},
-    Event,
-};
+use crate::{event::EventReceive, Event};
 
 use super::{maybe_confirmed::MaybeConfirmed, EventDispatcher};
 
@@ -37,35 +34,6 @@ impl<'a> EventDispatcherLock<'a> {
             let (ev, metadata) = self.recv::<E>().await;
             if metadata.is_system_event {
                 return ev;
-            }
-        }
-    }
-
-    pub async fn get_element<K>(&mut self) -> ElementCreated<K>
-    where
-        K: Clone + Unpin + Send + 'static,
-    {
-        self.get_element_checked(|_: &K| true).await
-    }
-
-    pub async fn get_element_by_id<K>(&mut self, key: &K) -> ElementHandle
-    where
-        K: Eq + Clone + Unpin + Send + 'static,
-    {
-        self.get_element_checked(|key_recv: &K| key_recv == key)
-            .await
-            .result
-    }
-
-    pub async fn get_element_checked<K, F>(&mut self, check: F) -> ElementCreated<K>
-    where
-        K: Clone + Unpin + Send + 'static,
-        F: Fn(&K) -> bool,
-    {
-        loop {
-            let (result, metadata) = self.recv::<ElementCreated<K>>().await;
-            if metadata.is_system_event && check(&result.key) {
-                return result;
             }
         }
     }
