@@ -72,26 +72,26 @@ impl_from! {
 macro_rules! impl_block_visit {
     ($($Arm:ident)*) => {
         impl<T: Codegen> VisitUnit<T> for StateExpr<T> {
-            fn visit_unit<F>(&self, f: &mut F)
+            fn visit_unit<'a, F>(&'a self, depth: usize, f: &mut F) -> Result<()>
             where
-                F: FnMut(&StateExpr<T>)
+                F: FnMut(&'a StateExpr<T>, usize) -> Result<()>
             {
                 match self {
-                    $(Self::$Arm(x) => x.visit_unit(f),)*
+                    $(Self::$Arm(x) => x.visit_unit(depth, f),)*
                     x @ Self::Command(_) | x @ Self::Raw(_) => {
-                        f(x)
+                        f(x, depth)
                     }
                 }
             }
 
-            fn visit_unit_mut<F>(&mut self, f: &mut F)
+            fn visit_unit_mut<'a, F>(&'a mut self, depth: usize, f: &mut F) -> Result<()>
             where
-                F: FnMut(&mut StateExpr<T>)
+                F: FnMut(&'a mut StateExpr<T>, usize) -> Result<()>
             {
                 match self {
-                    $(Self::$Arm(x) => x.visit_unit_mut(f),)*
+                    $(Self::$Arm(x) => x.visit_unit_mut(depth, f),)*
                     x @ Self::Command(_) | x @ Self::Raw(_) => {
-                        f(x)
+                        f(x, depth)
                     }
                 }
             }

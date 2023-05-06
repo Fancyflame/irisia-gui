@@ -2,9 +2,9 @@ use tokio::task::JoinHandle;
 
 use crate::{event::EventMetadata, Event};
 
-use super::callback::{IsOnce, On, RecvSysOnly, WithValue};
+use super::callback::{IsOnce, Listen, RecvSys, WithValue};
 
-impl On<'_, (), (), ()> {
+impl Listen<'_, (), (), ()> {
     pub fn spawn<E, F>(self, mut f: F) -> JoinHandle<()>
     where
         E: Event,
@@ -24,7 +24,7 @@ impl On<'_, (), (), ()> {
     }
 }
 
-impl<T> On<'_, WithValue<T>, (), ()>
+impl<T> Listen<'_, WithValue<T>, (), ()>
 where
     T: Send + 'static,
 {
@@ -33,13 +33,13 @@ where
         E: Event,
         F: FnMut(E, EventMetadata, &mut T) + Send + 'static,
     {
-        On::new(self.eh).spawn(move |ev: E, em| {
+        Listen::new(self.eh).spawn(move |ev: E, em| {
             f(ev, em, &mut self.with_value.0);
         })
     }
 }
 
-impl On<'_, (), IsOnce, ()> {
+impl Listen<'_, (), IsOnce, ()> {
     pub fn spawn<E, F>(self, f: F) -> JoinHandle<()>
     where
         E: Event,
@@ -56,7 +56,7 @@ impl On<'_, (), IsOnce, ()> {
     }
 }
 
-impl<T> On<'_, WithValue<T>, IsOnce, ()>
+impl<T> Listen<'_, WithValue<T>, IsOnce, ()>
 where
     T: Send + 'static,
 {
@@ -65,13 +65,13 @@ where
         E: Event,
         F: FnOnce(E, EventMetadata, T) + Send + 'static,
     {
-        On::new(self.eh).set_once().spawn(move |ev: E, em| {
+        Listen::new(self.eh).set_once().spawn(move |ev: E, em| {
             f(ev, em, self.with_value.0);
         })
     }
 }
 
-impl On<'_, (), (), RecvSysOnly> {
+impl Listen<'_, (), (), RecvSys> {
     pub fn spawn<E, F>(self, mut f: F) -> JoinHandle<()>
     where
         E: Event,
@@ -90,7 +90,7 @@ impl On<'_, (), (), RecvSysOnly> {
     }
 }
 
-impl<T> On<'_, WithValue<T>, (), RecvSysOnly>
+impl<T> Listen<'_, WithValue<T>, (), RecvSys>
 where
     T: Send + 'static,
 {
@@ -99,13 +99,13 @@ where
         E: Event,
         F: FnMut(E, &mut T) + Send + 'static,
     {
-        On::new(self.eh).recv_sys_only().spawn(move |ev: E| {
+        Listen::new(self.eh).recv_sys().spawn(move |ev: E| {
             f(ev, &mut self.with_value.0);
         })
     }
 }
 
-impl On<'_, (), IsOnce, RecvSysOnly> {
+impl Listen<'_, (), IsOnce, RecvSys> {
     pub fn spawn<E, F>(self, f: F) -> JoinHandle<()>
     where
         E: Event,
@@ -121,7 +121,7 @@ impl On<'_, (), IsOnce, RecvSysOnly> {
     }
 }
 
-impl<T> On<'_, WithValue<T>, IsOnce, RecvSysOnly>
+impl<T> Listen<'_, WithValue<T>, IsOnce, RecvSys>
 where
     T: Send + 'static,
 {
@@ -130,8 +130,8 @@ where
         E: Event,
         F: FnOnce(E, T) + Send + 'static,
     {
-        On::new(self.eh)
-            .recv_sys_only()
+        Listen::new(self.eh)
+            .recv_sys()
             .set_once()
             .spawn(move |ev: E| {
                 f(ev, self.with_value.0);

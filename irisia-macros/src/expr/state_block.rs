@@ -49,22 +49,26 @@ impl<T: Codegen> ToTokens for StateBlock<T> {
 }
 
 impl<T: Codegen> VisitUnit<T> for StateBlock<T> {
-    fn visit_unit<F>(&self, f: &mut F)
+    fn visit_unit<'a, F>(&'a self, depth: usize, f: &mut F) -> Result<()>
     where
-        F: FnMut(&StateExpr<T>),
+        F: FnMut(&'a StateExpr<T>, usize) -> Result<()>,
+        T: 'a,
     {
         for stmt in &self.stmts {
-            stmt.visit_unit(f);
+            stmt.visit_unit(depth + 1, f)?;
         }
+        Ok(())
     }
 
-    fn visit_unit_mut<F>(&mut self, f: &mut F)
+    fn visit_unit_mut<'a, F>(&'a mut self, depth: usize, f: &mut F) -> Result<()>
     where
-        F: FnMut(&mut StateExpr<T>),
+        F: FnMut(&'a mut StateExpr<T>, usize) -> Result<()>,
+        T: 'a,
     {
         for stmt in &mut self.stmts {
-            stmt.visit_unit_mut(f);
+            stmt.visit_unit_mut(depth + 1, f)?;
         }
+        Ok(())
     }
 }
 

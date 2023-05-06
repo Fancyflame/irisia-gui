@@ -13,7 +13,7 @@ impl Codegen for ElementCodegen {
     type Command = Cmd;
     type Stmt = stmt::ElementStmt;
 
-    const IN_BLOCK: bool = false;
+    const MUST_IN_BLOCK: bool = false;
 
     fn empty(tokens: &mut proc_macro2::TokenStream) {
         quote!(irisia::structure::EmptyStructure).to_tokens(tokens);

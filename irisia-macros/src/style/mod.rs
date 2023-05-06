@@ -1,10 +1,12 @@
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
-use syn::{parse::ParseStream, parse_quote, token::Paren};
+use syn::{parse::ParseStream, parse_quote, token::Paren, Result};
 
-use crate::expr::{conditional::ca::DefaultConditionalApplicator, Codegen};
+use crate::expr::{
+    conditional::ca::DefaultConditionalApplicator, state_block::parse_stmts, Codegen, StateExpr,
+};
 
-use self::stmt::StyleStmt;
+use self::stmt::{handle_style_follow, StyleStmt};
 
 pub mod stmt;
 
@@ -23,7 +25,7 @@ impl Codegen for StyleCodegen {
     type Stmt = StyleStmt;
     type Ca = DefaultConditionalApplicator;
 
-    const IN_BLOCK: bool = true;
+    const MUST_IN_BLOCK: bool = true;
 
     fn parse_command(_cmd: &str, _input: ParseStream) -> syn::Result<Option<Self::Command>> {
         Ok(None)
@@ -38,7 +40,7 @@ impl Codegen for StyleCodegen {
         F: FnOnce(&mut TokenStream),
     {
         quote!(::std::compile_error!(
-            "repetitive structure is not allowed in style syntax"
+            "repetitive structure is not allowed in style macro"
         ))
         .to_tokens(tokens);
     }
@@ -55,4 +57,10 @@ impl Codegen for StyleCodegen {
         Paren::default().surround(&mut stream, f);
         stream.to_tokens(tokens);
     }
+}
+
+pub fn style(input: ParseStream) -> Result<Vec<StateExpr<StyleCodegen>>> {
+    let mut stmts = parse_stmts(input)?;
+    handle_style_follow(&mut stmts)?;
+    Ok(stmts)
 }

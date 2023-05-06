@@ -5,7 +5,7 @@ use syn::{
     parse::{Nothing, Parse},
     punctuated::Punctuated,
     token::Brace,
-    Expr, Pat, Token,
+    Expr, Pat, Result, Token,
 };
 
 use crate::expr::{
@@ -53,7 +53,7 @@ impl<T: Codegen> Parse for StateMatch<T> {
                 fat_arrow_token: input.parse()?,
                 body: {
                     let body: Box<StateExpr<T>> = input.parse()?;
-                    if matches!(&*body, StateExpr::Raw(_)) && T::IN_BLOCK {
+                    if matches!(&*body, StateExpr::Raw(_)) && T::MUST_IN_BLOCK {
                         return Err(input.error(
                             "expression must be in block, consider move it into braces: `{expression}`.",
                         ));
@@ -120,21 +120,25 @@ fn arm_to_tokens<T: Codegen>(tokens: &mut TokenStream, arm: &Arm<T>, ca: &mut T:
 }
 
 impl<T: Codegen> VisitUnit<T> for StateMatch<T> {
-    fn visit_unit<F>(&self, f: &mut F)
+    fn visit_unit<'a, F>(&'a self, depth: usize, f: &mut F) -> Result<()>
     where
-        F: FnMut(&StateExpr<T>),
+        F: FnMut(&'a StateExpr<T>, usize) -> Result<()>,
+        T: 'a,
     {
         for x in &self.arms {
-            x.body.visit_unit(f);
+            x.body.visit_unit(depth + 1, f)?;
         }
+        Ok(())
     }
 
-    fn visit_unit_mut<F>(&mut self, f: &mut F)
+    fn visit_unit_mut<'a, F>(&'a mut self, depth: usize, f: &mut F) -> Result<()>
     where
-        F: FnMut(&mut StateExpr<T>),
+        F: FnMut(&'a mut StateExpr<T>, usize) -> Result<()>,
+        T: 'a,
     {
         for x in &mut self.arms {
-            x.body.visit_unit_mut(f);
+            x.body.visit_unit_mut(depth + 1, f)?;
         }
+        Ok(())
     }
 }

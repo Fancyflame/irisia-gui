@@ -8,7 +8,7 @@ use crate::{
     Event,
 };
 
-use self::callback::On;
+use self::callback::Listen;
 
 pub mod callback;
 mod closure_patch;
@@ -46,11 +46,11 @@ impl ElementHandle {
         E: Event,
         F: FnMut(E, EventMetadata) + Send + 'static,
     {
-        On::new(self).spawn(f)
+        Listen::new(self).spawn(f)
     }
 
-    pub fn listen(&self) -> On<(), (), ()> {
-        On::new(self)
+    pub fn listen(&self) -> Listen<(), (), ()> {
+        Listen::new(self)
     }
 
     pub fn spawn<F, Ret>(&self, future: F) -> JoinHandle<Option<Ret>>

@@ -43,9 +43,10 @@ impl Element for App {
                 TextBox {
                     text: "Hello\npивeт\nこんにちは\n你好\n\nIrisia GUI🌺",
                     user_select: true,
-                    +style: style!{
-                        if 1 + 1 == 2{
+                    +style: style! {
+                        if 1 + 1 == 2 {
                             color: Color::MAGENTA;
+                            ~: Color::MAGENTA;
                         }
                         border: 5px, Color::GREEN, .round_cap;
                         border_radius: 30px;
@@ -79,7 +80,6 @@ impl Element for App {
         .finish(frame.drawing_region)
     }
 
-    // TODO: simplify callback mechanism
     fn create(_: &RuntimeInit<Self>) -> Self {
         Self {
             rects: vec![
@@ -97,19 +97,19 @@ async fn rect_rt(eh: ElementHandle, close_handle: CloseHandle, key: usize) {
     println!("rectangle {} got!", key);
 
     eh.listen()
-        .recv_sys_only()
+        .recv_sys()
         .spawn(move |_: Focused| println!("rectangle {} gained focus", key));
 
     eh.listen()
-        .recv_sys_only()
+        .recv_sys()
         .spawn(move |_: Blured| println!("rectangle {} lost focus", key));
 
     eh.listen()
-        .recv_sys_only()
+        .recv_sys()
         .spawn(move |_: Click| println!("rectangle {} clicked", key));
 
     eh.listen().spawn(move |_: MyRequestClose, _| {
-        println!("close request event received(sent by {:?})", key);
+        println!("close request event received(sent by {})", key);
         close_handle.close();
     });
 }

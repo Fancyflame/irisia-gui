@@ -1,7 +1,6 @@
-use expr::state_block::{parse_stmts, stmts_to_tokens};
+use expr::state_block::stmts_to_tokens;
 use proc_macro::TokenStream;
 use quote::quote;
-use style::StyleCodegen;
 use syn::{parse::Parser, parse_macro_input, DeriveInput, ItemFn};
 
 mod derive_style;
@@ -74,7 +73,7 @@ pub fn build(input: TokenStream) -> TokenStream {
 
 #[proc_macro]
 pub fn style(input: TokenStream) -> TokenStream {
-    let stmts = match parse_stmts::<StyleCodegen>.parse(input) {
+    let stmts = match style::style.parse(input) {
         Ok(stmts) => stmts,
         Err(e) => return e.to_compile_error().into(),
     };

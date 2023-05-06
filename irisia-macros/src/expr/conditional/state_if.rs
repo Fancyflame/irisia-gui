@@ -1,6 +1,6 @@
 use proc_macro2::TokenStream;
 use quote::ToTokens;
-use syn::{parse::Parse, token::Brace, Expr, Token};
+use syn::{parse::Parse, token::Brace, Expr, Result, Token};
 
 use crate::expr::{state_block::StateBlock, Codegen, ConditionalApplicator, StateExpr, VisitUnit};
 
@@ -107,33 +107,39 @@ impl<T: Codegen> ToTokens for StateIf<T> {
 }
 
 impl<T: Codegen> VisitUnit<T> for StateIf<T> {
-    fn visit_unit<F>(&self, f: &mut F)
+    fn visit_unit<'a, F>(&'a self, depth: usize, f: &mut F) -> Result<()>
     where
-        F: FnMut(&StateExpr<T>),
+        F: FnMut(&'a StateExpr<T>, usize) -> Result<()>,
+        T: 'a,
     {
-        self.leading_if.then.visit_unit(f);
+        self.leading_if.then.visit_unit(depth, f)?;
 
         for x in &self.else_ifs {
-            x.1.then.visit_unit(f);
+            x.1.then.visit_unit(depth, f)?;
         }
 
         if let Some(def) = &self.default {
-            def.1.visit_unit(f);
+            def.1.visit_unit(depth, f)?;
         }
+
+        Ok(())
     }
 
-    fn visit_unit_mut<F>(&mut self, f: &mut F)
+    fn visit_unit_mut<'a, F>(&'a mut self, depth: usize, f: &mut F) -> Result<()>
     where
-        F: FnMut(&mut StateExpr<T>),
+        F: FnMut(&'a mut StateExpr<T>, usize) -> Result<()>,
+        T: 'a,
     {
-        self.leading_if.then.visit_unit_mut(f);
+        self.leading_if.then.visit_unit_mut(depth, f)?;
 
         for x in &mut self.else_ifs {
-            x.1.then.visit_unit_mut(f);
+            x.1.then.visit_unit_mut(depth, f)?;
         }
 
         if let Some(def) = &mut self.default {
-            def.1.visit_unit_mut(f);
+            def.1.visit_unit_mut(depth, f)?;
         }
+
+        Ok(())
     }
 }

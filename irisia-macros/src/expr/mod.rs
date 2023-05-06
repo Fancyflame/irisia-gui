@@ -31,7 +31,7 @@ pub trait Codegen {
     type Ca: ConditionalApplicator;
     type Command: ToTokens;
 
-    const IN_BLOCK: bool;
+    const MUST_IN_BLOCK: bool;
 
     fn parse_command(cmd: &str, input: ParseStream) -> Result<Option<Self::Command>>;
 
@@ -49,14 +49,16 @@ pub trait Codegen {
 }
 
 // only visit raw or command
-pub trait VisitUnit<T> {
-    fn visit_unit<F>(&self, f: &mut F)
+pub trait VisitUnit<T: Codegen> {
+    fn visit_unit<'a, F>(&'a self, depth: usize, f: &mut F) -> Result<()>
     where
-        F: FnMut(&StateExpr<T>);
+        F: FnMut(&'a StateExpr<T>, usize) -> Result<()>,
+        T: 'a;
 
-    fn visit_unit_mut<F>(&mut self, f: &mut F)
+    fn visit_unit_mut<'a, F>(&'a mut self, depth: usize, f: &mut F) -> Result<()>
     where
-        F: FnMut(&mut StateExpr<T>);
+        F: FnMut(&'a mut StateExpr<T>, usize) -> Result<()>,
+        T: 'a;
 }
 
 pub trait StateToTokens {

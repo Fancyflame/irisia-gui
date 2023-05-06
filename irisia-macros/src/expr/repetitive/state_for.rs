@@ -1,5 +1,5 @@
 use quote::{quote, ToTokens};
-use syn::{parse::Parse, Expr, Pat, Token};
+use syn::{parse::Parse, Expr, Pat, Result, Token};
 
 use crate::expr::{state_block::StateBlock, Codegen, StateExpr, VisitUnit};
 
@@ -56,17 +56,19 @@ impl<T: Codegen> ToTokens for StateForLoop<T> {
 }
 
 impl<T: Codegen> VisitUnit<T> for StateForLoop<T> {
-    fn visit_unit<F>(&self, f: &mut F)
+    fn visit_unit<'a, F>(&'a self, depth: usize, f: &mut F) -> Result<()>
     where
-        F: FnMut(&StateExpr<T>),
+        F: FnMut(&'a StateExpr<T>, usize) -> Result<()>,
+        T: 'a,
     {
-        self.body.visit_unit(f);
+        self.body.visit_unit(depth, f)
     }
 
-    fn visit_unit_mut<F>(&mut self, f: &mut F)
+    fn visit_unit_mut<'a, F>(&'a mut self, depth: usize, f: &mut F) -> Result<()>
     where
-        F: FnMut(&mut StateExpr<T>),
+        F: FnMut(&'a mut StateExpr<T>, usize) -> Result<()>,
+        T: 'a,
     {
-        self.body.visit_unit_mut(f);
+        self.body.visit_unit_mut(depth, f)
     }
 }

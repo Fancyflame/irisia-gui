@@ -1,9 +1,20 @@
 use case::CaseExt;
 use quote::{quote, ToTokens};
-use syn::{parse::Parse, parse_quote, Expr, ExprLit, Ident, Lit, Result, Token, Type, TypePath};
+use syn::{
+    parse::Parse, parse_quote, Error, Expr, ExprLit, Ident, Lit, Result, Token, Type, TypePath,
+};
+
+use crate::expr::{StateExpr, VisitUnit};
+
+use super::StyleCodegen;
+
+enum StyleType {
+    Type(Type),
+    Follow(Token![~]),
+}
 
 pub struct StyleStmt {
-    style_ty: Type,
+    style_ty: StyleType,
     args: Vec<Expr>,
     options: Vec<OptionArg>,
 }
@@ -16,9 +27,9 @@ struct OptionArg {
 
 impl Parse for StyleStmt {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let mut style_ty: Type = input.parse()?;
+        let mut style_ty: StyleType = input.parse()?;
 
-        if let Type::Path(TypePath { qself: None, path }) = &mut style_ty {
+        if let StyleType::Type(Type::Path(TypePath { qself: None, path })) = &mut style_ty {
             if let Some(id) = path.get_ident() {
                 let id_option = type_name_snake_to_camel(id);
                 let id = id_option.as_ref().unwrap_or(id);
@@ -73,6 +84,16 @@ impl Parse for StyleStmt {
     }
 }
 
+impl Parse for StyleType {
+    fn parse(input: syn::parse::ParseStream) -> Result<Self> {
+        if input.peek(Token![~]) {
+            Ok(StyleType::Follow(input.parse::<Token![~]>()?))
+        } else {
+            Ok(StyleType::Type(input.parse()?))
+        }
+    }
+}
+
 impl Parse for OptionArg {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let arg = OptionArg {
@@ -116,6 +137,13 @@ impl ToTokens for StyleStmt {
             options,
         } = self;
 
+        let style_ty = match style_ty {
+            StyleType::Type(t) => t,
+            StyleType::Follow(_) => {
+                panic!("inner error: style follow not handled");
+            }
+        };
+
         let options = options.iter().map(|x| {
             let OptionArg { dot, name, expr } = x;
             match expr {
@@ -157,5 +185,45 @@ fn special_lit(expr: &mut Expr) -> Result<()> {
             _ => {}
         }
     }
+    Ok(())
+}
+
+pub fn handle_style_follow(stmts: &mut [StateExpr<StyleCodegen>]) -> Result<()> {
+    let mut type_stack: Vec<Option<Type>> = Vec::new();
+
+    for stmt in stmts {
+        stmt.visit_unit_mut(0, &mut |expr, depth| {
+            let raw = match expr {
+                StateExpr::Raw(r) => r,
+                StateExpr::Command(_) => return Ok(()),
+                _ => unreachable!(),
+            };
+
+            type_stack.resize(depth + 1, {
+                const NONE_TYPE: Option<Type> = None;
+                NONE_TYPE
+            });
+
+            match &raw.style_ty {
+                StyleType::Type(t) => {
+                    *type_stack.get_mut(depth).unwrap() = Some(t.clone());
+                }
+                StyleType::Follow(follow) => match &type_stack.get(depth).unwrap() {
+                    Some(t) => {
+                        raw.style_ty = StyleType::Type(t.clone());
+                    }
+                    None => {
+                        return Err(Error::new_spanned(
+                            follow,
+                            "cannot infer the type that following",
+                        ))
+                    }
+                },
+            }
+
+            return Ok(());
+        })?;
+    }
+
     Ok(())
 }
