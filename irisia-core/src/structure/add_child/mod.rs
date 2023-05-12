@@ -94,7 +94,7 @@ where
                 on_create(&element_handle);
 
                 let mut runtime_init=None;
-                let element = Arc::new_cyclic(|weak|{
+                let element = Arc::new_cyclic(|weak| {
                     let ri = RuntimeInit {
                         _prevent_user_init: (),
                         app: weak.clone(),
@@ -107,7 +107,6 @@ where
                     runtime_init = Some(ri);
                     Mutex::new(el)
                 });
-                
 
                 let cache = AddChildCache {
                     element,
@@ -153,7 +152,7 @@ where
 
         let cache = cache.as_mut().unwrap();
 
-        let mut content = RenderContent{
+        let mut content = RenderContent {
             cache_box_for_children: Some(&mut cache.cache_box),
             elem_table_index: raw_content.0
                 .elem_table_builder

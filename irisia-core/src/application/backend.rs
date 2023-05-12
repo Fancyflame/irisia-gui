@@ -29,7 +29,7 @@ where
 
     let create_app = {
         let elem_table = ElemTable::new(ev_disp.clone());
-        move |window: Arc<WinitWindow>, close_handle: CloseHandle| Application::<El> {
+        move |window: Arc<WinitWindow>, close_handle: CloseHandle| BackendRuntime::<El> {
             window,
             application: None,
             elem_table,
@@ -49,14 +49,14 @@ where
     })
 }
 
-pub(super) struct Application<El> {
+pub(super) struct BackendRuntime<El> {
     window: Arc<WinitWindow>,
     application: Option<AddChildCache<El, ()>>,
     elem_table: ElemTable,
     close_handle: CloseHandle,
 }
 
-impl<El> AppWindow for Application<El>
+impl<El> AppWindow for BackendRuntime<El>
 where
     El: Element,
 {

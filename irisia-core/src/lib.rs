@@ -11,6 +11,7 @@ pub mod application;
 pub mod element;
 pub mod event;
 pub mod primary;
+pub(crate) mod render_cache;
 pub mod structure;
 pub mod style;
 
