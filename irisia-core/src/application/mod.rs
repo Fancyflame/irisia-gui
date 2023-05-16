@@ -9,7 +9,8 @@ use crate::{
 };
 
 mod backend;
-pub(crate) mod elem_table;
+pub(crate) mod cache_comp;
+pub(crate) mod event_comp;
 
 use backend::new_window;
 

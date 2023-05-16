@@ -3,7 +3,7 @@ use std::{future::Future, ops::Deref};
 use tokio::task::JoinHandle;
 
 use crate::{
-    application::elem_table::focus::SharedFocusing,
+    application::event_comp::focus::SharedFocusing,
     event::{EventDispatcher, EventMetadata},
     Event,
 };

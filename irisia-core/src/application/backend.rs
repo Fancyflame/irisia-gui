@@ -18,7 +18,7 @@ use crate::{
     Result,
 };
 
-use super::{elem_table::ElemTable, Window};
+use super::{event_comp::EventComponent, Window};
 
 pub(super) async fn new_window<El, F>(window_builder: F) -> Result<Window>
 where
@@ -28,11 +28,11 @@ where
     let ev_disp = EventDispatcher::new();
 
     let create_app = {
-        let elem_table = ElemTable::new(ev_disp.clone());
+        let event_component = EventComponent::new(ev_disp.clone());
         move |window: Arc<WinitWindow>, close_handle: CloseHandle| BackendRuntime::<El> {
             window,
             application: None,
-            elem_table,
+            event_component,
             close_handle,
         }
     };
@@ -52,7 +52,7 @@ where
 pub(super) struct BackendRuntime<El> {
     window: Arc<WinitWindow>,
     application: Option<AddChildCache<El, ()>>,
-    elem_table: ElemTable,
+    event_component: EventComponent,
     close_handle: CloseHandle,
 }
 
@@ -70,15 +70,15 @@ where
 
         let region = (Point(0, 0), Point(size.0, size.1));
 
-        self.elem_table
-            .rebuild(|elem_table_builder, window_event_receiver, focusing| {
+        self.event_component
+            .rebuild(|event_comp_builder, window_event_receiver, focusing| {
                 let content = BareContent {
                     canvas,
                     window: &self.window,
                     delta_time: delta,
                     window_event_dispatcher: window_event_receiver,
                     close_handle: self.close_handle,
-                    elem_table_builder,
+                    event_comp_builder,
                     focusing,
                 };
 
@@ -87,6 +87,6 @@ where
     }
 
     fn on_window_event(&mut self, event: StaticWindowEvent) {
-        self.elem_table.emit_window_event(event);
+        self.event_component.emit_window_event(event);
     }
 }

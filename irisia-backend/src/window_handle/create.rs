@@ -29,8 +29,8 @@ impl RawWindowHandle {
 
         let raw_window = Arc::new(
             window_receiver
-                .await
-                .expect("inner error: cannot receive window initializing result from runtime")?,
+                .await?
+                .expect("inner error: cannot receive window initializing result from runtime"),
         );
 
         let raw_window_cloned = raw_window.clone();

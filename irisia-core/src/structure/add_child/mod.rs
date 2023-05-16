@@ -82,7 +82,7 @@ where
         let AddChildInner::New { props: prop, styles: style, on_create, children } = 
             std::mem::replace(&mut self.0, AddChildInner::Preparing)
         else {
-            panic!("inner error: this node has prepared");
+            inner_error!("this node has prepared");
         };
 
         let cache = match cache {
@@ -147,15 +147,15 @@ where
     {
         let AddChildInner::Prepared { props, styles, children, requested_size, mut el } = self.0
         else {
-            panic!("inner error: this node is not prepared");
+            inner_error!("this node is not prepared");
         };
 
         let cache = cache.as_mut().unwrap();
 
         let mut content = RenderContent {
             cache_box_for_children: Some(&mut cache.cache_box),
-            elem_table_index: raw_content.0
-                .elem_table_builder
+            event_comp_index: raw_content.0
+                .event_comp_builder
                 .push(cache.runtime_init.element_handle.event_dispatcher().clone()),
             bare: raw_content.0,
         };
@@ -177,7 +177,7 @@ where
             }
         );
 
-        content.bare.elem_table_builder.finish();
+        content.bare.event_comp_builder.finish();
         result
     }
 }
@@ -200,7 +200,7 @@ where
     {
         let AddChildInner::Prepared { props, styles, requested_size, el, .. } = &self.0
         else {
-            panic!("inner error: this node is not prepared");
+            inner_error!("this node is not prepared");
         };
 
         iter::once(VisitItem {

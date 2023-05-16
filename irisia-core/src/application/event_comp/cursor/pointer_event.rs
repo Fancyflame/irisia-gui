@@ -142,7 +142,7 @@ impl super::CursorWatcher {
             .take()
         else {
             if cfg!(debug_assertions){
-                panic!("inner error: pointer down info is missing");
+                inner_error!("pointer down info is missing");
             } else {
                 return false;
             }

@@ -7,11 +7,17 @@ pub type Result<T> = anyhow::Result<T>;
 #[path = "macro_helper/mod.rs"]
 mod __macro_helper;
 
+macro_rules! inner_error {
+    ($($tt:tt)+) => {
+        ::std::panic!("[IRISIA_INNER_ERROR {}: {}] {}", ::std::file!(), ::std::line!(), ::std::format!($($tt)+))
+    };
+}
+
 pub mod application;
 pub mod element;
 pub mod event;
+pub mod log;
 pub mod primary;
-pub(crate) mod render_cache;
 pub mod structure;
 pub mod style;
 

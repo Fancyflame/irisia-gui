@@ -48,7 +48,7 @@ enum NextFrame {
 enum CurrentFrame {
     NotConfirmed(Protected),
     NotConfirmedUnprotected(EventDispatcher),
-    Confirmed { protected: Protected, index: usize },
+    Confirmed { protected: Protected },
     None,
 }
 
@@ -57,20 +57,6 @@ impl Focusing {
         Focusing {
             current_frame: CurrentFrame::None,
             next_frame: NextFrame::Keep,
-        }
-    }
-
-    #[allow(dead_code)]
-    pub(super) fn get_focused(&self) -> Option<usize> {
-        match &self.current_frame {
-            CurrentFrame::Confirmed { index, .. } => Some(*index),
-            CurrentFrame::NotConfirmed(_) | CurrentFrame::NotConfirmedUnprotected(_) => {
-                if cfg!(debug_assertions) {
-                    panic!("inner error: focused element not confirmed since last redrawing");
-                }
-                None
-            }
-            CurrentFrame::None => None,
         }
     }
 
@@ -120,15 +106,14 @@ impl Focusing {
         }
     }
 
-    pub(super) fn try_confirm(&mut self, other: &EventDispatcher, index: usize) {
+    pub(super) fn try_confirm(&mut self, other: &EventDispatcher) {
         take_mut::take(&mut self.current_frame, |this| match this {
             CurrentFrame::NotConfirmed(protected) if protected.get().is_same(other) => {
-                CurrentFrame::Confirmed { protected, index }
+                CurrentFrame::Confirmed { protected }
             }
             CurrentFrame::NotConfirmedUnprotected(ed) if ed.is_same(other) => {
                 CurrentFrame::Confirmed {
                     protected: Protected::new(ed),
-                    index,
                 }
             }
             _ => this,

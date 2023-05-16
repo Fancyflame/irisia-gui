@@ -21,7 +21,7 @@ struct Item {
     parent: Option<usize>,
 }
 
-pub(crate) struct ElemTable {
+pub(crate) struct EventComponent {
     global: EventDispatcher,
     registered: Vec<Item>,
     builder_stack: Vec<usize>,
@@ -29,9 +29,9 @@ pub(crate) struct ElemTable {
     cursor_watcher: CursorWatcher,
 }
 
-impl ElemTable {
+impl EventComponent {
     pub fn new(global: EventDispatcher) -> Self {
-        ElemTable {
+        EventComponent {
             global,
             registered: Vec::new(),
             builder_stack: Vec::new(),
@@ -117,7 +117,7 @@ impl Builder<'_> {
     pub fn push(&mut self, event_dispatcher: EventDispatcher) -> usize {
         let index = self.items.len();
 
-        self.focusing.try_confirm(&event_dispatcher, index);
+        self.focusing.try_confirm(&event_dispatcher);
         self.items.push(Item {
             event_dispatcher,
             interact_region: None,

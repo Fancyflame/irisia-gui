@@ -25,7 +25,7 @@ impl EventListenerStock {
     pub fn get<E: Event>(&mut self) -> Option<&mut Row<E>> {
         self.stocks.get_mut(&TypeId::of::<E>()).map(|any| {
             any.downcast_mut()
-                .expect("inner error: cannot downcast to item")
+                .unwrap_or_else(|| inner_error!("cannot downcast to item"))
         })
     }
 
@@ -34,14 +34,14 @@ impl EventListenerStock {
             .entry(TypeId::of::<E>())
             .or_insert_with(|| Box::new(Row::<E>::new(self.wait_lock.clone())))
             .downcast_mut()
-            .expect("inner error: cannot downcast to item")
+            .unwrap_or_else(|| inner_error!("cannot downcast to item"))
     }
 
     pub fn get_exist<E: Event>(&mut self) -> &mut Row<E> {
         match self.get() {
             Some(item) => item,
             None => {
-                panic!("inner error: item not exits, but expected does");
+                inner_error!("item not exits, but expected does");
             }
         }
     }
@@ -130,7 +130,7 @@ impl<E: Event> Row<E> {
 
             None => {
                 if cfg!(debug_assertions) {
-                    panic!("inner error: cannot call `take` on this id");
+                    inner_error!("cannot call `take` on this id");
                 } else {
                     None
                 }

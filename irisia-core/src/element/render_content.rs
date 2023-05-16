@@ -3,7 +3,7 @@ use std::{sync::Arc, time::Duration};
 use irisia_backend::{skia_safe::Canvas, window_handle::close_handle::CloseHandle, WinitWindow};
 
 use crate::{
-    application::elem_table::{self, focus::SharedFocusing},
+    application::event_comp::{self, focus::SharedFocusing},
     event::EventDispatcher,
     primary::Region,
     CacheBox,
@@ -15,7 +15,7 @@ pub(crate) struct BareContent<'a> {
     pub delta_time: Duration,
     pub window_event_dispatcher: &'a EventDispatcher,
     pub close_handle: CloseHandle,
-    pub elem_table_builder: elem_table::Builder<'a>,
+    pub event_comp_builder: event_comp::Builder<'a>,
     pub focusing: &'a SharedFocusing,
 }
 
@@ -27,7 +27,7 @@ impl BareContent<'_> {
             delta_time: self.delta_time,
             window_event_dispatcher: self.window_event_dispatcher,
             close_handle: self.close_handle,
-            elem_table_builder: self.elem_table_builder.downgrade_lifetime(),
+            event_comp_builder: self.event_comp_builder.downgrade_lifetime(),
             focusing: self.focusing,
         }
     }
@@ -36,7 +36,7 @@ impl BareContent<'_> {
 pub struct RenderContent<'a> {
     pub(crate) bare: BareContent<'a>,
     pub(crate) cache_box_for_children: Option<&'a mut CacheBox>,
-    pub(crate) elem_table_index: usize,
+    pub(crate) event_comp_index: usize,
 }
 
 impl RenderContent<'_> {
@@ -58,14 +58,14 @@ impl RenderContent<'_> {
 
     pub fn set_interact_region(&mut self, region: Region) {
         self.bare
-            .elem_table_builder
-            .set_interact_region_for(self.elem_table_index, Some(region));
+            .event_comp_builder
+            .set_interact_region_for(self.event_comp_index, Some(region));
     }
 
     pub fn clear_interact_region(&mut self) {
         self.bare
-            .elem_table_builder
-            .set_interact_region_for(self.elem_table_index, None);
+            .event_comp_builder
+            .set_interact_region_for(self.event_comp_index, None);
     }
 
     pub(crate) fn downgrade_lifetime(&mut self) -> RenderContent {
@@ -75,7 +75,7 @@ impl RenderContent<'_> {
                 Some(ref mut cb) => Some(cb),
                 None => None,
             },
-            elem_table_index: self.elem_table_index,
+            event_comp_index: self.event_comp_index,
         }
     }
 }
