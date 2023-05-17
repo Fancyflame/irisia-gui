@@ -17,7 +17,7 @@ pub mod application;
 pub mod element;
 pub mod event;
 pub mod log;
-pub mod primary;
+pub mod primitive;
 pub mod structure;
 pub mod style;
 

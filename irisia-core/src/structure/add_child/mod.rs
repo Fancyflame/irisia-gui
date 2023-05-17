@@ -11,7 +11,7 @@ use crate::{
         event_dispatcher::{EventDispatcher},
         standard::ElementAbandoned,
     },
-    primary::Region,
+    primitive::Region,
     style::{reader::StyleReader, StyleContainer},
     CacheBox, Result,
 };

@@ -74,7 +74,7 @@ where
         map: &mut F,
     ) -> crate::Result<()>
     where
-        F: FnMut(S, (Option<u32>, Option<u32>)) -> Result<crate::primary::Region>,
+        F: FnMut(S, (Option<u32>, Option<u32>)) -> Result<crate::primitive::Region>,
         S: StyleReader,
     {
         for (k, x) in self.nodes {

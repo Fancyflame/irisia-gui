@@ -5,7 +5,7 @@ pub struct Pixel(pub f32);
 
 impl Pixel {
     pub fn to_physical(self) -> f32 {
-        self.0 as _
+        self.0
     }
 }
 

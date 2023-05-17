@@ -1,7 +1,7 @@
 use std::ops::Range;
 
 use irisia::{
-    primary::Region,
+    primitive::Region,
     skia_safe::{Color4f, ColorSpace, Paint},
 };
 use irisia_core::{
@@ -104,7 +104,7 @@ impl Element for TextBox {
         ) {
             p.paint(
                 content.canvas(),
-                SkiaPoint::new(drawing_region.0 .0 as _, drawing_region.0 .1 as _),
+                SkiaPoint::new(drawing_region.0 .0, drawing_region.0 .1),
             );
             return Ok(());
         }
@@ -113,7 +113,7 @@ impl Element for TextBox {
 
         let para_style = {
             let mut ps = ParagraphStyle::new();
-            ps.set_height((drawing_region.1 .1 - drawing_region.0 .1) as _);
+            ps.set_height(drawing_region.1 .1 - drawing_region.0 .1);
             ps
         };
 
@@ -124,10 +124,10 @@ impl Element for TextBox {
             &parse_text_style(&styles),
         );
 
-        paragraph.layout((drawing_region.1 .0 - drawing_region.0 .0) as _);
+        paragraph.layout(drawing_region.1 .0 - drawing_region.0 .0);
         paragraph.paint(
             content.canvas(),
-            SkiaPoint::new(drawing_region.0 .0 as _, drawing_region.0 .1 as _),
+            SkiaPoint::new(drawing_region.0 .0, drawing_region.0 .1),
         );
         self.paragraph = Some(paragraph);
 
@@ -236,7 +236,7 @@ fn parse_text_style(style: &TextBoxStyles) -> TextStyle {
     let mut text_style = TextStyle::new();
     text_style
         .set_font_style(FontStyle::new(style.weight.0, Width::NORMAL, style.slant.0))
-        .set_font_size(style.font_size.0.to_physical() as _)
+        .set_font_size(style.font_size.0.to_physical())
         .set_color(match &style.color {
             Some(c) => c.0,
             None => Color::BLACK,

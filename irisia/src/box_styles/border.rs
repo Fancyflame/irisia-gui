@@ -69,7 +69,7 @@ impl StyleBorder {
 
 // returns stroke width
 pub(super) fn draw_border(canvas: &mut Canvas, mut rrect: RRect, border: &StyleBorder) -> f32 {
-    let stroke_width = border.width.to_physical() as f32;
+    let stroke_width = border.width.to_physical();
 
     let size_reduction = stroke_width / 2.0;
     rrect.inset(SkiaPoint::new(size_reduction, size_reduction));
@@ -89,8 +89,8 @@ pub(super) fn draw_border(canvas: &mut Canvas, mut rrect: RRect, border: &StyleB
 
 fn parse_dash_style(style: &DashStyle, stroke_width: f32) -> Option<PathEffect> {
     fn slice_dash(intervals: &[Pixel], phase: &Pixel) -> Option<PathEffect> {
-        let vec: SmallVec<[f32; 12]> = intervals.iter().map(|px| px.to_physical() as _).collect();
-        PathEffect::dash(&vec, phase.to_physical() as _)
+        let vec: SmallVec<[f32; 12]> = intervals.iter().map(|px| px.to_physical()).collect();
+        PathEffect::dash(&vec, phase.to_physical())
     }
     match style {
         DashStyle::Solid => None,

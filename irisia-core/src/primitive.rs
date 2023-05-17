@@ -3,8 +3,8 @@ use std::ops::{Add, AddAssign, Sub, SubAssign};
 pub type Region = (Point, Point);
 pub type Result<T> = anyhow::Result<T>;
 
-#[derive(Debug, Default, Clone, Copy, Hash, PartialEq, Eq)]
-pub struct Point(pub u32, pub u32);
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
+pub struct Point(pub f32, pub f32);
 
 impl Add for Point {
     type Output = Self;
@@ -35,9 +35,8 @@ impl SubAssign for Point {
 }
 
 impl Point {
-    pub fn abs_diff(self, other: Self) -> u32 {
-        (self.0.abs_diff(other.0).pow(2) as f32 + self.1.abs_diff(other.1).pow(2) as f32).sqrt()
-            as _
+    pub fn abs_diff(self, other: Self) -> f32 {
+        ((self.0 - other.0).powi(2) + (self.1 - other.1).powi(2)).sqrt()
     }
 
     /// Absolutely greater than or equals
@@ -53,14 +52,14 @@ impl Point {
     }
 }
 
-impl From<(u32, u32)> for Point {
+impl From<(f32, f32)> for Point {
     #[inline]
-    fn from(f: (u32, u32)) -> Self {
+    fn from(f: (f32, f32)) -> Self {
         Point(f.0, f.1)
     }
 }
 
-impl From<Point> for (u32, u32) {
+impl From<Point> for (f32, f32) {
     fn from(v: Point) -> Self {
         (v.0, v.1)
     }
@@ -69,8 +68,8 @@ impl From<Point> for (u32, u32) {
 impl From<Point> for irisia_backend::skia_safe::Point {
     fn from(value: Point) -> Self {
         Self {
-            x: value.0 as _,
-            y: value.1 as _,
+            x: value.0,
+            y: value.1,
         }
     }
 }

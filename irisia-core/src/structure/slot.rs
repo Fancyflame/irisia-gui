@@ -1,4 +1,4 @@
-use crate::{primary::Region, style::reader::StyleReader, Result};
+use crate::{primitive::Region, style::reader::StyleReader, Result};
 
 use super::*;
 

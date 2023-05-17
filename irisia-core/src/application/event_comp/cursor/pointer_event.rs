@@ -13,7 +13,7 @@ use crate::{
         standard::{Click, PointerDown, PointerMove, PointerUp},
         EventDispatcher,
     },
-    primary::Point,
+    primitive::Point,
     Event,
 };
 
@@ -153,9 +153,7 @@ impl super::CursorWatcher {
             return false;
         };
 
-        let distance = ((pos_now.0 as f32 - pos_prv.0 as f32).powi(2)
-            + (pos_now.1 as f32 - pos_prv.1 as f32).powi(2))
-        .sqrt();
+        let distance = ((pos_now.0 - pos_prv.0).powi(2) + (pos_now.1 - pos_prv.1).powi(2)).sqrt();
 
         if press_info.time.elapsed() > CLICK_LONGEST_INTERVAL || distance > 40.0 {
             return false;

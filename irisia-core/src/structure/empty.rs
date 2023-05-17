@@ -18,7 +18,7 @@ impl RenderingNode for EmptyStructure {
 
     fn finish<S, F>(self, _: &mut Self::Cache, _: BareContentWrapper, _: &mut F) -> Result<()>
     where
-        F: FnMut(S, (Option<u32>, Option<u32>)) -> Result<crate::primary::Region>,
+        F: FnMut(S, (Option<u32>, Option<u32>)) -> Result<crate::primitive::Region>,
         S: StyleReader,
     {
         Ok(())

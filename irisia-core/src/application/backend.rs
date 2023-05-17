@@ -9,7 +9,7 @@ use irisia_backend::{
 use crate::{
     element::{render_content::BareContent, Element},
     event::EventDispatcher,
-    primary::Point,
+    primitive::Point,
     structure::{
         add_child::{self, AddChildCache},
         into_rendering_raw, EmptyStructure,
@@ -68,7 +68,7 @@ where
             EmptyStructure,
         );
 
-        let region = (Point(0, 0), Point(size.0, size.1));
+        let region = (Point(0.0, 0.0), Point(size.0 as _, size.1 as _));
 
         self.event_component
             .rebuild(|event_comp_builder, window_event_receiver, focusing| {

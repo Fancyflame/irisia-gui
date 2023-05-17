@@ -2,7 +2,7 @@ use irisia::{
     element::{Element, Frame, NoProps, RuntimeInit},
     event::standard::{ElementAbandoned, PointerEntered, PointerOut},
     exit_app,
-    primary::Point,
+    primitive::Point,
     read_style,
     skia_safe::{Color, Color4f, Paint, Rect},
     structure::{StructureBuilder, VisitIter},
@@ -53,13 +53,13 @@ impl Element for Rectangle {
             h.unwrap_or(StyleHeight(50.0)),
         );
 
-        content.set_interact_region((region.0, region.0 + Point(w.0 as _, h.0 as _)));
+        content.set_interact_region((region.0, region.0 + Point(w.0, h.0)));
 
         let rect = Rect::new(
-            region.0 .0 as _,
-            region.0 .1 as _,
-            region.0 .0 as f32 + w.0,
-            region.0 .1 as f32 + h.0,
+            region.0 .0,
+            region.0 .1,
+            region.0 .0 + w.0,
+            region.0 .1 + h.0,
         );
         let color = if self.is_force {
             self.force_color.clone()
@@ -167,13 +167,13 @@ impl Element for Flex {
 
         let rendering = children.into_rendering(&mut content);
         let len = rendering.children_count();
-        let width = abs.0 / len as u32;
+        let width = abs.0 / len as f32;
 
         let mut index = 0;
         rendering.finish_iter(|(), _| {
             let result = Ok((
-                Point(index * width, start.1),
-                Point((index + 1) * width, end.1),
+                Point(index as f32 * width, start.1),
+                Point((index as f32 + 1.0) * width, end.1),
             ));
             index += 1;
             result

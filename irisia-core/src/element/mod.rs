@@ -1,4 +1,4 @@
-use crate::primary::Region;
+use crate::primitive::Region;
 use crate::structure::{StructureBuilder, VisitIter};
 use crate::{style::StyleContainer, Result};
 

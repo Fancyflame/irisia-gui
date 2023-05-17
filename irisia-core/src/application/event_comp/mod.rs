@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     event::EventDispatcher,
-    primary::{Point, Region},
+    primitive::{Point, Region},
 };
 
 use tokio::sync::Mutex;

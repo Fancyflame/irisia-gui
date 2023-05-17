@@ -32,9 +32,7 @@ impl StyleBorderRadius {
 
 pub(super) fn parse_border_radius(rect: &Rect, border_radius: &StyleBorderRadius) -> RRect {
     match border_radius {
-        StyleBorderRadius::Radii(r) => {
-            RRect::new_rect_xy(&rect, r.to_physical() as _, r.to_physical() as _)
-        }
+        StyleBorderRadius::Radii(r) => RRect::new_rect_xy(&rect, r.to_physical(), r.to_physical()),
         StyleBorderRadius::Oval => RRect::new_oval(&rect),
         StyleBorderRadius::Radii4 {
             left_top,
@@ -43,7 +41,7 @@ pub(super) fn parse_border_radius(rect: &Rect, border_radius: &StyleBorderRadius
             left_bottom,
         } => {
             fn convert(point: &Pixel) -> SkiaPoint {
-                SkiaPoint::new(point.to_physical() as _, point.to_physical() as _)
+                SkiaPoint::new(point.to_physical(), point.to_physical())
             }
 
             RRect::new_rect_radii(

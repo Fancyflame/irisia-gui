@@ -5,7 +5,7 @@ use std::{
 
 use irisia::{
     event::standard::{PointerEntered, PointerOut},
-    primary::Point,
+    primitive::Point,
     skia_safe::textlayout::Paragraph,
     winit::window::CursorIcon,
     WinitWindow,
@@ -71,8 +71,8 @@ impl SelectionRtMgr {
             let (start, end) = self.sel.lock().unwrap().cursor?;
             let checked_sub = |point: Point| {
                 Point(
-                    point.0.checked_sub(cursor_offset.0).unwrap_or_default(),
-                    point.1.checked_sub(cursor_offset.1).unwrap_or_default(),
+                    (point.0 - cursor_offset.0).max(0.0),
+                    (point.1 - cursor_offset.1).max(0.0),
                 )
             };
             (checked_sub(start), checked_sub(end))
@@ -80,8 +80,7 @@ impl SelectionRtMgr {
         let paragraph = paragraph.as_ref()?;
 
         let get_word_b = |point: Point| {
-            let pos = paragraph
-                .get_glyph_position_at_coordinate(SkiaPoint::new(point.0 as _, point.1 as _));
+            let pos = paragraph.get_glyph_position_at_coordinate(SkiaPoint::new(point.0, point.1));
 
             glyph_index_to_byte_index(s, pos.position as _)
         };

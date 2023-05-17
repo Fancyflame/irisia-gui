@@ -1,5 +1,5 @@
 use crate as irisia;
-use crate::primary::Point;
+use crate::primitive::Point;
 use crate::Event;
 
 pub mod window_event;

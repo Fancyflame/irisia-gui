@@ -11,7 +11,7 @@ use anyhow::anyhow;
 
 use crate::{
     element::{render_content::BareContent, Element, RenderContent},
-    primary::Region,
+    primitive::Region,
     style::reader::StyleReader,
     Result,
 };

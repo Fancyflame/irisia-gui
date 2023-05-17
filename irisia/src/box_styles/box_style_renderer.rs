@@ -1,5 +1,5 @@
 use irisia::{
-    primary::{Point, Region},
+    primitive::{Point, Region},
     read_style,
     skia_safe::{Canvas, Rect},
     style::StyleContainer,
@@ -36,8 +36,8 @@ impl BoxStyleRenderer {
             left,
         } = Self::render(styles, canvas, maximum_region);
         (
-            maximum_region.0 + Point(left as _, top as _),
-            maximum_region.1 - Point(right as _, bottom as _),
+            maximum_region.0 + Point(left, top),
+            maximum_region.1 - Point(right, bottom),
         )
     }
 
@@ -53,8 +53,8 @@ impl BoxStyleRenderer {
             left,
         } = Self::render(styles, canvas, content_region);
         (
-            content_region.0 - Point(left as _, top as _),
-            content_region.1 + Point(right as _, bottom as _),
+            content_region.0 - Point(left, top),
+            content_region.1 + Point(right, bottom),
         )
     }
 
@@ -89,10 +89,10 @@ impl BoxStyleRenderer {
             reduction.bottom += bottom;
 
             Rect::new(
-                region.0 .0 as f32 + left,
-                region.0 .1 as f32 + top,
-                region.1 .0 as f32 - right,
-                region.1 .1 as f32 - bottom,
+                region.0 .0 + left,
+                region.0 .1 + top,
+                region.1 .0 - right,
+                region.1 .1 - bottom,
             )
         };
 

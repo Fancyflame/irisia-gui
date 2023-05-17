@@ -1,5 +1,5 @@
 use crate::{
-    element::render_content::BareContent, primary::Region, style::reader::StyleReader, Result,
+    element::render_content::BareContent, primitive::Region, style::reader::StyleReader, Result,
 };
 
 pub struct BareContentWrapper<'a>(pub(crate) BareContent<'a>);

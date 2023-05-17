@@ -7,7 +7,7 @@ use crate::{
         standard::{PointerEntered, PointerLeft, PointerOut, PointerOver},
         EventDispatcher,
     },
-    primary::Point,
+    primitive::Point,
 };
 
 use self::pointer_event::Advanced;

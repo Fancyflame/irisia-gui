@@ -17,7 +17,7 @@ pub struct StyleBoxShadow {
 }
 
 pub(super) fn draw_shadow(canvas: &mut Canvas, rrect: &RRect, style: &StyleBoxShadow) {
-    let mask_filter = MaskFilter::blur(BlurStyle::Solid, style.radius.to_physical() as _, true);
+    let mask_filter = MaskFilter::blur(BlurStyle::Solid, style.radius.to_physical(), true);
 
     let mut paint = Paint::new(Color4f::from(style.color), &ColorSpace::new_srgb());
     paint

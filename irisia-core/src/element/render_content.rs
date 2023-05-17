@@ -5,7 +5,7 @@ use irisia_backend::{skia_safe::Canvas, window_handle::close_handle::CloseHandle
 use crate::{
     application::event_comp::{self, focus::SharedFocusing},
     event::EventDispatcher,
-    primary::Region,
+    primitive::Region,
     CacheBox,
 };
 
