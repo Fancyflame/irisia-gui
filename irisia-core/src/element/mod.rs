@@ -7,10 +7,15 @@ use crate::structure::slot::Slot;
 pub use element_handle::ElementHandle;
 pub use render_content::RenderContent;
 pub use runtime_init::RuntimeInit;
+pub use state_update::{
+    diff_watcher::{Gdw, Udw},
+    StateUpdate,
+};
 
 pub mod element_handle;
 pub mod render_content;
 pub mod runtime_init;
+pub mod state_update;
 
 pub struct Frame<'a, 'prop, El, St, Ch>
 where
@@ -29,7 +34,7 @@ where
 /// according to its properties, styles and given drawing region.
 /// This trait is close to the native rendering, if you are not a
 /// component maker, please using exist element or using macros to
-/// custom one.
+/// customize one.
 pub trait Element: Sized + 'static {
     type Props<'a>: Default;
     type ChildProps<'a>;
