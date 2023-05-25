@@ -19,7 +19,7 @@ Only Chinese is available now\
 
 <https://fancyflame.github.io/irisia-gui/>
 
-## Progress
+## 📊 Progress
 The progress is now at *cache model*. Designing this part is time consuming, because cache model is closely
 related to the animation system and the way elements rendering.
 --2023/5/25
@@ -34,7 +34,7 @@ related to the animation system and the way elements rendering.
 - [ ] android support
 - [ ] release
 
-## 💻 CONTRIBUTING
+## 💻 Contribute
 Welcome to Irisia GUI! This is a project in progress and we're actively seeking contributors to help us develop and improve it.
 
 ### Project Status
