@@ -20,6 +20,9 @@ Only Chinese is available now\
 <https://fancyflame.github.io/irisia-gui/>
 
 ## 📊 Progress
+This project was suspended until about June 20th, because I need to prepare for the final exam in my college.
+--2023/6/5
+
 The progress is now at *cache model*. Designing this part is time consuming, because cache model is closely
 related to the animation system and the way elements rendering.
 --2023/5/25
