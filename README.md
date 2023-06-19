@@ -10,7 +10,9 @@ Irisia is heavily depend on following crates:
 - [skia-safe](https://crates.io/crates/skia-safe): Bindings to [Skia](https://skia.org/). Skia is a graphics library developed by Google, used by lots of project, most famously Chrome and Android.
 - [tokio](https://crates.io/crates/tokio): A asynchronous library with runtime and useful utils, high-speed and reliable.
 
-**Irisia GUI is under development now, not ready for production yet.**
+**Irisia GUI is currently under rapid development, the documentation, API, and examples may not reflect the latest progress. To obtain the most up-to-date features, please refer to `windows.rs` file.**
+
+**Irisia GUI正处于快速开发阶段，文档、接口和示例很可能不能反应最新进度。欲获知最新特性，可参考`windows.rs`文件。**
 
 ## 📕 Irisia Book
 
@@ -20,11 +22,17 @@ Only Chinese is available now\
 <https://fancyflame.github.io/irisia-gui/>
 
 ## 📊 Progress
-This project was suspended until about June 20th, because I need to prepare for the final exam in my college.
---2023/6/5
+This project was suspended until July 4th because I need to prepare for the final exam in my college.
+
+项目暂停至7月4号，因为我要准备期末考。
+
+--2023/6/20
 
 The progress is now at *cache model*. Designing this part is time consuming, because cache model is closely
 related to the animation system and the way elements rendering.
+
+目前进度在“缓存模型”。设计这部分是很耗时的，因为缓存模型和动画系统以及元素渲染方式密切相关。
+
 --2023/5/25
 
 - [x] feasibility test
