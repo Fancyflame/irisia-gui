@@ -1,4 +1,4 @@
-![irisia banner](images/irisia_new.png)
+![irisia banner](images/irisia_new.jpg)
 
 # Irisia GUI
 
