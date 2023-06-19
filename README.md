@@ -1,4 +1,4 @@
-![irisia banner](images/banner_with_shadow_mirrored.jpg)
+![irisia banner](images/irisia_new.png)
 
 # Irisia GUI
 
