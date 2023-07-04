@@ -7,10 +7,10 @@ use tokio::task::JoinHandle;
 
 use crate::{event::EventMetadata, Event};
 
-use super::{
-    maybe_confirmed::{AllConfirmedPermits, MaybeConfirmed},
-    stock::EventListenerStock,
-};
+use super::maybe_confirmed::{AllConfirmedPermits, MaybeConfirmed};
+use stock::EventListenerStock;
+
+pub(super) mod stock;
 
 pub(super) struct EmitScheduler {
     stock: EventListenerStock,

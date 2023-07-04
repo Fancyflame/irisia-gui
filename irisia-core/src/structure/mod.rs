@@ -1,90 +1,92 @@
-pub mod add_child;
-pub mod branch;
-pub mod cache_box;
-pub mod chain;
-pub mod empty;
-mod node;
-pub mod repeating;
-pub mod slot;
-
-use anyhow::anyhow;
+pub(crate) mod cache_box;
+pub mod node;
+pub mod visit;
 
 use crate::{
     element::{render_content::BareContent, Element, RenderContent},
     primitive::Region,
-    style::reader::StyleReader,
     Result,
 };
 
 pub use self::{
-    add_child::add_child, branch::Branch, empty::EmptyStructure, repeating::Repeating, slot::Slot,
-};
-use self::{
-    chain::Chain,
-    node::{BareContentWrapper, RenderingNode},
+    node::{
+        add_child::{add_child, AddChild},
+        branch::Branch,
+        chain::Chain,
+        empty::EmptyStructure,
+        repeating::Repeating,
+    },
+    visit::{Layouter, VisitItem, Visitor},
 };
 
-pub struct IntoRendering<'a, T: RenderingNode> {
-    node: T,
+use self::{
+    __one_child::OnceLayouter,
+    visit::{ActivatedStructure, BareContentWrapper, Renderable, Structure, Visit},
+};
+
+// IntoRendering
+
+#[must_use]
+pub struct IntoRendering<'a, T: ActivatedStructure> {
+    activated: T,
     cache: &'a mut T::Cache,
     content: BareContentWrapper<'a>,
 }
 
+mod __one_child {
+    use anyhow::anyhow;
+
+    use crate::style::StyleContainer;
+
+    use super::{visit::Layouter, *};
+    pub struct OnceLayouter(pub Option<Region>);
+    impl<El> Layouter<El> for OnceLayouter {
+        fn layout(&mut self, _: VisitItem<El, impl StyleContainer>) -> Result<Region> {
+            self.0
+                .take()
+                .ok_or_else(|| anyhow!("at most 1 element can be rendered"))
+        }
+    }
+}
+
 impl<'a, T> IntoRendering<'a, T>
 where
-    T: RenderingNode,
+    T: ActivatedStructure,
 {
     pub fn children_count(&self) -> usize {
-        self.node.element_count()
+        self.activated.element_count()
     }
 
-    pub fn visit_iter<S, Prop>(&self) -> T::VisitIter<'_, S>
+    pub fn visit<V>(&self, visitor: &mut V)
     where
-        S: StyleReader,
-        T: VisitIter<Prop>,
+        T: Visit<V>,
     {
-        self.node.visit_iter()
+        self.activated.visit(visitor)
     }
 
-    pub fn finish_iter<S, F>(self, mut map: F) -> Result<()>
+    pub fn finish_layouted<L>(self, layouter: &mut L) -> Result<()>
     where
-        F: FnMut(S, (Option<u32>, Option<u32>)) -> Result<Region>,
-        S: StyleReader,
+        T: Renderable<L>,
     {
-        self.node.finish(self.cache, self.content, &mut map)
+        self.activated.render(self.cache, self.content, layouter)
     }
 
-    pub fn finish(self, region: Region) -> Result<()> {
-        let mut region = Some(region);
-        self.finish_iter(move |(), _| {
-            region
-                .take()
-                .ok_or_else(|| anyhow!("only one element can be rendered"))
-        })
+    pub fn finish(self, region: Region) -> Result<()>
+    where
+        T: Renderable<OnceLayouter>,
+    {
+        self.finish_layouted(&mut OnceLayouter(Some(region)))
     }
 }
 
-pub trait VisitIter<Prop>: RenderingNode {
-    type VisitIter<'a, S>: Iterator<Item = VisitItem<S, Prop>>
-    where
-        S: StyleReader,
-        Self: 'a;
+// fn into_rendering
 
-    fn visit_iter<S>(&self) -> Self::VisitIter<'_, S>
-    where
-        S: StyleReader;
-}
-
-#[derive(Clone)]
-pub struct VisitItem<S, P> {
-    pub style: S,
-    pub request_size: (Option<u32>, Option<u32>),
-    pub child_props: P,
-}
-
-impl<T: Sized + RenderingNode> StructureBuilder for T {}
-pub trait StructureBuilder: Sized + RenderingNode {
-    fn into_rendering<'a>(self, content: &'a mut RenderContent) -> IntoRendering<'a, Self> {
+impl<T: Sized + Structure> StructureBuilder for T {}
+pub trait StructureBuilder: Sized + Structure {
+    fn into_rendering<'a>(
+        self,
+        content: &'a mut RenderContent,
+    ) -> IntoRendering<'a, Self::Activated> {
         let cache_box = match content.cache_box_for_children.take() {
             Some(c) => c.get_cache(),
             None => {
@@ -104,16 +106,13 @@ pub trait StructureBuilder: Sized + RenderingNode {
 }
 
 pub(crate) fn into_rendering_raw<'a, T: StructureBuilder>(
-    mut node: T,
-    cache: &'a mut T::Cache,
+    node: T,
+    cache: &'a mut <T::Activated as ActivatedStructure>::Cache,
     content_for_children: BareContent<'a>,
-) -> IntoRendering<'a, T> {
+) -> IntoRendering<'a, T::Activated> {
     let wrapper = BareContentWrapper(content_for_children);
-
-    node.prepare_for_rendering(cache, &wrapper);
-
     IntoRendering {
-        node,
+        activated: node.activate(cache, &wrapper),
         cache,
         content: wrapper,
     }

@@ -17,3 +17,4 @@ tokio = { version = "1.28", features = [
     "macros",
     "rt-multi-thread",
 ] }
+reuse_vec = { path = "../reuse-vec" }

@@ -10,10 +10,7 @@ use crate::{
     element::{render_content::BareContent, Element},
     event::EventDispatcher,
     primitive::Point,
-    structure::{
-        add_child::{self, AddChildCache},
-        into_rendering_raw, EmptyStructure,
-    },
+    structure::{add_child, into_rendering_raw, node::AddChildCache, EmptyStructure},
     style::NoStyle,
     Result,
 };
@@ -22,7 +19,7 @@ use super::{event_comp::EventComponent, Window};
 
 pub(super) async fn new_window<El, F>(window_builder: F) -> Result<Window>
 where
-    El: Element,
+    El: Element<EmptyStructure>,
     F: FnOnce(WindowBuilder) -> WindowBuilder + Send + 'static,
 {
     let ev_disp = EventDispatcher::new();
@@ -49,24 +46,20 @@ where
     })
 }
 
-pub(super) struct BackendRuntime<El> {
+pub(super) struct BackendRuntime<El: Element<EmptyStructure>> {
     window: Arc<WinitWindow>,
-    application: Option<AddChildCache<El, ()>>,
+    application: Option<AddChildCache<El, El::Props>>,
     event_component: EventComponent,
     close_handle: CloseHandle,
 }
 
 impl<El> AppWindow for BackendRuntime<El>
 where
-    El: Element,
+    El: Element<EmptyStructure>,
 {
     fn on_redraw(&mut self, canvas: &mut Canvas, size: (u32, u32), delta: Duration) -> Result<()> {
-        let add_child = add_child::add_child::<El, _, _, _>(
-            Default::default(),
-            NoStyle,
-            |_| {},
-            EmptyStructure,
-        );
+        let add_child =
+            add_child::<El, _, _, _, _>(|_: &mut _| {}, NoStyle, |_| {}, EmptyStructure);
 
         let region = (Point(0.0, 0.0), Point(size.0 as _, size.1 as _));
 

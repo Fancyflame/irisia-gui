@@ -9,7 +9,9 @@ use tokio::sync::Mutex;
 
 use super::ElementHandle;
 
-pub struct RuntimeInit<T: ?Sized> {
+pub mod element_handle;
+
+pub struct InitContent<T: ?Sized> {
     pub(crate) _prevent_user_init: (),
     pub app: Weak<Mutex<T>>,
     pub element_handle: ElementHandle,
@@ -18,7 +20,7 @@ pub struct RuntimeInit<T: ?Sized> {
     pub close_handle: CloseHandle,
 }
 
-impl<T: ?Sized> Clone for RuntimeInit<T> {
+impl<T: ?Sized> Clone for InitContent<T> {
     fn clone(&self) -> Self {
         Self {
             _prevent_user_init: (),
@@ -31,7 +33,7 @@ impl<T: ?Sized> Clone for RuntimeInit<T> {
     }
 }
 
-impl<T: ?Sized> RuntimeInit<T> {
+impl<T: ?Sized> InitContent<T> {
     pub fn recv<E: Event>(&self) -> EventReceive<E> {
         self.element_handle.recv()
     }

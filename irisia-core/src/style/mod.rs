@@ -51,14 +51,17 @@ pub struct StyleColor(pub Color);
 #[derive(Clone, Copy)]
 pub struct NoStyle;
 
-pub trait StyleContainer: Sized + Clone {
+pub trait StyleContainer: Clone {
     fn get_style<T: Style>(&self) -> Option<T>;
 
     fn read<S: StyleReader>(&self) -> S {
         S::read_style(self)
     }
 
-    fn chain<T: StyleContainer>(self, style: T) -> Chain<Self, T> {
+    fn chain<T: StyleContainer>(self, style: T) -> Chain<Self, T>
+    where
+        Self: Sized,
+    {
         Chain::new(self, style)
     }
 }

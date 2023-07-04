@@ -5,13 +5,13 @@ use irisia::{
     skia_safe::{Color4f, ColorSpace, Paint},
 };
 use irisia_core::{
-    element::{Element, Frame, NeverInitalized, RuntimeInit},
+    element::{Element, Frame, InitContent},
     skia_safe::{
         font_style::Width,
         textlayout::{FontCollection, Paragraph, ParagraphBuilder, ParagraphStyle, TextStyle},
         Color, FontMgr, FontStyle, Point as SkiaPoint,
     },
-    structure::VisitIter,
+    structure::EmptyStructure,
     style::{StyleColor, StyleContainer},
     StyleReader,
 };
@@ -54,11 +54,10 @@ struct OwnedState {
     drawing_region: Region,
 }
 
-impl Element for TextBox {
+impl Element<EmptyStructure> for TextBox {
     type Props<'a> = Props<'a>;
-    type ChildProps<'a> = NeverInitalized;
 
-    fn create(init: &RuntimeInit<Self>) -> Self {
+    fn create(init: &InitContent<Self>) -> Self {
         let mut font_collection = FontCollection::new();
         font_collection.set_default_font_manager(FontMgr::new(), None);
         TextBox {
@@ -78,15 +77,9 @@ impl Element for TextBox {
         &mut self,
         Frame {
             props,
-            styles,
-            drawing_region,
-            mut content,
-            ..
-        }: irisia_core::element::Frame<
-            Self,
-            impl StyleContainer,
-            impl VisitIter<Self::ChildProps<'a>>,
-        >,
+            children,
+            content,
+        }: Frame<Self, EmptyStructure>,
     ) -> irisia_core::Result<()> {
         let drawing_region =
             BoxStyleRenderer::draw_border_limited(styles, content.canvas(), drawing_region);

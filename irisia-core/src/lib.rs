@@ -25,7 +25,7 @@ pub mod style;
 pub use __macro_helper::*;
 
 pub use application::Window;
-pub use element::{Element, Frame};
+pub use element::Element;
 pub use event::Event;
 pub use irisia_backend::{
     runtime::exit_app, skia_safe, start_runtime, winit, StaticWindowEvent, WinitWindow,

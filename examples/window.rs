@@ -3,7 +3,7 @@ use irisia::{
     application::{CloseHandle, Window},
     box_styles::*,
     build,
-    element::{Element, ElementHandle, NeverInitalized, NoProps, RuntimeInit},
+    element::{Element, ElementHandle, InitContent, NeverInitalized, NoProps},
     event::standard::{Blured, Click, Focused},
     skia_safe::Color,
     structure::StructureBuilder,
@@ -80,7 +80,7 @@ impl Element for App {
         .finish(frame.drawing_region)
     }
 
-    fn create(_: &RuntimeInit<Self>) -> Self {
+    fn create(_: &InitContent<Self>) -> Self {
         Self {
             rects: vec![
                 Color::RED,

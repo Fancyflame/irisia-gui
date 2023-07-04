@@ -1,4 +1,4 @@
-use self::{emit_scheduler::EmitScheduler, lock::EventDispatcherLock};
+use self::{lock::EventDispatcherLock, scheduler::EmitScheduler};
 use crate::{event::standard::ElementAbandoned, Event};
 use std::{
     future::Future,
@@ -7,12 +7,11 @@ use std::{
 
 use super::{EventMetadata, EventReceive};
 
-mod emit_scheduler;
 mod extension;
 pub mod lock;
 mod maybe_confirmed;
 pub mod receive;
-mod stock;
+mod scheduler;
 
 #[derive(Clone)]
 pub struct EventDispatcher(Arc<StdMutex<EmitScheduler>>);

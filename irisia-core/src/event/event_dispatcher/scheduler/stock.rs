@@ -5,11 +5,15 @@ use std::{
     task::Waker,
 };
 
-use crate::{event::EventMetadata, Event};
+use crate::{
+    event::{
+        event_dispatcher::maybe_confirmed::{AllConfirmedPermits, MaybeConfirmed},
+        EventMetadata,
+    },
+    Event,
+};
 
-use super::maybe_confirmed::{AllConfirmedPermits, MaybeConfirmed};
-
-pub(super) struct EventListenerStock {
+pub(in crate::event) struct EventListenerStock {
     stocks: HashMap<TypeId, Box<dyn Any + Send>>,
     wait_lock: Arc<MaybeConfirmed>,
 }
@@ -58,7 +62,7 @@ enum Ltnr<E> {
     },
 }
 
-pub(super) struct Row<E> {
+pub(in crate::event) struct Row<E> {
     id_generator: u32,
     confirmed_count: u32,
     listeners: HashMap<u32, Ltnr<E>>,

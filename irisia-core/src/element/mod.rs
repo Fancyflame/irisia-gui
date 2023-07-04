@@ -1,71 +1,50 @@
-use crate::primitive::Region;
-use crate::structure::{StructureBuilder, VisitIter};
-use crate::{style::StyleContainer, Result};
+use crate::structure::StructureBuilder;
+use crate::Result;
 
-use crate::structure::slot::Slot;
-
-pub use element_handle::ElementHandle;
-pub use render_content::RenderContent;
-pub use runtime_init::RuntimeInit;
-pub use state_update::{
+pub use init_content::{element_handle::ElementHandle, InitContent};
+pub use prop_state::{
     diff_watcher::{Gdw, Udw},
     StateUpdate,
 };
+pub use render_content::RenderContent;
 
-pub mod element_handle;
+use self::prop_state::ElProps;
+
+pub mod init_content;
+pub mod prop_state;
 pub mod render_content;
-pub mod runtime_init;
-pub mod state_update;
-
-pub struct Frame<'a, 'prop, El, St, Ch>
-where
-    El: Element,
-    Ch: StructureBuilder,
-{
-    pub props: El::Props<'prop>,
-    pub styles: &'a St,
-    pub drawing_region: Region,
-    pub children: Slot<'a, Ch>,
-    pub content: RenderContent<'a>,
-    pub ri: &'a RuntimeInit<El>,
-}
 
 /// Element is a thing can draw itself on the given canvas,
 /// according to its properties, styles and given drawing region.
 /// This trait is close to the native rendering, if you are not a
-/// component maker, please using exist element or using macros to
+/// component maker, please using exist element or using macros tos
 /// customize one.
-pub trait Element: Sized + 'static {
-    type Props<'a>: Default;
-    type ChildProps<'a>;
+pub trait Element<Sb>
+where
+    Self: Sized + 'static,
+    Sb: StructureBuilder,
+{
+    type Props: ElProps;
 
-    fn create(init: &RuntimeInit<Self>) -> Self;
-
-    fn render<'a>(
-        &mut self,
-        frame: Frame<Self, impl StyleContainer, impl VisitIter<Self::ChildProps<'a>>>,
-    ) -> Result<()>;
-
+    fn create(init: &InitContent<Self>) -> Self;
+    fn render(&mut self, frame: Frame<Self, Sb>) -> Result<()>;
     fn compute_size(&self) -> (Option<u32>, Option<u32>) {
         (None, None)
     }
+}
+pub struct Frame<'a, El, Sb>
+where
+    El: Element<Sb>,
+    Sb: StructureBuilder,
+{
+    pub props: &'a El::Props,
+    pub children: Sb,
+    pub content: RenderContent<'a>,
 }
 
 #[derive(Clone, Copy, Default)]
 pub struct NoProps {}
 
-pub trait PropsAsChild<'a, T>: Element {
-    fn props_as_child(&'a self, props: &Self::Props<'_>, style: &impl StyleContainer) -> T;
+pub trait AsChildProps<'a, T> {
+    fn as_child_props(&'a self) -> T;
 }
-
-impl<El: Element> PropsAsChild<'_, ()> for El {
-    fn props_as_child(&self, _: &Self::Props<'_>, _: &impl StyleContainer) {}
-}
-
-impl<'a, El: Element> PropsAsChild<'a, &'a El> for El {
-    fn props_as_child(&self, _: &Self::Props<'_>, _: &impl StyleContainer) -> &El {
-        self
-    }
-}
-
-pub struct NeverInitalized(());

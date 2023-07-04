@@ -1,5 +1,5 @@
 use irisia::{
-    element::{Element, Frame, NoProps, RuntimeInit},
+    element::{Element, Frame, InitContent, NoProps},
     event::standard::{ElementAbandoned, PointerEntered, PointerOut},
     exit_app,
     primitive::Point,
@@ -74,7 +74,7 @@ impl Element for Rectangle {
         Ok(())
     }
 
-    fn create(init: &RuntimeInit<Self>) -> Self {
+    fn create(init: &InitContent<Self>) -> Self {
         let init = init.clone();
         tokio::spawn(async move {
             let app = init.app.upgrade().unwrap();
@@ -149,7 +149,7 @@ impl Element for Flex {
     type Props<'a> = NoProps;
     type ChildProps<'a> = ();
 
-    fn create(_: &RuntimeInit<Self>) -> Self {
+    fn create(_: &InitContent<Self>) -> Self {
         Flex
     }
 

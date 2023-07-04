@@ -15,6 +15,7 @@ pub struct ReuseVec {
 impl<T> From<Vec<T>> for ReuseVec {
     fn from(value: Vec<T>) -> Self {
         let mut vec = ManuallyDrop::new(value);
+        vec.clear(); // Ensures nothing can escape from being destructed
         ReuseVec {
             ptr: vec.as_mut_ptr().cast(),
             layout: Layout::new::<T>(),
@@ -24,6 +25,10 @@ impl<T> From<Vec<T>> for ReuseVec {
 }
 
 impl ReuseVec {
+    pub fn into_vec<T>(self) -> Vec<T> {
+        self.into()
+    }
+
     pub fn try_into_vec<T>(self) -> Result<Vec<T>, ReuseVecLayoutError> {
         let this_layout = Layout::new::<T>();
         if self.layout != this_layout {
