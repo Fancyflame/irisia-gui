@@ -1,15 +1,17 @@
 use syn::{meta::ParseNestedMeta, token::Paren, Attribute, Expr, Ident, LitStr, Result, Token};
 
-use super::parse_paths::Segment;
+pub use parse_paths::Segment;
+
+mod parse_paths;
 
 #[derive(Debug)]
 pub enum DeriveAttr {
     Skip,
     From {
-        expr: Option<Vec<Vec<Segment>>>,
+        instruction: Option<Vec<Vec<Segment>>>,
     },
     Default {
-        expr: Option<Expr>,
+        specified: Option<Expr>,
     },
     Option {
         rename: Option<Ident>,
@@ -20,24 +22,26 @@ pub enum DeriveAttr {
 
 impl DeriveAttr {
     pub fn parse_attr(attr: &Attribute) -> Result<Vec<Self>> {
-        if !attr.path().is_ident("irisia") {
+        if !attr.path().is_ident("style") {
             return Ok(vec![]);
         }
 
         let mut attrs = Vec::new();
-        attr.parse_nested_meta(|meta| {
-            if meta.path.is_ident("style") {
-                meta.parse_nested_meta(|meta2| {
-                    attrs.push(parse_logic(meta2)?);
-                    Ok(())
-                })
-            } else {
-                Ok(())
-            }
+        attr.parse_nested_meta(|meta2| {
+            attrs.push(parse_logic(meta2)?);
+            Ok(())
         })?;
 
         Ok(attrs)
     }
+}
+
+pub fn get_attrs(attrs: &[Attribute]) -> Result<Vec<DeriveAttr>> {
+    let mut output = Vec::new();
+    for attr in attrs {
+        output.extend(DeriveAttr::parse_attr(attr)?);
+    }
+    Ok(output)
 }
 
 fn parse_logic(meta: ParseNestedMeta) -> Result<DeriveAttr> {
@@ -58,8 +62,8 @@ fn parse_logic(meta: ParseNestedMeta) -> Result<DeriveAttr> {
 
 fn parse_from(input: ParseNestedMeta) -> Result<DeriveAttr> {
     Ok(DeriveAttr::From {
-        expr: if input.input.peek(Token![=]) {
-            Some(super::parse_paths::parse_paths(input.value()?)?)
+        instruction: if input.input.peek(Token![=]) {
+            Some(parse_paths::parse_paths(input.value()?)?)
         } else {
             None
         },
@@ -69,9 +73,11 @@ fn parse_from(input: ParseNestedMeta) -> Result<DeriveAttr> {
 fn parse_default(input: ParseNestedMeta) -> Result<DeriveAttr> {
     if input.input.peek(Token![=]) {
         let litstr: LitStr = input.value()?.parse()?;
-        syn::parse_str(&litstr.value()).map(|expr| DeriveAttr::Default { expr: Some(expr) })
+        syn::parse_str(&litstr.value()).map(|expr| DeriveAttr::Default {
+            specified: Some(expr),
+        })
     } else {
-        Ok(DeriveAttr::Default { expr: None })
+        Ok(DeriveAttr::Default { specified: None })
     }
 }
 
@@ -109,7 +115,7 @@ fn parse_option(meta: ParseNestedMeta) -> Result<DeriveAttr> {
 }
 
 impl DeriveAttr {
-    pub fn attr_name(&self) -> &'static str {
+    pub const fn attr_name(&self) -> &'static str {
         match self {
             DeriveAttr::Default { .. } => "default",
             DeriveAttr::From { .. } => "from",

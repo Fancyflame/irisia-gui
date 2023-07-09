@@ -45,11 +45,20 @@ use self::reader::StyleReader;
 pub trait Style: Clone + 'static {}
 
 #[derive(Debug, Style, Clone, PartialEq)]
-#[irisia(style(from))]
+#[style(from)]
 pub struct StyleColor(pub Color);
 
 #[derive(Clone, Copy)]
 pub struct NoStyle;
+
+#[derive(Debug, Style, Clone, Copy, PartialEq)]
+pub enum XAxisBound {
+    #[style(option)]
+    Left(#[style(default)] Pixel),
+
+    #[style(option)]
+    Right(#[style(default)] Pixel),
+}
 
 pub trait StyleContainer: Clone {
     fn get_style<T: Style>(&self) -> Option<T>;

@@ -1,4 +1,7 @@
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use std::{
+    fmt::Debug,
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
+};
 
 #[derive(Default, Clone, Copy, PartialEq, PartialOrd)]
 pub struct Pixel(pub f32);
@@ -6,6 +9,12 @@ pub struct Pixel(pub f32);
 impl Pixel {
     pub fn to_physical(self) -> f32 {
         self.0
+    }
+}
+
+impl Debug for Pixel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}px", self.0)
     }
 }
 

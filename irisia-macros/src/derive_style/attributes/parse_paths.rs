@@ -17,6 +17,15 @@ pub enum Segment {
     },
 }
 
+impl Segment {
+    pub const fn tag(&self) -> &Member {
+        match self {
+            Self::Member(m) => m,
+            Self::Fn { bind, .. } => bind,
+        }
+    }
+}
+
 pub fn parse_paths(input: ParseStream) -> Result<Vec<Vec<Segment>>> {
     let lit_str: LitStr = input.parse()?;
 

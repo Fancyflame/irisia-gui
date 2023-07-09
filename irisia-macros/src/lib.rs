@@ -113,7 +113,7 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
     .into()
 }
 
-#[proc_macro_derive(Style, attributes(irisia))]
+#[proc_macro_derive(Style, attributes(style))]
 pub fn derive_style(input: TokenStream) -> TokenStream {
     match derive_style::derive_style(parse_macro_input!(input as DeriveInput)) {
         Ok(t) => t.into(),

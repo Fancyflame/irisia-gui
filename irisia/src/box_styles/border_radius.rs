@@ -3,21 +3,21 @@ use irisia_core::skia_safe::{Point as SkiaPoint, RRect, Rect};
 
 #[derive(Style, Clone)]
 pub enum StyleBorderRadius {
-    #[irisia(style(from))]
+    #[style(from)]
     Radii(Pixel),
 
-    #[irisia(style(from, from = "", impl_default))]
+    #[style(from, from = "", impl_default)]
     Radii4 {
-        #[irisia(style(option, default))]
+        #[style(option, default)]
         left_top: Pixel,
 
-        #[irisia(style(option, default))]
+        #[style(option, default)]
         right_top: Pixel,
 
-        #[irisia(style(option, default))]
+        #[style(option, default)]
         right_bottom: Pixel,
 
-        #[irisia(style(option, default))]
+        #[style(option, default)]
         left_bottom: Pixel,
     },
 

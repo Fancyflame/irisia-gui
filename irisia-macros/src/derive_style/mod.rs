@@ -1,77 +1,23 @@
 use proc_macro2::{Span, TokenStream};
-use quote::quote;
-use syn::{
-    spanned::Spanned, Data, DataEnum, DataStruct, DeriveInput, Error, Fields, Ident, Result,
-    Variant,
-};
+use syn::{Data, DeriveInput, Error, Member, Result};
 
-use self::to_tokens::write_stream;
-
-mod anaylyze_fields;
-mod attr_parse;
-mod parse_paths;
-mod to_tokens;
+mod attributes;
+mod codegen_utils;
+mod derive_enum;
+mod derive_struct;
+mod variant_analyzer;
 
 pub fn derive_style(derive: DeriveInput) -> Result<TokenStream> {
-    let item_span = derive.span();
-    let DeriveInput {
-        attrs,
-        ident,
-        data,
-        generics,
-        vis,
-    } = derive;
-
-    let mut tokens = {
-        let (impl_gen, type_gen, where_clause) = generics.split_for_impl();
-        quote! {
-            #[automatically_derived]
-            impl #impl_gen irisia::Style for #ident #type_gen
-            #where_clause
-            {}
-        }
-    };
-
-    let mut write = |fields: &Fields, variant: Option<&Ident>, result| {
-        write_stream(
-            &mut tokens,
-            fields,
-            variant,
-            &vis,
-            &ident,
-            &generics,
-            result,
-        )
-    };
-
-    match data {
-        Data::Union(_) => return Err(Error::new(item_span, "union is unspported")),
-
-        Data::Struct(DataStruct { fields, .. }) => {
-            let result = anaylyze_fields::analyze_fields(attrs, &fields)?;
-            write(&fields, None, result);
-        }
-
-        Data::Enum(DataEnum { variants, .. }) => {
-            if !anaylyze_fields::get_attrs(&attrs)?.is_empty() {
-                return Err(Error::new(
-                    Span::call_site(),
-                    "item-level irisia-macro is invalid for enum",
-                ));
-            }
-
-            for Variant {
-                attrs,
-                ident,
-                fields,
-                ..
-            } in variants
-            {
-                let result = anaylyze_fields::analyze_fields(attrs, &fields)?;
-                write(&fields, Some(&ident), result);
-            }
-        }
+    match &derive.data {
+        Data::Struct(_) => derive_struct::derive_style_for_struct(derive),
+        Data::Enum(_) => derive_enum::derive_style_for_enum(derive),
+        Data::Union(_) => return Err(Error::new(Span::call_site(), "union is unsupported")),
     }
+}
 
-    Ok(tokens)
+pub fn tag_to_string(tag: &Member) -> String {
+    match tag {
+        Member::Named(id) => id.to_string(),
+        Member::Unnamed(index) => index.index.to_string(),
+    }
 }
