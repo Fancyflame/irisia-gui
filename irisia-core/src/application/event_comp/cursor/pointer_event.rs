@@ -73,7 +73,7 @@ impl super::CursorWatcher {
                     }
                 };
 
-                emit_event(&self, |is_first| PointerDown {
+                emit_event(self, |is_first| PointerDown {
                     is_leading,
                     position: self.cursor_pos.unwrap_or_default(),
                     is_current: is_first,

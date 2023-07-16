@@ -21,7 +21,7 @@ struct Item {
     parent: Option<usize>,
 }
 
-pub(crate) struct EventComponent {
+pub(super) struct EventComponent {
     global: EventDispatcher,
     registered: Vec<Item>,
     builder_stack: Vec<usize>,

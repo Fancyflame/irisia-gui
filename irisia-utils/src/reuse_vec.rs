@@ -25,11 +25,19 @@ impl<T> From<Vec<T>> for ReuseVec {
 }
 
 impl ReuseVec {
+    pub fn new() -> Self {
+        Self::from(Vec::<()>::new())
+    }
+
     pub fn into_vec<T>(self) -> Vec<T> {
-        self.into()
+        self.try_into_vec().unwrap_or_default()
     }
 
     pub fn try_into_vec<T>(self) -> Result<Vec<T>, ReuseVecLayoutError> {
+        if self.capacity == 0 {
+            return Ok(Vec::new());
+        }
+
         let this_layout = Layout::new::<T>();
         if self.layout != this_layout {
             return Err(ReuseVecLayoutError {
@@ -46,7 +54,13 @@ impl ReuseVec {
 
 impl<T> From<ReuseVec> for Vec<T> {
     fn from(this: ReuseVec) -> Self {
-        this.try_into_vec().unwrap_or_else(|_| Vec::new())
+        this.into_vec()
+    }
+}
+
+impl Default for ReuseVec {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

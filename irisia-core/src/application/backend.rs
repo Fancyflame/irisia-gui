@@ -64,12 +64,12 @@ where
         let region = (Point(0.0, 0.0), Point(size.0 as _, size.1 as _));
 
         self.event_component
-            .rebuild(|event_comp_builder, window_event_receiver, focusing| {
+            .rebuild(|event_comp_builder, window_event_dispatcher, focusing| {
                 let content = BareContent {
                     canvas,
                     window: &self.window,
                     delta_time: delta,
-                    window_event_dispatcher: window_event_receiver,
+                    window_event_dispatcher,
                     close_handle: self.close_handle,
                     event_comp_builder,
                     focusing,

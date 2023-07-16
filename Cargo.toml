@@ -5,6 +5,6 @@ members = [
     "irisia",
     "irisia-backend",
     "irisia-macros",
-    "reuse-vec",
+    "irisia-utils",
     "examples",
 ]

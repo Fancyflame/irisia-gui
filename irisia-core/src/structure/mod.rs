@@ -1,4 +1,5 @@
 pub(crate) mod cache_box;
+pub(crate) mod layer;
 pub mod node;
 pub mod visit;
 

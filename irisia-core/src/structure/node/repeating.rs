@@ -1,6 +1,6 @@
 use std::{collections::HashMap, hash::Hash};
 
-use reuse_vec::ReuseVec;
+use irisia_utils::ReuseVec;
 
 use crate::{
     structure::visit::{ActivatedStructure, BareContentWrapper, Renderable, Structure, Visit},
