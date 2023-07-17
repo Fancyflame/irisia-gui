@@ -26,7 +26,7 @@ where
 
     let create_app = {
         let event_component = EventComponent::new(ev_disp.clone());
-        move |window: Arc<WinitWindow>, close_handle: CloseHandle| BackendRuntime::<El> {
+        move |window: Arc<WinitWindow>, close_handle| BackendRuntime::<El> {
             window,
             application: None,
             event_component,

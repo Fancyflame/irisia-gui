@@ -3,7 +3,7 @@ use tokio::sync::OwnedMutexGuard;
 use crate::{
     element::{Frame, RenderContent},
     structure::{
-        visit::{ActivatedStructure, BareContentWrapper, Layouter, Renderable, Visit, Visitor},
+        activate::{ActivatedStructure, BareContentWrapper, Layouter, Renderable, Visit, Visitor},
         StructureBuilder,
     },
     style::StyleContainer,

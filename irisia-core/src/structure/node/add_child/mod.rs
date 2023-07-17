@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use crate::{
     element::InitContent,
     structure::{
-        visit::ActivatedStructure, BareContentWrapper, Element, Structure, StructureBuilder,
+        activate::ActivatedStructure, BareContentWrapper, Element, Structure, StructureBuilder,
         VisitItem,
     },
     style::StyleContainer,

@@ -105,7 +105,6 @@ impl RenderWindow {
                         return;
                     }
                 }
-                self.window.request_redraw();
             }
 
             Event::RedrawRequested(_) => {

@@ -2,17 +2,14 @@ use crate::structure::StructureBuilder;
 use crate::Result;
 
 pub use init_content::{element_handle::ElementHandle, InitContent};
-pub use prop_state::{
-    diff_watcher::{Gdw, Udw},
-    StateUpdate,
-};
 pub use render_content::RenderContent;
+pub use state::StateUpdate;
 
-use self::prop_state::ElProps;
+use self::state::ElProps;
 
 pub mod init_content;
-pub mod prop_state;
 pub mod render_content;
+pub mod state;
 
 /// Element is a thing can draw itself on the given canvas,
 /// according to its properties, styles and given drawing region.

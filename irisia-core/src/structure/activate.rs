@@ -2,7 +2,7 @@ use crate::{
     element::render_content::BareContent, primitive::Region, style::StyleContainer, Result,
 };
 
-pub(crate) use __private::*;
+pub(super) use __private::*;
 
 mod __private {
     use super::*;

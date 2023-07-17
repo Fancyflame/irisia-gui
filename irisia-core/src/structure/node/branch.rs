@@ -1,4 +1,4 @@
-use crate::structure::visit::{
+use crate::structure::activate::{
     ActivatedStructure, BareContentWrapper, Renderable, Structure, Visit,
 };
 

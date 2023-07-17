@@ -1,5 +1,5 @@
 use crate::{
-    structure::visit::{ActivatedStructure, BareContentWrapper, Renderable, Structure, Visit},
+    structure::activate::{ActivatedStructure, BareContentWrapper, Renderable, Structure, Visit},
     Result,
 };
 

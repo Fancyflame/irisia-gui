@@ -1,8 +1,3 @@
-pub(crate) mod cache_box;
-pub(crate) mod layer;
-pub mod node;
-pub mod visit;
-
 use crate::{
     element::{render_content::BareContent, Element, RenderContent},
     primitive::Region,
@@ -10,6 +5,7 @@ use crate::{
 };
 
 pub use self::{
+    activate::{Layouter, VisitItem, Visitor},
     node::{
         add_child::{add_child, AddChild},
         branch::Branch,
@@ -17,37 +13,26 @@ pub use self::{
         empty::EmptyStructure,
         repeating::Repeating,
     },
-    visit::{Layouter, VisitItem, Visitor},
 };
 
 use self::{
-    __one_child::OnceLayouter,
-    visit::{ActivatedStructure, BareContentWrapper, Renderable, Structure, Visit},
+    activate::{ActivatedStructure, BareContentWrapper, Renderable, Structure, Visit},
+    layout_once::LayoutOnce,
 };
+
+pub mod activate;
+pub(crate) mod cache_box;
+pub(crate) mod layer;
+pub mod layout_once;
+pub mod node;
 
 // IntoRendering
 
-#[must_use]
+#[must_use = "`IntoRendering` does nothing without calling `finish` or `finish_with`"]
 pub struct IntoRendering<'a, T: ActivatedStructure> {
     activated: T,
     cache: &'a mut T::Cache,
     content: BareContentWrapper<'a>,
-}
-
-mod __one_child {
-    use anyhow::anyhow;
-
-    use crate::style::StyleContainer;
-
-    use super::{visit::Layouter, *};
-    pub struct OnceLayouter(pub Option<Region>);
-    impl<El> Layouter<El> for OnceLayouter {
-        fn layout(&mut self, _: VisitItem<El, impl StyleContainer>) -> Result<Region> {
-            self.0
-                .take()
-                .ok_or_else(|| anyhow!("at most 1 element can be rendered"))
-        }
-    }
 }
 
 impl<'a, T> IntoRendering<'a, T>
@@ -65,7 +50,7 @@ where
         self.activated.visit(visitor)
     }
 
-    pub fn finish_layouted<L>(self, layouter: &mut L) -> Result<()>
+    pub fn finish_with<L>(self, layouter: &mut L) -> Result<()>
     where
         T: Renderable<L>,
     {
@@ -74,9 +59,9 @@ where
 
     pub fn finish(self, region: Region) -> Result<()>
     where
-        T: Renderable<OnceLayouter>,
+        T: Renderable<LayoutOnce>,
     {
-        self.finish_layouted(&mut OnceLayouter(Some(region)))
+        self.finish_with(&mut LayoutOnce::new(region))
     }
 }
 

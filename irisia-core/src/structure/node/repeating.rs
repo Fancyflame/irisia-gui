@@ -3,7 +3,7 @@ use std::{collections::HashMap, hash::Hash};
 use irisia_utils::ReuseVec;
 
 use crate::{
-    structure::visit::{ActivatedStructure, BareContentWrapper, Renderable, Structure, Visit},
+    structure::activate::{ActivatedStructure, BareContentWrapper, Renderable, Structure, Visit},
     Result,
 };
 
