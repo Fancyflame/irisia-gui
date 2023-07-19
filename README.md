@@ -14,6 +14,15 @@ Irisia is heavily depend on following crates:
 
 **Irisia GUI正处于快速开发阶段，文档、接口和示例很可能不能反应最新进度。欲获知最新特性，可参考`windows.rs`文件。**
 
+# example暂时无法使用
+因为在制作缓存模型，涉及大量渲染逻辑，因此example暂时没法运行。**可以运行缓存模型前一个版本的例程来快速体验irisia**。
+```sh
+git clone https://github.com/Fancyflame/irisia-gui.git
+cd irisia-gui
+git reset --hard f332664 # 回退到之前版本
+cargo r --example window
+```
+
 ## 📕 Irisia Book
 
 Only Chinese is available now\
