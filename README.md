@@ -16,10 +16,11 @@ Irisia is heavily depend on following crates:
 
 # example暂时无法使用
 因为在制作缓存模型，涉及大量渲染逻辑，因此example暂时没法运行。**可以运行缓存模型前一个版本的例程来快速体验irisia**。
+下面是运行f332664 commit（渲染模型开始前一个版本）中irisia例程的指令：
 ```sh
 git clone https://github.com/Fancyflame/irisia-gui.git
 cd irisia-gui
-git reset --hard f332664 # 回退到之前版本
+git reset --hard f332664
 cargo r --example window
 ```
 
