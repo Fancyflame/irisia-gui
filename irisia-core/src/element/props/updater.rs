@@ -3,15 +3,27 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use super::StateUpdate;
+/// Custom update methods.
+pub trait StateUpdate<T> {
+    /// Update the state, returns whether
+    /// the new state is equivalent to the previous.
+    ///
+    /// - `updater`: The new state.
+    /// - `equality_matters`: Whether the return value is matters.
+    /// If not, you can return `false` directly without checking the equality
+    /// which will cost nothing more than `true`.
+    /// - `return`: Whether the state has changed. Return `false` is always
+    /// correct, but may cause unnecessary redrawing.
+    fn state_update(&mut self, updater: T, equality_matters: bool) -> bool;
+}
 
 // for String/OsString/PathBuf from str/OsStr/Path
 
 macro_rules! impl_as_ref {
-    ($Struct:ident $str:ident $push:ident) => {
+    ($Struct:ident $slice:ident $push:ident) => {
         impl<T> StateUpdate<T> for $Struct
         where
-            T: AsRef<$str>,
+            T: AsRef<$slice>,
         {
             fn state_update(&mut self, updater: T, equality_matters: bool) -> bool {
                 let unchanged = equality_matters && (self == updater.as_ref());

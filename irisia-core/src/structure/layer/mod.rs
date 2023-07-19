@@ -1,4 +1,7 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{
+    cell::RefCell,
+    rc::{Rc, Weak},
+};
 
 use anyhow::anyhow;
 use irisia_backend::skia_safe::{
@@ -8,32 +11,32 @@ use irisia_backend::skia_safe::{
 
 use self::queue::{Layer, Queue};
 use crate::Result;
-pub(crate) use rebuild::Rebuild;
+pub(crate) use rebuild::Rebuilder;
 
 mod queue;
 pub(crate) mod rebuild;
 
-pub(crate) type RcLc = Rc<RefCell<LayerCompositer>>;
+pub(crate) type SharedLayerCompositer = Rc<RefCell<LayerCompositer>>;
+type WeakLayerCompositer = Weak<RefCell<LayerCompositer>>;
 
 pub(crate) struct LayerCompositer {
     layers: Queue,
+    self_weak: WeakLayerCompositer,
 }
 
 impl LayerCompositer {
-    pub fn new_rc() -> RcLc {
-        Rc::new(RefCell::new(Self {
-            layers: Queue::new(),
-        }))
+    pub fn new_shared() -> SharedLayerCompositer {
+        Rc::new_cyclic(|weak| {
+            RefCell::new(Self {
+                layers: Queue::new(),
+                self_weak: weak.clone(),
+            })
+        })
     }
 
-    pub fn rebuild<'a>(&'a mut self, canvas: &'a mut Canvas) -> Rebuild<'a> {
+    pub fn rebuild<'a>(&'a mut self, canvas: &'a mut Canvas) -> Rebuilder<'a> {
         self.layers.clear();
-        canvas.save();
-        Rebuild {
-            lc: self,
-            canvas,
-            dirty: false,
-        }
+        Rebuilder::new(self, canvas, false)
     }
 
     pub fn composite(&self, canvas: &mut Canvas) -> Result<()> {

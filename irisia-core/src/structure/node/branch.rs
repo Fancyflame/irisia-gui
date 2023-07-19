@@ -1,5 +1,9 @@
-use crate::structure::activate::{
-    ActivatedStructure, BareContentWrapper, Renderable, Structure, Visit,
+use crate::{
+    element::render_content::BareContent,
+    structure::activate::{
+        ActivateUpdateArguments, ActivatedStructure, Renderable, Structure, Visit,
+    },
+    Result,
 };
 
 #[derive(Default)]
@@ -23,7 +27,7 @@ where
     fn activate(
         self,
         cache: &mut <Self::Activated as ActivatedStructure>::Cache,
-        content: &BareContentWrapper,
+        content: &BareContent,
     ) -> Self::Activated {
         match self {
             Branch::Arm1(a) => Branch::Arm1(a.activate(&mut cache.arm1, content)),
@@ -65,16 +69,29 @@ where
     T: Renderable<L>,
     U: Renderable<L>,
 {
-    fn render_at(
-        self,
-        index: usize,
-        cache: &mut Self::Cache,
-        bare_content: BareContentWrapper,
-        layouter: &mut L,
-    ) -> crate::Result<()> {
+    fn update(self, args: ActivateUpdateArguments<Self::Cache, L>) -> Result<bool> {
+        let ActivateUpdateArguments {
+            offset,
+            cache,
+            bare_content,
+            layouter,
+            equality_matters,
+        } = args;
         match self {
-            Branch::Arm1(a) => a.render_at(index, &mut cache.arm1, bare_content, layouter),
-            Branch::Arm2(a) => a.render_at(index, &mut cache.arm2, bare_content, layouter),
+            Branch::Arm1(a) => a.update(ActivateUpdateArguments {
+                offset,
+                cache: &mut cache.arm1,
+                bare_content,
+                layouter,
+                equality_matters,
+            }),
+            Branch::Arm2(a) => a.update(ActivateUpdateArguments {
+                offset,
+                cache: &mut cache.arm2,
+                bare_content,
+                layouter,
+                equality_matters,
+            }),
         }
     }
 }

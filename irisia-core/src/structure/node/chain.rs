@@ -1,5 +1,8 @@
 use crate::{
-    structure::activate::{ActivatedStructure, BareContentWrapper, Renderable, Structure, Visit},
+    element::render_content::BareContent,
+    structure::activate::{
+        ActivateUpdateArguments, ActivatedStructure, Renderable, Structure, Visit,
+    },
     Result,
 };
 
@@ -16,7 +19,7 @@ where
     fn activate(
         self,
         cache: &mut <Self::Activated as ActivatedStructure>::Cache,
-        content: &BareContentWrapper,
+        content: &BareContent,
     ) -> Self::Activated {
         Chain(
             self.0.activate(&mut cache.0, content),
@@ -42,22 +45,33 @@ where
     A: Renderable<L>,
     B: Renderable<L>,
 {
-    fn render_at(
-        self,
-        index: usize,
-        cache: &mut Self::Cache,
-        mut bare_content: BareContentWrapper,
-        layouter: &mut L,
-    ) -> Result<()> {
-        let element_count = self.0.element_count();
-        self.0.render_at(
-            index,
-            &mut cache.0,
-            BareContentWrapper(bare_content.0.downgrade_lifetime()),
+    fn update(self, args: ActivateUpdateArguments<Self::Cache, L>) -> Result<bool> {
+        let ActivateUpdateArguments {
+            offset,
+            cache,
+            mut bare_content,
             layouter,
-        )?;
-        self.1
-            .render_at(index + element_count, &mut cache.1, bare_content, layouter)
+            equality_matters: mut everything_the_same,
+        } = args;
+        let element_count = self.0.element_count();
+
+        everything_the_same &= self.0.update(ActivateUpdateArguments {
+            offset,
+            cache: &mut cache.0,
+            bare_content: bare_content.downgrade_lifetime(),
+            layouter,
+            equality_matters: everything_the_same,
+        })?;
+
+        everything_the_same &= self.1.update(ActivateUpdateArguments {
+            offset: offset + element_count,
+            cache: &mut cache.1,
+            bare_content,
+            layouter,
+            equality_matters: everything_the_same,
+        })?;
+
+        Ok(everything_the_same)
     }
 }
 

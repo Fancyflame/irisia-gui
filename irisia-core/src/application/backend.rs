@@ -1,16 +1,21 @@
 use std::{sync::Arc, time::Duration};
 
 use irisia_backend::{
-    skia_safe::Canvas,
+    skia_safe::{colors::TRANSPARENT, Canvas},
     window_handle::{close_handle::CloseHandle, RawWindowHandle, WindowBuilder},
     AppWindow, StaticWindowEvent, WinitWindow,
 };
 
 use crate::{
-    element::{render_content::BareContent, Element},
+    element::{render_content::BareContent, Element, ElementMutate},
     event::EventDispatcher,
     primitive::Point,
-    structure::{add_child, into_rendering_raw, node::AddChildCache, EmptyStructure},
+    structure::{
+        add_child, into_rendering_raw,
+        layer::{LayerCompositer, SharedLayerCompositer},
+        node::AddChildCache,
+        EmptyStructure,
+    },
     style::NoStyle,
     Result,
 };
@@ -19,7 +24,7 @@ use super::{event_comp::EventComponent, Window};
 
 pub(super) async fn new_window<El, F>(window_builder: F) -> Result<Window>
 where
-    El: Element<EmptyStructure>,
+    El: Element + ElementMutate<(), EmptyStructure>,
     F: FnOnce(WindowBuilder) -> WindowBuilder + Send + 'static,
 {
     let ev_disp = EventDispatcher::new();
@@ -31,6 +36,7 @@ where
             application: None,
             event_component,
             close_handle,
+            layer_compositer: LayerCompositer::new_shared(),
         }
     };
 
@@ -46,27 +52,26 @@ where
     })
 }
 
-pub(super) struct BackendRuntime<El: Element<EmptyStructure>> {
+pub(super) struct BackendRuntime<El> {
     window: Arc<WinitWindow>,
-    application: Option<AddChildCache<El, El::Props>>,
+    application: Option<AddChildCache<El>>,
     event_component: EventComponent,
     close_handle: CloseHandle,
+    layer_compositer: SharedLayerCompositer,
 }
 
 impl<El> AppWindow for BackendRuntime<El>
 where
-    El: Element<EmptyStructure>,
+    El: Element + ElementMutate<(), EmptyStructure>,
 {
     fn on_redraw(&mut self, canvas: &mut Canvas, size: (u32, u32), delta: Duration) -> Result<()> {
-        let add_child =
-            add_child::<El, _, _, _, _>(|_: &mut _| {}, NoStyle, |_| {}, EmptyStructure);
+        let add_child = add_child::<El, _, _, _, _>((), NoStyle, EmptyStructure, |_: &_| {});
 
         let region = (Point(0.0, 0.0), Point(size.0 as _, size.1 as _));
 
         self.event_component
             .rebuild(|event_comp_builder, window_event_dispatcher, focusing| {
                 let content = BareContent {
-                    canvas,
                     window: &self.window,
                     delta_time: delta,
                     window_event_dispatcher,
@@ -75,7 +80,15 @@ where
                     focusing,
                 };
 
-                into_rendering_raw(add_child, &mut self.application, content).finish(region)
+                let mut lc = self.layer_compositer.borrow_mut();
+
+                if self.application.is_none() {
+                    into_rendering_raw(add_child, &mut self.application, content)
+                        .finish(region, true)?;
+                }
+
+                canvas.clear(TRANSPARENT);
+                lc.composite(canvas)
             })
     }
 

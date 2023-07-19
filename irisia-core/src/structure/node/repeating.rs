@@ -3,7 +3,10 @@ use std::{collections::HashMap, hash::Hash};
 use irisia_utils::ReuseVec;
 
 use crate::{
-    structure::activate::{ActivatedStructure, BareContentWrapper, Renderable, Structure, Visit},
+    element::render_content::BareContent,
+    structure::activate::{
+        ActivateUpdateArguments, ActivatedStructure, Renderable, Structure, Visit,
+    },
     Result,
 };
 
@@ -30,7 +33,7 @@ where
     fn activate(
         self,
         cache: &mut <Self::Activated as ActivatedStructure>::Cache,
-        content: &BareContentWrapper,
+        content: &BareContent,
     ) -> Self::Activated {
         let mut buffer = match cache.buffer.take() {
             Some(rv) => {
@@ -101,13 +104,15 @@ where
     K: Clone + Hash + Eq + 'static,
     T: Renderable<L>,
 {
-    fn render_at(
-        mut self,
-        mut index: usize,
-        cache: &mut Self::Cache,
-        mut bare_content: BareContentWrapper,
-        layouter: &mut L,
-    ) -> Result<()> {
+    fn update(mut self, args: ActivateUpdateArguments<Self::Cache, L>) -> Result<bool> {
+        let ActivateUpdateArguments {
+            mut offset,
+            cache,
+            mut bare_content,
+            layouter,
+            equality_matters: mut everything_the_same,
+        } = args;
+
         for (k, node) in self.vectored.drain(..) {
             let node_cache = match cache.element_cache.get_mut(&k) {
                 Some(c) => c,
@@ -116,14 +121,16 @@ where
 
             node_cache.alive_signal = true;
             let element_count = node.element_count();
-            node.render_at(
-                index,
-                &mut node_cache.value,
-                BareContentWrapper(bare_content.0.downgrade_lifetime()),
+            let the_same = node.update(ActivateUpdateArguments {
+                offset,
+                cache: &mut node_cache.value,
+                bare_content: bare_content.downgrade_lifetime(),
                 layouter,
-            )?;
+                equality_matters: everything_the_same,
+            })?;
+            everything_the_same = everything_the_same && the_same;
 
-            index += element_count;
+            offset += element_count;
         }
 
         cache.element_cache.retain(|_, cache_unit| {
@@ -134,7 +141,7 @@ where
 
         cache.buffer = Some(self.vectored.into());
 
-        Ok(())
+        Ok(everything_the_same)
     }
 }
 

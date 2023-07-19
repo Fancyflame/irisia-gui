@@ -1,47 +1,58 @@
+use crate::primitive::Region;
 use crate::structure::StructureBuilder;
+use crate::style::Pixel;
+use crate::style::StyleContainer;
 use crate::Result;
 
 pub use init_content::{element_handle::ElementHandle, InitContent};
+pub use props::StateUpdate;
 pub use render_content::RenderContent;
-pub use state::StateUpdate;
-
-use self::state::ElProps;
 
 pub mod init_content;
+pub mod props;
 pub mod render_content;
-pub mod state;
 
 /// Element is a thing can draw itself on the given canvas,
 /// according to its properties, styles and given drawing region.
 /// This trait is close to the native rendering, if you are not a
 /// component maker, please using exist element or using macros tos
 /// customize one.
-pub trait Element<Sb>
+pub trait Element
 where
     Self: Sized + 'static,
-    Sb: StructureBuilder,
 {
-    type Props: ElProps;
+    type BlankProps: Default;
 
-    fn create(init: &InitContent<Self>) -> Self;
-    fn render(&mut self, frame: Frame<Self, Sb>) -> Result<()>;
-    fn compute_size(&self) -> (Option<u32>, Option<u32>) {
-        (None, None)
-    }
+    /// Draw to the canvas
+    fn render(&mut self, content: RenderContent) -> Result<()>;
 }
-pub struct Frame<'a, El, Sb>
+
+pub trait ElementMutate<Pr, Sb>
 where
-    El: Element<Sb>,
     Sb: StructureBuilder,
+    Self: Sized,
 {
-    pub props: &'a El::Props,
+    fn compute_size(props: &Pr, styles: &impl StyleContainer, children: &Sb) -> ComputeSize {
+        let _ = (props, styles, children);
+        Default::default()
+    }
+
+    fn create<Sty>(init: &InitContent<Self>, args: UpdateArguments<Pr, Sty, Sb>) -> Self
+    where
+        Sty: StyleContainer;
+
+    fn update<Sty>(&mut self, args: UpdateArguments<Pr, Sty, Sb>) -> bool
+    where
+        Sty: StyleContainer;
+}
+
+pub struct UpdateArguments<Pr, Sty, Sb> {
+    pub props: Pr,
+    pub styles: Sty,
     pub children: Sb,
-    pub content: RenderContent<'a>,
+    pub draw_region: Region,
+    pub equality_matters: bool,
 }
 
-#[derive(Clone, Copy, Default)]
-pub struct NoProps {}
-
-pub trait AsChildProps<'a, T> {
-    fn as_child_props(&'a self) -> T;
-}
+#[derive(Debug, Default, Clone, Copy)]
+pub struct ComputeSize(Option<Pixel>, Option<Pixel>);

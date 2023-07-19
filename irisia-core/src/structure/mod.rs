@@ -16,7 +16,10 @@ pub use self::{
 };
 
 use self::{
-    activate::{ActivatedStructure, BareContentWrapper, Renderable, Structure, Visit},
+    activate::{
+        ActivateUpdateArguments, ActivatedStructure, Renderable, Structure, Visit,
+        __private::StructureBuilderPrivate,
+    },
     layout_once::LayoutOnce,
 };
 
@@ -32,10 +35,10 @@ pub mod node;
 pub struct IntoRendering<'a, T: ActivatedStructure> {
     activated: T,
     cache: &'a mut T::Cache,
-    content: BareContentWrapper<'a>,
+    content: BareContent<'a>,
 }
 
-impl<'a, T> IntoRendering<'a, T>
+impl<T> IntoRendering<'_, T>
 where
     T: ActivatedStructure,
 {
@@ -50,28 +53,49 @@ where
         self.activated.visit(visitor)
     }
 
-    pub fn finish_with<L>(self, layouter: &mut L) -> Result<()>
+    pub fn finish_with<L>(self, layouter: &mut L, equality_matters: bool) -> Result<bool>
     where
         T: Renderable<L>,
     {
-        self.activated.render(self.cache, self.content, layouter)
+        self.activated.update(ActivateUpdateArguments {
+            offset: 0,
+            cache: self.cache,
+            bare_content: self.content,
+            layouter,
+            equality_matters,
+        })
     }
 
-    pub fn finish(self, region: Region) -> Result<()>
+    pub fn finish(self, region: Region, equality_matters: bool) -> Result<bool>
     where
         T: Renderable<LayoutOnce>,
     {
-        self.finish_with(&mut LayoutOnce::new(region))
+        self.finish_with(&mut LayoutOnce::new(region), equality_matters)
     }
 }
 
-// fn into_rendering
+pub trait StructureBuilder: Sized + StructureBuilderPrivate {
+    type Activated: ActivatedStructure;
 
-impl<T: Sized + Structure> StructureBuilder for T {}
-pub trait StructureBuilder: Sized + Structure {
-    fn into_rendering<'a>(
+    fn into_rendering<'a, 'bdr>(
         self,
-        content: &'a mut RenderContent,
+        content: &'a mut RenderContent<'_, 'bdr>,
+    ) -> IntoRendering<'a, Self::Activated>;
+
+    fn chain<T>(self, other: T) -> Chain<Self, T>
+    where
+        Self: Sized,
+    {
+        Chain(self, other)
+    }
+}
+
+impl<T: Sized + Structure> StructureBuilder for T {
+    type Activated = <Self as Structure>::Activated;
+
+    fn into_rendering<'a, 'bdr>(
+        self,
+        content: &'a mut RenderContent<'_, 'bdr>,
     ) -> IntoRendering<'a, Self::Activated> {
         let cache_box = match content.cache_box_for_children.take() {
             Some(c) => c.get_cache(),
@@ -82,24 +106,16 @@ pub trait StructureBuilder: Sized + Structure {
 
         into_rendering_raw(self, cache_box, content.bare.downgrade_lifetime())
     }
-
-    fn chain<T>(self, other: T) -> Chain<Self, T>
-    where
-        Self: Sized,
-    {
-        Chain(self, other)
-    }
 }
 
-pub(crate) fn into_rendering_raw<'a, T: StructureBuilder>(
+pub(crate) fn into_rendering_raw<'a, T: Structure>(
     node: T,
     cache: &'a mut <T::Activated as ActivatedStructure>::Cache,
     content_for_children: BareContent<'a>,
 ) -> IntoRendering<'a, T::Activated> {
-    let wrapper = BareContentWrapper(content_for_children);
     IntoRendering {
-        activated: node.activate(cache, &wrapper),
+        activated: node.activate(cache, &content_for_children),
         cache,
-        content: wrapper,
+        content: content_for_children,
     }
 }

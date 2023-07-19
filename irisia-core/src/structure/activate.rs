@@ -1,69 +1,69 @@
+use std::marker::PhantomData;
+
 use crate::{
-    element::render_content::BareContent, primitive::Region, style::StyleContainer, Result,
+    element::{render_content::BareContent, ComputeSize},
+    primitive::Region,
+    style::StyleContainer,
+    Result,
 };
 
-pub(super) use __private::*;
+pub(super) mod __private {
+    use super::Structure;
 
-mod __private {
-    use super::*;
-    pub struct BareContentWrapper<'a>(pub(crate) BareContent<'a>);
-
-    pub trait Structure: Sized {
-        type Activated: ActivatedStructure;
-
-        fn activate(
-            self,
-            cache: &mut <Self::Activated as ActivatedStructure>::Cache,
-            content: &BareContentWrapper,
-        ) -> Self::Activated;
-    }
-
-    pub trait ActivatedStructure {
-        type Cache: Default + 'static;
-
-        fn element_count(&self) -> usize;
-    }
-
-    pub trait Visit<V>: ActivatedStructure {
-        fn visit(&self, visitor: &mut V) {
-            self.visit_at(0, visitor)
-        }
-
-        fn visit_at(&self, index: usize, visitor: &mut V);
-    }
-
-    pub trait Renderable<A>: ActivatedStructure + Sized {
-        fn render(
-            self,
-            cache: &mut Self::Cache,
-            bare_content: BareContentWrapper,
-            draw_region_assigner: &mut A,
-        ) -> Result<()> {
-            self.render_at(0, cache, bare_content, draw_region_assigner)
-        }
-
-        fn render_at(
-            self,
-            index: usize,
-            cache: &mut Self::Cache,
-            bare_content: BareContentWrapper,
-            draw_region_assigner: &mut A,
-        ) -> Result<()>;
-    }
+    pub trait StructureBuilderPrivate {}
+    impl<T: Structure> StructureBuilderPrivate for T {}
 }
 
-pub trait Visitor<El> {
-    fn visit(&mut self, item: VisitItem<El, impl StyleContainer>);
+pub trait Visitor<El, Pr> {
+    fn visit(&mut self, item: VisitItem<El, Pr, impl StyleContainer>);
 }
 
 #[derive(Clone, Copy)]
-pub struct VisitItem<'a, El, S> {
+pub struct VisitItem<'a, El, Pr, S> {
+    pub _el: PhantomData<El>,
     pub index: usize,
-    pub element: &'a El,
-    pub style: &'a S,
-    pub request_size: (Option<u32>, Option<u32>),
+    pub props: &'a Pr,
+    pub styles: &'a S,
+    pub request_size: ComputeSize,
 }
 
-pub trait Layouter<El> {
-    fn layout(&mut self, item: VisitItem<El, impl StyleContainer>) -> Result<Region>;
+pub trait Layouter<El, Pr> {
+    fn layout(&mut self, item: VisitItem<El, Pr, impl StyleContainer>) -> Result<Region>;
+}
+
+pub struct ActivateUpdateArguments<'a, T, A> {
+    pub(super) offset: usize,
+    pub(super) cache: &'a mut T,
+    pub(super) bare_content: BareContent<'a>,
+    pub(super) layouter: &'a mut A,
+    pub(super) equality_matters: bool,
+}
+
+pub trait Structure: Sized {
+    type Activated: ActivatedStructure;
+
+    fn activate(
+        self,
+        cache: &mut <Self::Activated as ActivatedStructure>::Cache,
+        content: &BareContent,
+    ) -> Self::Activated;
+}
+
+pub trait ActivatedStructure {
+    type Cache: Default + 'static;
+
+    fn element_count(&self) -> usize;
+}
+
+pub trait Visit<V>: ActivatedStructure {
+    fn visit(&self, visitor: &mut V) {
+        self.visit_at(0, visitor)
+    }
+
+    fn visit_at(&self, offset: usize, visitor: &mut V);
+}
+
+pub trait Renderable<A>: ActivatedStructure + Sized {
+    #[must_use]
+    fn update(self, args: ActivateUpdateArguments<Self::Cache, A>) -> Result<bool>;
 }

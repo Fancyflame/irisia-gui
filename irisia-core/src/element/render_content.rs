@@ -1,28 +1,27 @@
 use std::{sync::Arc, time::Duration};
 
-use irisia_backend::{skia_safe::Canvas, window_handle::close_handle::CloseHandle, WinitWindow};
+use irisia_backend::{window_handle::close_handle::CloseHandle, WinitWindow};
 
 use crate::{
     application::event_comp::{self, focus::SharedFocusing},
     event::EventDispatcher,
     primitive::Region,
+    structure::layer,
     CacheBox,
 };
 
-pub(crate) struct BareContent<'a> {
-    pub canvas: &'a mut Canvas,
-    pub window: &'a Arc<WinitWindow>,
-    pub delta_time: Duration,
-    pub window_event_dispatcher: &'a EventDispatcher,
-    pub close_handle: CloseHandle,
-    pub event_comp_builder: event_comp::Builder<'a>,
-    pub focusing: &'a SharedFocusing,
+pub struct BareContent<'a> {
+    pub(crate) window: &'a Arc<WinitWindow>,
+    pub(crate) delta_time: Duration,
+    pub(crate) window_event_dispatcher: &'a EventDispatcher,
+    pub(crate) close_handle: CloseHandle,
+    pub(crate) event_comp_builder: event_comp::Builder<'a>,
+    pub(crate) focusing: &'a SharedFocusing,
 }
 
 impl BareContent<'_> {
     pub fn downgrade_lifetime(&mut self) -> BareContent {
         BareContent {
-            canvas: self.canvas,
             window: self.window,
             delta_time: self.delta_time,
             window_event_dispatcher: self.window_event_dispatcher,
@@ -33,21 +32,14 @@ impl BareContent<'_> {
     }
 }
 
-pub struct RenderContent<'a> {
+pub struct RenderContent<'a, 'bdr> {
     pub(crate) bare: BareContent<'a>,
     pub(crate) cache_box_for_children: Option<&'a mut CacheBox>,
     pub(crate) event_comp_index: usize,
+    pub(crate) layer_rebuilder: &'a mut layer::Rebuilder<'bdr>,
 }
 
-impl RenderContent<'_> {
-    pub fn canvas_ref(&self) -> &Canvas {
-        self.bare.canvas
-    }
-
-    pub fn canvas(&mut self) -> &mut Canvas {
-        self.bare.canvas
-    }
-
+impl<'bdr> RenderContent<'_, 'bdr> {
     pub fn window(&self) -> &Arc<WinitWindow> {
         self.bare.window
     }
@@ -68,7 +60,7 @@ impl RenderContent<'_> {
             .set_interact_region_for(self.event_comp_index, None);
     }
 
-    pub(crate) fn downgrade_lifetime(&mut self) -> RenderContent {
+    pub(crate) fn downgrade_lifetime(&mut self) -> RenderContent<'_, 'bdr> {
         RenderContent {
             bare: self.bare.downgrade_lifetime(),
             cache_box_for_children: match self.cache_box_for_children {
@@ -76,6 +68,7 @@ impl RenderContent<'_> {
                 None => None,
             },
             event_comp_index: self.event_comp_index,
+            layer_rebuilder: self.layer_rebuilder,
         }
     }
 }

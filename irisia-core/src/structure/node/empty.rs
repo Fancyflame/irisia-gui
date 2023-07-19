@@ -1,5 +1,8 @@
 use crate::{
-    structure::activate::{ActivatedStructure, BareContentWrapper, Renderable, Structure, Visit},
+    element::render_content::BareContent,
+    structure::activate::{
+        ActivateUpdateArguments, ActivatedStructure, Renderable, Structure, Visit,
+    },
     Result,
 };
 
@@ -8,7 +11,7 @@ pub struct EmptyStructure;
 
 impl Structure for EmptyStructure {
     type Activated = EmptyStructure;
-    fn activate(self, _: &mut (), _: &BareContentWrapper) -> Self {
+    fn activate(self, _: &mut (), _: &BareContent) -> Self {
         EmptyStructure
     }
 }
@@ -25,13 +28,7 @@ impl<V> Visit<V> for EmptyStructure {
 }
 
 impl<L> Renderable<L> for EmptyStructure {
-    fn render_at(
-        self,
-        _: usize,
-        _: &mut Self::Cache,
-        _: BareContentWrapper,
-        _: &mut L,
-    ) -> Result<()> {
-        Ok(())
+    fn update(self, _: ActivateUpdateArguments<(), L>) -> Result<bool> {
+        Ok(true)
     }
 }

@@ -5,25 +5,22 @@ use tokio::sync::Mutex;
 use crate::{
     element::{render_content::BareContent, ElementHandle, InitContent},
     event::{event_dispatcher::EventDispatcher, standard::ElementAbandoned},
-    structure::{cache_box::CacheBox, Element, StructureBuilder},
+    structure::{cache_box::CacheBox, layer::SharedLayerCompositer, Element},
 };
 
-pub struct AddChildCache<El, Pr> {
+pub struct AddChildCache<El> {
     pub(super) element: Arc<Mutex<El>>,
     pub(super) init_content: InitContent<El>,
     pub(super) cache_box: CacheBox,
-    pub(super) props: Pr,
+    pub(super) independent_layer: Option<SharedLayerCompositer>,
 }
 
-impl<El, Pr> AddChildCache<El, Pr>
-where
-    Pr: Default,
-{
-    pub(super) fn new<Sb, F>(content: &BareContent, on_create: F) -> Self
+impl<El> AddChildCache<El> {
+    pub(super) fn new<F, Oc>(content: &BareContent, creator: F, on_create: Oc) -> Self
     where
-        El: Element<Sb, Props = Pr>,
-        Sb: StructureBuilder,
-        F: FnOnce(&InitContent<El>),
+        F: FnOnce(&InitContent<El>) -> El,
+        El: Element,
+        Oc: FnOnce(&InitContent<El>),
     {
         let event_dispatcher = EventDispatcher::new();
         let element_handle = ElementHandle::new(event_dispatcher.clone(), content.focusing.clone());
@@ -39,7 +36,7 @@ where
                 close_handle: content.close_handle,
             };
 
-            let el = El::create(&ic);
+            let el = creator(&ic);
             init_content = Some(ic);
             Mutex::new(el)
         });
@@ -50,12 +47,12 @@ where
             element,
             init_content,
             cache_box: CacheBox::new(),
-            props: Pr::default(),
+            independent_layer: None,
         }
     }
 }
 
-impl<El, Pr> Drop for AddChildCache<El, Pr> {
+impl<El> Drop for AddChildCache<El> {
     fn drop(&mut self) {
         self.init_content.element_handle.emit_sys(ElementAbandoned);
     }

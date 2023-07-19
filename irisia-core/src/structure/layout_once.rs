@@ -12,8 +12,8 @@ impl LayoutOnce {
     }
 }
 
-impl<El> Layouter<El> for LayoutOnce {
-    fn layout(&mut self, _: VisitItem<El, impl StyleContainer>) -> Result<Region> {
+impl<El, Pr> Layouter<El, Pr> for LayoutOnce {
+    fn layout(&mut self, _: VisitItem<El, Pr, impl StyleContainer>) -> Result<Region> {
         self.0
             .take()
             .ok_or_else(|| anyhow!("at most 1 element can be rendered"))
