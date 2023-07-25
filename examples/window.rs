@@ -3,7 +3,7 @@ use irisia::{
     application::{CloseHandle, Window},
     box_styles::*,
     build,
-    element::{Element, ElementHandle, InitContent, NeverInitalized, NoProps},
+    element::{Element, EventHandle, InitContent, NeverInitalized, NoProps},
     event::standard::{Blured, Click, Focused},
     skia_safe::Color,
     structure::StructureBuilder,
@@ -93,7 +93,7 @@ impl Element for App {
     }
 }
 
-async fn rect_rt(eh: ElementHandle, close_handle: CloseHandle, key: usize) {
+async fn rect_rt(eh: EventHandle, close_handle: CloseHandle, key: usize) {
     println!("rectangle {} got!", key);
 
     eh.listen()
@@ -114,7 +114,7 @@ async fn rect_rt(eh: ElementHandle, close_handle: CloseHandle, key: usize) {
     });
 }
 
-async fn textbox_rt(eh: ElementHandle) {
+async fn textbox_rt(eh: EventHandle) {
     loop {
         eh.hover().await;
         println!("cursor hovering on textbox");

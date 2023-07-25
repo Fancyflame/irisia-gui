@@ -1,7 +1,7 @@
 use crate::{
-    element::render_content::BareContent,
+    element::SelfCache,
     structure::activate::{
-        ActivateUpdateArguments, ActivatedStructure, Renderable, Structure, Visit,
+        ActivatedStructure, CacheUpdateArguments, Structure, UpdateCache, Visit,
     },
     Result,
 };
@@ -16,15 +16,8 @@ where
 {
     type Activated = Chain<A::Activated, B::Activated>;
 
-    fn activate(
-        self,
-        cache: &mut <Self::Activated as ActivatedStructure>::Cache,
-        content: &BareContent,
-    ) -> Self::Activated {
-        Chain(
-            self.0.activate(&mut cache.0, content),
-            self.1.activate(&mut cache.1, content),
-        )
+    fn activate(self, cache: &mut SelfCache<Self>) -> Self::Activated {
+        Chain(self.0.activate(&mut cache.0), self.1.activate(&mut cache.1))
     }
 }
 
@@ -40,38 +33,38 @@ where
     }
 }
 
-impl<A, B, L> Renderable<L> for Chain<A, B>
+impl<A, B, L> UpdateCache<L> for Chain<A, B>
 where
-    A: Renderable<L>,
-    B: Renderable<L>,
+    A: UpdateCache<L>,
+    B: UpdateCache<L>,
 {
-    fn update(self, args: ActivateUpdateArguments<Self::Cache, L>) -> Result<bool> {
-        let ActivateUpdateArguments {
+    fn update(self, args: CacheUpdateArguments<Self::Cache, L>) -> Result<bool> {
+        let CacheUpdateArguments {
             offset,
             cache,
-            mut bare_content,
+            global_content,
             layouter,
-            equality_matters: mut everything_the_same,
+            equality_matters: mut unchange,
         } = args;
         let element_count = self.0.element_count();
 
-        everything_the_same &= self.0.update(ActivateUpdateArguments {
+        unchange &= self.0.update(CacheUpdateArguments {
             offset,
             cache: &mut cache.0,
-            bare_content: bare_content.downgrade_lifetime(),
+            global_content: global_content.downgrade_lifetime(),
             layouter,
-            equality_matters: everything_the_same,
+            equality_matters: unchange,
         })?;
 
-        everything_the_same &= self.1.update(ActivateUpdateArguments {
+        unchange &= self.1.update(CacheUpdateArguments {
             offset: offset + element_count,
             cache: &mut cache.1,
-            bare_content,
+            global_content,
             layouter,
-            equality_matters: everything_the_same,
+            equality_matters: unchange,
         })?;
 
-        Ok(everything_the_same)
+        Ok(unchange)
     }
 }
 

@@ -1,4 +1,4 @@
-use irisia::{style::Pixel, Style};
+use irisia::{primitive::Pixel, Style};
 use irisia_core::skia_safe::{Point as SkiaPoint, RRect, Rect};
 
 #[derive(Style, Clone)]

@@ -1,10 +1,11 @@
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 
-pub type Region = (Point, Point);
-pub type Result<T> = anyhow::Result<T>;
+use irisia_backend::winit::dpi::PhysicalPosition;
+
+use super::Pixel;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
-pub struct Point(pub f32, pub f32);
+pub struct Point(pub Pixel, pub Pixel);
 
 impl Add for Point {
     type Output = Self;
@@ -35,41 +36,39 @@ impl SubAssign for Point {
 }
 
 impl Point {
-    pub fn abs_diff(self, other: Self) -> f32 {
-        ((self.0 - other.0).powi(2) + (self.1 - other.1).powi(2)).sqrt()
+    pub fn abs_diff(self, other: Self) -> Pixel {
+        Pixel(((self.0 - other.0).0.powi(2) + (self.1 - other.1).0.powi(2)).sqrt())
     }
 
     /// Absolutely greater than or equals
-    #[inline]
     pub fn abs_ge(self, other: Self) -> bool {
         self.0 >= other.0 && self.1 >= other.1
     }
 
     /// Absolutely less than or equals
-    #[inline]
     pub fn abs_le(self, other: Self) -> bool {
         self.0 <= other.0 && self.1 <= other.1
     }
 }
 
-impl From<(f32, f32)> for Point {
+impl From<(Pixel, Pixel)> for Point {
     #[inline]
-    fn from(f: (f32, f32)) -> Self {
+    fn from(f: (Pixel, Pixel)) -> Self {
         Point(f.0, f.1)
     }
 }
 
-impl From<Point> for (f32, f32) {
+impl From<Point> for (Pixel, Pixel) {
     fn from(v: Point) -> Self {
         (v.0, v.1)
     }
 }
 
-impl From<Point> for irisia_backend::skia_safe::Point {
-    fn from(value: Point) -> Self {
-        Self {
-            x: value.0,
-            y: value.1,
-        }
+impl From<PhysicalPosition<f64>> for Point {
+    fn from(value: PhysicalPosition<f64>) -> Self {
+        Point(
+            Pixel::from_physical(value.x as _),
+            Pixel::from_physical(value.y as _),
+        )
     }
 }

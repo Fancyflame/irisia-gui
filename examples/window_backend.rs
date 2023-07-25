@@ -88,7 +88,7 @@ impl Element for Rectangle {
                     match window_event {
                         StaticWindowEvent::CloseRequested => {
                             println!("close event sent");
-                            init.element_handle.emit(MyRequestClose);
+                            init.event_handle.emit(MyRequestClose);
                         }
 
                         _ => {}

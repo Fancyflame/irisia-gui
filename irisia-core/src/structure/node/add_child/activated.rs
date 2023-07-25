@@ -1,12 +1,13 @@
 use std::marker::PhantomData;
 
 use crate::{
-    element::{ComputeSize, ElementMutate, InitContent, UpdateArguments},
+    element::{ChildrenCache, ComputeSize, ElementMutate, InitContent, UpdateArguments},
     structure::{
         activate::{
-            ActivateUpdateArguments, ActivatedStructure, Layouter, Renderable, Visit, Visitor,
+            ActivatedStructure, CacheUpdateArguments, Layouter, Structure, UpdateCache, Visit,
+            Visitor,
         },
-        StructureBuilder,
+        node::add_child::update_el::UpdateElementContent,
     },
     style::StyleContainer,
     Result,
@@ -22,25 +23,25 @@ pub struct AddChildActivated<El, Pr, Sty, Sb, Oc> {
 impl<El, Pr, Sty, Sb, Oc> ActivatedStructure for AddChildActivated<El, Pr, Sty, Sb, Oc>
 where
     El: Element + ElementMutate<Pr, Sb>,
-    Sb: StructureBuilder,
+    Sb: Structure,
     Sty: StyleContainer,
 {
-    type Cache = Option<AddChildCache<El>>;
+    type Cache = Option<AddChildCache<El, ChildrenCache<El, Pr, Sb>>>;
 
     fn element_count(&self) -> usize {
         1
     }
 }
 
-impl<El, Pr, Sty, Sb, Oc, L> Renderable<L> for AddChildActivated<El, Pr, Sty, Sb, Oc>
+impl<El, Pr, Sty, Sb, Oc, L> UpdateCache<L> for AddChildActivated<El, Pr, Sty, Sb, Oc>
 where
     El: Element + ElementMutate<Pr, Sb>,
     Sty: StyleContainer,
-    Sb: StructureBuilder,
+    Sb: Structure,
     Oc: FnOnce(&InitContent<El>),
     L: Layouter<El, Pr>,
 {
-    fn update(self, args: ActivateUpdateArguments<Self::Cache, L>) -> Result<bool> {
+    fn update(self, args: CacheUpdateArguments<Self::Cache, L>) -> Result<bool> {
         let AddChildActivated {
             add_child:
                 AddChild {
@@ -53,12 +54,12 @@ where
             request_size,
         } = self;
 
-        let ActivateUpdateArguments {
+        let CacheUpdateArguments {
             offset,
             cache,
-            bare_content,
+            global_content,
             layouter,
-            equality_matters,
+            equality_matters: mut unchanged,
         } = args;
 
         let draw_region = layouter.layout(VisitItem {
@@ -69,28 +70,44 @@ where
             request_size,
         })?;
 
-        let update_args = UpdateArguments {
-            props,
-            styles,
-            children,
-            draw_region,
-            equality_matters,
-        };
+        let mut interact_region = Some(draw_region);
 
-        let the_same = match cache.as_mut() {
-            Some(c) => c.element.blocking_lock().update(update_args),
+        macro_rules! update_arg {
+            ($cache: expr) => {
+                UpdateArguments {
+                    props,
+                    styles,
+                    children,
+                    draw_region,
+                    equality_matters: unchanged,
+                    updater: UpdateElementContent {
+                        phantom_children: PhantomData,
+                        children_cache: $cache,
+                        content: global_content.downgrade_lifetime(),
+                        equality_matters: &mut unchanged,
+                        interact_region: &mut interact_region,
+                    },
+                }
+            };
+        }
+
+        match cache.as_mut() {
+            Some(c) => c
+                .element
+                .blocking_lock()
+                .update(update_arg!(&mut c.children_cache)),
             None => {
+                unchanged = false;
                 let add_child_cache = AddChildCache::new(
-                    &bare_content,
-                    |init| El::create(init, update_args),
+                    &global_content,
+                    |init, cache| El::create(init, update_arg!(cache)),
                     on_create,
                 );
                 *cache = Some(add_child_cache);
-                false
             }
-        };
+        }
 
-        Ok(the_same)
+        Ok(unchanged)
         /*let mut independent_layer = cache.independent_layer.as_ref().map(|x| x.borrow_mut());
         let rebuilder = match &mut independent_layer {
             Some(mut il) => rebuilder.new_layer(&mut il)?,
@@ -129,7 +146,7 @@ impl<El, Pr, Sty, Sb, Oc, V> Visit<V> for AddChildActivated<El, Pr, Sty, Sb, Oc>
 where
     El: Element + ElementMutate<Pr, Sb>,
     Sty: StyleContainer,
-    Sb: StructureBuilder,
+    Sb: Structure,
     V: Visitor<El, Pr>,
 {
     fn visit_at(&self, offset: usize, visitor: &mut V) {

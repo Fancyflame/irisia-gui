@@ -3,9 +3,9 @@ use std::{collections::HashMap, hash::Hash};
 use irisia_utils::ReuseVec;
 
 use crate::{
-    element::render_content::BareContent,
+    element::SelfCache,
     structure::activate::{
-        ActivateUpdateArguments, ActivatedStructure, Renderable, Structure, Visit,
+        ActivatedStructure, CacheUpdateArguments, Structure, UpdateCache, Visit,
     },
     Result,
 };
@@ -30,11 +30,7 @@ where
 {
     type Activated = RepeatingActivated<K, T::Activated>;
 
-    fn activate(
-        self,
-        cache: &mut <Self::Activated as ActivatedStructure>::Cache,
-        content: &BareContent,
-    ) -> Self::Activated {
+    fn activate(self, cache: &mut SelfCache<Self>) -> Self::Activated {
         let mut buffer = match cache.buffer.take() {
             Some(rv) => {
                 if cfg!(debug_assertions) {
@@ -59,7 +55,6 @@ where
                             alive_signal: true,
                         })
                         .value,
-                    content,
                 ),
             )
         }));
@@ -99,18 +94,18 @@ where
     }
 }
 
-impl<K, T, L> Renderable<L> for RepeatingActivated<K, T>
+impl<K, T, L> UpdateCache<L> for RepeatingActivated<K, T>
 where
     K: Clone + Hash + Eq + 'static,
-    T: Renderable<L>,
+    T: UpdateCache<L>,
 {
-    fn update(mut self, args: ActivateUpdateArguments<Self::Cache, L>) -> Result<bool> {
-        let ActivateUpdateArguments {
+    fn update(mut self, args: CacheUpdateArguments<Self::Cache, L>) -> Result<bool> {
+        let CacheUpdateArguments {
             mut offset,
             cache,
-            mut bare_content,
+            global_content,
             layouter,
-            equality_matters: mut everything_the_same,
+            equality_matters: mut unchange,
         } = args;
 
         for (k, node) in self.vectored.drain(..) {
@@ -121,14 +116,13 @@ where
 
             node_cache.alive_signal = true;
             let element_count = node.element_count();
-            let the_same = node.update(ActivateUpdateArguments {
+            unchange &= node.update(CacheUpdateArguments {
                 offset,
                 cache: &mut node_cache.value,
-                bare_content: bare_content.downgrade_lifetime(),
+                global_content: global_content.downgrade_lifetime(),
                 layouter,
-                equality_matters: everything_the_same,
+                equality_matters: unchange,
             })?;
-            everything_the_same = everything_the_same && the_same;
 
             offset += element_count;
         }
@@ -141,7 +135,7 @@ where
 
         cache.buffer = Some(self.vectored.into());
 
-        Ok(everything_the_same)
+        Ok(unchange)
     }
 }
 

@@ -1,8 +1,8 @@
-use super::ElementHandle;
+use super::EventHandle;
 
 #[must_use]
 pub struct Listen<'a, Wv, Io, Rs> {
-    pub(super) eh: &'a ElementHandle,
+    pub(super) eh: &'a EventHandle,
     pub(super) with_value: Wv,
     pub(super) is_once: Io,
     pub(super) recv_sys: Rs,
@@ -13,7 +13,7 @@ pub struct IsOnce;
 pub struct RecvSys;
 
 impl<'a> Listen<'a, (), (), ()> {
-    pub(crate) fn new(eh: &'a ElementHandle) -> Self {
+    pub(crate) fn new(eh: &'a EventHandle) -> Self {
         Listen {
             eh,
             with_value: (),

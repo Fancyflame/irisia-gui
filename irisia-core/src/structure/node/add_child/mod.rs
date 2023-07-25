@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
 
 use crate::{
-    element::{render_content::BareContent, ElementMutate, InitContent},
-    structure::{activate::ActivatedStructure, Element, Structure, StructureBuilder, VisitItem},
+    element::{ElementMutate, InitContent, SelfCache},
+    structure::{Element, Structure, VisitItem},
     style::StyleContainer,
 };
 
@@ -10,6 +10,7 @@ pub use self::{activated::AddChildActivated, cache::AddChildCache};
 
 pub mod activated;
 pub mod cache;
+pub mod update_el;
 
 pub struct AddChild<El, Pr, Sty, Sb, Oc> {
     _el: PhantomData<El>,
@@ -37,17 +38,13 @@ pub fn add_child<El, Pr, Sty, Sb, Oc>(
 impl<El, Pr, Sty, Sb, Oc> Structure for AddChild<El, Pr, Sty, Sb, Oc>
 where
     El: Element + ElementMutate<Pr, Sb>,
-    Sb: StructureBuilder,
+    Sb: Structure,
     Sty: StyleContainer,
     Oc: FnOnce(&InitContent<El>),
 {
     type Activated = AddChildActivated<El, Pr, Sty, Sb, Oc>;
 
-    fn activate(
-        self,
-        _cache: &mut <Self::Activated as ActivatedStructure>::Cache,
-        _content: &BareContent,
-    ) -> Self::Activated {
+    fn activate(self, _cache: &mut SelfCache<Self>) -> Self::Activated {
         AddChildActivated {
             request_size: El::compute_size(&self.props, &self.styles, &self.children),
             add_child: self,

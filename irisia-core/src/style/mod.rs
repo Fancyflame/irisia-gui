@@ -27,18 +27,16 @@
 pub mod add_style;
 pub mod branch;
 pub mod chain;
-pub mod pixel;
 pub mod reader;
 
 use std::any::Any;
 
-use crate as irisia;
+use crate::{self as irisia, primitive::Pixel};
 pub use add_style::*;
 pub use branch::*;
 pub use chain::*;
 use irisia_backend::skia_safe::Color;
 use irisia_macros::Style;
-pub use pixel::Pixel;
 
 use self::reader::StyleReader;
 

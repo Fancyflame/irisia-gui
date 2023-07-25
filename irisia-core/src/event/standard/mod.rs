@@ -20,7 +20,6 @@ pub struct Focused;
 #[derive(Event, Clone)]
 pub struct PointerDown {
     pub is_current: bool,
-    pub is_leading: bool,
     pub position: Point,
 }
 

@@ -1,8 +1,8 @@
 #![allow(unused)]
 
+use irisia_core::primitive::Pixel;
 use irisia_core::style::AddStyle;
 use irisia_core::style::NoStyle;
-use irisia_core::style::Pixel;
 use irisia_core::style::Style;
 use irisia_core::style::StyleContainer;
 use irisia_macros::style;

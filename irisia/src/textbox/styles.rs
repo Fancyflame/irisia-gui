@@ -1,6 +1,6 @@
 use irisia_core::{
+    primitive::Pixel,
     skia_safe::font_style::{Slant, Weight},
-    style::Pixel,
     Style,
 };
 

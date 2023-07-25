@@ -1,7 +1,7 @@
 use irisia::{
     application::Window,
     build,
-    element::{Element, ElementHandle, InitContent, NeverInitalized, NoProps},
+    element::{Element, EventHandle, InitContent, NeverInitalized, NoProps},
     event::standard::Click,
     skia_safe::Color,
     structure::StructureBuilder,
@@ -84,7 +84,7 @@ impl Element for App {
     }
 }
 
-fn rect_rt(eh: &ElementHandle, index: usize) {
+fn rect_rt(eh: &EventHandle, index: usize) {
     println!("rectangle {index} got");
     let eh = eh.clone();
     eh.clone().spawn(async move {

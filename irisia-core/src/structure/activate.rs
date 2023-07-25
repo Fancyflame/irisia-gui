@@ -1,7 +1,8 @@
 use std::marker::PhantomData;
 
 use crate::{
-    element::{render_content::BareContent, ComputeSize},
+    application::content::GlobalContent,
+    element::{ComputeSize, SelfCache},
     primitive::Region,
     style::StyleContainer,
     Result,
@@ -31,10 +32,10 @@ pub trait Layouter<El, Pr> {
     fn layout(&mut self, item: VisitItem<El, Pr, impl StyleContainer>) -> Result<Region>;
 }
 
-pub struct ActivateUpdateArguments<'a, T, A> {
+pub struct CacheUpdateArguments<'a, T, A> {
     pub(super) offset: usize,
     pub(super) cache: &'a mut T,
-    pub(super) bare_content: BareContent<'a>,
+    pub(super) global_content: GlobalContent<'a>,
     pub(super) layouter: &'a mut A,
     pub(super) equality_matters: bool,
 }
@@ -42,11 +43,7 @@ pub struct ActivateUpdateArguments<'a, T, A> {
 pub trait Structure: Sized {
     type Activated: ActivatedStructure;
 
-    fn activate(
-        self,
-        cache: &mut <Self::Activated as ActivatedStructure>::Cache,
-        content: &BareContent,
-    ) -> Self::Activated;
+    fn activate(self, cache: &mut SelfCache<Self>) -> Self::Activated;
 }
 
 pub trait ActivatedStructure {
@@ -63,7 +60,6 @@ pub trait Visit<V>: ActivatedStructure {
     fn visit_at(&self, offset: usize, visitor: &mut V);
 }
 
-pub trait Renderable<A>: ActivatedStructure + Sized {
-    #[must_use]
-    fn update(self, args: ActivateUpdateArguments<Self::Cache, A>) -> Result<bool>;
+pub trait UpdateCache<A>: ActivatedStructure + Sized {
+    fn update(self, args: CacheUpdateArguments<Self::Cache, A>) -> Result<bool>;
 }

@@ -3,12 +3,22 @@ use std::{
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
 };
 
+/// `Pixel` is a logical length, difference from physical length.
+///
+/// Except drawing something on canvas, at everywhere should use
+/// `Pixel` instead of primitive number to express a logical length.
 #[derive(Default, Clone, Copy, PartialEq, PartialOrd)]
 pub struct Pixel(pub f32);
 
+const DPI: f32 = 1.0;
+
 impl Pixel {
     pub fn to_physical(self) -> f32 {
-        self.0
+        self.0 * DPI
+    }
+
+    pub fn from_physical(p: f32) -> Self {
+        Pixel(p) / DPI
     }
 }
 

@@ -68,7 +68,7 @@ impl Element<EmptyStructure> for TextBox {
             selection_rt_mgr: SelectionRtMgr::new(
                 init.window.clone(),
                 init.window_event_dispatcher.clone(),
-                init.element_handle.clone(),
+                init.event_handle.clone(),
             ),
         }
     }

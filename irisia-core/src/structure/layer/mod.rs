@@ -11,7 +11,7 @@ use irisia_backend::skia_safe::{
 
 use self::queue::{Layer, Queue};
 use crate::Result;
-pub(crate) use rebuild::Rebuilder;
+pub(crate) use rebuild::LayerRebuilder;
 
 mod queue;
 pub(crate) mod rebuild;
@@ -34,9 +34,9 @@ impl LayerCompositer {
         })
     }
 
-    pub fn rebuild<'a>(&'a mut self, canvas: &'a mut Canvas) -> Rebuilder<'a> {
+    pub fn rebuild<'a>(&'a mut self, canvas: &'a mut Canvas) -> LayerRebuilder<'a> {
         self.layers.clear();
-        Rebuilder::new(self, canvas, false)
+        LayerRebuilder::new(self, canvas)
     }
 
     pub fn composite(&self, canvas: &mut Canvas) -> Result<()> {

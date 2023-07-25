@@ -5,11 +5,11 @@ use irisia_backend::{window_handle::WindowBuilder, WinitWindow};
 use crate::{
     element::{Element, ElementMutate},
     event::{standard::window_event::WindowDestroyed, EventDispatcher},
-    structure::EmptyStructure,
     Result,
 };
 
 mod backend;
+pub(crate) mod content;
 pub(crate) mod event_comp;
 
 use backend::new_window;
@@ -26,7 +26,7 @@ pub struct Window {
 impl Window {
     pub async fn new<El>(title: impl Into<String>) -> Result<Self>
     where
-        El: Element + ElementMutate<(), EmptyStructure>,
+        El: Element + ElementMutate<(), ()>,
     {
         let title = title.into();
         new_window::<El, _>(move |wb| wb.with_title(title)).await
@@ -34,7 +34,7 @@ impl Window {
 
     pub async fn with_builder<El, F>(f: F) -> Result<Self>
     where
-        El: Element + ElementMutate<(), EmptyStructure>,
+        El: Element + ElementMutate<(), ()>,
         F: FnOnce(WindowBuilder) -> WindowBuilder + Send + 'static,
     {
         new_window::<El, _>(f).await

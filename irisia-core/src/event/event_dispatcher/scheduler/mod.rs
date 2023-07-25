@@ -19,6 +19,10 @@ pub(super) struct EmitScheduler {
     wait_lock: Arc<MaybeConfirmed>,
 }
 
+struct QueuedEvent {
+    event: Box<dyn FnOnce(&mut EmitScheduler, AllConfirmedPermits) + Send + 'static>,
+}
+
 impl EmitScheduler {
     pub fn new() -> Self {
         let arc = Arc::new(MaybeConfirmed::new());
@@ -29,16 +33,11 @@ impl EmitScheduler {
             wait_lock: arc,
         }
     }
-}
 
-struct QueuedEvent {
-    event: Box<dyn FnOnce(&mut EmitScheduler, AllConfirmedPermits) + Send + 'static>,
-}
-
-impl EmitScheduler {
     pub(super) fn emit_raw<E: Event>(this: &Arc<Mutex<Self>>, event: E, metadata: EventMetadata) {
         let mut guard = this.lock().unwrap();
 
+        // there is existing executor
         if guard.executor.is_some() {
             guard.event_queue.push_back(QueuedEvent {
                 event: Box::new(move |scheduler, permits| {
@@ -50,16 +49,27 @@ impl EmitScheduler {
             return;
         }
 
-        let guard2 = &mut *guard;
-        if let Ok(permits) = guard2.wait_lock.try_all_confirmed() {
-            if let Some(item) = guard2.stock.get() {
+        // there is no existing executor, but can execute immediately
+        let guard_ref = &mut *guard;
+        if let Ok(permits) = guard_ref.wait_lock.try_all_confirmed() {
+            if let Some(item) = guard_ref.stock.get() {
                 item.finish(event, metadata, permits);
             }
             return;
         }
 
+        // there is no existing executor, also has lock held
+        guard_ref.spwan_executor(this, event, metadata);
+    }
+
+    fn spwan_executor<E: Event>(
+        &mut self,
+        this: &Arc<Mutex<Self>>,
+        event: E,
+        metadata: EventMetadata,
+    ) {
         let this = this.clone();
-        let wait_lock = guard.wait_lock.clone();
+        let wait_lock = self.wait_lock.clone();
         let handle = tokio::spawn(async move {
             let permits = wait_lock.all_confirmed().await;
             let mut next_event = {
@@ -94,7 +104,7 @@ impl EmitScheduler {
             }
         });
 
-        guard.executor = Some(handle);
+        self.executor = Some(handle);
     }
 
     fn get_event(&mut self) -> Option<QueuedEvent> {

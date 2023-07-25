@@ -172,11 +172,11 @@ fn special_lit(expr: &mut Expr) -> Result<()> {
         match lit {
             Lit::Int(lit_int) if lit_int.suffix() == "px" => {
                 let val = lit_int.base10_parse::<u32>()? as f32;
-                *expr = parse_quote!(irisia::style::Pixel(#val));
+                *expr = parse_quote!(irisia::primitive::Pixel(#val));
             }
             Lit::Float(lit_float) if lit_float.suffix() == "px" => {
                 let val = lit_float.base10_parse::<f32>()?;
-                *expr = parse_quote!(irisia::style::Pixel(#val));
+                *expr = parse_quote!(irisia::primitive::Pixel(#val));
             }
             Lit::Float(lit_float) if lit_float.suffix() == "pct" => {
                 let val = lit_float.base10_parse::<f32>()? / 100.0;

@@ -11,7 +11,7 @@ use irisia::{
     WinitWindow,
 };
 use irisia_core::{
-    element::ElementHandle,
+    element::EventHandle,
     event::{
         standard::Blured,
         standard::{PointerDown, PointerMove, PointerUp},
@@ -24,7 +24,7 @@ use tokio::{sync::Mutex, task::JoinHandle};
 pub(super) struct SelectionRtMgr {
     window: Arc<WinitWindow>,
     win_ed: EventDispatcher,
-    eh: ElementHandle,
+    eh: EventHandle,
     sel: Arc<SyncMutex<Selection>>,
     handle: Option<JoinHandle<Option<()>>>,
 }
@@ -35,7 +35,7 @@ struct Selection {
 }
 
 impl SelectionRtMgr {
-    pub fn new(window: Arc<WinitWindow>, win_ed: EventDispatcher, eh: ElementHandle) -> Self {
+    pub fn new(window: Arc<WinitWindow>, win_ed: EventDispatcher, eh: EventHandle) -> Self {
         Self {
             window,
             win_ed,
@@ -135,7 +135,7 @@ impl CursorIconSetter {
 }
 
 async fn start(
-    eh: ElementHandle,
+    eh: EventHandle,
     sel: Arc<SyncMutex<Selection>>,
     win: Arc<WinitWindow>,
     win_ed: EventDispatcher,

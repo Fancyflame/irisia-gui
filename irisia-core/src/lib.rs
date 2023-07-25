@@ -31,5 +31,4 @@ pub use irisia_backend::{
     runtime::exit_app, skia_safe, start_runtime, winit, StaticWindowEvent, WinitWindow,
 };
 pub use irisia_macros::*;
-pub use structure::cache_box::CacheBox;
 pub use style::{reader::StyleReader, Style};

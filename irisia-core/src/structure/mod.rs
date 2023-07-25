@@ -1,5 +1,6 @@
 use crate::{
-    element::{render_content::BareContent, Element, RenderContent},
+    application::content::GlobalContent,
+    element::{Element, SelfCache},
     primitive::Region,
     Result,
 };
@@ -10,21 +11,17 @@ pub use self::{
         add_child::{add_child, AddChild},
         branch::Branch,
         chain::Chain,
-        empty::EmptyStructure,
         repeating::Repeating,
     },
 };
 
 use self::{
-    activate::{
-        ActivateUpdateArguments, ActivatedStructure, Renderable, Structure, Visit,
-        __private::StructureBuilderPrivate,
-    },
+    activate::{ActivatedStructure, CacheUpdateArguments, Structure, UpdateCache, Visit},
     layout_once::LayoutOnce,
 };
 
 pub mod activate;
-pub(crate) mod cache_box;
+pub mod into_tree_builder;
 pub(crate) mod layer;
 pub mod layout_once;
 pub mod node;
@@ -32,16 +29,34 @@ pub mod node;
 // IntoRendering
 
 #[must_use = "`IntoRendering` does nothing without calling `finish` or `finish_with`"]
-pub struct IntoRendering<'a, T: ActivatedStructure> {
+pub struct TreeBuilder<'a, T: ActivatedStructure> {
     activated: T,
     cache: &'a mut T::Cache,
-    content: BareContent<'a>,
+    content: GlobalContent<'a>,
+    equality_matters: bool,
 }
 
-impl<T> IntoRendering<'_, T>
+impl<'a, T> TreeBuilder<'a, T>
 where
     T: ActivatedStructure,
 {
+    pub(crate) fn new<S>(
+        node: S,
+        cache: &'a mut SelfCache<S>,
+        global_content: GlobalContent<'a>,
+        equality_matters: bool,
+    ) -> Self
+    where
+        S: Structure<Activated = T>,
+    {
+        TreeBuilder {
+            activated: node.activate(cache),
+            cache,
+            content: global_content,
+            equality_matters,
+        }
+    }
+
     pub fn children_count(&self) -> usize {
         self.activated.element_count()
     }
@@ -53,69 +68,23 @@ where
         self.activated.visit(visitor)
     }
 
-    pub fn finish_with<L>(self, layouter: &mut L, equality_matters: bool) -> Result<bool>
+    pub fn finish_with<L>(self, layouter: &mut L) -> Result<bool>
     where
-        T: Renderable<L>,
+        T: UpdateCache<L>,
     {
-        self.activated.update(ActivateUpdateArguments {
+        self.activated.update(CacheUpdateArguments {
             offset: 0,
             cache: self.cache,
-            bare_content: self.content,
+            global_content: self.content,
             layouter,
-            equality_matters,
+            equality_matters: self.equality_matters,
         })
     }
 
-    pub fn finish(self, region: Region, equality_matters: bool) -> Result<bool>
+    pub fn finish(self, region: Region) -> Result<bool>
     where
-        T: Renderable<LayoutOnce>,
+        T: UpdateCache<LayoutOnce>,
     {
-        self.finish_with(&mut LayoutOnce::new(region), equality_matters)
-    }
-}
-
-pub trait StructureBuilder: Sized + StructureBuilderPrivate {
-    type Activated: ActivatedStructure;
-
-    fn into_rendering<'a, 'bdr>(
-        self,
-        content: &'a mut RenderContent<'_, 'bdr>,
-    ) -> IntoRendering<'a, Self::Activated>;
-
-    fn chain<T>(self, other: T) -> Chain<Self, T>
-    where
-        Self: Sized,
-    {
-        Chain(self, other)
-    }
-}
-
-impl<T: Sized + Structure> StructureBuilder for T {
-    type Activated = <Self as Structure>::Activated;
-
-    fn into_rendering<'a, 'bdr>(
-        self,
-        content: &'a mut RenderContent<'_, 'bdr>,
-    ) -> IntoRendering<'a, Self::Activated> {
-        let cache_box = match content.cache_box_for_children.take() {
-            Some(c) => c.get_cache(),
-            None => {
-                panic!("this render content has been used to render once");
-            }
-        };
-
-        into_rendering_raw(self, cache_box, content.bare.downgrade_lifetime())
-    }
-}
-
-pub(crate) fn into_rendering_raw<'a, T: Structure>(
-    node: T,
-    cache: &'a mut <T::Activated as ActivatedStructure>::Cache,
-    content_for_children: BareContent<'a>,
-) -> IntoRendering<'a, T::Activated> {
-    IntoRendering {
-        activated: node.activate(cache, &content_for_children),
-        cache,
-        content: content_for_children,
+        self.finish_with(&mut LayoutOnce::new(region))
     }
 }

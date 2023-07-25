@@ -7,34 +7,37 @@ use irisia_backend::{
 };
 
 use crate::{
-    element::{render_content::BareContent, Element, ElementMutate},
+    element::{ChildrenCache, Element, ElementMutate},
     event::EventDispatcher,
-    primitive::Point,
+    primitive::{Pixel, Point},
     structure::{
-        add_child, into_rendering_raw,
+        add_child,
         layer::{LayerCompositer, SharedLayerCompositer},
         node::AddChildCache,
-        EmptyStructure,
+        TreeBuilder,
     },
     style::NoStyle,
     Result,
 };
 
-use super::{event_comp::EventComponent, Window};
+use super::{content::GlobalContent, event_comp::GlobalEventMgr, Window};
 
 pub(super) async fn new_window<El, F>(window_builder: F) -> Result<Window>
 where
-    El: Element + ElementMutate<(), EmptyStructure>,
+    El: Element + ElementMutate<(), ()>,
     F: FnOnce(WindowBuilder) -> WindowBuilder + Send + 'static,
 {
     let ev_disp = EventDispatcher::new();
 
     let create_app = {
-        let event_component = EventComponent::new(ev_disp.clone());
-        move |window: Arc<WinitWindow>, close_handle| BackendRuntime::<El> {
+        let ev_disp = ev_disp.clone();
+        move |window: Arc<WinitWindow>, close_handle| BackendRuntime::<
+            El,
+            ChildrenCache<El, (), ()>,
+        > {
             window,
             application: None,
-            event_component,
+            global_event_mgr: GlobalEventMgr::new(ev_disp),
             close_handle,
             layer_compositer: LayerCompositer::new_shared(),
         }
@@ -52,47 +55,50 @@ where
     })
 }
 
-pub(super) struct BackendRuntime<El> {
+pub(super) struct BackendRuntime<El, Cc> {
     window: Arc<WinitWindow>,
-    application: Option<AddChildCache<El>>,
-    event_component: EventComponent,
+    application: Option<AddChildCache<El, Cc>>,
+    global_event_mgr: GlobalEventMgr,
     close_handle: CloseHandle,
     layer_compositer: SharedLayerCompositer,
 }
 
-impl<El> AppWindow for BackendRuntime<El>
+impl<El> AppWindow for BackendRuntime<El, ChildrenCache<El, (), ()>>
 where
-    El: Element + ElementMutate<(), EmptyStructure>,
+    El: Element + ElementMutate<(), ()>,
 {
     fn on_redraw(&mut self, canvas: &mut Canvas, size: (u32, u32), delta: Duration) -> Result<()> {
-        let add_child = add_child::<El, _, _, _, _>((), NoStyle, EmptyStructure, |_: &_| {});
+        let add_child = add_child::<El, _, _, _, _>((), NoStyle, (), |_: &_| {});
 
-        let region = (Point(0.0, 0.0), Point(size.0 as _, size.1 as _));
+        let region = (
+            Point(Pixel(0.0), Pixel(0.0)),
+            Point(
+                Pixel::from_physical(size.0 as _),
+                Pixel::from_physical(size.1 as _),
+            ),
+        );
 
-        self.event_component
-            .rebuild(|event_comp_builder, window_event_dispatcher, focusing| {
-                let content = BareContent {
-                    window: &self.window,
-                    delta_time: delta,
-                    window_event_dispatcher,
-                    close_handle: self.close_handle,
-                    event_comp_builder,
-                    focusing,
-                };
+        let mut lc = self.layer_compositer.borrow_mut();
 
-                let mut lc = self.layer_compositer.borrow_mut();
+        if self.application.is_none() {
+            let mut rebuilder = lc.rebuild(canvas);
 
-                if self.application.is_none() {
-                    into_rendering_raw(add_child, &mut self.application, content)
-                        .finish(region, true)?;
-                }
+            let content = GlobalContent {
+                global_ed: &self.global_event_mgr.global_ed(),
+                focusing: self.global_event_mgr.focusing(),
+                window: &self.window,
+                close_handle: self.close_handle,
+                interval: delta,
+            };
 
-                canvas.clear(TRANSPARENT);
-                lc.composite(canvas)
-            })
+            TreeBuilder::new(add_child, &mut self.application, content, false).finish(region)?;
+        }
+
+        canvas.clear(TRANSPARENT);
+        lc.composite(canvas)
     }
 
     fn on_window_event(&mut self, event: StaticWindowEvent) {
-        self.event_component.emit_window_event(event);
+        let new_event = self.global_event_mgr.emit_event(event);
     }
 }

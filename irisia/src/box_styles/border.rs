@@ -1,9 +1,9 @@
 use irisia_core::{
+    primitive::Pixel,
     skia_safe::{
         paint::Cap, Canvas, Color, Color4f, ColorSpace, Paint, PaintStyle, PathEffect,
         Point as SkiaPoint, RRect,
     },
-    style::Pixel,
     Style,
 };
 use smallvec::SmallVec;

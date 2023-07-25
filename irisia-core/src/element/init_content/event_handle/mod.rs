@@ -3,7 +3,7 @@ use std::{future::Future, ops::Deref};
 use tokio::task::JoinHandle;
 
 use crate::{
-    application::event_comp::focus::SharedFocusing,
+    application::event_comp::global::focusing::Focusing,
     event::{EventDispatcher, EventMetadata},
     Event,
 };
@@ -14,31 +14,29 @@ pub mod callback;
 mod closure_patch;
 
 #[derive(Clone)]
-pub struct ElementHandle {
+pub struct EventHandle {
     event_dispatcher: EventDispatcher,
-    focusing: SharedFocusing,
+    focusing: Focusing,
 }
 
-impl ElementHandle {
-    pub(crate) fn new(ed: EventDispatcher, focusing: SharedFocusing) -> Self {
+impl EventHandle {
+    pub(crate) fn new(ed: EventDispatcher, focusing: Focusing) -> Self {
         Self {
             event_dispatcher: ed,
             focusing,
         }
     }
 
-    pub async fn focus(&self) {
-        self.focusing
-            .lock()
-            .await
-            .focus_on(self.event_dispatcher.clone())
+    pub fn focus(&self) {
+        self.focusing.focus(self.event_dispatcher.clone());
     }
 
-    pub async fn blur(&self) {
-        self.focusing
-            .lock()
-            .await
-            .blur_checked(&self.event_dispatcher)
+    pub fn blur(&self) {
+        self.focusing.blur();
+    }
+
+    pub fn blur_checked(&self) {
+        self.focusing.blur_checked(&self.event_dispatcher);
     }
 
     pub fn on<E, F>(&self, f: F) -> JoinHandle<()>
@@ -67,7 +65,7 @@ impl ElementHandle {
     }
 }
 
-impl Deref for ElementHandle {
+impl Deref for EventHandle {
     type Target = EventDispatcher;
     fn deref(&self) -> &Self::Target {
         &self.event_dispatcher

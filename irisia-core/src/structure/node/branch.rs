@@ -1,7 +1,7 @@
 use crate::{
-    element::render_content::BareContent,
+    element::SelfCache,
     structure::activate::{
-        ActivateUpdateArguments, ActivatedStructure, Renderable, Structure, Visit,
+        ActivatedStructure, CacheUpdateArguments, Structure, UpdateCache, Visit,
     },
     Result,
 };
@@ -24,14 +24,10 @@ where
 {
     type Activated = Branch<T::Activated, U::Activated>;
 
-    fn activate(
-        self,
-        cache: &mut <Self::Activated as ActivatedStructure>::Cache,
-        content: &BareContent,
-    ) -> Self::Activated {
+    fn activate(self, cache: &mut SelfCache<Self>) -> Self::Activated {
         match self {
-            Branch::Arm1(a) => Branch::Arm1(a.activate(&mut cache.arm1, content)),
-            Branch::Arm2(a) => Branch::Arm2(a.activate(&mut cache.arm2, content)),
+            Branch::Arm1(a) => Branch::Arm1(a.activate(&mut cache.arm1)),
+            Branch::Arm2(a) => Branch::Arm2(a.activate(&mut cache.arm2)),
         }
     }
 }
@@ -64,31 +60,32 @@ where
     }
 }
 
-impl<T, U, L> Renderable<L> for Branch<T, U>
+impl<T, U, L> UpdateCache<L> for Branch<T, U>
 where
-    T: Renderable<L>,
-    U: Renderable<L>,
+    T: UpdateCache<L>,
+    U: UpdateCache<L>,
 {
-    fn update(self, args: ActivateUpdateArguments<Self::Cache, L>) -> Result<bool> {
-        let ActivateUpdateArguments {
+    fn update(self, args: CacheUpdateArguments<Self::Cache, L>) -> Result<bool> {
+        let CacheUpdateArguments {
             offset,
             cache,
-            bare_content,
+            global_content,
             layouter,
             equality_matters,
         } = args;
+
         match self {
-            Branch::Arm1(a) => a.update(ActivateUpdateArguments {
+            Branch::Arm1(a) => a.update(CacheUpdateArguments {
                 offset,
                 cache: &mut cache.arm1,
-                bare_content,
+                global_content: global_content.downgrade_lifetime(),
                 layouter,
                 equality_matters,
             }),
-            Branch::Arm2(a) => a.update(ActivateUpdateArguments {
+            Branch::Arm2(a) => a.update(CacheUpdateArguments {
                 offset,
                 cache: &mut cache.arm2,
-                bare_content,
+                global_content,
                 layouter,
                 equality_matters,
             }),

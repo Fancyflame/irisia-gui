@@ -1,4 +1,4 @@
-use irisia::{skia_safe::Color, style::Pixel, Style};
+use irisia::{primitive::Pixel, skia_safe::Color, Style};
 use irisia_core::skia_safe::{
     canvas::SaveLayerRec, BlendMode, BlurStyle, Canvas, Color4f, ColorSpace, MaskFilter, Paint,
     RRect,
