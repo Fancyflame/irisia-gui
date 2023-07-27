@@ -4,7 +4,7 @@ use irisia_backend::skia_safe::{colors::TRANSPARENT, Canvas};
 use super::LayerCompositer;
 use crate::Result;
 
-pub(crate) struct LayerRebuilder<'a> {
+pub struct LayerRebuilder<'a> {
     pub(super) lc: &'a mut LayerCompositer,
     pub(super) canvas: &'a mut Canvas,
     dirty: bool,
@@ -21,7 +21,7 @@ impl<'a> LayerRebuilder<'a> {
         }
     }
 
-    pub fn draw_in_place(&mut self) -> &mut Canvas {
+    pub(crate) fn draw_in_place(&mut self) -> &mut Canvas {
         if self.dirty {
             self.canvas.restore();
         }
@@ -30,7 +30,10 @@ impl<'a> LayerRebuilder<'a> {
         self.canvas
     }
 
-    pub fn new_layer<'b>(&'b mut self, lc: &'b mut LayerCompositer) -> Result<LayerRebuilder<'b>> {
+    pub(crate) fn new_layer<'b>(
+        &'b mut self,
+        lc: &'b mut LayerCompositer,
+    ) -> Result<LayerRebuilder<'b>> {
         self.flush()?;
         let matrix = self.canvas.local_to_device();
         self.lc.layers.add_layer(lc.self_weak.clone(), matrix);

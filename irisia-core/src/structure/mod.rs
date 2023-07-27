@@ -21,6 +21,7 @@ use self::{
 };
 
 pub mod activate;
+pub mod cache;
 pub mod into_tree_builder;
 pub(crate) mod layer;
 pub mod layout_once;

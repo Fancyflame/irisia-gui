@@ -3,9 +3,12 @@ use std::{collections::HashMap, hash::Hash};
 use irisia_utils::ReuseVec;
 
 use crate::{
+    application::event_comp::NewPointerEvent,
     element::SelfCache,
-    structure::activate::{
-        ActivatedStructure, CacheUpdateArguments, Structure, UpdateCache, Visit,
+    structure::{
+        activate::{ActivatedStructure, CacheUpdateArguments, Structure, UpdateCache, Visit},
+        cache::NodeCache,
+        layer::LayerRebuilder,
     },
     Result,
 };
@@ -71,7 +74,7 @@ pub struct RepeatingActivated<K, T> {
 
 impl<K, T> ActivatedStructure for RepeatingActivated<K, T>
 where
-    K: 'static,
+    K: Hash + Eq + 'static,
     T: ActivatedStructure,
 {
     type Cache = RepeatingCache<K, T::Cache>;
@@ -83,7 +86,7 @@ where
 
 impl<K, T, V> Visit<V> for RepeatingActivated<K, T>
 where
-    K: 'static,
+    K: Hash + Eq + 'static,
     T: Visit<V>,
 {
     fn visit_at(&self, mut index: usize, visitor: &mut V) {
@@ -108,6 +111,8 @@ where
             equality_matters: mut unchange,
         } = args;
 
+        cache.keys.clear();
+
         for (k, node) in self.vectored.drain(..) {
             let node_cache = match cache.element_cache.get_mut(&k) {
                 Some(c) => c,
@@ -125,6 +130,7 @@ where
             })?;
 
             offset += element_count;
+            cache.keys.push(k);
         }
 
         cache.element_cache.retain(|_, cache_unit| {
@@ -148,6 +154,7 @@ struct CacheUnit<T> {
 
 pub struct RepeatingCache<K, T> {
     element_cache: HashMap<K, CacheUnit<T>>,
+    keys: Vec<K>,
     buffer: Option<ReuseVec>,
 }
 
@@ -155,7 +162,34 @@ impl<K, T> Default for RepeatingCache<K, T> {
     fn default() -> Self {
         RepeatingCache {
             element_cache: HashMap::new(),
+            keys: Vec::new(),
             buffer: None,
         }
+    }
+}
+
+impl<K, T> NodeCache for RepeatingCache<K, T>
+where
+    K: Hash + Eq + 'static,
+    T: NodeCache,
+{
+    fn render(&self, rebuilder: &mut LayerRebuilder) -> Result<()> {
+        for key in self.keys.iter() {
+            self.element_cache[key].value.render(rebuilder)?;
+        }
+        Ok(())
+    }
+
+    fn emit_event(&mut self, new_event: &NewPointerEvent) -> bool {
+        let mut result = false;
+        for key in self.keys.iter_mut().rev() {
+            result |= self
+                .element_cache
+                .get_mut(&key)
+                .unwrap()
+                .value
+                .emit_event(new_event);
+        }
+        result
     }
 }

@@ -74,14 +74,6 @@ impl Queue {
         self.buffer.iter().take(self.len)
     }
 
-    pub fn last_mut(&mut self) -> Option<&mut Layer> {
-        if self.len == 0 {
-            None
-        } else {
-            Some(&mut self.buffer[self.len - 1])
-        }
-    }
-
     pub fn pop(&mut self) {
         if let Some(len) = self.len.checked_sub(1) {
             self.len = len;

@@ -1,7 +1,10 @@
 use crate::{
+    application::event_comp::NewPointerEvent,
     element::SelfCache,
-    structure::activate::{
-        ActivatedStructure, CacheUpdateArguments, Structure, UpdateCache, Visit,
+    structure::{
+        activate::{ActivatedStructure, CacheUpdateArguments, Structure, UpdateCache, Visit},
+        cache::NodeCache,
+        layer::LayerRebuilder,
     },
     Result,
 };
@@ -76,5 +79,21 @@ where
     fn visit_at(&self, index: usize, visitor: &mut V) {
         self.0.visit_at(index, visitor);
         self.1.visit_at(index + self.element_count(), visitor);
+    }
+}
+
+impl<A, B> NodeCache for Chain<A, B>
+where
+    A: NodeCache,
+    B: NodeCache,
+{
+    fn render(&self, rebuilder: &mut LayerRebuilder) -> Result<()> {
+        self.0.render(rebuilder)?;
+        self.1.render(rebuilder)
+    }
+
+    fn emit_event(&mut self, new_event: &NewPointerEvent) -> bool {
+        // cannot use `||` here, we need both two node to emit the event
+        self.1.emit_event(new_event) | self.0.emit_event(new_event)
     }
 }

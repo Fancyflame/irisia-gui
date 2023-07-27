@@ -72,6 +72,7 @@ where
 
         let mut interact_region = Some(draw_region);
 
+        // TODO: use closure instead <https://github.com/rust-lang/rust/issues/97362>
         macro_rules! update_arg {
             ($cache: expr) => {
                 UpdateArguments {
@@ -91,11 +92,13 @@ where
             };
         }
 
-        match cache.as_mut() {
-            Some(c) => c
-                .element
-                .blocking_lock()
-                .update(update_arg!(&mut c.children_cache)),
+        let cache = match cache.as_mut() {
+            Some(c) => {
+                c.element
+                    .blocking_lock()
+                    .update(update_arg!(&mut c.children_cache));
+                c
+            }
             None => {
                 unchanged = false;
                 let add_child_cache = AddChildCache::new(
@@ -103,9 +106,11 @@ where
                     |init, cache| El::create(init, update_arg!(cache)),
                     on_create,
                 );
-                *cache = Some(add_child_cache);
+                cache.insert(add_child_cache)
             }
-        }
+        };
+
+        cache.interact_region = interact_region;
 
         Ok(unchanged)
         /*let mut independent_layer = cache.independent_layer.as_ref().map(|x| x.borrow_mut());

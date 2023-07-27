@@ -1,6 +1,9 @@
 use crate::{
-    structure::activate::{
-        ActivatedStructure, CacheUpdateArguments, Structure, UpdateCache, Visit,
+    application::event_comp::NewPointerEvent,
+    structure::{
+        activate::{ActivatedStructure, CacheUpdateArguments, Structure, UpdateCache, Visit},
+        cache::NodeCache,
+        layer::LayerRebuilder,
     },
     Result,
 };
@@ -26,5 +29,15 @@ impl<V> Visit<V> for () {
 impl<L> UpdateCache<L> for () {
     fn update(self, _: CacheUpdateArguments<(), L>) -> Result<bool> {
         Ok(true)
+    }
+}
+
+impl NodeCache for () {
+    fn render(&self, _: &mut LayerRebuilder) -> Result<()> {
+        Ok(())
+    }
+
+    fn emit_event(&mut self, _: &NewPointerEvent) -> bool {
+        false
     }
 }

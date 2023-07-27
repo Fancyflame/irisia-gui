@@ -6,10 +6,10 @@ use crate::{
         },
         EventDispatcher,
     },
-    primitive::{Point, Region},
+    primitive::{Pixel, Point, Region},
 };
 
-use super::global::new_event::{NewEvent, PointerStateChange};
+use super::{global::new_event::PointerStateChange, NewPointerEvent};
 
 pub(crate) struct NodeEventMgr {
     ed: EventDispatcher,
@@ -18,22 +18,31 @@ pub(crate) struct NodeEventMgr {
 
 #[derive(Clone, Copy)]
 enum State {
-    Outside,
+    Untracked,
     LogicallyEnter,
     PhysicallyEnter,
 }
 
 impl NodeEventMgr {
-    pub fn update_and_emit(&mut self, update: &NewEvent, region: Region, logically_entered: bool) {
-        let pe = match update {
-            NewEvent::Common(ev) => {
-                self.ed.emit_sys(ev.clone());
-                return;
-            }
-            NewEvent::PointerEvent(pe) => pe,
+    pub fn new() -> Self {
+        Self {
+            ed: EventDispatcher::new(),
+            current_state: State::Untracked,
+        }
+    }
+
+    pub fn update_and_emit(
+        &mut self,
+        update: &NewPointerEvent,
+        region: Option<Region>,
+        logically_entered: bool,
+    ) -> bool {
+        let Some(region) = region
+        else {
+            return false;
         };
 
-        let position = match pe.new_position {
+        let position = match update.new_position {
             Some(p) if p.abs_ge(region.0) && p.abs_le(region.1) => {
                 self.update_state(State::PhysicallyEnter);
                 p
@@ -43,12 +52,27 @@ impl NodeEventMgr {
                 p
             }
             _ => {
-                self.update_state(State::Outside);
-                return;
+                self.update_state(State::Untracked);
+                return false;
             }
         };
 
-        self.emit_physical_pointer_event(pe.pointer_state_change, position, logically_entered);
+        self.emit_physical_pointer_event(
+            update.pointer_state_change,
+            position,
+            update.cursor_delta,
+            logically_entered,
+        );
+
+        self.ed.emit_sys(update.event.clone());
+
+        if let (PointerStateChange::Press, false) = (update.pointer_state_change, logically_entered)
+        {
+            // TODO: the element may cannot be focused on, set `None` instead.
+            update.focus_on(Some(self.ed.clone()));
+        }
+
+        true
     }
 
     fn update_state(&mut self, new_state: State) {
@@ -58,27 +82,27 @@ impl NodeEventMgr {
         let old_state = std::mem::replace(&mut self.current_state, new_state);
 
         match (old_state, self.current_state) {
-            (Outside, LogicallyEnter) => {
+            (Untracked, LogicallyEnter) => {
                 ed.emit_sys(PointerEntered);
             }
             (LogicallyEnter, PhysicallyEnter) => {
                 ed.emit_sys(PointerOver);
             }
-            (Outside, PhysicallyEnter) => {
+            (Untracked, PhysicallyEnter) => {
                 ed.emit_sys(PointerEntered);
                 ed.emit_sys(PointerOver);
             }
-            (PhysicallyEnter, Outside) => {
+            (PhysicallyEnter, Untracked) => {
                 ed.emit_sys(PointerLeft);
                 ed.emit_sys(PointerOut);
             }
             (PhysicallyEnter, LogicallyEnter) => {
                 ed.emit_sys(PointerLeft);
             }
-            (LogicallyEnter, Outside) => {
+            (LogicallyEnter, Untracked) => {
                 ed.emit_sys(PointerOut);
             }
-            (Outside, Outside)
+            (Untracked, Untracked)
             | (LogicallyEnter, LogicallyEnter)
             | (PhysicallyEnter, PhysicallyEnter) => {}
         }
@@ -88,6 +112,7 @@ impl NodeEventMgr {
         &self,
         psc: PointerStateChange,
         position: Point,
+        delta: Option<(Pixel, Pixel)>,
         logically_entered: bool,
     ) {
         match psc {
@@ -98,6 +123,7 @@ impl NodeEventMgr {
             }),
             PointerStateChange::Unchange => self.ed.emit_sys(PointerMove {
                 is_current: logically_entered,
+                delta: delta.unwrap(),
                 position,
             }),
             PointerStateChange::Release => self.ed.emit_sys(PointerUp {

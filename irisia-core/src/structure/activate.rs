@@ -8,6 +8,8 @@ use crate::{
     Result,
 };
 
+use super::cache::NodeCache;
+
 pub(super) mod __private {
     use super::Structure;
 
@@ -47,7 +49,7 @@ pub trait Structure: Sized {
 }
 
 pub trait ActivatedStructure {
-    type Cache: Default + 'static;
+    type Cache: NodeCache;
 
     fn element_count(&self) -> usize;
 }

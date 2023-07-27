@@ -12,6 +12,7 @@ use crate::{
     primitive::{Pixel, Point},
     structure::{
         add_child,
+        cache::NodeCache,
         layer::{LayerCompositer, SharedLayerCompositer},
         node::AddChildCache,
         TreeBuilder,
@@ -80,9 +81,8 @@ where
 
         let mut lc = self.layer_compositer.borrow_mut();
 
+        // first time initialize
         if self.application.is_none() {
-            let mut rebuilder = lc.rebuild(canvas);
-
             let content = GlobalContent {
                 global_ed: &self.global_event_mgr.global_ed(),
                 focusing: self.global_event_mgr.focusing(),
@@ -92,13 +92,19 @@ where
             };
 
             TreeBuilder::new(add_child, &mut self.application, content, false).finish(region)?;
+            self.application.render(&mut lc.rebuild(canvas))?;
         }
 
+        // composite
         canvas.clear(TRANSPARENT);
         lc.composite(canvas)
     }
 
     fn on_window_event(&mut self, event: StaticWindowEvent) {
-        let new_event = self.global_event_mgr.emit_event(event);
+        if let Some(npe) = self.global_event_mgr.emit_event(event) {
+            if !self.application.emit_event(&npe) {
+                npe.focus_on(None);
+            }
+        }
     }
 }

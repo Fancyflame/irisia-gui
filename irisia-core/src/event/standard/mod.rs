@@ -1,5 +1,5 @@
 use crate as irisia;
-use crate::primitive::Point;
+use crate::primitive::{Pixel, Point};
 use crate::Event;
 
 pub mod window_event;
@@ -32,6 +32,7 @@ pub struct PointerUp {
 #[derive(Event, Clone, Copy)]
 pub struct PointerMove {
     pub is_current: bool,
+    pub delta: (Pixel, Pixel),
     pub position: Point,
 }
 

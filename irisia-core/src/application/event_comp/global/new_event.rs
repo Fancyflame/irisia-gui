@@ -9,19 +9,14 @@ use crate::{
 
 use super::{GlobalEventMgr, PointerState};
 
-pub(crate) enum NewEvent<'a> {
-    PointerEvent(NewPointerEvent<'a>),
-    Common(StaticWindowEvent),
-}
-
-pub(crate) struct NewPointerEvent<'a> {
-    pub event: StaticWindowEvent,
-    pub gem: &'a mut GlobalEventMgr,
-    pub new_position: Option<Point>,
-    pub cursor_delta: Option<(Pixel, Pixel)>,
+pub struct NewPointerEvent<'a> {
+    pub(crate) event: StaticWindowEvent,
+    pub(crate) gem: &'a mut GlobalEventMgr,
+    pub(crate) new_position: Option<Point>,
+    pub(crate) cursor_delta: Option<(Pixel, Pixel)>,
     new_focused: Cell<NewFocused>,
-    pub new_pointer_state: PointerState,
-    pub pointer_state_change: PointerStateChange,
+    pub(crate) new_pointer_state: PointerState,
+    pub(crate) pointer_state_change: PointerStateChange,
 }
 
 enum NewFocused {
@@ -65,7 +60,7 @@ impl<'a> NewPointerEvent<'a> {
         }
     }
 
-    pub(crate) fn default_focus_on(&self, ed: Option<EventDispatcher>) {
+    pub(crate) fn focus_on(&self, ed: Option<EventDispatcher>) {
         self.new_focused.set(match ed {
             Some(ed) => NewFocused::ChangeTo(ed),
             None => NewFocused::Blur,

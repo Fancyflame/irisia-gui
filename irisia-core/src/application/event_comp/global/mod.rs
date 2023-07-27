@@ -8,12 +8,12 @@ use crate::{
         standard::{PointerDown, PointerEntered, PointerMove, PointerOut, PointerUp},
         EventDispatcher,
     },
-    primitive::Point,
+    primitive::{Pixel, Point},
 };
 
 use self::{
     focusing::Focusing,
-    new_event::{NewEvent, NewPointerEvent, PointerStateChange},
+    new_event::{NewPointerEvent, PointerStateChange},
 };
 
 pub(crate) mod focusing;
@@ -52,21 +52,28 @@ impl GlobalEventMgr {
     }
 
     #[must_use]
-    pub fn emit_event(&mut self, event: StaticWindowEvent) -> NewEvent {
+    pub fn emit_event(&mut self, event: StaticWindowEvent) -> Option<NewPointerEvent> {
         match cursor_behavior(&event, self.pointer_state, self.last_cursor_position) {
             Some((new_position, new_pointer_state)) => {
                 let npe = NewPointerEvent::new(event, self, new_position, new_pointer_state);
-                npe.gem
-                    .emit_physical_pointer_event(new_position, npe.pointer_state_change);
-                NewEvent::PointerEvent(npe)
+                npe.gem.emit_physical_pointer_event(
+                    new_position,
+                    npe.cursor_delta,
+                    npe.pointer_state_change,
+                );
+                Some(npe)
             }
-            None => NewEvent::Common(event),
+            None => {
+                self.global_ed.emit_sys(event);
+                None
+            }
         }
     }
 
     fn emit_physical_pointer_event(
         &self,
         position: Option<Point>,
+        delta: Option<(Pixel, Pixel)>,
         new_pointer_state: PointerStateChange,
     ) {
         let ed = &self.global_ed;
@@ -79,6 +86,7 @@ impl GlobalEventMgr {
             }),
             (PointerStateChange::Unchange, Some(position)) => ed.emit_sys(PointerMove {
                 is_current: false,
+                delta: delta.unwrap(),
                 position,
             }),
             (PointerStateChange::Release, Some(position)) => ed.emit_sys(PointerUp {

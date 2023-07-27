@@ -1,7 +1,12 @@
+use anyhow::anyhow;
+
 use crate::{
+    application::event_comp::NewPointerEvent,
     element::SelfCache,
-    structure::activate::{
-        ActivatedStructure, CacheUpdateArguments, Structure, UpdateCache, Visit,
+    structure::{
+        activate::{ActivatedStructure, CacheUpdateArguments, Structure, UpdateCache, Visit},
+        cache::NodeCache,
+        layer::LayerRebuilder,
     },
     Result,
 };
@@ -10,6 +15,16 @@ use crate::{
 pub struct BranchCache<T, U> {
     arm1: T,
     arm2: U,
+    current: CurrentArm,
+}
+
+#[derive(Default)]
+enum CurrentArm {
+    #[default]
+    NotInit,
+
+    Arm1,
+    Arm2,
 }
 
 pub enum Branch<T, U> {
@@ -75,20 +90,48 @@ where
         } = args;
 
         match self {
-            Branch::Arm1(a) => a.update(CacheUpdateArguments {
-                offset,
-                cache: &mut cache.arm1,
-                global_content: global_content.downgrade_lifetime(),
-                layouter,
-                equality_matters,
-            }),
-            Branch::Arm2(a) => a.update(CacheUpdateArguments {
-                offset,
-                cache: &mut cache.arm2,
-                global_content,
-                layouter,
-                equality_matters,
-            }),
+            Branch::Arm1(a) => {
+                cache.current = CurrentArm::Arm1;
+                a.update(CacheUpdateArguments {
+                    offset,
+                    cache: &mut cache.arm1,
+                    global_content: global_content.downgrade_lifetime(),
+                    layouter,
+                    equality_matters,
+                })
+            }
+            Branch::Arm2(a) => {
+                cache.current = CurrentArm::Arm2;
+                a.update(CacheUpdateArguments {
+                    offset,
+                    cache: &mut cache.arm2,
+                    global_content,
+                    layouter,
+                    equality_matters,
+                })
+            }
+        }
+    }
+}
+
+impl<T, U> NodeCache for BranchCache<T, U>
+where
+    T: NodeCache,
+    U: NodeCache,
+{
+    fn render(&self, rebuilder: &mut LayerRebuilder) -> Result<()> {
+        match self.current {
+            CurrentArm::Arm1 => self.arm1.render(rebuilder),
+            CurrentArm::Arm2 => self.arm2.render(rebuilder),
+            CurrentArm::NotInit => Err(anyhow!("this branch is not initialized")),
+        }
+    }
+
+    fn emit_event(&mut self, new_event: &NewPointerEvent) -> bool {
+        match self.current {
+            CurrentArm::Arm1 => self.arm1.emit_event(new_event),
+            CurrentArm::Arm2 => self.arm2.emit_event(new_event),
+            CurrentArm::NotInit => false,
         }
     }
 }
