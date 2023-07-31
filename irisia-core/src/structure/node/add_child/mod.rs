@@ -12,20 +12,20 @@ pub mod activated;
 pub mod cache;
 pub mod update_el;
 
-pub struct AddChild<El, Pr, Sty, Sb, Oc> {
+pub struct AddChild<El, Pr, Sty, Str, Oc> {
     _el: PhantomData<El>,
     props: Pr,
     styles: Sty,
-    children: Sb,
+    children: Str,
     on_create: Oc,
 }
 
-pub fn add_child<El, Pr, Sty, Sb, Oc>(
+pub fn add_child<El, Pr, Sty, Str, Oc>(
     props: Pr,
     styles: Sty,
-    children: Sb,
+    children: Str,
     on_create: Oc,
-) -> AddChild<El, Pr, Sty, Sb, Oc> {
+) -> AddChild<El, Pr, Sty, Str, Oc> {
     AddChild {
         _el: PhantomData,
         props,
@@ -35,14 +35,14 @@ pub fn add_child<El, Pr, Sty, Sb, Oc>(
     }
 }
 
-impl<El, Pr, Sty, Sb, Oc> Structure for AddChild<El, Pr, Sty, Sb, Oc>
+impl<El, Pr, Sty, Str, Oc> Structure for AddChild<El, Pr, Sty, Str, Oc>
 where
-    El: Element + ElementMutate<Pr, Sb>,
-    Sb: Structure,
+    El: Element + ElementMutate<Pr, Str>,
+    Str: Structure,
     Sty: StyleContainer,
     Oc: FnOnce(&InitContent<El>),
 {
-    type Activated = AddChildActivated<El, Pr, Sty, Sb, Oc>;
+    type Activated = AddChildActivated<El, Pr, Sty, Str, Oc>;
 
     fn activate(self, _cache: &mut SelfCache<Self>) -> Self::Activated {
         AddChildActivated {

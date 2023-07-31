@@ -15,29 +15,29 @@ use crate::{
 
 use super::{AddChild, AddChildCache, Element, VisitItem};
 
-pub struct AddChildActivated<El, Pr, Sty, Sb, Oc> {
-    pub(super) add_child: AddChild<El, Pr, Sty, Sb, Oc>,
+pub struct AddChildActivated<El, Pr, Sty, Str, Oc> {
+    pub(super) add_child: AddChild<El, Pr, Sty, Str, Oc>,
     pub(super) request_size: ComputeSize,
 }
 
-impl<El, Pr, Sty, Sb, Oc> ActivatedStructure for AddChildActivated<El, Pr, Sty, Sb, Oc>
+impl<El, Pr, Sty, Str, Oc> ActivatedStructure for AddChildActivated<El, Pr, Sty, Str, Oc>
 where
-    El: Element + ElementMutate<Pr, Sb>,
-    Sb: Structure,
+    El: Element + ElementMutate<Pr, Str>,
+    Str: Structure,
     Sty: StyleContainer,
 {
-    type Cache = Option<AddChildCache<El, ChildrenCache<El, Pr, Sb>>>;
+    type Cache = Option<AddChildCache<El, ChildrenCache<El, Pr, Str>>>;
 
     fn element_count(&self) -> usize {
         1
     }
 }
 
-impl<El, Pr, Sty, Sb, Oc, L> UpdateCache<L> for AddChildActivated<El, Pr, Sty, Sb, Oc>
+impl<El, Pr, Sty, Str, Oc, L> UpdateCache<L> for AddChildActivated<El, Pr, Sty, Str, Oc>
 where
-    El: Element + ElementMutate<Pr, Sb>,
+    El: Element + ElementMutate<Pr, Str>,
     Sty: StyleContainer,
-    Sb: Structure,
+    Str: Structure,
     Oc: FnOnce(&InitContent<El>),
     L: Layouter<El, Pr>,
 {
@@ -79,7 +79,6 @@ where
                     props,
                     styles,
                     children,
-                    draw_region,
                     equality_matters: unchanged,
                     updater: UpdateElementContent {
                         phantom_children: PhantomData,
@@ -94,6 +93,7 @@ where
 
         let cache = match cache.as_mut() {
             Some(c) => {
+                c.draw_region = draw_region;
                 c.element
                     .blocking_lock()
                     .update(update_arg!(&mut c.children_cache));
@@ -103,6 +103,7 @@ where
                 unchanged = false;
                 let add_child_cache = AddChildCache::new(
                     &global_content,
+                    draw_region,
                     |init, cache| El::create(init, update_arg!(cache)),
                     on_create,
                 );
@@ -113,45 +114,14 @@ where
         cache.interact_region = interact_region;
 
         Ok(unchanged)
-        /*let mut independent_layer = cache.independent_layer.as_ref().map(|x| x.borrow_mut());
-        let rebuilder = match &mut independent_layer {
-            Some(mut il) => rebuilder.new_layer(&mut il)?,
-            None => rebuilder,
-        };
-
-        let mut content = RenderContent {
-            cache_box_for_children: Some(&mut cache.cache_box),
-            event_comp_index: bare_content
-                .event_comp_builder
-                .push(cache.init_content.element_handle.event_dispatcher().clone()),
-            bare: bare_content,
-            layer_rebuilder: rebuilder,
-        };
-
-        let region = layouter.layout(VisitItem {
-            index: offset,
-            element: &el,
-            style: &styles,
-            request_size: requested_size,
-        })?;
-
-        content.set_interact_region(region);
-        let result = el.render(Frame {
-            props: &cache.props,
-            children,
-            content: content.downgrade_lifetime(),
-        });
-
-        content.bare.event_comp_builder.finish();
-        result*/
     }
 }
 
-impl<El, Pr, Sty, Sb, Oc, V> Visit<V> for AddChildActivated<El, Pr, Sty, Sb, Oc>
+impl<El, Pr, Sty, Str, Oc, V> Visit<V> for AddChildActivated<El, Pr, Sty, Str, Oc>
 where
-    El: Element + ElementMutate<Pr, Sb>,
+    El: Element + ElementMutate<Pr, Str>,
     Sty: StyleContainer,
-    Sb: Structure,
+    Str: Structure,
     V: Visitor<El, Pr>,
 {
     fn visit_at(&self, offset: usize, visitor: &mut V) {

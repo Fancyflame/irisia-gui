@@ -26,6 +26,7 @@ pub struct AddChildCache<El, Cc> {
     independent_layer: Option<SharedLayerCompositer>,
     event_mgr: NodeEventMgr,
     pub(super) interact_region: Option<Region>,
+    pub(super) draw_region: Region,
 }
 
 impl<El, Cc> AddChildCache<El, Cc>
@@ -33,7 +34,12 @@ where
     El: Element,
     Cc: Default,
 {
-    pub(super) fn new<F, Oc>(global_content: &GlobalContent, creator: F, on_create: Oc) -> Self
+    pub(super) fn new<F, Oc>(
+        global_content: &GlobalContent,
+        draw_region: Region,
+        creator: F,
+        on_create: Oc,
+    ) -> Self
     where
         F: FnOnce(&InitContent<El>, &mut Cc) -> El,
         Oc: FnOnce(&InitContent<El>),
@@ -58,6 +64,7 @@ where
             independent_layer: None,
             event_mgr: NodeEventMgr::new(),
             interact_region: None,
+            draw_region,
         }
     }
 
@@ -67,7 +74,7 @@ where
     {
         self.element
             .blocking_lock()
-            .render(rebuilder.draw_in_place())?;
+            .render(rebuilder.draw_in_place(), self.draw_region)?;
 
         self.children_cache.render(rebuilder)?;
         Ok(())

@@ -18,7 +18,7 @@ pub struct BranchCache<T, U> {
     current: CurrentArm,
 }
 
-#[derive(Default)]
+#[derive(Default, PartialEq, Eq)]
 enum CurrentArm {
     #[default]
     NotInit,
@@ -86,31 +86,37 @@ where
             cache,
             global_content,
             layouter,
-            equality_matters,
+            equality_matters: mut unchange,
         } = args;
 
         match self {
             Branch::Arm1(a) => {
+                unchange &= cache.current == CurrentArm::Arm1;
                 cache.current = CurrentArm::Arm1;
-                a.update(CacheUpdateArguments {
+
+                unchange &= a.update(CacheUpdateArguments {
                     offset,
                     cache: &mut cache.arm1,
-                    global_content: global_content.downgrade_lifetime(),
+                    global_content,
                     layouter,
-                    equality_matters,
-                })
+                    equality_matters: unchange,
+                })?;
             }
             Branch::Arm2(a) => {
+                unchange &= cache.current == CurrentArm::Arm2;
                 cache.current = CurrentArm::Arm2;
-                a.update(CacheUpdateArguments {
+
+                unchange &= a.update(CacheUpdateArguments {
                     offset,
                     cache: &mut cache.arm2,
                     global_content,
                     layouter,
-                    equality_matters,
-                })
+                    equality_matters: unchange,
+                })?;
             }
         }
+
+        Ok(unchange)
     }
 }
 

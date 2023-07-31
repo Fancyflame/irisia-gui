@@ -4,7 +4,7 @@ use std::{
 };
 
 /// Custom update methods.
-pub trait StateUpdate<T> {
+pub trait UpdateFrom<T>: Sized {
     /// Update the state, returns whether
     /// the new state is equivalent to the previous.
     ///
@@ -15,13 +15,14 @@ pub trait StateUpdate<T> {
     /// - `return`: Whether the state has changed. Return `false` is always
     /// correct, but may cause unnecessary redrawing.
     fn state_update(&mut self, updater: T, equality_matters: bool) -> bool;
+    fn state_create(updater: T) -> Self;
 }
 
 // for String/OsString/PathBuf from str/OsStr/Path
 
 macro_rules! impl_as_ref {
     ($Struct:ident $slice:ident $push:ident) => {
-        impl<T> StateUpdate<T> for $Struct
+        impl<T> UpdateFrom<T> for $Struct
         where
             T: AsRef<$slice>,
         {
@@ -30,6 +31,10 @@ macro_rules! impl_as_ref {
                 self.clear();
                 self.$push(updater.as_ref());
                 unchanged
+            }
+
+            fn state_create(updater: T) -> Self {
+                updater.as_ref().into()
             }
         }
     };
@@ -41,13 +46,13 @@ impl_as_ref!(PathBuf  Path  push);
 
 // for Vec<T> from iterator
 
-impl<I> StateUpdate<I> for Vec<I::Item>
+impl<I> UpdateFrom<I> for Vec<I::Item>
 where
     I: Iterator,
     I::Item: PartialEq<I::Item> + 'static,
 {
-    fn state_update(&mut self, mut updater: I, equaity_matters: bool) -> bool {
-        if equaity_matters {
+    fn state_update(&mut self, mut updater: I, equality_matters: bool) -> bool {
+        if equality_matters {
             let mut result = true;
             let mut old_elements = self.iter_mut();
 
@@ -75,15 +80,23 @@ where
             false
         }
     }
+
+    fn state_create(updater: I) -> Self {
+        updater.collect()
+    }
 }
 
 // for Box<T> from T's updater
 
-impl<T, U> StateUpdate<U> for Box<T>
+impl<T, U> UpdateFrom<U> for Box<T>
 where
-    T: StateUpdate<U> + ?Sized,
+    T: UpdateFrom<U> + ?Sized,
 {
     fn state_update(&mut self, updater: U, equality_matters: bool) -> bool {
         (**self).state_update(updater, equality_matters)
+    }
+
+    fn state_create(updater: U) -> Self {
+        Box::new(T::state_create(updater))
     }
 }

@@ -111,6 +111,14 @@ where
             equality_matters: mut unchange,
         } = args;
 
+        if unchange {
+            for (old_key, (new_key, _)) in cache.keys.iter().zip(self.vectored.iter()) {
+                if old_key != new_key {
+                    unchange = false;
+                    break;
+                }
+            }
+        }
         cache.keys.clear();
 
         for (k, node) in self.vectored.drain(..) {

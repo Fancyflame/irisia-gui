@@ -8,6 +8,7 @@ mod derive_style_reader;
 mod element;
 pub(crate) mod expr;
 mod main_macro;
+mod props;
 mod style;
 
 /// To build a element tree visually. This macro will returns
@@ -128,3 +129,6 @@ pub fn derive_style_reader(input: TokenStream) -> TokenStream {
         Err(e) => e.to_compile_error().into(),
     }
 }
+
+//#[proc_macro_attribute]
+//pub fn props(attr: TokenStream, item: TokenStream) -> TokenStream {}

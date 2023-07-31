@@ -6,8 +6,3 @@ pub mod metadata;
 pub mod standard;
 
 pub trait Event: Send + Clone + Unpin + 'static {}
-
-/// Can be received as key. It declares that this event is a
-/// element event.
-#[derive(Clone)]
-pub struct ElementEvent(pub(crate) ());

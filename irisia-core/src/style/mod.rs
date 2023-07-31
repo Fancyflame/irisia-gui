@@ -38,7 +38,7 @@ pub use chain::*;
 use irisia_backend::skia_safe::Color;
 use irisia_macros::Style;
 
-use self::reader::StyleReader;
+pub use reader::StyleReader;
 
 pub trait Style: Clone + 'static {}
 
