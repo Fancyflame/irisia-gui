@@ -2,45 +2,52 @@ use std::{sync::Arc, time::Duration};
 
 use irisia_backend::{
     skia_safe::{colors::TRANSPARENT, Canvas},
-    window_handle::{close_handle::CloseHandle, RawWindowHandle, WindowBuilder},
+    window_handle::{RawWindowHandle, WindowBuilder},
     AppWindow, StaticWindowEvent, WinitWindow,
 };
 
 use crate::{
-    element::{ChildrenCache, Element, ElementMutate},
+    dom::{
+        add_one,
+        layer::{LayerCompositer, SharedLayerCompositer},
+        ElementModel,
+    },
+    element::Element,
     event::EventDispatcher,
     primitive::{Pixel, Point},
-    structure::{
-        add_child,
-        cache::NodeCache,
-        layer::{LayerCompositer, SharedLayerCompositer},
-        node::AddChildCache,
-        TreeBuilder,
-    },
-    style::NoStyle,
-    Result,
+    Result, UpdateWith,
 };
 
-use super::{content::GlobalContent, event_comp::GlobalEventMgr, Window};
+use super::{
+    content::GlobalContent,
+    event_comp::{global::focusing::Focusing, GlobalEventMgr},
+    EmptyUpdateOptions, Window,
+};
 
 pub(super) async fn new_window<El, F>(window_builder: F) -> Result<Window>
 where
-    El: Element + ElementMutate<(), ()>,
+    El: Element + for<'a> UpdateWith<EmptyUpdateOptions<'a>>,
     F: FnOnce(WindowBuilder) -> WindowBuilder + Send + 'static,
 {
     let ev_disp = EventDispatcher::new();
 
     let create_app = {
         let ev_disp = ev_disp.clone();
-        move |window: Arc<WinitWindow>, close_handle| BackendRuntime::<
-            El,
-            ChildrenCache<El, (), ()>,
-        > {
-            window,
-            application: None,
-            global_event_mgr: GlobalEventMgr::new(ev_disp),
-            close_handle,
-            layer_compositer: LayerCompositer::new_shared(),
+
+        move |window: Arc<WinitWindow>, close_handle| {
+            let gc = Arc::new(GlobalContent {
+                global_ed: ev_disp,
+                focusing: Focusing::new(),
+                window,
+                close_handle,
+            });
+
+            BackendRuntime::<El> {
+                root_element: ElementModel::create_with((add_one((), (), (), |_: &_| {}), &gc)),
+                gem: GlobalEventMgr::new(),
+                gc,
+                layer_compositer: LayerCompositer::new_shared(),
+            }
         }
     };
 
@@ -56,21 +63,18 @@ where
     })
 }
 
-pub(super) struct BackendRuntime<El, Cc> {
-    window: Arc<WinitWindow>,
-    application: Option<AddChildCache<El, Cc>>,
-    global_event_mgr: GlobalEventMgr,
-    close_handle: CloseHandle,
+pub(super) struct BackendRuntime<El> {
+    gem: GlobalEventMgr,
+    gc: Arc<GlobalContent>,
+    root_element: ElementModel<El>,
     layer_compositer: SharedLayerCompositer,
 }
 
-impl<El> AppWindow for BackendRuntime<El, ChildrenCache<El, (), ()>>
+impl<El> AppWindow for BackendRuntime<El>
 where
-    El: Element + ElementMutate<(), ()>,
+    El: Element + for<'a> UpdateWith<EmptyUpdateOptions<'a>>,
 {
     fn on_redraw(&mut self, canvas: &mut Canvas, size: (u32, u32), delta: Duration) -> Result<()> {
-        let add_child = add_child::<El, _, _, _, _>((), NoStyle, (), |_: &_| {});
-
         let region = (
             Point(Pixel(0.0), Pixel(0.0)),
             Point(
@@ -80,20 +84,8 @@ where
         );
 
         let mut lc = self.layer_compositer.borrow_mut();
-
-        // first time initialize
-        if self.application.is_none() {
-            let content = GlobalContent {
-                global_ed: &self.global_event_mgr.global_ed(),
-                focusing: self.global_event_mgr.focusing(),
-                window: &self.window,
-                close_handle: self.close_handle,
-                interval: delta,
-            };
-
-            TreeBuilder::new(add_child, &mut self.application, content, false).finish(region)?;
-            self.application.render(&mut lc.rebuild(canvas))?;
-        }
+        self.root_element
+            .render(&mut lc.rebuild(canvas), region, delta)?;
 
         // composite
         canvas.clear(TRANSPARENT);
@@ -101,8 +93,8 @@ where
     }
 
     fn on_window_event(&mut self, event: StaticWindowEvent) {
-        if let Some(npe) = self.global_event_mgr.emit_event(event) {
-            if !self.application.emit_event(&npe) {
+        if let Some(npe) = self.gem.emit_event(event, &self.gc) {
+            if !self.root_element.emit_event(&npe) {
                 npe.focus_on(None);
             }
         }

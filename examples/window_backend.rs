@@ -5,7 +5,7 @@ use irisia::{
     primitive::Point,
     read_style,
     skia_safe::{Color, Color4f, Paint, Rect},
-    structure::{StructureBuilder, VisitIter},
+    structure_legacy::{StructureBuilder, VisitIter},
     style,
     style::StyleColor,
     Event, StaticWindowEvent, Style,

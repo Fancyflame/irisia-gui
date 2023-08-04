@@ -46,9 +46,6 @@ pub trait Style: Clone + 'static {}
 #[style(from)]
 pub struct StyleColor(pub Color);
 
-#[derive(Clone, Copy)]
-pub struct NoStyle;
-
 #[derive(Debug, Style, Clone, Copy, PartialEq)]
 pub enum XAxisBound {
     #[style(option)]
@@ -73,7 +70,7 @@ pub trait StyleContainer: Clone {
     }
 }
 
-impl StyleContainer for NoStyle {
+impl StyleContainer for () {
     fn get_style<T: Style>(&self) -> Option<T> {
         None
     }

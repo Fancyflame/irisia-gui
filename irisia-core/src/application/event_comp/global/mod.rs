@@ -4,6 +4,7 @@ use irisia_backend::{
 };
 
 use crate::{
+    application::content::GlobalContent,
     event::{
         standard::{PointerDown, PointerEntered, PointerMove, PointerOut, PointerUp},
         EventDispatcher,
@@ -11,18 +12,13 @@ use crate::{
     primitive::{Pixel, Point},
 };
 
-use self::{
-    focusing::Focusing,
-    new_event::{NewPointerEvent, PointerStateChange},
-};
+use self::new_event::{NewPointerEvent, PointerStateChange};
 
 pub(crate) mod focusing;
 pub(crate) mod new_event;
 
 pub(crate) struct GlobalEventMgr {
-    global_ed: EventDispatcher,
     last_cursor_position: Option<Point>,
-    focusing: Focusing,
     pointer_state: PointerState,
 }
 
@@ -34,29 +30,24 @@ pub(crate) enum PointerState {
 }
 
 impl GlobalEventMgr {
-    pub fn new(global_ed: EventDispatcher) -> Self {
+    pub fn new() -> Self {
         GlobalEventMgr {
-            global_ed,
             last_cursor_position: None,
-            focusing: Focusing::new(),
             pointer_state: PointerState::OutOfViewport,
         }
     }
 
-    pub fn global_ed(&self) -> &EventDispatcher {
-        &self.global_ed
-    }
-
-    pub fn focusing(&self) -> &Focusing {
-        &self.focusing
-    }
-
     #[must_use]
-    pub fn emit_event(&mut self, event: StaticWindowEvent) -> Option<NewPointerEvent> {
+    pub fn emit_event<'a>(
+        &'a mut self,
+        event: StaticWindowEvent,
+        gc: &'a GlobalContent,
+    ) -> Option<NewPointerEvent<'a>> {
         match cursor_behavior(&event, self.pointer_state, self.last_cursor_position) {
             Some((new_position, new_pointer_state)) => {
-                let npe = NewPointerEvent::new(event, self, new_position, new_pointer_state);
-                npe.gem.emit_physical_pointer_event(
+                let npe = NewPointerEvent::new(event, self, gc, new_position, new_pointer_state);
+                emit_physical_pointer_event(
+                    &gc.global_ed,
                     new_position,
                     npe.cursor_delta,
                     npe.pointer_state_change,
@@ -64,38 +55,36 @@ impl GlobalEventMgr {
                 Some(npe)
             }
             None => {
-                self.global_ed.emit_sys(event);
+                gc.global_ed.emit_sys(event);
                 None
             }
         }
     }
+}
 
-    fn emit_physical_pointer_event(
-        &self,
-        position: Option<Point>,
-        delta: Option<(Pixel, Pixel)>,
-        new_pointer_state: PointerStateChange,
-    ) {
-        let ed = &self.global_ed;
-
-        match (new_pointer_state, position) {
-            (PointerStateChange::EnterViewport, None) => ed.emit_sys(PointerEntered),
-            (PointerStateChange::Press, Some(position)) => ed.emit_sys(PointerDown {
-                is_current: false,
-                position,
-            }),
-            (PointerStateChange::Unchange, Some(position)) => ed.emit_sys(PointerMove {
-                is_current: false,
-                delta: delta.unwrap(),
-                position,
-            }),
-            (PointerStateChange::Release, Some(position)) => ed.emit_sys(PointerUp {
-                is_current: false,
-                position,
-            }),
-            (PointerStateChange::LeaveViewport, None) => ed.emit_sys(PointerOut),
-            _ => unreachable!("unexpected new-pointer-state and optioned position combination"),
-        }
+fn emit_physical_pointer_event(
+    ed: &EventDispatcher,
+    position: Option<Point>,
+    delta: Option<(Pixel, Pixel)>,
+    new_pointer_state: PointerStateChange,
+) {
+    match (new_pointer_state, position) {
+        (PointerStateChange::EnterViewport, None) => ed.emit_sys(PointerEntered),
+        (PointerStateChange::Press, Some(position)) => ed.emit_sys(PointerDown {
+            is_current: false,
+            position,
+        }),
+        (PointerStateChange::Unchange, Some(position)) => ed.emit_sys(PointerMove {
+            is_current: false,
+            delta: delta.unwrap(),
+            position,
+        }),
+        (PointerStateChange::Release, Some(position)) => ed.emit_sys(PointerUp {
+            is_current: false,
+            position,
+        }),
+        (PointerStateChange::LeaveViewport, None) => ed.emit_sys(PointerOut),
+        _ => unreachable!("unexpected new-pointer-state and optioned position combination"),
     }
 }
 

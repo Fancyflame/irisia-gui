@@ -1,3 +1,5 @@
+#![feature(return_position_impl_trait_in_trait)]
+
 pub mod anyhow {
     pub use anyhow::*;
 }
@@ -14,12 +16,14 @@ macro_rules! inner_error {
 }
 
 pub mod application;
+pub mod dom;
 pub mod element;
 pub mod event;
 pub mod log;
 pub mod primitive;
 pub mod structure;
 pub mod style;
+pub mod update_with;
 
 #[doc(hidden)]
 pub use __macro_helper::*;
@@ -32,5 +36,6 @@ pub use irisia_backend::{
 };
 pub use irisia_macros::*;
 pub use style::{reader::StyleReader, Style};
+pub use update_with::UpdateWith;
 
 //mod prop_test;

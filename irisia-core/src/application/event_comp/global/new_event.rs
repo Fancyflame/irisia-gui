@@ -3,6 +3,7 @@ use std::cell::Cell;
 use irisia_backend::StaticWindowEvent;
 
 use crate::{
+    application::content::GlobalContent,
     event::EventDispatcher,
     primitive::{Pixel, Point},
 };
@@ -12,6 +13,7 @@ use super::{GlobalEventMgr, PointerState};
 pub struct NewPointerEvent<'a> {
     pub(crate) event: StaticWindowEvent,
     pub(crate) gem: &'a mut GlobalEventMgr,
+    pub(crate) global_content: &'a GlobalContent,
     pub(crate) new_position: Option<Point>,
     pub(crate) cursor_delta: Option<(Pixel, Pixel)>,
     new_focused: Cell<NewFocused>,
@@ -38,6 +40,7 @@ impl<'a> NewPointerEvent<'a> {
     pub(super) fn new(
         event: StaticWindowEvent,
         gem: &'a mut GlobalEventMgr,
+        gc: &'a GlobalContent,
         new_position: Option<Point>,
         new_pointer_state: PointerState,
     ) -> Self {
@@ -57,6 +60,7 @@ impl<'a> NewPointerEvent<'a> {
                 new_pointer_state,
             ),
             gem,
+            global_content: gc,
         }
     }
 
@@ -90,8 +94,8 @@ impl Drop for NewPointerEvent<'_> {
 
         match self.new_focused.replace(NewFocused::Unchanged) {
             NewFocused::Unchanged => (),
-            NewFocused::ChangeTo(ed) => self.gem.focusing.focus(ed),
-            NewFocused::Blur => self.gem.focusing.blur(),
+            NewFocused::ChangeTo(ed) => self.global_content.focusing.focus(ed),
+            NewFocused::Blur => self.global_content.focusing.blur(),
         }
 
         self.gem.pointer_state = self.new_pointer_state;

@@ -4,7 +4,7 @@ use irisia::{
     element::{Element, EventHandle, InitContent, NeverInitalized, NoProps},
     event::standard::Click,
     skia_safe::Color,
-    structure::StructureBuilder,
+    structure_legacy::StructureBuilder,
     style,
     style::StyleColor,
     textbox::{styles::*, TextBox},
@@ -35,7 +35,7 @@ impl Element for App {
         mut frame: irisia::Frame<
             Self,
             impl style::StyleContainer,
-            impl irisia::structure::VisitIter<Self::ChildProps<'a>>,
+            impl irisia::structure_legacy::VisitIter<Self::ChildProps<'a>>,
         >,
     ) -> irisia::Result<()> {
         build! {

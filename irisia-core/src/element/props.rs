@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use crate::{style::StyleContainer, StyleReader};
 
-use super::UpdateFrom;
+use crate::UpdateWith;
 
 pub struct CallUpdater;
 pub struct MoveOwnership;
@@ -16,10 +16,10 @@ pub trait HelpUpdate<S, T>: HelpCreate<S, T> {
 
 impl<S, T> HelpUpdate<S, (T,)> for CallUpdater
 where
-    S: UpdateFrom<T>,
+    S: UpdateWith<T>,
 {
     fn update(&self, source: &mut S, maybe_init: (T,), equality_matters: bool) -> bool {
-        source.state_update(maybe_init.0, equality_matters)
+        source.update_with(maybe_init.0, equality_matters)
     }
 }
 
@@ -115,11 +115,11 @@ pub trait HelpCreate<S, T> {
 
 impl<S, T> HelpCreate<S, (T,)> for CallUpdater
 where
-    S: UpdateFrom<T>,
+    S: UpdateWith<T>,
 {
     type Def = MustBeInitialized<S>;
     fn create(&self, maybe_init: (T,)) -> Self::Def {
-        MustBeInitialized(S::state_create(maybe_init.0))
+        MustBeInitialized(S::create_with(maybe_init.0))
     }
 }
 

@@ -7,7 +7,7 @@ use irisia_backend::window_handle::close_handle::CloseHandle;
 use irisia_backend::WinitWindow;
 use tokio::sync::Mutex;
 
-use super::EventHandle;
+use self::event_handle::EventHandle;
 
 pub mod event_handle;
 

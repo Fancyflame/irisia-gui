@@ -5,7 +5,6 @@ use crate::event::{
     EventDispatcher,
 };
 
-#[derive(Clone)]
 pub struct Focusing(Arc<StdMutex<Option<EventDispatcher>>>);
 
 impl Focusing {

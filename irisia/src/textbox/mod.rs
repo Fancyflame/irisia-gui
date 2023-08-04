@@ -11,7 +11,7 @@ use irisia_core::{
         textlayout::{FontCollection, Paragraph, ParagraphBuilder, ParagraphStyle, TextStyle},
         Color, FontMgr, FontStyle, Point as SkiaPoint,
     },
-    structure::EmptyStructure,
+    structure_legacy::EmptyStructure,
     style::{StyleColor, StyleContainer},
     StyleReader,
 };
