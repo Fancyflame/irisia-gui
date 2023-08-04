@@ -13,6 +13,8 @@ use crate::{
 
 use super::ComputeSize;
 
+pub use crate::dom::peek_children::PeekChildren;
+
 pub struct UpdateOptions<'a, Pr, Sty, Ch> {
     pub props: Pr,
     pub styles: &'a Sty,

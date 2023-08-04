@@ -68,11 +68,11 @@ struct RenderHelper<'a, 'lr> {
     result: Result<()>,
 }
 
-impl<El> VisitorMut<ElementModel<El>> for RenderHelper<'_, '_>
+impl<El, Sty> VisitorMut<ElementModel<El, Sty>> for RenderHelper<'_, '_>
 where
     El: Element,
 {
-    fn visit_mut(&mut self, data: &mut ElementModel<El>, control: &mut ControlFlow) {
+    fn visit_mut(&mut self, data: &mut ElementModel<El, Sty>, control: &mut ControlFlow) {
         let Some(region) = self.iter.next()
         else {
             self.result=Err(anyhow!("regions in iterator is not much enough"));
@@ -92,11 +92,11 @@ struct EmitEventHelper<'a, 'root> {
     children_entered: &'a mut bool,
 }
 
-impl<El> VisitorMut<ElementModel<El>> for EmitEventHelper<'_, '_>
+impl<El, Sty> VisitorMut<ElementModel<El, Sty>> for EmitEventHelper<'_, '_>
 where
     El: Element,
 {
-    fn visit_mut(&mut self, data: &mut ElementModel<El>, _: &mut ControlFlow) {
+    fn visit_mut(&mut self, data: &mut ElementModel<El, Sty>, _: &mut ControlFlow) {
         *self.children_entered |= data.emit_event(self.npe);
     }
 }

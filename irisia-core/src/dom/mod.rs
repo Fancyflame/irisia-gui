@@ -19,10 +19,12 @@ pub use update::add_one;
 
 pub(crate) mod children;
 pub(crate) mod layer;
+pub mod peek_children;
 pub mod update;
 
-pub struct ElementModel<El> {
+pub struct ElementModel<El, Sty> {
     element: El,
+    styles: Sty,
     global_content: Arc<GlobalContent>,
     independent_layer: Option<SharedLayerCompositer>,
     event_mgr: NodeEventMgr,
@@ -31,7 +33,7 @@ pub struct ElementModel<El> {
     expanded_children: ChildrenBox,
 }
 
-impl<El> ElementModel<El>
+impl<El, Sty> ElementModel<El, Sty>
 where
     El: Element,
 {

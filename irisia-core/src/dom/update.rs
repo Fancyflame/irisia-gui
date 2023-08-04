@@ -16,10 +16,10 @@ use super::{
 
 pub struct AddOne<El, Pr, Sty, Ch, Oc> {
     _el: PhantomData<El>,
-    props: Pr,
-    styles: Sty,
-    children: Ch,
-    on_create: Oc,
+    pub(super) props: Pr,
+    pub(super) styles: Sty,
+    pub(super) children: Ch,
+    pub(super) on_create: Oc,
 }
 
 pub fn add_one<El, Pr, Sty, Ch, Oc>(
@@ -47,7 +47,7 @@ impl<'a, El, Pr, Sty, Ch, Oc> MapVisitor<AddOne<El, Pr, Sty, Ch, Oc>> for ApplyG
 }
 
 impl<El, Pr, Sty, Ch, Oc> UpdateWith<(AddOne<El, Pr, Sty, Ch, Oc>, &Arc<GlobalContent>)>
-    for ElementModel<El>
+    for ElementModel<El, Sty>
 where
     El: Element + for<'a> UpdateWith<UpdateOptions<'a, Pr, Sty, Ch>>,
     Sty: StyleContainer + 'static,
@@ -84,6 +84,7 @@ where
 
         ElementModel {
             element,
+            styles,
             independent_layer: None,
             global_content: global_content.clone(),
             event_mgr: NodeEventMgr::new(),
@@ -105,6 +106,8 @@ where
             ..
         } = updater.0;
 
+        self.computed_size = Default::default();
+
         let update_options = UpdateOptions {
             props,
             styles: &styles,
@@ -121,5 +124,5 @@ where
 }
 
 impl<El, Pr, Sty, Ch, Oc> SpecificUpdate for (AddOne<El, Pr, Sty, Ch, Oc>, &Arc<GlobalContent>) {
-    type UpdateTo = ElementModel<El>;
+    type UpdateTo = ElementModel<El, Sty>;
 }

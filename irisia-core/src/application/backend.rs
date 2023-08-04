@@ -66,7 +66,7 @@ where
 pub(super) struct BackendRuntime<El> {
     gem: GlobalEventMgr,
     gc: Arc<GlobalContent>,
-    root_element: ElementModel<El>,
+    root_element: ElementModel<El, ()>,
     layer_compositer: SharedLayerCompositer,
 }
 

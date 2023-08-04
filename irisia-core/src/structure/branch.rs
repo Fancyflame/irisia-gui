@@ -29,44 +29,47 @@ where
     }
 }
 
-impl<A, B> VisitLen for BranchModel<A, B>
-where
-    A: VisitLen,
-    B: VisitLen,
-{
-    fn len(&self) -> usize {
-        match self {
-            ArmA { value, .. } => value.len(),
-            ArmB { value, .. } => value.len(),
+macro_rules! impl_vlen {
+    ($Branch:ident $pat:tt $value:ident) => {
+        impl<A, B> VisitLen for $Branch<A, B>
+        where
+            A: VisitLen,
+            B: VisitLen,
+        {
+            fn len(&self) -> usize {
+                match self {
+                    $Branch::ArmA $pat => $value.len(),
+                    $Branch::ArmB $pat => $value.len(),
+                }
+            }
         }
-    }
+    };
 }
 
-impl<A, B, V> Visit<V> for BranchModel<A, B>
-where
-    A: Visit<V>,
-    B: Visit<V>,
-{
-    fn visit_with_control_flow(&self, visitor: &mut V, control: &mut ControlFlow) {
-        match self {
-            ArmA { value, .. } => value.visit_with_control_flow(visitor, control),
-            ArmB { value, .. } => value.visit_with_control_flow(visitor, control),
+impl_vlen!(Branch (value) value);
+impl_vlen!(BranchModel {value, ..} value);
+
+macro_rules! impl_visit {
+    ($Branch:ident $pat:tt $value:ident $Visit:ident $visit_with_control_flow:ident $($mut:ident)?) => {
+        impl<A, B, V> $Visit<V> for $Branch<A, B>
+        where
+            A: $Visit<V>,
+            B: $Visit<V>,
+        {
+            fn $visit_with_control_flow(& $($mut)? self, visitor: &mut V, control: &mut ControlFlow) {
+                match self {
+                    $Branch::ArmA $pat => $value.$visit_with_control_flow(visitor, control),
+                    $Branch::ArmB $pat => $value.$visit_with_control_flow(visitor, control),
+                }
+            }
         }
-    }
+    };
 }
 
-impl<A, B, V> VisitMut<V> for BranchModel<A, B>
-where
-    A: VisitMut<V>,
-    B: VisitMut<V>,
-{
-    fn visit_mut_with_control_flow(&mut self, visitor: &mut V, control: &mut ControlFlow) {
-        match self {
-            ArmA { value, .. } => value.visit_mut_with_control_flow(visitor, control),
-            ArmB { value, .. } => value.visit_mut_with_control_flow(visitor, control),
-        }
-    }
-}
+impl_visit!(Branch (value) value Visit visit_with_control_flow);
+impl_visit!(Branch (value) value VisitMut visit_mut_with_control_flow mut);
+impl_visit!(BranchModel { value, .. } value Visit visit_with_control_flow);
+impl_visit!(BranchModel { value, .. } value VisitMut visit_mut_with_control_flow mut);
 
 impl<A, B, X, Y> UpdateWith<Branch<X, Y>> for BranchModel<A, B>
 where
