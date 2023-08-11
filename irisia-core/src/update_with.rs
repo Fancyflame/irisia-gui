@@ -23,16 +23,17 @@ pub trait UpdateWith<T>: Sized {
     fn update_with(&mut self, updater: T, equality_matters: bool) -> bool;
     fn create_with(updater: T) -> Self;
 
-    fn update_option(option: Option<Self>, updater: T, equality_matters: &mut bool) -> Self {
+    fn update_option(
+        option: &mut Option<Self>,
+        updater: T,
+        equality_matters: bool,
+    ) -> (&mut Self, bool) {
         match option {
-            Some(mut this) => {
-                *equality_matters &= this.update_with(updater, *equality_matters);
-                this
+            Some(this) => {
+                let eq = equality_matters & this.update_with(updater, equality_matters);
+                (this, eq)
             }
-            None => {
-                *equality_matters = false;
-                Self::create_with(updater)
-            }
+            None => (option.insert(Self::create_with(updater)), false),
         }
     }
 }

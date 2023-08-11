@@ -5,6 +5,7 @@ pub mod chain;
 pub mod empty;
 pub mod once;
 pub mod repeating;
+pub(crate) mod slot;
 
 pub trait VisitLen: Sized {
     fn len(&self) -> usize;

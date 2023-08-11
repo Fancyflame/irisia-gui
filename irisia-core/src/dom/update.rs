@@ -2,17 +2,14 @@ use std::{marker::PhantomData, sync::Arc};
 
 use crate::{
     application::{content::GlobalContent, event_comp::NodeEventMgr},
-    element::{update_element::UpdateOptions, Element, UpdateElement},
+    element::{Element, UpdateOptions},
     structure::MapVisitor,
     style::StyleContainer,
     update_with::SpecificUpdate,
     UpdateWith,
 };
 
-use super::{
-    children::{ChildrenBox, RenderObject, SetChildren},
-    ElementModel,
-};
+use super::{children::ChildrenNodes, shared::ElementHandle, ElementModel};
 
 pub struct AddOne<El, Pr, Sty, Ch, Oc> {
     _el: PhantomData<El>,
@@ -37,66 +34,71 @@ pub fn add_one<El, Pr, Sty, Ch, Oc>(
     }
 }
 
-pub struct ApplyGlobalContent<'a>(pub(crate) &'a Arc<GlobalContent>);
+#[doc(hidden)]
+pub struct ElModelUpdate<'a, El, Pr, Sty, Ch, Oc> {
+    pub(crate) add_one: AddOne<El, Pr, Sty, Ch, Oc>,
+    pub(crate) global_content: &'a Arc<GlobalContent>,
+}
+
+#[derive(Clone, Copy)]
+pub struct ApplyGlobalContent<'a> {
+    pub(crate) global_content: &'a Arc<GlobalContent>,
+}
 
 impl<'a, El, Pr, Sty, Ch, Oc> MapVisitor<AddOne<El, Pr, Sty, Ch, Oc>> for ApplyGlobalContent<'a> {
-    type Output = (AddOne<El, Pr, Sty, Ch, Oc>, &'a Arc<GlobalContent>);
+    type Output = ElModelUpdate<'a, El, Pr, Sty, Ch, Oc>;
     fn map_visit(&self, data: AddOne<El, Pr, Sty, Ch, Oc>) -> Self::Output {
-        (data, self.0)
+        ElModelUpdate {
+            add_one: data,
+            global_content: self.global_content,
+        }
     }
 }
 
-impl<El, Pr, Sty, Ch, Oc> UpdateWith<(AddOne<El, Pr, Sty, Ch, Oc>, &Arc<GlobalContent>)>
-    for ElementModel<El, Sty>
+impl<'a, El, Pr, Sty, Ch, Oc> UpdateWith<ElModelUpdate<'a, El, Pr, Sty, Ch, Oc>>
+    for ElementModel<El, Sty, <Ch as ChildrenNodes<'a>>::AliasUpdateTo>
 where
-    El: Element + for<'a> UpdateWith<UpdateOptions<'a, Pr, Sty, Ch>>,
+    El: Element + for<'sty> UpdateWith<UpdateOptions<'sty, Pr, Sty>>,
     Sty: StyleContainer + 'static,
-    Ch: RenderObject,
+    Ch: ChildrenNodes<'a>,
     Oc: FnOnce(&GlobalContent),
 {
-    fn create_with(updater: (AddOne<El, Pr, Sty, Ch, Oc>, &Arc<GlobalContent>)) -> Self {
-        let (
-            AddOne {
-                _el,
-                props,
-                styles,
-                children,
-                on_create,
-            },
+    fn create_with(updater: ElModelUpdate<El, Pr, Sty, Ch, Oc>) -> Self {
+        let ElModelUpdate {
+            add_one:
+                AddOne {
+                    _el,
+                    props,
+                    styles,
+                    children,
+                    on_create,
+                },
             global_content,
-        ) = updater;
+        } = updater;
 
-        let mut children_box = None;
-        let mut computed_size = Default::default();
-        let update_options = UpdateOptions {
-            props,
-            styles: &styles,
-            children,
-            updater: UpdateElement::new(
-                SetChildren::Create(&mut children_box),
-                global_content,
-                &mut computed_size,
-            ),
-        };
-
-        let element = El::create_with(update_options);
         on_create(&global_content);
 
         ElementModel {
-            element,
-            styles,
+            _slot_type: PhantomData,
             independent_layer: None,
-            global_content: global_content.clone(),
             event_mgr: NodeEventMgr::new(),
             interact_region: None,
-            computed_size,
-            expanded_children: children_box.unwrap_or_else(|| ChildrenBox::create_with(())),
+            expanded_children: None,
+            draw_region: Default::default(),
+            shared_part: Arc::new(ElementHandle::new(
+                global_content.clone(),
+                UpdateOptions {
+                    props,
+                    styles: &styles,
+                },
+            )),
+            styles,
         }
     }
 
     fn update_with(
         &mut self,
-        updater: (AddOne<El, Pr, Sty, Ch, Oc>, &Arc<GlobalContent>),
+        updater: ElModelUpdate<El, Pr, Sty, Ch, Oc>,
         equality_matters: bool,
     ) -> bool {
         let AddOne {
@@ -104,25 +106,23 @@ where
             styles,
             children,
             ..
-        } = updater.0;
+        } = updater.add_one;
 
-        self.computed_size = Default::default();
+        let mut el = self.shared_part.el_mut();
 
         let update_options = UpdateOptions {
             props,
             styles: &styles,
-            children,
-            updater: UpdateElement::new(
-                SetChildren::Update(&mut self.expanded_children),
-                &self.global_content,
-                &mut self.computed_size,
-            ),
         };
 
-        self.element.update_with(update_options, equality_matters) && equality_matters
+        equality_matters & el.update_with(update_options, equality_matters)
     }
 }
 
-impl<El, Pr, Sty, Ch, Oc> SpecificUpdate for (AddOne<El, Pr, Sty, Ch, Oc>, &Arc<GlobalContent>) {
-    type UpdateTo = ElementModel<El, Sty>;
+impl<'a, El, Pr, Sty, Ch, Oc> SpecificUpdate for ElModelUpdate<'a, El, Pr, Sty, Ch, Oc>
+where
+    El: Element,
+    Ch: ChildrenNodes<'a>,
+{
+    type UpdateTo = ElementModel<El, Sty, Ch::AliasUpdateTo>;
 }

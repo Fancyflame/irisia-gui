@@ -1,58 +1,53 @@
-use std::{sync::Arc, time::Duration};
+use std::{marker::PhantomData, sync::Arc, time::Duration};
 
 use crate::{
-    application::{
-        content::GlobalContent,
-        event_comp::{NewPointerEvent, NodeEventMgr},
-    },
-    element::{render_element::RenderElement, ComputeSize, Element},
+    application::event_comp::{NewPointerEvent, NodeEventMgr},
+    element::{render_element::RenderElement, ChildrenSetter, Element},
     primitive::Region,
+    structure::slot::SlotNotUpdate,
     Result,
 };
 
 use self::{
-    children::ChildrenBox,
+    children::{ChildrenBox, RenderObject},
     layer::{LayerRebuilder, SharedLayerCompositer},
+    shared::ElementHandle,
 };
 
 pub use update::add_one;
 
 pub(crate) mod children;
 pub(crate) mod layer;
-pub mod peek_children;
+pub mod shared;
 pub mod update;
 
-pub struct ElementModel<El, Sty> {
-    element: El,
+pub struct ElementModel<El, Sty, Cc> {
     styles: Sty,
-    global_content: Arc<GlobalContent>,
+    _slot_type: PhantomData<Cc>,
     independent_layer: Option<SharedLayerCompositer>,
     event_mgr: NodeEventMgr,
+    expanded_children: Option<ChildrenBox>,
     interact_region: Option<Region>,
-    computed_size: ComputeSize,
-    expanded_children: ChildrenBox,
+    draw_region: Region,
+    shared_part: Arc<ElementHandle<El>>,
 }
 
-impl<El, Sty> ElementModel<El, Sty>
-where
-    El: Element,
-{
-    pub fn render(
-        &mut self,
-        lr: &mut LayerRebuilder,
-        draw_region: Region,
-        interval: Duration,
-    ) -> Result<()> {
+impl<El, Sty, Cc> ElementModel<El, Sty, Cc> {
+    pub fn render(&mut self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()>
+    where
+        El: Element,
+        Cc: RenderObject,
+    {
         let mut render = |lr: &mut LayerRebuilder<'_>| {
-            self.element.render(
-                draw_region,
+            self.shared_part.el_mut().render(
                 RenderElement::new(
                     lr,
-                    self.expanded_children.as_render_object(),
+                    unwrap_children(&mut self.expanded_children).as_render_object(),
                     &mut self.interact_region,
                     interval,
                 ),
                 interval,
+                self.draw_region,
             )
         };
 
@@ -66,10 +61,41 @@ where
         }
     }
 
+    pub fn layout(&mut self, draw_region: Region, equality_matters: &mut bool)
+    where
+        El: Element,
+        Cc: RenderObject + 'static,
+    {
+        self.draw_region = draw_region;
+        self.shared_part.el_mut().layout(
+            draw_region,
+            SlotNotUpdate(PhantomData::<Cc>),
+            ChildrenSetter::new(
+                &mut self.expanded_children,
+                &self.shared_part.global(),
+                equality_matters,
+            ),
+        )
+    }
+
     /// returns whether this element is logically entered
     pub(crate) fn emit_event(&mut self, npe: &NewPointerEvent) -> bool {
-        let children_logically_entered = self.expanded_children.as_render_object().emit_event(npe);
+        let Some(children_box) = &mut self.expanded_children
+        else {
+            return false;
+        };
+
+        let children_logically_entered = children_box.as_render_object().emit_event(npe);
         self.event_mgr
             .update_and_emit(npe, self.interact_region, children_logically_entered)
     }
+
+    pub(crate) fn styles(&self) -> &Sty {
+        &self.styles
+    }
+}
+
+fn unwrap_children(cb: &mut Option<ChildrenBox>) -> &mut ChildrenBox {
+    cb.as_mut()
+        .unwrap_or_else(|| unreachable!("children not initialized"))
 }

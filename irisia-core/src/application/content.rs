@@ -18,6 +18,10 @@ impl GlobalContent {
         self.focusing.blur();
     }
 
+    pub(crate) fn focusing(&self) -> &Focusing {
+        &self.focusing
+    }
+
     pub fn global_event_dispatcher(&self) -> &EventDispatcher {
         &self.global_ed
     }

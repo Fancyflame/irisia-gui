@@ -1,8 +1,9 @@
 use crate::{update_with::SpecificUpdate, UpdateWith};
 
-pub(crate) use self::render_object::RenderObject;
+pub(crate) use self::{render_object::RenderObject, trait_alias::ChildrenNodes};
 
 mod render_object;
+pub(crate) mod trait_alias;
 
 pub(crate) struct ChildrenBox {
     structure: Box<dyn RenderObject>,
@@ -33,9 +34,4 @@ where
             .expect("children structure cannot changed");
         place.update_with(updater, equality_matters) && equality_matters
     }
-}
-
-pub(crate) enum SetChildren<'a> {
-    Create(&'a mut Option<ChildrenBox>),
-    Update(&'a mut ChildrenBox),
 }

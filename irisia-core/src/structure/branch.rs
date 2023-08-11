@@ -104,9 +104,8 @@ where
                         unreachable!()
                     };
 
-                    let this_arm = B::update_option(other, v, &mut false);
                     ArmB {
-                        value: this_arm,
+                        value: update_option(other, v),
                         other: Some(value),
                     }
                 });
@@ -119,15 +118,27 @@ where
                         unreachable!()
                     };
 
-                    let this_arm = A::update_option(other, v, &mut false);
                     ArmA {
-                        value: this_arm,
+                        value: update_option(other, v),
                         other: Some(value),
                     }
                 });
                 false
             }
         }
+    }
+}
+
+fn update_option<T, U>(optioned: Option<T>, updater: U) -> T
+where
+    T: UpdateWith<U>,
+{
+    match optioned {
+        Some(mut v) => {
+            v.update_with(updater, false);
+            v
+        }
+        None => T::create_with(updater),
     }
 }
 

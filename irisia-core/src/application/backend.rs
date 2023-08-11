@@ -3,6 +3,7 @@ use std::{sync::Arc, time::Duration};
 use irisia_backend::{
     skia_safe::{colors::TRANSPARENT, Canvas},
     window_handle::{RawWindowHandle, WindowBuilder},
+    winit::dpi::PhysicalSize,
     AppWindow, StaticWindowEvent, WinitWindow,
 };
 
@@ -10,11 +11,12 @@ use crate::{
     dom::{
         add_one,
         layer::{LayerCompositer, SharedLayerCompositer},
+        update::ElModelUpdate,
         ElementModel,
     },
     element::Element,
     event::EventDispatcher,
-    primitive::{Pixel, Point},
+    primitive::{Pixel, Point, Region},
     Result, UpdateWith,
 };
 
@@ -43,7 +45,10 @@ where
             });
 
             BackendRuntime::<El> {
-                root_element: ElementModel::create_with((add_one((), (), (), |_: &_| {}), &gc)),
+                root_element: ElementModel::create_with(ElModelUpdate {
+                    add_one: add_one((), (), (), |_: &_| {}),
+                    global_content: &gc,
+                }),
                 gem: GlobalEventMgr::new(),
                 gc,
                 layer_compositer: LayerCompositer::new_shared(),
@@ -63,10 +68,10 @@ where
     })
 }
 
-pub(super) struct BackendRuntime<El> {
+pub(super) struct BackendRuntime<El: Element> {
     gem: GlobalEventMgr,
     gc: Arc<GlobalContent>,
-    root_element: ElementModel<El, ()>,
+    root_element: ElementModel<El, (), ()>,
     layer_compositer: SharedLayerCompositer,
 }
 
@@ -74,18 +79,16 @@ impl<El> AppWindow for BackendRuntime<El>
 where
     El: Element + for<'a> UpdateWith<EmptyUpdateOptions<'a>>,
 {
-    fn on_redraw(&mut self, canvas: &mut Canvas, size: (u32, u32), delta: Duration) -> Result<()> {
-        let region = (
-            Point(Pixel(0.0), Pixel(0.0)),
-            Point(
-                Pixel::from_physical(size.0 as _),
-                Pixel::from_physical(size.1 as _),
-            ),
-        );
+    fn on_redraw(
+        &mut self,
+        canvas: &mut Canvas,
+        size: PhysicalSize<u32>,
+        delta: Duration,
+    ) -> Result<()> {
+        let region = window_size_to_draw_region(size);
 
         let mut lc = self.layer_compositer.borrow_mut();
-        self.root_element
-            .render(&mut lc.rebuild(canvas), region, delta)?;
+        self.root_element.render(&mut lc.rebuild(canvas), delta)?;
 
         // composite
         canvas.clear(TRANSPARENT);
@@ -99,4 +102,14 @@ where
             }
         }
     }
+}
+
+fn window_size_to_draw_region(size: PhysicalSize<u32>) -> Region {
+    (
+        Point(Pixel(0.0), Pixel(0.0)),
+        Point(
+            Pixel::from_physical(size.width as _),
+            Pixel::from_physical(size.height as _),
+        ),
+    )
 }
