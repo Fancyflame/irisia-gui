@@ -7,6 +7,14 @@ use smallvec::{Array, SmallVec};
 
 pub trait SpecificUpdate {
     type UpdateTo;
+
+    fn to_created(self) -> Self::UpdateTo
+    where
+        Self: Sized,
+        Self::UpdateTo: UpdateWith<Self>,
+    {
+        Self::UpdateTo::create_with(self)
+    }
 }
 
 /// Custom update methods.
@@ -16,8 +24,8 @@ pub trait UpdateWith<T>: Sized {
     ///
     /// - `updater`: The new state.
     /// - `equality_matters`: Whether the return value is matters.
-    /// If not, you can return `false` directly without checking the equality
-    /// which will cost nothing more than `true`.
+    ///   If not, there is no overhead returning `false` directly
+    ///   without checking the equality.
     /// - `return`: Whether the state has changed. Return `false` is always
     /// correct, but may cause unnecessary redrawing.
     fn update_with(&mut self, updater: T, equality_matters: bool) -> bool;

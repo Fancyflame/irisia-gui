@@ -13,7 +13,7 @@ use super::style_peeker::PeekStyles;
 
 pub struct ChildrenSetter<'a> {
     set_children: &'a mut Option<ChildrenBox>,
-    global_content: ApplyGlobalContent<'a>,
+    global_content: &'a Arc<GlobalContent>,
     changed: &'a mut bool,
 }
 
@@ -25,7 +25,7 @@ impl<'a> ChildrenSetter<'a> {
     ) -> Self {
         Self {
             set_children,
-            global_content: ApplyGlobalContent { global_content: gc },
+            global_content: gc,
             changed: equality_matters,
         }
     }
@@ -34,7 +34,7 @@ impl<'a> ChildrenSetter<'a> {
     where
         T: ChildrenNodes<'a>,
     {
-        let updater = children.map(&self.global_content);
+        let updater = children.map(&ApplyGlobalContent(self.global_content));
         let (cb, changed) = ChildrenBox::update_option(self.set_children, updater, *self.changed);
         *self.changed &= changed;
 

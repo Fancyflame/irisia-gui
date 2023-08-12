@@ -1,9 +1,5 @@
-use crate::update_with::SpecificUpdate;
-
-use super::{ControlFlow, UpdateWith, VisitLen, VisitMut, Visitor, VisitorMut};
-use super::{MapVisit, MapVisitor};
-
-use super::Visit;
+use super::{MapVisit, MapVisitor, UpdateWith, Visit, VisitLen, VisitMut, Visitor, VisitorMut};
+use crate::{update_with::SpecificUpdate, Result};
 
 pub struct Once<T>(T);
 
@@ -27,8 +23,8 @@ impl<T, V> Visit<V> for Once<T>
 where
     V: Visitor<T>,
 {
-    fn visit_with_control_flow(&self, visitor: &mut V, control: &mut ControlFlow) {
-        visitor.visit(&self.0, control);
+    fn visit(&self, visitor: &mut V) -> Result<()> {
+        visitor.visit(&self.0)
     }
 }
 
@@ -36,8 +32,8 @@ impl<T, V> VisitMut<V> for Once<T>
 where
     V: VisitorMut<T>,
 {
-    fn visit_mut_with_control_flow(&mut self, visitor: &mut V, control: &mut ControlFlow) {
-        visitor.visit_mut(&mut self.0, control);
+    fn visit_mut(&mut self, visitor: &mut V) -> Result<()> {
+        visitor.visit_mut(&mut self.0)
     }
 }
 

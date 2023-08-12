@@ -27,11 +27,9 @@ where
     }
 
     fn update_with(&mut self, updater: T, equality_matters: bool) -> bool {
-        let place: &mut T::UpdateTo = self
-            .structure
-            .as_any()
-            .downcast_mut()
-            .expect("children structure cannot changed");
+        let place: &mut T::UpdateTo = self.structure.as_any().downcast_mut().expect(
+            "the type of children is not equal to previous's, these two is expected to be the same",
+        );
         place.update_with(updater, equality_matters) && equality_matters
     }
 }

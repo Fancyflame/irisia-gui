@@ -7,17 +7,17 @@ use crate::{
     dom::{layer::LayerRebuilder, ElementModel},
     element::Element,
     primitive::Region,
-    structure::{slot::SlotModel, ControlFlow, VisitMut, Visitor, VisitorMut},
-    style::StyleContainer,
-    Result, StyleReader,
+    structure::{slot::Slot, VisitMut, VisitorMut},
+    Result,
 };
 
 pub trait RenderObject: 'static {
-    fn render(
+    fn render(&mut self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()>;
+
+    fn layout(
         &mut self,
-        lr: &mut LayerRebuilder,
         iter: &mut dyn Iterator<Item = Region>,
-        interval: Duration,
+        equality_matters: &mut bool,
     ) -> Result<()>;
 
     fn emit_event(&mut self, npe: &NewPointerEvent) -> bool;
@@ -29,22 +29,22 @@ impl<T> RenderObject for T
 where
     T: for<'a, 'lr> VisitMut<RenderHelper<'a, 'lr>>
         + for<'a, 'root> VisitMut<EmitEventHelper<'a, 'root>>
+        + for<'a> VisitMut<LayoutHelper<'a>>
         + 'static,
 {
-    fn render(
+    fn render(&mut self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()> {
+        self.visit_mut(&mut RenderHelper { lr, interval })
+    }
+
+    fn layout(
         &mut self,
-        lr: &mut LayerRebuilder,
         iter: &mut dyn Iterator<Item = Region>,
-        interval: Duration,
+        equality_matters: &mut bool,
     ) -> Result<()> {
-        let mut rh = RenderHelper {
-            lr,
+        self.visit_mut(&mut LayoutHelper {
             iter,
-            interval,
-            result: Ok(()),
-        };
-        self.visit_mut(&mut rh);
-        rh.result
+            changed: equality_matters,
+        })
     }
 
     fn emit_event(&mut self, npe: &NewPointerEvent) -> bool {
@@ -53,7 +53,7 @@ where
             children_entered: &mut logical_entered,
             npe,
         };
-        self.visit_mut(&mut eeh);
+        let _ = self.visit_mut(&mut eeh);
         logical_entered
     }
 
@@ -64,41 +64,36 @@ where
 
 struct RenderHelper<'a, 'lr> {
     lr: &'a mut LayerRebuilder<'lr>,
-    iter: &'a mut dyn Iterator<Item = Region>,
     interval: Duration,
-    result: Result<()>,
 }
 
 impl<El, Sty, Cc> VisitorMut<ElementModel<El, Sty, Cc>> for RenderHelper<'_, '_>
 where
     El: Element,
-    Cc: RenderObject,
 {
-    fn visit_mut(&mut self, data: &mut ElementModel<El, Sty, Cc>, control: &mut ControlFlow) {
-        let Some(region) = self.iter.next()
-        else {
-            self.result=Err(anyhow!("regions in iterator is not much enough"));
-            control.set_exit();
-            return;
-        };
-
-        self.result = data.render(self.lr, self.interval);
-        if self.result.is_err() {
-            control.set_exit();
-        }
+    fn visit_mut(&mut self, data: &mut ElementModel<El, Sty, Cc>) -> Result<()> {
+        data.render(self.lr, self.interval)
     }
 }
 
-pub struct Peeker<'a, Sr>(&'a mut dyn FnMut(Sr));
+struct LayoutHelper<'a> {
+    iter: &'a mut dyn Iterator<Item = Region>,
+    changed: &'a mut bool,
+}
 
-impl<El, Sty, Cc, Sr> Visitor<ElementModel<El, Sty, Cc>> for Peeker<'_, Sr>
+impl<El, Sty, Cc> VisitorMut<ElementModel<El, Sty, Cc>> for LayoutHelper<'_>
 where
     El: Element,
-    Sty: StyleContainer,
-    Sr: StyleReader,
+    Cc: RenderObject,
 {
-    fn visit(&mut self, data: &ElementModel<El, Sty, Cc>, _: &mut crate::structure::ControlFlow) {
-        (self.0)(data.styles.read());
+    fn visit_mut(&mut self, data: &mut ElementModel<El, Sty, Cc>) -> Result<()> {
+        match self.iter.next() {
+            Some(region) => {
+                data.layout(region, self.changed);
+                Ok(())
+            }
+            None => Err(anyhow!("regions in the iterator is not enough")),
+        }
     }
 }
 
@@ -110,28 +105,35 @@ struct EmitEventHelper<'a, 'root> {
 impl<El, Sty, Cc> VisitorMut<ElementModel<El, Sty, Cc>> for EmitEventHelper<'_, '_>
 where
     El: Element,
-    Cc: RenderObject,
 {
-    fn visit_mut(&mut self, data: &mut ElementModel<El, Sty, Cc>, _: &mut ControlFlow) {
+    fn visit_mut(&mut self, data: &mut ElementModel<El, Sty, Cc>) -> Result<()> {
         *self.children_entered |= data.emit_event(self.npe);
+        Ok(())
     }
 }
 
-impl<T> RenderObject for SlotModel<T>
+impl<T> RenderObject for Slot<T>
 where
     T: RenderObject,
 {
     fn render(
         &mut self,
         lr: &mut crate::dom::layer::LayerRebuilder,
-        iter: &mut dyn Iterator<Item = crate::primitive::Region>,
         interval: std::time::Duration,
     ) -> crate::Result<()> {
-        self.0.render(lr, iter, interval)
+        self.0.borrow_mut().render(lr, interval)
+    }
+
+    fn layout(
+        &mut self,
+        iter: &mut dyn Iterator<Item = Region>,
+        equality_matters: &mut bool,
+    ) -> Result<()> {
+        self.0.borrow_mut().layout(iter, equality_matters)
     }
 
     fn emit_event(&mut self, npe: &crate::application::event_comp::NewPointerEvent) -> bool {
-        self.0.emit_event(npe)
+        self.0.borrow_mut().emit_event(npe)
     }
 
     fn as_any(&mut self) -> &mut dyn std::any::Any {

@@ -1,9 +1,5 @@
-use crate::update_with::SpecificUpdate;
-
-use super::MapVisit;
-use super::{ControlFlow, UpdateWith, VisitLen, VisitMut};
-
-use super::Visit;
+use super::{MapVisit, UpdateWith, Visit, VisitLen, VisitMut};
+use crate::{update_with::SpecificUpdate, Result};
 
 impl<V> MapVisit<V> for () {
     type Output = ();
@@ -17,11 +13,15 @@ impl VisitLen for () {
 }
 
 impl<V> Visit<V> for () {
-    fn visit_with_control_flow(&self, _: &mut V, _: &mut ControlFlow) {}
+    fn visit(&self, _: &mut V) -> Result<()> {
+        Ok(())
+    }
 }
 
 impl<V> VisitMut<V> for () {
-    fn visit_mut_with_control_flow(&mut self, _: &mut V, _: &mut ControlFlow) {}
+    fn visit_mut(&mut self, _: &mut V) -> Result<()> {
+        Ok(())
+    }
 }
 
 impl UpdateWith<()> for () {

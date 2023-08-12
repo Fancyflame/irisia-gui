@@ -3,7 +3,7 @@ use std::{marker::PhantomData, sync::Arc};
 use crate::{
     application::{content::GlobalContent, event_comp::NodeEventMgr},
     element::{Element, UpdateOptions},
-    structure::MapVisitor,
+    structure::{slot::Slot, MapVisit, MapVisitor},
     style::StyleContainer,
     update_with::SpecificUpdate,
     UpdateWith,
@@ -41,26 +41,25 @@ pub struct ElModelUpdate<'a, El, Pr, Sty, Ch, Oc> {
 }
 
 #[derive(Clone, Copy)]
-pub struct ApplyGlobalContent<'a> {
-    pub(crate) global_content: &'a Arc<GlobalContent>,
-}
+pub struct ApplyGlobalContent<'a>(pub(crate) &'a Arc<GlobalContent>);
 
 impl<'a, El, Pr, Sty, Ch, Oc> MapVisitor<AddOne<El, Pr, Sty, Ch, Oc>> for ApplyGlobalContent<'a> {
     type Output = ElModelUpdate<'a, El, Pr, Sty, Ch, Oc>;
     fn map_visit(&self, data: AddOne<El, Pr, Sty, Ch, Oc>) -> Self::Output {
         ElModelUpdate {
             add_one: data,
-            global_content: self.global_content,
+            global_content: self.0,
         }
     }
 }
 
-impl<'a, El, Pr, Sty, Ch, Oc> UpdateWith<ElModelUpdate<'a, El, Pr, Sty, Ch, Oc>>
-    for ElementModel<El, Sty, <Ch as ChildrenNodes<'a>>::AliasUpdateTo>
+impl<El, Pr, Sty, Ch, Cc, Oc> UpdateWith<ElModelUpdate<'_, El, Pr, Sty, Ch, Oc>>
+    for ElementModel<El, Sty, Cc>
 where
     El: Element + for<'sty> UpdateWith<UpdateOptions<'sty, Pr, Sty>>,
     Sty: StyleContainer + 'static,
-    Ch: ChildrenNodes<'a>,
+    Ch: for<'a> ChildrenNodes<'a, AliasUpdateTo = Cc>,
+    Cc: for<'a> UpdateWith<<Ch as MapVisit<ApplyGlobalContent<'a>>>::Output>,
     Oc: FnOnce(&GlobalContent),
 {
     fn create_with(updater: ElModelUpdate<El, Pr, Sty, Ch, Oc>) -> Self {
@@ -79,8 +78,8 @@ where
         on_create(&global_content);
 
         ElementModel {
-            _slot_type: PhantomData,
             independent_layer: None,
+            slot_cache: Slot::new(children.map(&ApplyGlobalContent(global_content))),
             event_mgr: NodeEventMgr::new(),
             interact_region: None,
             expanded_children: None,
@@ -99,7 +98,7 @@ where
     fn update_with(
         &mut self,
         updater: ElModelUpdate<El, Pr, Sty, Ch, Oc>,
-        equality_matters: bool,
+        mut equality_matters: bool,
     ) -> bool {
         let AddOne {
             props,
@@ -107,6 +106,11 @@ where
             children,
             ..
         } = updater.add_one;
+
+        equality_matters &= self.slot_cache.update_inner(
+            children.map(&ApplyGlobalContent(self.shared_part.global())),
+            equality_matters,
+        );
 
         let mut el = self.shared_part.el_mut();
 

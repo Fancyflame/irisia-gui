@@ -4,11 +4,9 @@ use std::{collections::HashMap, hash::Hash};
 use smallvec::SmallVec;
 
 use crate::update_with::SpecificUpdate;
+use crate::Result;
 
-use super::MapVisit;
-use super::{ControlFlow, UpdateWith, VisitLen, VisitMut};
-
-use super::Visit;
+use super::{MapVisit, UpdateWith, Visit, VisitLen, VisitMut};
 
 pub struct Repeat<I> {
     iter: I,
@@ -69,13 +67,11 @@ where
     K: Hash + Eq,
     T: Visit<V>,
 {
-    fn visit_with_control_flow(&self, visitor: &mut V, control: &mut ControlFlow) {
+    fn visit(&self, visitor: &mut V) -> Result<()> {
         for k in self.order.iter() {
-            self.map[&k].visit_with_control_flow(visitor, control);
-            if control.should_exit() {
-                break;
-            }
+            self.map[&k].visit(visitor)?;
         }
+        Ok(())
     }
 }
 
@@ -84,16 +80,11 @@ where
     K: Hash + Eq,
     T: VisitMut<V>,
 {
-    fn visit_mut_with_control_flow(&mut self, visitor: &mut V, control: &mut ControlFlow) {
+    fn visit_mut(&mut self, visitor: &mut V) -> Result<()> {
         for k in self.order.iter() {
-            self.map
-                .get_mut(k)
-                .unwrap()
-                .visit_mut_with_control_flow(visitor, control);
-            if control.should_exit() {
-                break;
-            }
+            self.map.get_mut(k).unwrap().visit_mut(visitor)?;
         }
+        Ok(())
     }
 }
 

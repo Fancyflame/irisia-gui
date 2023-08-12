@@ -31,16 +31,12 @@ impl<'a, 'lr> RenderElement<'a, 'lr> {
         }
     }
 
-    pub fn render_children(&mut self, region: Region) -> Result<&mut Self> {
-        self.render_children_with(std::iter::once(region))
-    }
-
-    pub fn render_children_with(
-        &mut self,
-        mut iter: impl Iterator<Item = Region>,
-    ) -> Result<&mut Self> {
+    pub fn render_children(&mut self) -> Result<&mut Self> {
         match self.children.take() {
-            Some(c) => c.render(self.lr, &mut iter, self.interval).map(|_| self),
+            Some(c) => {
+                c.render(self.lr, self.interval)?;
+                Ok(self)
+            }
             None => Err(anyhow!("children cannot be rendered twice")),
         }
     }

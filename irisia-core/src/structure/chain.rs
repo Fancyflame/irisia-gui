@@ -1,9 +1,5 @@
-use crate::update_with::SpecificUpdate;
-
-use super::MapVisit;
-use super::{ControlFlow, UpdateWith, VisitLen, VisitMut};
-
-use super::Visit;
+use super::{MapVisit, UpdateWith, Visit, VisitLen, VisitMut};
+use crate::{update_with::SpecificUpdate, Result};
 
 pub struct Chain<A, B> {
     former: A,
@@ -39,11 +35,9 @@ where
     A: Visit<V>,
     B: Visit<V>,
 {
-    fn visit_with_control_flow(&self, visitor: &mut V, control: &mut ControlFlow) {
-        self.former.visit_with_control_flow(visitor, control);
-        if !control.should_exit() {
-            self.latter.visit_with_control_flow(visitor, control);
-        }
+    fn visit(&self, visitor: &mut V) -> Result<()> {
+        self.former.visit(visitor)?;
+        self.latter.visit(visitor)
     }
 }
 
@@ -52,11 +46,9 @@ where
     A: VisitMut<V>,
     B: VisitMut<V>,
 {
-    fn visit_mut_with_control_flow(&mut self, visitor: &mut V, control: &mut ControlFlow) {
-        self.former.visit_mut_with_control_flow(visitor, control);
-        if !control.should_exit() {
-            self.latter.visit_mut_with_control_flow(visitor, control);
-        }
+    fn visit_mut(&mut self, visitor: &mut V) -> Result<()> {
+        self.former.visit_mut(visitor)?;
+        self.latter.visit_mut(visitor)
     }
 }
 

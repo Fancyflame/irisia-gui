@@ -4,7 +4,7 @@ use crate::{
     dom::ElementModel,
     structure::{Visit, Visitor},
     style::StyleContainer,
-    StyleReader,
+    Result, StyleReader,
 };
 
 pub struct PeekStyles<'a, T>(&'a T);
@@ -20,10 +20,10 @@ impl<'a, T> PeekStyles<'a, T> {
         Sr: StyleReader,
         T: Visit<Vis<F, Sr>>,
     {
-        self.0.visit(&mut Vis {
+        let _ = self.0.visit(&mut Vis {
             visit: f,
             _sr: PhantomData,
-        })
+        });
     }
 }
 
@@ -38,7 +38,8 @@ where
     Sty: StyleContainer,
     Sr: StyleReader,
 {
-    fn visit(&mut self, data: &ElementModel<El, Sty, Cc>, _: &mut crate::structure::ControlFlow) {
-        (self.visit)(data.styles().read())
+    fn visit(&mut self, data: &ElementModel<El, Sty, Cc>) -> Result<()> {
+        (self.visit)(data.styles().read());
+        Ok(())
     }
 }

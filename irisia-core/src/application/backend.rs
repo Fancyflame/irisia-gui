@@ -44,11 +44,18 @@ where
                 close_handle,
             });
 
+            let mut root_element = ElementModel::create_with(ElModelUpdate {
+                add_one: add_one((), (), (), |_: &_| {}),
+                global_content: &gc,
+            });
+
+            root_element.layout(
+                window_size_to_draw_region(gc.window().inner_size()),
+                &mut false,
+            );
+
             BackendRuntime::<El> {
-                root_element: ElementModel::create_with(ElModelUpdate {
-                    add_one: add_one((), (), (), |_: &_| {}),
-                    global_content: &gc,
-                }),
+                root_element,
                 gem: GlobalEventMgr::new(),
                 gc,
                 layer_compositer: LayerCompositer::new_shared(),
@@ -85,8 +92,8 @@ where
         size: PhysicalSize<u32>,
         delta: Duration,
     ) -> Result<()> {
-        let region = window_size_to_draw_region(size);
-
+        self.root_element
+            .layout(window_size_to_draw_region(size), &mut false);
         let mut lc = self.layer_compositer.borrow_mut();
         self.root_element.render(&mut lc.rebuild(canvas), delta)?;
 

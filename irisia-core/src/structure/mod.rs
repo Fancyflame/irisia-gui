@@ -1,4 +1,4 @@
-use crate::update_with::UpdateWith;
+use crate::{update_with::UpdateWith, Result};
 
 pub mod branch;
 pub mod chain;
@@ -11,18 +11,14 @@ pub trait VisitLen: Sized {
     fn len(&self) -> usize;
 }
 
-macro_rules! impl_structure {
-    ($Visit:ident $Visitor:ident $visit:ident $visit_with_control_flow:ident $($mut:ident)?) => {
+macro_rules! visit_trait {
+    ($Visit:ident $Visitor:ident $visit:ident $($mut:ident)?) => {
         pub trait $Visit<V>: VisitLen {
-            fn $visit_with_control_flow(& $($mut)? self, visitor: &mut V, control: &mut ControlFlow);
-
-            fn $visit(& $($mut)? self, visitor: &mut V) {
-                self.$visit_with_control_flow(visitor, &mut ControlFlow::Continue)
-            }
+            fn $visit(& $($mut)? self, visitor: &mut V) -> Result<()>;
         }
 
         pub trait $Visitor<T>: Sized {
-            fn $visit(&mut self, data: & $($mut)? T, control: &mut ControlFlow);
+            fn $visit(&mut self, data: & $($mut)? T) -> Result<()>;
         }
     };
 }
@@ -37,21 +33,5 @@ pub trait MapVisitor<T> {
     fn map_visit(&self, data: T) -> Self::Output;
 }
 
-impl_structure!(Visit Visitor visit visit_with_control_flow);
-impl_structure!(VisitMut VisitorMut visit_mut visit_mut_with_control_flow mut);
-
-#[derive(Debug, Clone, Copy)]
-pub enum ControlFlow {
-    Continue,
-    Exit,
-}
-
-impl ControlFlow {
-    pub fn set_exit(&mut self) {
-        *self = Self::Exit;
-    }
-
-    fn should_exit(&self) -> bool {
-        matches!(self, Self::Exit)
-    }
-}
+visit_trait!(Visit Visitor visit);
+visit_trait!(VisitMut VisitorMut visit_mut mut);

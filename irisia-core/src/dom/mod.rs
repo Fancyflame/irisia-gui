@@ -1,10 +1,10 @@
-use std::{marker::PhantomData, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use crate::{
     application::event_comp::{NewPointerEvent, NodeEventMgr},
     element::{render_element::RenderElement, ChildrenSetter, Element},
     primitive::Region,
-    structure::slot::SlotNotUpdate,
+    structure::slot::Slot,
     Result,
 };
 
@@ -23,7 +23,7 @@ pub mod update;
 
 pub struct ElementModel<El, Sty, Cc> {
     styles: Sty,
-    _slot_type: PhantomData<Cc>,
+    slot_cache: Slot<Cc>,
     independent_layer: Option<SharedLayerCompositer>,
     event_mgr: NodeEventMgr,
     expanded_children: Option<ChildrenBox>,
@@ -36,7 +36,6 @@ impl<El, Sty, Cc> ElementModel<El, Sty, Cc> {
     pub fn render(&mut self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()>
     where
         El: Element,
-        Cc: RenderObject,
     {
         let mut render = |lr: &mut LayerRebuilder<'_>| {
             self.shared_part.el_mut().render(
@@ -69,7 +68,7 @@ impl<El, Sty, Cc> ElementModel<El, Sty, Cc> {
         self.draw_region = draw_region;
         self.shared_part.el_mut().layout(
             draw_region,
-            SlotNotUpdate(PhantomData::<Cc>),
+            &self.slot_cache,
             ChildrenSetter::new(
                 &mut self.expanded_children,
                 &self.shared_part.global(),

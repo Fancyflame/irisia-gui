@@ -1,9 +1,8 @@
-use crate::update_with::SpecificUpdate;
+use crate::{update_with::SpecificUpdate, Result};
 
-use super::{ControlFlow, MapVisit, UpdateWith, VisitLen, VisitMut};
+use super::{MapVisit, UpdateWith, Visit, VisitLen, VisitMut};
 
 use self::BranchModel::*;
-use super::Visit;
 
 pub enum Branch<A, B> {
     ArmA(A),
@@ -50,26 +49,26 @@ impl_vlen!(Branch (value) value);
 impl_vlen!(BranchModel {value, ..} value);
 
 macro_rules! impl_visit {
-    ($Branch:ident $pat:tt $value:ident $Visit:ident $visit_with_control_flow:ident $($mut:ident)?) => {
+    ($Branch:ident $pat:tt $value:ident $Visit:ident $visit:ident $($mut:ident)?) => {
         impl<A, B, V> $Visit<V> for $Branch<A, B>
         where
             A: $Visit<V>,
             B: $Visit<V>,
         {
-            fn $visit_with_control_flow(& $($mut)? self, visitor: &mut V, control: &mut ControlFlow) {
+            fn $visit(& $($mut)? self, visitor: &mut V) -> Result<()> {
                 match self {
-                    $Branch::ArmA $pat => $value.$visit_with_control_flow(visitor, control),
-                    $Branch::ArmB $pat => $value.$visit_with_control_flow(visitor, control),
+                    $Branch::ArmA $pat => $value.$visit(visitor),
+                    $Branch::ArmB $pat => $value.$visit(visitor),
                 }
             }
         }
     };
 }
 
-impl_visit!(Branch (value) value Visit visit_with_control_flow);
-impl_visit!(Branch (value) value VisitMut visit_mut_with_control_flow mut);
-impl_visit!(BranchModel { value, .. } value Visit visit_with_control_flow);
-impl_visit!(BranchModel { value, .. } value VisitMut visit_mut_with_control_flow mut);
+impl_visit!(Branch (value) value Visit visit);
+impl_visit!(Branch (value) value VisitMut visit_mut mut);
+impl_visit!(BranchModel { value, .. } value Visit visit);
+impl_visit!(BranchModel { value, .. } value VisitMut visit_mut mut);
 
 impl<A, B, X, Y> UpdateWith<Branch<X, Y>> for BranchModel<A, B>
 where
