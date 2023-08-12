@@ -7,6 +7,10 @@ use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::{application::content::GlobalContent, event::EventDispatcher, UpdateWith};
 
+use self::listen::Listen;
+
+pub mod listen;
+
 pub struct ElementHandle<El> {
     dirty_setter: SetDirty,
     el: RwLock<El>,
@@ -78,6 +82,11 @@ impl<El> ElementHandle<El> {
     /// Get an independent dirty setter.
     pub fn dirty_setter(&self) -> SetDirty {
         self.dirty_setter.clone()
+    }
+
+    /// Listen event with options
+    pub fn listen(&self) -> Listen<El, (), (), (), ()> {
+        Listen::new(self)
     }
 }
 

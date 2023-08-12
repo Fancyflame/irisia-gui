@@ -1,4 +1,7 @@
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::{atomic::AtomicBool, Arc},
+    time::Duration,
+};
 
 use irisia_backend::{
     skia_safe::{colors::TRANSPARENT, Canvas},
@@ -42,6 +45,7 @@ where
                 focusing: Focusing::new(),
                 window,
                 close_handle,
+                is_dirty: AtomicBool::new(true),
             });
 
             let mut root_element = ElementModel::create_with(ElModelUpdate {
@@ -49,10 +53,9 @@ where
                 global_content: &gc,
             });
 
-            root_element.layout(
-                window_size_to_draw_region(gc.window().inner_size()),
-                &mut false,
-            );
+            let window_size = gc.window().inner_size();
+
+            root_element.layout(window_size_to_draw_region(window_size));
 
             BackendRuntime::<El> {
                 root_element,
@@ -86,16 +89,14 @@ impl<El> AppWindow for BackendRuntime<El>
 where
     El: Element + for<'a> UpdateWith<EmptyUpdateOptions<'a>>,
 {
-    fn on_redraw(
-        &mut self,
-        canvas: &mut Canvas,
-        size: PhysicalSize<u32>,
-        delta: Duration,
-    ) -> Result<()> {
-        self.root_element
-            .layout(window_size_to_draw_region(size), &mut false);
+    fn on_redraw(&mut self, canvas: &mut Canvas, delta: Duration) -> Result<()> {
         let mut lc = self.layer_compositer.borrow_mut();
-        self.root_element.render(&mut lc.rebuild(canvas), delta)?;
+
+        let unchange = self.gc.is_dirty.load(std::sync::atomic::Ordering::Acquire);
+
+        if !unchange {
+            self.root_element.render(&mut lc.rebuild(canvas), delta)?;
+        }
 
         // composite
         canvas.clear(TRANSPARENT);
@@ -103,6 +104,10 @@ where
     }
 
     fn on_window_event(&mut self, event: StaticWindowEvent) {
+        if let StaticWindowEvent::Resized(size) = &event {
+            self.root_element.layout(window_size_to_draw_region(*size));
+        }
+
         if let Some(npe) = self.gem.emit_event(event, &self.gc) {
             if !self.root_element.emit_event(&npe) {
                 npe.focus_on(None);

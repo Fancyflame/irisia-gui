@@ -60,7 +60,7 @@ impl<El, Sty, Cc> ElementModel<El, Sty, Cc> {
         }
     }
 
-    pub fn layout(&mut self, draw_region: Region, equality_matters: &mut bool)
+    pub fn layout(&mut self, draw_region: Region)
     where
         El: Element,
         Cc: RenderObject + 'static,
@@ -69,11 +69,7 @@ impl<El, Sty, Cc> ElementModel<El, Sty, Cc> {
         self.shared_part.el_mut().layout(
             draw_region,
             &self.slot_cache,
-            ChildrenSetter::new(
-                &mut self.expanded_children,
-                &self.shared_part.global(),
-                equality_matters,
-            ),
+            ChildrenSetter::new(&mut self.expanded_children, &self.shared_part.global()),
         )
     }
 

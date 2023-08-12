@@ -10,7 +10,6 @@ pub mod children_setter;
 pub mod layouter;
 pub mod props;
 pub mod render_element;
-pub mod style_peeker;
 
 /// Element is a thing can draw itself on the given canvas,
 /// according to its properties, styles and given drawing region.

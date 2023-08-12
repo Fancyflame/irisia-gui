@@ -86,11 +86,11 @@ impl Renderer {
 
     pub fn render<F>(&mut self, f: F) -> Result<()>
     where
-        F: FnOnce(&mut Canvas, PhysicalSize<u32>) -> Result<()>,
+        F: FnOnce(&mut Canvas) -> Result<()>,
     {
         let canvas = self.surface.canvas();
         canvas.clear(Color::WHITE);
-        f(canvas, self.size)?;
+        f(canvas)?;
 
         if !self.surface.read_pixels(
             &self.output_image_info,

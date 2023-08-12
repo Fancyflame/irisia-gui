@@ -14,11 +14,7 @@ use crate::{
 pub trait RenderObject: 'static {
     fn render(&mut self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()>;
 
-    fn layout(
-        &mut self,
-        iter: &mut dyn Iterator<Item = Region>,
-        equality_matters: &mut bool,
-    ) -> Result<()>;
+    fn layout(&mut self, iter: &mut dyn Iterator<Item = Region>) -> Result<()>;
 
     fn emit_event(&mut self, npe: &NewPointerEvent) -> bool;
 
@@ -36,15 +32,8 @@ where
         self.visit_mut(&mut RenderHelper { lr, interval })
     }
 
-    fn layout(
-        &mut self,
-        iter: &mut dyn Iterator<Item = Region>,
-        equality_matters: &mut bool,
-    ) -> Result<()> {
-        self.visit_mut(&mut LayoutHelper {
-            iter,
-            changed: equality_matters,
-        })
+    fn layout(&mut self, iter: &mut dyn Iterator<Item = Region>) -> Result<()> {
+        self.visit_mut(&mut LayoutHelper { iter })
     }
 
     fn emit_event(&mut self, npe: &NewPointerEvent) -> bool {
@@ -78,7 +67,6 @@ where
 
 struct LayoutHelper<'a> {
     iter: &'a mut dyn Iterator<Item = Region>,
-    changed: &'a mut bool,
 }
 
 impl<El, Sty, Cc> VisitorMut<ElementModel<El, Sty, Cc>> for LayoutHelper<'_>
@@ -89,7 +77,7 @@ where
     fn visit_mut(&mut self, data: &mut ElementModel<El, Sty, Cc>) -> Result<()> {
         match self.iter.next() {
             Some(region) => {
-                data.layout(region, self.changed);
+                data.layout(region);
                 Ok(())
             }
             None => Err(anyhow!("regions in the iterator is not enough")),
@@ -124,12 +112,8 @@ where
         self.0.borrow_mut().render(lr, interval)
     }
 
-    fn layout(
-        &mut self,
-        iter: &mut dyn Iterator<Item = Region>,
-        equality_matters: &mut bool,
-    ) -> Result<()> {
-        self.0.borrow_mut().layout(iter, equality_matters)
+    fn layout(&mut self, iter: &mut dyn Iterator<Item = Region>) -> Result<()> {
+        self.0.borrow_mut().layout(iter)
     }
 
     fn emit_event(&mut self, npe: &crate::application::event_comp::NewPointerEvent) -> bool {

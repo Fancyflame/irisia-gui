@@ -88,7 +88,7 @@ impl RenderWindow {
                 eprintln!("cannot resize window: {err}");
             }
 
-            if let Err(err) = renderer.render(|canvas, size| app.on_redraw(canvas, size, delta)) {
+            if let Err(err) = renderer.render(|canvas| app.on_redraw(canvas, delta)) {
                 eprintln!("render error: {err}");
             }
         }

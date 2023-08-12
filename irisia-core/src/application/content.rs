@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{atomic::AtomicBool, Arc};
 
 use irisia_backend::{window_handle::CloseHandle, WinitWindow};
 
@@ -11,6 +11,7 @@ pub struct GlobalContent {
     pub(super) global_ed: EventDispatcher,
     pub(super) window: Arc<WinitWindow>,
     pub(super) close_handle: CloseHandle,
+    pub(super) is_dirty: AtomicBool,
 }
 
 impl GlobalContent {
@@ -20,6 +21,11 @@ impl GlobalContent {
 
     pub(crate) fn focusing(&self) -> &Focusing {
         &self.focusing
+    }
+
+    pub(crate) fn set_dirty(&self) {
+        self.is_dirty
+            .store(true, std::sync::atomic::Ordering::Release)
     }
 
     pub fn global_event_dispatcher(&self) -> &EventDispatcher {
