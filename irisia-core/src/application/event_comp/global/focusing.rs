@@ -15,15 +15,14 @@ impl Focusing {
     pub fn focus(&self, ed: EventDispatcher) {
         let mut guard = self.0.lock().unwrap();
 
-        if let Some(old_ed) = &*guard {
-            if ed.as_ptr() == old_ed.as_ptr() {
-                return;
+        match &*guard {
+            Some(old_ed) if ed.ptr_eq(old_ed) => return,
+            _ => {
+                blur(&mut guard);
+                ed.emit_sys(Focused);
+                *guard = Some(ed);
             }
         }
-
-        blur(&mut guard);
-        ed.emit_sys(Focused);
-        *guard = Some(ed);
     }
 
     pub fn blur(&self) {

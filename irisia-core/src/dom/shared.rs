@@ -31,6 +31,7 @@ impl<El> ElementHandle<El> {
         self.el.blocking_write()
     }
 
+    /// Get a write guard of this element and set dirty flag to `true`.
     pub async fn el_write(&self) -> ElWriteGuard<El> {
         ElWriteGuard {
             write: self.el.write().await,
@@ -38,34 +39,43 @@ impl<El> ElementHandle<El> {
         }
     }
 
+    /// Get a read guard of this element and dirty flag is not affected.
     pub async fn el_read(&self) -> RwLockReadGuard<El> {
         self.el.read().await
     }
 
+    /// Get event dispatcher of this element.
     pub fn event_dispatcher(&self) -> &EventDispatcher {
         &self.ed
     }
 
+    /// Let this element being focused on.
     pub fn focus(&self) {
         self.global_content.focusing().focus(self.ed.clone());
     }
 
+    /// Let this element no longer being focused. does nothing if
+    /// this element is not in focus.
     pub fn blur(&self) {
         self.global_content.focusing().blur_checked(&self.ed);
     }
 
+    /// Get global content of the window.
     pub fn global(&self) -> &Arc<GlobalContent> {
         &self.global_content
     }
 
+    /// Get the raw window. Alias to `self.global().window()`.
     pub fn window(&self) -> &WinitWindow {
         self.global_content.window()
     }
 
+    /// Set dirty flag to `true`.
     pub fn set_dirty(&self) {
         self.dirty_setter.set();
     }
 
+    /// Get an independent dirty setter.
     pub fn dirty_setter(&self) -> SetDirty {
         self.dirty_setter.clone()
     }
