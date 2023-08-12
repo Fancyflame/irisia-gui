@@ -2,7 +2,7 @@
 
 # Irisia GUI
 
-Irisia GUI is a Rust-based GUI framework, featured high-performance, cross-platform, flexible, empowers everyone to build modern applications with accuracy and efficiency.
+Irisia GUI is a Rust-based GUI framework, combines productivity, performance, functionality, and cross-platform.
 
 Irisia is heavily depend on following crates:
 
