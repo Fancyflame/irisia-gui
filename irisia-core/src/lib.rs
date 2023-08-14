@@ -1,5 +1,3 @@
-#![feature(return_position_impl_trait_in_trait)]
-
 pub mod anyhow {
     pub use anyhow::*;
 }
@@ -34,7 +32,7 @@ pub use event::Event;
 pub use irisia_backend::{
     runtime::exit_app, skia_safe, start_runtime, winit, StaticWindowEvent, WinitWindow,
 };
-pub use irisia_macros::*;
+pub use irisia_macros::{build, main, style, Event, Style, StyleReader};
 pub use style::{reader::StyleReader, Style};
 pub use update_with::UpdateWith;
 

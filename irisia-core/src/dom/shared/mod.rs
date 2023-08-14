@@ -85,7 +85,7 @@ impl<El> ElementHandle<El> {
     }
 
     /// Listen event with options
-    pub fn listen(&self) -> Listen<El, (), (), (), ()> {
+    pub fn listen<'a>(self: &'a Arc<Self>) -> Listen<'a, El, (), (), (), (), ()> {
         Listen::new(self)
     }
 }

@@ -2,7 +2,8 @@ use std::sync::atomic::AtomicU32;
 
 use tokio::sync::{Semaphore, TryAcquireError};
 
-pub struct MaybeConfirmed {
+// only when all permits taken back can emit events
+pub(crate) struct MaybeConfirmed {
     confirmed: Semaphore,
     defer_cancel: AtomicU32,
 }

@@ -7,6 +7,7 @@ mod derive_style;
 mod derive_style_reader;
 mod element;
 pub(crate) mod expr;
+mod inner_impl_listen;
 mod main_macro;
 mod props;
 mod style;
@@ -128,6 +129,11 @@ pub fn derive_style_reader(input: TokenStream) -> TokenStream {
         Ok(t) => t.into(),
         Err(e) => e.to_compile_error().into(),
     }
+}
+
+#[proc_macro]
+pub fn __inner_impl_listen(_: TokenStream) -> TokenStream {
+    inner_impl_listen::impl_listen().into()
 }
 
 //#[proc_macro_attribute]
