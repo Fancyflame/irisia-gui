@@ -1,7 +1,7 @@
 use super::{MapVisit, MapVisitor, UpdateWith, Visit, VisitLen, VisitMut, Visitor, VisitorMut};
 use crate::{update_with::SpecificUpdate, Result};
 
-pub struct Once<T>(T);
+pub struct Once<T>(pub T);
 
 impl<V, T> MapVisit<V> for Once<T>
 where

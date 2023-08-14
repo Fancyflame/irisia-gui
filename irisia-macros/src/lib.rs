@@ -80,14 +80,7 @@ pub fn style(input: TokenStream) -> TokenStream {
         Err(e) => return e.to_compile_error().into(),
     };
 
-    let mut stmt_tokens = proc_macro2::TokenStream::new();
-    stmts_to_tokens(&mut stmt_tokens, &stmts);
-
-    quote! {{
-        use irisia::style::StyleContainer;
-        #stmt_tokens
-    }}
-    .into()
+    stmts_to_tokens(&stmts).into()
 }
 
 #[proc_macro_attribute]

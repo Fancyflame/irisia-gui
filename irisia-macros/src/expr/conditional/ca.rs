@@ -21,10 +21,7 @@ impl DefaultConditionalApplicator {
 }
 
 impl ConditionalApplicator for DefaultConditionalApplicator {
-    fn apply<F>(&mut self, tokens: &mut TokenStream, f: F)
-    where
-        F: FnOnce(&mut TokenStream),
-    {
+    fn apply(&mut self, tokens: &mut TokenStream, other: impl ToTokens) {
         if self.skipped == self.count {
             panic!("inner error: branches requested more than count");
         }
@@ -32,13 +29,9 @@ impl ConditionalApplicator for DefaultConditionalApplicator {
         let path = &self.path;
 
         let stream = if self.skipped == self.count - 1 {
-            let mut stream = TokenStream::new();
-            f(&mut stream);
-            stream
+            other.to_token_stream()
         } else {
-            let mut stream = quote!(#path::Arm1);
-            Paren::default().surround(&mut stream, f);
-            stream
+            quote!(#path::Arm1(#other))
         };
 
         add_arm2(tokens, path, self.skipped, &stream);

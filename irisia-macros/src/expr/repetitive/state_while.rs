@@ -35,21 +35,18 @@ impl<T: Codegen> ToTokens for StateWhile<T> {
             state_block,
         } = self;
 
-        T::repetitive_applicate(tokens, |tokens| {
-            quote! {
-                ::std::iter::from_fn(
-                    || if #cond {
-                        ::std::option::Option::Some((
-                            #key,
-                            #state_block
-                        ))
-                    } else {
-                        ::std::option::Option::None
-                    }
-                )
-            }
-            .to_tokens(tokens);
-        });
+        tokens.extend(T::repetitive_applicate(quote! {
+            ::std::iter::from_fn(
+                || if #cond {
+                    ::std::option::Option::Some((
+                        #key,
+                        #state_block
+                    ))
+                } else {
+                    ::std::option::Option::None
+                }
+            )
+        }));
     }
 }
 

@@ -1,6 +1,6 @@
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
-use syn::{parse::ParseStream, parse_quote, token::Paren, Result};
+use syn::{parse::ParseStream, parse_quote, Result};
 
 use crate::expr::{
     conditional::ca::DefaultConditionalApplicator, state_block::parse_stmts, Codegen, StateExpr,
@@ -31,31 +31,22 @@ impl Codegen for StyleCodegen {
         Ok(None)
     }
 
-    fn empty(tokens: &mut TokenStream) {
-        quote!(irisia::style::NoStyle).to_tokens(tokens);
+    fn empty() -> TokenStream {
+        quote!(())
     }
 
-    fn repetitive_applicate<F>(tokens: &mut TokenStream, _: F)
-    where
-        F: FnOnce(&mut TokenStream),
-    {
+    fn repetitive_applicate(_: impl ToTokens) -> TokenStream {
         quote!(::std::compile_error!(
             "repetitive structure is not allowed in style macro"
         ))
-        .to_tokens(tokens);
     }
 
     fn conditional_applicate(count: usize) -> Self::Ca {
         DefaultConditionalApplicator::new(count, parse_quote!(irisia::style::Branch))
     }
 
-    fn chain_applicate<F>(tokens: &mut TokenStream, f: F)
-    where
-        F: FnOnce(&mut TokenStream),
-    {
-        let mut stream = quote!(.chain);
-        Paren::default().surround(&mut stream, f);
-        stream.to_tokens(tokens);
+    fn chain_applicate(tokens: &mut TokenStream, other: impl ToTokens) {
+        *tokens = quote!(irisia::style::Chain::new(#tokens, #other));
     }
 }
 

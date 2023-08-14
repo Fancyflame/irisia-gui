@@ -12,6 +12,12 @@ pub struct Repeat<I> {
     iter: I,
 }
 
+impl<I: Iterator> Repeat<I> {
+    pub fn new(iter: I) -> Self {
+        Repeat { iter }
+    }
+}
+
 pub struct RepeatModel<K, T> {
     map: HashMap<K, T>,
     order: SmallVec<[K; 5]>,

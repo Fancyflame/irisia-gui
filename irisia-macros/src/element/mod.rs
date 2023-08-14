@@ -1,5 +1,6 @@
+use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
-use syn::{parse_quote, token::Paren};
+use syn::parse_quote;
 
 use crate::expr::{conditional::ca::DefaultConditionalApplicator, Codegen};
 
@@ -15,19 +16,14 @@ impl Codegen for ElementCodegen {
 
     const MUST_IN_BLOCK: bool = false;
 
-    fn empty(tokens: &mut proc_macro2::TokenStream) {
-        quote!(irisia::structure::EmptyStructure).to_tokens(tokens);
+    fn empty() -> TokenStream {
+        quote!(())
     }
 
-    fn repetitive_applicate<F>(tokens: &mut proc_macro2::TokenStream, f: F)
-    where
-        F: FnOnce(&mut proc_macro2::TokenStream),
-    {
+    fn repetitive_applicate(iter: impl ToTokens) -> TokenStream {
         quote! {
-            irisia::structure::Repeating::new
+            irisia::structure::Repeating::new(#iter)
         }
-        .to_tokens(tokens);
-        Paren::default().surround(tokens, f);
     }
 
     fn conditional_applicate(count: usize) -> Self::Ca {
@@ -38,12 +34,8 @@ impl Codegen for ElementCodegen {
         Ok(None)
     }
 
-    fn chain_applicate<F>(tokens: &mut proc_macro2::TokenStream, f: F)
-    where
-        F: FnOnce(&mut proc_macro2::TokenStream),
-    {
-        quote!(.chain).to_tokens(tokens);
-        Paren::default().surround(tokens, f);
+    fn chain_applicate(tokens: &mut TokenStream, other: impl ToTokens) {
+        *tokens = quote!(irisia::structure::Chain::new(#tokens), #other);
     }
 }
 

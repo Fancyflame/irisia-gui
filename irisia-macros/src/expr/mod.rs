@@ -21,9 +21,7 @@ pub mod state_command;
 pub mod state_expr;
 
 pub trait ConditionalApplicator: Sized {
-    fn apply<F>(&mut self, tokens: &mut TokenStream, f: F)
-    where
-        F: FnOnce(&mut TokenStream);
+    fn apply(&mut self, tokens: &mut TokenStream, other: impl ToTokens);
 }
 
 pub trait Codegen {
@@ -35,17 +33,13 @@ pub trait Codegen {
 
     fn parse_command(cmd: &str, input: ParseStream) -> Result<Option<Self::Command>>;
 
-    fn empty(tokens: &mut TokenStream);
+    fn empty() -> TokenStream;
 
     fn conditional_applicate(count: usize) -> Self::Ca;
 
-    fn repetitive_applicate<F>(tokens: &mut TokenStream, f: F)
-    where
-        F: FnOnce(&mut TokenStream);
+    fn repetitive_applicate(other: impl ToTokens) -> TokenStream;
 
-    fn chain_applicate<F>(tokens: &mut TokenStream, f: F)
-    where
-        F: FnOnce(&mut TokenStream);
+    fn chain_applicate(tokens: &mut TokenStream, other: impl ToTokens);
 }
 
 // only visit raw or command

@@ -73,11 +73,7 @@ impl<T: Codegen> If<T> {
         if_token.to_tokens(tokens);
         cond.to_tokens(tokens);
 
-        Brace::default().surround(tokens, |tokens| {
-            applicator.apply(tokens, |tokens| {
-                then.to_tokens(tokens);
-            })
-        });
+        Brace::default().surround(tokens, |tokens| applicator.apply(tokens, then));
     }
 }
 
@@ -94,13 +90,11 @@ impl<T: Codegen> ToTokens for StateIf<T> {
 
         if let Some((else_token, block)) = &self.default {
             else_token.to_tokens(tokens);
-            Brace::default().surround(tokens, |tokens| {
-                ca.apply(tokens, |tokens| block.to_tokens(tokens))
-            });
+            Brace::default().surround(tokens, |tokens| ca.apply(tokens, block));
         } else {
             <Token![else]>::default().to_tokens(tokens);
             Brace::default().surround(tokens, |tokens| {
-                ca.apply(tokens, |tokens| T::empty(tokens));
+                ca.apply(tokens, T::empty());
             })
         }
     }

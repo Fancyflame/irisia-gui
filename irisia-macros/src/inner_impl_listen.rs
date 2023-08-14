@@ -115,8 +115,6 @@ impl ListenOptions {
         };
         tokens.extend(quote!(F: #f_bound + Send + 'static,));
 
-        println!("{}", tokens.to_string());
-
         syn::parse2(tokens).unwrap()
     }
 }

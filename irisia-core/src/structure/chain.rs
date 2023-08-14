@@ -2,8 +2,14 @@ use super::{MapVisit, UpdateWith, Visit, VisitLen, VisitMut};
 use crate::{update_with::SpecificUpdate, Result};
 
 pub struct Chain<A, B> {
-    former: A,
-    latter: B,
+    pub former: A,
+    pub latter: B,
+}
+
+impl<A, B> Chain<A, B> {
+    pub fn new(former: A, latter: B) -> Self {
+        Chain { former, latter }
+    }
 }
 
 impl<A, B, V> MapVisit<V> for Chain<A, B>

@@ -49,7 +49,7 @@ impl<T: Codegen> ToTokens for StateCommand<T> {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         match &self.body {
             StateCommandBody::Extend(expr) => expr.to_tokens(tokens),
-            StateCommandBody::Key(_) => T::empty(tokens),
+            StateCommandBody::Key(_) => T::empty().to_tokens(tokens),
             StateCommandBody::Custom(other) => other.to_tokens(tokens),
         }
     }

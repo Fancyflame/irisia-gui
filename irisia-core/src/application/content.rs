@@ -15,17 +15,18 @@ pub struct GlobalContent {
 }
 
 impl GlobalContent {
+    pub(crate) fn set_dirty(&self) {
+        self.is_dirty
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+        self.window.request_redraw();
+    }
+
     pub fn blur(&self) {
         self.focusing.blur();
     }
 
     pub(crate) fn focusing(&self) -> &Focusing {
         &self.focusing
-    }
-
-    pub(crate) fn set_dirty(&self) {
-        self.is_dirty
-            .store(true, std::sync::atomic::Ordering::Release)
     }
 
     pub fn global_event_dispatcher(&self) -> &EventDispatcher {

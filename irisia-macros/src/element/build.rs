@@ -8,8 +8,7 @@ use super::ElementCodegen;
 
 pub fn build(input: ParseStream) -> Result<TokenStream> {
     let stmts = parse_stmts::<ElementCodegen>(input)?;
-    let mut stmts_tokened = TokenStream::new();
-    stmts_to_tokens(&mut stmts_tokened, &stmts);
+    let stmts_tokened = stmts_to_tokens(&stmts);
     Ok(quote! {{
         use irisia::structure::StructureBuilder;
         #stmts_tokened

@@ -43,7 +43,7 @@ impl<T: Codegen> Parse for StateBlock<T> {
 impl<T: Codegen> ToTokens for StateBlock<T> {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         self.brace.surround(tokens, |tokens| {
-            stmts_to_tokens(tokens, &self.stmts);
+            tokens.extend(stmts_to_tokens(&self.stmts));
         });
     }
 }
@@ -104,9 +104,10 @@ pub fn parse_stmts<T: Codegen>(input: ParseStream) -> Result<Vec<StateExpr<T>>> 
     Ok(vec)
 }
 
-pub fn stmts_to_tokens<T: Codegen>(tokens: &mut TokenStream, stmts: &[StateExpr<T>]) {
-    T::empty(tokens);
+pub fn stmts_to_tokens<T: Codegen>(stmts: &[StateExpr<T>]) -> TokenStream {
+    let mut tokens = T::empty();
     for expr in stmts {
-        T::chain_applicate(tokens, |tokens| expr.to_tokens(tokens));
+        T::chain_applicate(&mut tokens, expr);
     }
+    tokens
 }

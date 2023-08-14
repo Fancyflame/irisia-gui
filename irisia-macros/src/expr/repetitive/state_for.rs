@@ -49,9 +49,7 @@ impl<T: Codegen> ToTokens for StateForLoop<T> {
             },
         };
 
-        T::repetitive_applicate(tokens, |tokens| {
-            iter.to_tokens(tokens);
-        });
+        tokens.extend(T::repetitive_applicate(iter));
     }
 }
 

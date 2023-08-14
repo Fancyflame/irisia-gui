@@ -18,20 +18,18 @@ impl ToTokens for ElementStmt {
 
         let props = gen_props(element, props);
 
-        let children = {
-            let mut tokens = TokenStream::new();
-            stmts_to_tokens(&mut tokens, children);
-            tokens
-        };
+        let children = stmts_to_tokens(children);
 
         let oncreate = oncreate.clone().unwrap_or_else(|| parse_quote!(|_| {}));
 
         quote! {
-            irisia::structure::add_child::<#element, _, _, _, _>(
-                #props,
-                #style,
-                #children,
-                #oncreate,
+            irisia::structure::Once(
+                irisia::structure::add_child::<#element, _, _, _, _>(
+                    #props,
+                    #style,
+                    #children,
+                    #oncreate,
+                )
             )
         }
         .to_tokens(tokens)

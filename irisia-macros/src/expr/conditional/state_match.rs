@@ -95,6 +95,7 @@ impl<T: Codegen> ToTokens for StateMatch<T> {
     }
 }
 
+// pat if guard => expr,
 fn arm_to_tokens<T: Codegen>(tokens: &mut TokenStream, arm: &Arm<T>, ca: &mut T::Ca) {
     let Arm {
         pat,
@@ -112,10 +113,10 @@ fn arm_to_tokens<T: Codegen>(tokens: &mut TokenStream, arm: &Arm<T>, ca: &mut T:
 
     fat_arrow_token.to_tokens(tokens);
 
-    ca.apply(tokens, |tokens| match &**body {
-        StateExpr::Block(block) => stmts_to_tokens(tokens, &block.stmts),
-        other => other.to_tokens(tokens),
-    });
+    match &**body {
+        StateExpr::Block(block) => ca.apply(tokens, stmts_to_tokens(&block.stmts)),
+        other => ca.apply(tokens, other),
+    }
     <Token![,]>::default().to_tokens(tokens);
 }
 
