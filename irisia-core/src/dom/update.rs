@@ -60,7 +60,7 @@ where
     Sty: StyleContainer + 'static,
     Ch: for<'a> ChildrenNodes<'a, AliasUpdateTo = Cc>,
     Cc: for<'a> UpdateWith<<Ch as MapVisit<ApplyGlobalContent<'a>>>::Output>,
-    Oc: FnOnce(&GlobalContent),
+    Oc: FnOnce(&Arc<ElementHandle<El>>),
 {
     fn create_with(updater: ElModelUpdate<El, Pr, Sty, Ch, Oc>) -> Self {
         let ElModelUpdate {
@@ -75,7 +75,14 @@ where
             global_content,
         } = updater;
 
-        on_create(&global_content);
+        let element_handle = Arc::new(ElementHandle::new(
+            global_content.clone(),
+            UpdateOptions {
+                props,
+                styles: &styles,
+            },
+        ));
+        on_create(&element_handle);
 
         ElementModel {
             independent_layer: None,
@@ -84,13 +91,7 @@ where
             interact_region: None,
             expanded_children: None,
             draw_region: Default::default(),
-            shared_part: Arc::new(ElementHandle::new(
-                global_content.clone(),
-                UpdateOptions {
-                    props,
-                    styles: &styles,
-                },
-            )),
+            shared_part: element_handle,
             styles,
         }
     }
