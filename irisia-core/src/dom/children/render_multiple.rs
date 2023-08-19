@@ -11,7 +11,7 @@ use crate::{
     Result,
 };
 
-pub trait RenderObject: 'static {
+pub trait RenderMultiple: 'static {
     fn render(&mut self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()>;
 
     fn layout(&mut self, iter: &mut dyn Iterator<Item = Region>) -> Result<()>;
@@ -21,7 +21,7 @@ pub trait RenderObject: 'static {
     fn as_any(&mut self) -> &mut dyn Any;
 }
 
-impl<T> RenderObject for T
+impl<T> RenderMultiple for T
 where
     T: for<'a, 'lr> VisitMut<RenderHelper<'a, 'lr>>
         + for<'a, 'root> VisitMut<EmitEventHelper<'a, 'root>>
@@ -72,7 +72,7 @@ struct LayoutHelper<'a> {
 impl<El, Sty, Cc> VisitorMut<ElementModel<El, Sty, Cc>> for LayoutHelper<'_>
 where
     El: Element,
-    Cc: RenderObject,
+    Cc: RenderMultiple,
 {
     fn visit_mut(&mut self, data: &mut ElementModel<El, Sty, Cc>) -> Result<()> {
         match self.iter.next() {
@@ -100,9 +100,9 @@ where
     }
 }
 
-impl<T> RenderObject for Slot<T>
+impl<T> RenderMultiple for Slot<T>
 where
-    T: RenderObject,
+    T: RenderMultiple,
 {
     fn render(
         &mut self,

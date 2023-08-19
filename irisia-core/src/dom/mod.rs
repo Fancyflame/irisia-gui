@@ -9,7 +9,7 @@ use crate::{
 };
 
 use self::{
-    children::{ChildrenBox, RenderObject},
+    children::{ChildrenBox, RenderMultiple},
     layer::{LayerRebuilder, SharedLayerCompositer},
     shared::ElementHandle,
 };
@@ -41,7 +41,7 @@ impl<El, Sty, Cc> ElementModel<El, Sty, Cc> {
             self.shared_part.el_mut().render(
                 RenderElement::new(
                     lr,
-                    unwrap_children(&mut self.expanded_children).as_render_object(),
+                    unwrap_children(&mut self.expanded_children).as_render_multiple(),
                     &mut self.interact_region,
                     interval,
                 ),
@@ -63,7 +63,7 @@ impl<El, Sty, Cc> ElementModel<El, Sty, Cc> {
     pub fn layout(&mut self, draw_region: Region)
     where
         El: Element,
-        Cc: RenderObject + 'static,
+        Cc: RenderMultiple + 'static,
     {
         self.draw_region = draw_region;
         self.shared_part.el_mut().layout(
@@ -80,7 +80,7 @@ impl<El, Sty, Cc> ElementModel<El, Sty, Cc> {
             return false;
         };
 
-        let children_logically_entered = children_box.as_render_object().emit_event(npe);
+        let children_logically_entered = children_box.as_render_multiple().emit_event(npe);
         self.event_mgr
             .update_and_emit(npe, self.interact_region, children_logically_entered)
     }

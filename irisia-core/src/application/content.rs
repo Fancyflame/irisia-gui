@@ -1,26 +1,23 @@
-use std::sync::{atomic::AtomicBool, Arc};
+use std::sync::{Arc, Mutex as StdMutex};
 
 use irisia_backend::{window_handle::CloseHandle, WinitWindow};
 
 use crate::event::EventDispatcher;
 
-use super::event_comp::global::focusing::Focusing;
+use super::{
+    event_comp::global::focusing::Focusing,
+    redraw_scheduler::{list::RedrawList, LayerId},
+};
 
 pub struct GlobalContent {
     pub(super) focusing: Focusing,
     pub(super) global_ed: EventDispatcher,
     pub(super) window: Arc<WinitWindow>,
     pub(super) close_handle: CloseHandle,
-    pub(super) is_dirty: AtomicBool,
+    pub(super) redraw_list: StdMutex<RedrawList>,
 }
 
 impl GlobalContent {
-    pub(crate) fn set_dirty(&self) {
-        self.is_dirty
-            .store(true, std::sync::atomic::Ordering::Relaxed);
-        self.window.request_redraw();
-    }
-
     pub fn blur(&self) {
         self.focusing.blur();
     }
@@ -45,7 +42,7 @@ impl GlobalContent {
         &self.window
     }
 
-    pub fn request_redraw(&self) {
-        self.window.request_redraw();
+    pub(crate) fn request_redraw(&self, id: LayerId) {
+        self.redraw_list.lock().unwrap().request_redraw(id);
     }
 }

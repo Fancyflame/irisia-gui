@@ -37,7 +37,7 @@ impl<'a> ChildrenSetter<'a> {
         let (cb, _) = ChildrenBox::update_option(self.set_children, updater, false);
 
         PeekStyles::new(
-            cb.as_render_object()
+            cb.as_render_multiple()
                 .as_any()
                 .downcast_ref()
                 .unwrap_or_else(|| unreachable!()),

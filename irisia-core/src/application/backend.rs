@@ -1,5 +1,5 @@
 use std::{
-    sync::{atomic::AtomicBool, Arc},
+    sync::{Arc, Mutex as StdMutex},
     time::Duration,
 };
 
@@ -26,81 +26,29 @@ use crate::{
 use super::{
     content::GlobalContent,
     event_comp::{global::focusing::Focusing, GlobalEventMgr},
+    redraw_scheduler::RedrawScheduler,
     EmptyUpdateOptions, Window,
 };
-
-pub(super) async fn new_window<El, F>(window_builder: F) -> Result<Window>
-where
-    El: Element + for<'a> UpdateWith<EmptyUpdateOptions<'a>>,
-    F: FnOnce(WindowBuilder) -> WindowBuilder + Send + 'static,
-{
-    let ev_disp = EventDispatcher::new();
-
-    let create_app = {
-        let ev_disp = ev_disp.clone();
-
-        move |window: Arc<WinitWindow>, close_handle| {
-            let gc = Arc::new(GlobalContent {
-                global_ed: ev_disp,
-                focusing: Focusing::new(),
-                window,
-                close_handle,
-                is_dirty: AtomicBool::new(true),
-            });
-
-            let mut root_element = ElementModel::create_with(ElModelUpdate {
-                add_one: add_one((), (), (), |_: &_| {}),
-                global_content: &gc,
-            });
-
-            let window_size = gc.window().inner_size();
-
-            root_element.layout(window_size_to_draw_region(window_size));
-
-            BackendRuntime::<El> {
-                root_element,
-                gem: GlobalEventMgr::new(),
-                gc,
-                layer_compositer: LayerCompositer::new_shared(),
-            }
-        }
-    };
-
-    let RawWindowHandle {
-        raw_window,
-        close_handle,
-    } = RawWindowHandle::create(create_app, window_builder).await?;
-
-    Ok(Window {
-        winit_window: raw_window,
-        close_handle,
-        event_dispatcher: ev_disp,
-    })
-}
 
 pub(super) struct BackendRuntime<El: Element> {
     gem: GlobalEventMgr,
     gc: Arc<GlobalContent>,
     root_element: ElementModel<El, (), ()>,
     layer_compositer: SharedLayerCompositer,
+    redraw_scheduler: RedrawScheduler,
 }
 
 impl<El> AppWindow for BackendRuntime<El>
 where
     El: Element + for<'a> UpdateWith<EmptyUpdateOptions<'a>>,
 {
-    fn on_redraw(&mut self, canvas: &mut Canvas, delta: Duration) -> Result<()> {
-        let mut lc = self.layer_compositer.borrow_mut();
-
-        let unchange = self.gc.is_dirty.load(std::sync::atomic::Ordering::Acquire);
-
-        if !unchange {
-            self.root_element.render(&mut lc.rebuild(canvas), delta)?;
-        }
+    fn on_redraw(&mut self, canvas: &mut Canvas, interval: Duration) -> Result<()> {
+        self.redraw_scheduler
+            .redraw(canvas, interval, &mut self.gc.redraw_list.lock().unwrap())?;
 
         // composite
         canvas.clear(TRANSPARENT);
-        lc.composite(canvas)
+        self.layer_compositer.borrow_mut().composite(canvas)
     }
 
     fn on_window_event(&mut self, event: StaticWindowEvent) {
@@ -124,4 +72,56 @@ fn window_size_to_draw_region(size: PhysicalSize<u32>) -> Region {
             Pixel::from_physical(size.height as _),
         ),
     )
+}
+
+pub(super) async fn new_window<El, F>(window_builder: F) -> Result<Window>
+where
+    El: Element + for<'a> UpdateWith<EmptyUpdateOptions<'a>>,
+    F: FnOnce(WindowBuilder) -> WindowBuilder + Send + 'static,
+{
+    let ev_disp = EventDispatcher::new();
+
+    let create_app = {
+        let ev_disp = ev_disp.clone();
+
+        move |window: Arc<WinitWindow>, close_handle| {
+            let (redraw_scheduler, redraw_list) = RedrawScheduler::new(window.clone());
+
+            let gc = Arc::new(GlobalContent {
+                global_ed: ev_disp,
+                focusing: Focusing::new(),
+                window,
+                redraw_list: StdMutex::new(redraw_list),
+                close_handle,
+            });
+
+            let mut root_element = ElementModel::create_with(ElModelUpdate {
+                add_one: add_one((), (), (), |_: &_| {}),
+                global_content: &gc,
+            });
+
+            let window_size = gc.window().inner_size();
+
+            root_element.layout(window_size_to_draw_region(window_size));
+
+            BackendRuntime::<El> {
+                root_element,
+                gem: GlobalEventMgr::new(),
+                gc,
+                layer_compositer: LayerCompositer::new_shared(),
+                redraw_scheduler,
+            }
+        }
+    };
+
+    let RawWindowHandle {
+        raw_window,
+        close_handle,
+    } = RawWindowHandle::create(create_app, window_builder).await?;
+
+    Ok(Window {
+        winit_window: raw_window,
+        close_handle,
+        event_dispatcher: ev_disp,
+    })
 }

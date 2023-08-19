@@ -4,14 +4,14 @@ use anyhow::anyhow;
 use irisia_backend::skia_safe::Canvas;
 
 use crate::{
-    dom::{children::RenderObject, layer::LayerRebuilder},
+    dom::{children::RenderMultiple, layer::LayerRebuilder},
     primitive::Region,
     Result,
 };
 
 pub struct RenderElement<'a, 'lr> {
     lr: &'a mut LayerRebuilder<'lr>,
-    children: Option<&'a mut dyn RenderObject>,
+    children: Option<&'a mut dyn RenderMultiple>,
     interact_region: &'a mut Option<Region>,
     interval: Duration,
 }
@@ -19,7 +19,7 @@ pub struct RenderElement<'a, 'lr> {
 impl<'a, 'lr> RenderElement<'a, 'lr> {
     pub(crate) fn new(
         lr: &'a mut LayerRebuilder<'lr>,
-        children: &'a mut dyn RenderObject,
+        children: &'a mut dyn RenderMultiple,
         ir: &'a mut Option<Region>,
         interval: Duration,
     ) -> Self {

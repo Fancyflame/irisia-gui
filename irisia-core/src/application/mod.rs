@@ -11,6 +11,7 @@ use crate::{
 mod backend;
 pub(crate) mod content;
 pub(crate) mod event_comp;
+pub(crate) mod redraw_scheduler;
 
 use backend::new_window;
 

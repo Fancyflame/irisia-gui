@@ -1,16 +1,16 @@
 use crate::{update_with::SpecificUpdate, UpdateWith};
 
-pub(crate) use self::{render_object::RenderObject, trait_alias::ChildrenNodes};
+pub(crate) use self::{render_multiple::RenderMultiple, trait_alias::ChildrenNodes};
 
-mod render_object;
+mod render_multiple;
 pub(crate) mod trait_alias;
 
 pub(crate) struct ChildrenBox {
-    structure: Box<dyn RenderObject>,
+    structure: Box<dyn RenderMultiple>,
 }
 
 impl ChildrenBox {
-    pub fn as_render_object(&mut self) -> &mut dyn RenderObject {
+    pub fn as_render_multiple(&mut self) -> &mut dyn RenderMultiple {
         &mut *self.structure
     }
 }
@@ -18,7 +18,7 @@ impl ChildrenBox {
 impl<T> UpdateWith<T> for ChildrenBox
 where
     T: SpecificUpdate,
-    T::UpdateTo: UpdateWith<T> + RenderObject + 'static,
+    T::UpdateTo: UpdateWith<T> + RenderMultiple + 'static,
 {
     fn create_with(updater: T) -> Self {
         ChildrenBox {
