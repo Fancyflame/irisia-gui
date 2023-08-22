@@ -1,8 +1,3 @@
-use std::{
-    cell::RefCell,
-    rc::{Rc, Weak},
-};
-
 use anyhow::anyhow;
 use irisia_backend::skia_safe::{
     canvas::{SaveLayerFlags, SaveLayerRec},
@@ -16,22 +11,15 @@ pub(crate) use rebuild::LayerRebuilder;
 mod queue;
 pub(crate) mod rebuild;
 
-pub(crate) type SharedLayerCompositer = Rc<RefCell<LayerCompositer>>;
-type WeakLayerCompositer = Weak<RefCell<LayerCompositer>>;
-
 pub(crate) struct LayerCompositer {
     layers: Queue,
-    self_weak: WeakLayerCompositer,
 }
 
 impl LayerCompositer {
-    pub fn new_shared() -> SharedLayerCompositer {
-        Rc::new_cyclic(|weak| {
-            RefCell::new(Self {
-                layers: Queue::new(),
-                self_weak: weak.clone(),
-            })
-        })
+    pub fn new() -> Self {
+        Self {
+            layers: Queue::new(),
+        }
     }
 
     pub fn rebuild<'a>(&'a mut self, canvas: &'a mut Canvas) -> LayerRebuilder<'a> {
@@ -54,24 +42,21 @@ impl LayerCompositer {
                         return Err(anyhow!("cannot write bitmap to canvas"));
                     }
                 }
-                Layer::Extern { layer, matrix } => match layer.upgrade() {
-                    Some(rc) => {
-                        canvas.save();
-                        canvas.set_matrix(matrix);
-                        let result = rc.borrow().composite(canvas)?;
-                        canvas.restore();
-                        result
-                    }
-                    None => {
-                        return Err(anyhow!(
-                            "child layer has dropped. please DO UPDATE before compositing layers"
-                        ))
-                    }
-                },
+                Layer::Extern { layer, matrix } => {
+                    canvas.save();
+                    canvas.set_matrix(matrix);
+                    let result = layer.composite(canvas)?;
+                    canvas.restore();
+                    result
+                }
             }
         }
 
         canvas.restore();
         Ok(())
     }
+}
+
+pub(crate) trait CustomLayer {
+    fn composite(&self, canvas: &mut Canvas) -> Result<()>;
 }

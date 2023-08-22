@@ -1,12 +1,12 @@
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 use irisia_backend::WinitWindow;
 
 use super::LayerId;
 
-pub struct RedrawList {
+pub(crate) struct RedrawList {
     pub(super) window: Arc<WinitWindow>,
-    pub(super) list: Vec<LayerId>,
+    pub(super) list: HashSet<LayerId>,
     pub(super) redraw_req_sent: bool,
 }
 
@@ -16,6 +16,6 @@ impl RedrawList {
             self.redraw_req_sent = true;
             self.window.request_redraw();
         }
-        self.list.push(id);
+        self.list.insert(id);
     }
 }

@@ -24,12 +24,12 @@ pub struct Window {
     event_dispatcher: EventDispatcher,
 }
 
-type EmptyUpdateOptions<'a> = UpdateOptions<'a, (), ()>;
+type EmptyUpdateOptions<'a, El> = UpdateOptions<'a, El, (), ()>;
 
 impl Window {
     pub async fn new<El>(title: impl Into<String>) -> Result<Self>
     where
-        El: Element + for<'a> UpdateWith<EmptyUpdateOptions<'a>>,
+        El: Element + for<'a> UpdateWith<EmptyUpdateOptions<'a, El>>,
     {
         let title = title.into();
         new_window::<El, _>(move |wb| wb.with_title(title)).await
@@ -37,7 +37,7 @@ impl Window {
 
     pub async fn with_builder<El, F>(f: F) -> Result<Self>
     where
-        El: Element + for<'a> UpdateWith<EmptyUpdateOptions<'a>>,
+        El: Element + for<'a> UpdateWith<EmptyUpdateOptions<'a, El>>,
         F: FnOnce(WindowBuilder) -> WindowBuilder + Send + 'static,
     {
         new_window::<El, _>(f).await

@@ -11,12 +11,7 @@ use irisia_backend::{
 };
 
 use crate::{
-    dom::{
-        add_one,
-        layer::{LayerCompositer, SharedLayerCompositer},
-        update::ElModelUpdate,
-        ElementModel,
-    },
+    dom::{add_one, update::ElementModelUpdater, EMUpdateContent, ElementModel},
     element::Element,
     event::EventDispatcher,
     primitive::{Pixel, Point, Region},
@@ -26,7 +21,7 @@ use crate::{
 use super::{
     content::GlobalContent,
     event_comp::{global::focusing::Focusing, GlobalEventMgr},
-    redraw_scheduler::RedrawScheduler,
+    redraw_scheduler::{RedrawScheduler, ROOT_LAYER_ID},
     EmptyUpdateOptions, Window,
 };
 
@@ -34,21 +29,24 @@ pub(super) struct BackendRuntime<El: Element> {
     gem: GlobalEventMgr,
     gc: Arc<GlobalContent>,
     root_element: ElementModel<El, (), ()>,
-    layer_compositer: SharedLayerCompositer,
     redraw_scheduler: RedrawScheduler,
 }
 
 impl<El> AppWindow for BackendRuntime<El>
 where
-    El: Element + for<'a> UpdateWith<EmptyUpdateOptions<'a>>,
+    El: Element + for<'a> UpdateWith<EmptyUpdateOptions<'a, El>>,
 {
     fn on_redraw(&mut self, canvas: &mut Canvas, interval: Duration) -> Result<()> {
-        self.redraw_scheduler
-            .redraw(canvas, interval, &mut self.gc.redraw_list.lock().unwrap())?;
+        self.redraw_scheduler.redraw(
+            canvas,
+            |lr, interval| self.root_element.render(lr, interval),
+            interval,
+            &mut self.gc.redraw_list.lock().unwrap(),
+        )?;
 
         // composite
         canvas.clear(TRANSPARENT);
-        self.layer_compositer.borrow_mut().composite(canvas)
+        self.root_element.render_as_root(canvas, interval)
     }
 
     fn on_window_event(&mut self, event: StaticWindowEvent) {
@@ -76,7 +74,7 @@ fn window_size_to_draw_region(size: PhysicalSize<u32>) -> Region {
 
 pub(super) async fn new_window<El, F>(window_builder: F) -> Result<Window>
 where
-    El: Element + for<'a> UpdateWith<EmptyUpdateOptions<'a>>,
+    El: Element + for<'a> UpdateWith<EmptyUpdateOptions<'a, El>>,
     F: FnOnce(WindowBuilder) -> WindowBuilder + Send + 'static,
 {
     let ev_disp = EventDispatcher::new();
@@ -95,9 +93,12 @@ where
                 close_handle,
             });
 
-            let mut root_element = ElementModel::create_with(ElModelUpdate {
+            let mut root_element = ElementModel::create_with(ElementModelUpdater {
                 add_one: add_one((), (), (), |_: &_| {}),
-                global_content: &gc,
+                content: EMUpdateContent {
+                    global_content: &gc,
+                    dep_layer_id: ROOT_LAYER_ID,
+                },
             });
 
             let window_size = gc.window().inner_size();
@@ -108,7 +109,6 @@ where
                 root_element,
                 gem: GlobalEventMgr::new(),
                 gc,
-                layer_compositer: LayerCompositer::new_shared(),
                 redraw_scheduler,
             }
         }

@@ -1,96 +1,127 @@
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
+
+use irisia_backend::skia_safe::Canvas;
 
 use crate::{
-    application::event_comp::{NewPointerEvent, NodeEventMgr},
-    element::{render_element::RenderElement, ChildrenSetter, Element},
+    application::{
+        event_comp::NewPointerEvent,
+        redraw_scheduler::{RedrawObject, RedrawScheduler},
+    },
+    element::{ChildrenSetter, Element},
     primitive::Region,
-    structure::slot::Slot,
     Result,
 };
 
 use self::{
-    children::{ChildrenBox, RenderMultiple},
-    layer::{LayerRebuilder, SharedLayerCompositer},
-    shared::ElementHandle,
+    children::RenderMultiple,
+    data_structure::maybe_shared::MaybeShared,
+    layer::{LayerCompositer, LayerRebuilder},
 };
 
-pub use update::add_one;
+pub use self::{data_structure::ElementHandle, update::add_one};
+pub(crate) use self::{data_structure::ElementModel, update::EMUpdateContent};
 
 pub(crate) mod children;
+mod data_structure;
 pub(crate) mod layer;
-pub mod shared;
-pub mod update;
+pub mod pub_handle;
+mod render;
+pub(crate) mod update;
 
-pub struct ElementModel<El, Sty, Cc> {
-    styles: Sty,
-    slot_cache: Slot<Cc>,
-    independent_layer: Option<SharedLayerCompositer>,
-    event_mgr: NodeEventMgr,
-    expanded_children: Option<ChildrenBox>,
-    interact_region: Option<Region>,
-    draw_region: Region,
-    shared_part: Arc<ElementHandle<El>>,
-}
-
-impl<El, Sty, Cc> ElementModel<El, Sty, Cc> {
+impl<El, Sty, Sc> ElementModel<El, Sty, Sc> {
     pub fn render(&mut self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()>
     where
         El: Element,
     {
-        let mut render = |lr: &mut LayerRebuilder<'_>| {
-            self.shared_part.el_mut().render(
-                RenderElement::new(
-                    lr,
-                    unwrap_children(&mut self.expanded_children).as_render_multiple(),
-                    &mut self.interact_region,
-                    interval,
-                ),
-                interval,
-                self.draw_region,
-            )
-        };
-
-        match &self.independent_layer {
-            Some(rc) => {
-                let mut borrow_mut = rc.borrow_mut();
-                let mut lr2 = lr.new_layer(&mut borrow_mut)?;
-                render(&mut lr2)
+        match &mut self.shared {
+            MaybeShared::Unique(unique) => unique.redraw(lr, interval),
+            MaybeShared::Shared(shared) => {
+                let canvas = lr.new_layer(shared.clone())?;
+                shared.redraw(canvas, interval)
             }
-            None => render(lr),
+        }
+    }
+
+    pub fn render_as_root(&self, canvas: &mut Canvas, interval: Duration) -> Result<()>
+    where
+        El: Element,
+    {
+        match &self.shared {
+            MaybeShared::Shared(shared) => shared.redraw(canvas, interval),
+            MaybeShared::Unique(_) => {
+                unreachable!("expected self to have independent layer")
+            }
         }
     }
 
     pub fn layout(&mut self, draw_region: Region)
     where
         El: Element,
-        Cc: RenderMultiple + 'static,
+        Sc: RenderMultiple + 'static,
     {
-        self.draw_region = draw_region;
-        self.shared_part.el_mut().layout(
+        let mut shared = self.shared.borrow_mut();
+        shared.draw_region = draw_region;
+        self.pub_shared.el_write_clean().layout(
             draw_region,
             &self.slot_cache,
-            ChildrenSetter::new(&mut self.expanded_children, &self.shared_part.global()),
+            ChildrenSetter::new(
+                &mut shared.expanded_children,
+                &self.pub_shared.global(),
+                *self.pub_shared.dep_layer_id.lock().unwrap(),
+            ),
         )
     }
 
     /// returns whether this element is logically entered
-    pub(crate) fn emit_event(&mut self, npe: &NewPointerEvent) -> bool {
-        let Some(children_box) = &mut self.expanded_children
+    pub fn emit_event(&mut self, npe: &NewPointerEvent) -> bool {
+        let mut shared = self.shared.borrow_mut();
+
+        let Some(children_box) = &mut shared.expanded_children
         else {
             return false;
         };
 
         let children_logically_entered = children_box.as_render_multiple().emit_event(npe);
         self.event_mgr
-            .update_and_emit(npe, self.interact_region, children_logically_entered)
+            .update_and_emit(npe, shared.interact_region, children_logically_entered)
     }
 
-    pub(crate) fn styles(&self) -> &Sty {
+    pub fn styles(&self) -> &Sty {
         &self.styles
     }
-}
 
-fn unwrap_children(cb: &mut Option<ChildrenBox>) -> &mut ChildrenBox {
-    cb.as_mut()
-        .unwrap_or_else(|| unreachable!("children not initialized"))
+    fn update_independent_layer(&mut self, sch: &mut RedrawScheduler)
+    where
+        El: Element,
+    {
+        let indep_layer_locked = self
+            .pub_shared
+            .lock_independent_layer
+            .load(std::sync::atomic::Ordering::Relaxed);
+
+        match (&self.shared, indep_layer_locked) {
+            (MaybeShared::Shared(_), false) => {
+                let mut dep_layer_id = self.pub_shared.dep_layer_id.lock().unwrap();
+                sch.del(*dep_layer_id);
+                *dep_layer_id = self.shared.borrow().parent_layer_id;
+                assert!(self.shared.try_to_unique());
+            }
+
+            (MaybeShared::Unique(_), true) => {
+                self.shared.to_shared(LayerCompositer::new());
+
+                let MaybeShared::Shared(shared) = &self.shared
+                else {
+                    unreachable!()
+                };
+
+                let indep_layer_id = sch.reg(shared.clone());
+
+                let mut dep_layer_id = self.pub_shared.dep_layer_id.lock().unwrap();
+                *dep_layer_id = indep_layer_id;
+            }
+
+            _ => {}
+        }
+    }
 }

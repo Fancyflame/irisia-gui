@@ -32,13 +32,13 @@ pub struct Vis<F, Sr> {
     _sr: PhantomData<Sr>,
 }
 
-impl<El, Sty, Cc, F, Sr> Visitor<ElementModel<El, Sty, Cc>> for Vis<F, Sr>
+impl<El, Sty, Sc, F, Sr> Visitor<ElementModel<El, Sty, Sc>> for Vis<F, Sr>
 where
     F: FnMut(Sr),
     Sty: StyleContainer,
     Sr: StyleReader,
 {
-    fn visit(&mut self, data: &ElementModel<El, Sty, Cc>) -> Result<()> {
+    fn visit(&mut self, data: &ElementModel<El, Sty, Sc>) -> Result<()> {
         (self.visit)(data.styles().read());
         Ok(())
     }

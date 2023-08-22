@@ -1,6 +1,10 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
-use crate::{dom::children::ChildrenNodes, primitive::Region, Result};
+use crate::{
+    dom::{children::ChildrenNodes, ElementHandle},
+    primitive::Region,
+    Result,
+};
 
 //pub use init_content::{event_handle::EventHandle, InitContent};
 pub use self::{children_setter::ChildrenSetter, render_element::RenderElement};
@@ -35,7 +39,8 @@ where
     ) -> Result<()>;
 }
 
-pub struct UpdateOptions<'a, Pr, Sty> {
+pub struct UpdateOptions<'a, El, Pr, Sty> {
     pub props: Pr,
     pub styles: &'a Sty,
+    pub handle: &'a Arc<ElementHandle<El>>,
 }

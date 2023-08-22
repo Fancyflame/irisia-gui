@@ -1,14 +1,14 @@
 use crate::{
-    dom::update::ApplyGlobalContent, structure::MapVisit, update_with::SpecificUpdate, UpdateWith,
+    dom::update::EMUpdateContent, structure::MapVisit, update_with::SpecificUpdate, UpdateWith,
 };
 
 use super::RenderMultiple;
 
-type MapOutput<'a, T> = <T as MapVisit<ApplyGlobalContent<'a>>>::Output;
+type MapOutput<'a, T> = <T as MapVisit<EMUpdateContent<'a>>>::Output;
 
 pub trait ChildrenNodes<'a>
 where
-    Self: MapVisit<ApplyGlobalContent<'a>, Output = Self::AliasMapOutput>,
+    Self: MapVisit<EMUpdateContent<'a>, Output = Self::AliasMapOutput>,
 {
     type AliasMapOutput: SpecificUpdate<UpdateTo = Self::AliasUpdateTo>;
     type AliasUpdateTo: RenderMultiple + UpdateWith<MapOutput<'a, Self>> + 'static;
@@ -16,7 +16,7 @@ where
 
 impl<'a, T> ChildrenNodes<'a> for T
 where
-    T: MapVisit<ApplyGlobalContent<'a>>,
+    T: MapVisit<EMUpdateContent<'a>>,
     T::Output: SpecificUpdate,
     <MapOutput<'a, T> as SpecificUpdate>::UpdateTo:
         RenderMultiple + UpdateWith<MapOutput<'a, T>> + 'static,

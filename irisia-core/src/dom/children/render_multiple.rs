@@ -56,11 +56,11 @@ struct RenderHelper<'a, 'lr> {
     interval: Duration,
 }
 
-impl<El, Sty, Cc> VisitorMut<ElementModel<El, Sty, Cc>> for RenderHelper<'_, '_>
+impl<El, Sty, Sc> VisitorMut<ElementModel<El, Sty, Sc>> for RenderHelper<'_, '_>
 where
     El: Element,
 {
-    fn visit_mut(&mut self, data: &mut ElementModel<El, Sty, Cc>) -> Result<()> {
+    fn visit_mut(&mut self, data: &mut ElementModel<El, Sty, Sc>) -> Result<()> {
         data.render(self.lr, self.interval)
     }
 }
@@ -69,12 +69,12 @@ struct LayoutHelper<'a> {
     iter: &'a mut dyn Iterator<Item = Region>,
 }
 
-impl<El, Sty, Cc> VisitorMut<ElementModel<El, Sty, Cc>> for LayoutHelper<'_>
+impl<El, Sty, Sc> VisitorMut<ElementModel<El, Sty, Sc>> for LayoutHelper<'_>
 where
     El: Element,
-    Cc: RenderMultiple,
+    Sc: RenderMultiple,
 {
-    fn visit_mut(&mut self, data: &mut ElementModel<El, Sty, Cc>) -> Result<()> {
+    fn visit_mut(&mut self, data: &mut ElementModel<El, Sty, Sc>) -> Result<()> {
         match self.iter.next() {
             Some(region) => {
                 data.layout(region);
@@ -90,11 +90,11 @@ struct EmitEventHelper<'a, 'root> {
     children_entered: &'a mut bool,
 }
 
-impl<El, Sty, Cc> VisitorMut<ElementModel<El, Sty, Cc>> for EmitEventHelper<'_, '_>
+impl<El, Sty, Sc> VisitorMut<ElementModel<El, Sty, Sc>> for EmitEventHelper<'_, '_>
 where
     El: Element,
 {
-    fn visit_mut(&mut self, data: &mut ElementModel<El, Sty, Cc>) -> Result<()> {
+    fn visit_mut(&mut self, data: &mut ElementModel<El, Sty, Sc>) -> Result<()> {
         *self.children_entered |= data.emit_event(self.npe);
         Ok(())
     }

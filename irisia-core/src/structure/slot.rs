@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::dom::update::ApplyGlobalContent;
+use crate::dom::EMUpdateContent;
 use crate::update_with::SpecificUpdate;
 
 use super::MapVisit;
@@ -9,9 +9,9 @@ use super::{UpdateWith, VisitLen};
 
 pub(crate) struct Slot<T>(pub Rc<RefCell<T>>);
 
-impl<T> MapVisit<ApplyGlobalContent<'_>> for &Slot<T> {
+impl<T> MapVisit<EMUpdateContent<'_>> for &Slot<T> {
     type Output = Self;
-    fn map(self, _: &ApplyGlobalContent) -> Self {
+    fn map(self, _: &EMUpdateContent) -> Self {
         self
     }
 }
