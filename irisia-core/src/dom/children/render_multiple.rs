@@ -11,7 +11,7 @@ use crate::{
     Result,
 };
 
-pub(crate) trait RenderMultiple: 'static {
+pub trait RenderMultiple: 'static {
     fn render(
         &mut self,
         lr: &mut LayerRebuilder,

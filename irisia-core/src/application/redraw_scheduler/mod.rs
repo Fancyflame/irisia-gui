@@ -33,10 +33,6 @@ impl RedrawScheduler {
         )
     }
 
-    pub fn register(&mut self) -> &mut IndepLayerRegister {
-        &mut self.register
-    }
-
     pub fn redraw(
         &mut self,
         canvas: &mut Canvas,

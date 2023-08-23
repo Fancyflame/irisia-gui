@@ -32,6 +32,6 @@ impl RedrawList {
 
     pub fn drain(&mut self) -> Drain<LayerId> {
         self.redraw_req_sent = false;
-        self.drain()
+        self.list.drain()
     }
 }

@@ -9,7 +9,7 @@ use crate::{
     application::{content::GlobalContent, event_comp::NodeEventMgr, redraw_scheduler::LayerId},
     element::{Element, UpdateOptions},
     event::EventDispatcher,
-    structure::{slot::Slot, MapVisit, MapVisitor},
+    structure::{slot::Slot, MapVisitor},
     style::StyleContainer,
     update_with::SpecificUpdate,
     UpdateWith,
@@ -66,13 +66,12 @@ pub struct ElementModelUpdater<'a, El, Pr, Sty, Ch, Oc> {
     pub(crate) content: EMUpdateContent<'a>,
 }
 
-impl<El, Pr, Sty, Ch, Sc, Oc> UpdateWith<ElementModelUpdater<'_, El, Pr, Sty, Ch, Oc>>
-    for ElementModel<El, Sty, Sc>
+impl<El, Pr, Sty, Ch, Oc> UpdateWith<ElementModelUpdater<'_, El, Pr, Sty, Ch, Oc>>
+    for ElementModel<El, Sty, Ch::Model>
 where
     El: Element + for<'sty> UpdateWith<UpdateOptions<'sty, El, Pr, Sty>>,
     Sty: StyleContainer + 'static,
-    Ch: for<'a> ChildrenNodes<'a, AliasUpdateTo = Sc>,
-    Sc: for<'a> UpdateWith<<Ch as MapVisit<EMUpdateContent<'a>>>::Output>,
+    Ch: ChildrenNodes,
     Oc: FnOnce(&Arc<ElementHandle<El>>),
 {
     fn create_with(updater: ElementModelUpdater<El, Pr, Sty, Ch, Oc>) -> Self {
@@ -129,7 +128,7 @@ where
 
         ElementModel {
             event_mgr: NodeEventMgr::new(),
-            slot_cache: Slot::new(children.map(&EMUpdateContent {
+            slot_cache: Slot::new(children.create_model(&EMUpdateContent {
                 global_content,
                 dep_layer_id,
             })),
@@ -162,12 +161,13 @@ where
 
         self.pub_shared.layer_info.write().unwrap().parent_layer_id = dep_layer_id;
 
-        equality_matters &= self.slot_cache.update_inner(
-            children.map(&EMUpdateContent {
+        children.update_model(
+            &mut self.slot_cache.borrow_mut(),
+            &EMUpdateContent {
                 global_content: self.pub_shared.global(),
                 dep_layer_id,
-            }),
-            equality_matters,
+            },
+            &mut equality_matters,
         );
 
         equality_matters
@@ -185,7 +185,7 @@ where
 impl<'a, El, Pr, Sty, Ch, Oc> SpecificUpdate for ElementModelUpdater<'a, El, Pr, Sty, Ch, Oc>
 where
     El: Element,
-    Ch: ChildrenNodes<'a>,
+    Ch: ChildrenNodes,
 {
-    type UpdateTo = ElementModel<El, Sty, Ch::AliasUpdateTo>;
+    type UpdateTo = ElementModel<El, Sty, Ch::Model>;
 }

@@ -28,7 +28,7 @@ where
 
     fn layout<'a, Ch>(&mut self, draw_region: Region, children: Ch, setter: ChildrenSetter<'a>)
     where
-        Ch: ChildrenNodes<'a>;
+        Ch: ChildrenNodes;
 
     /// Draw to the canvas
     fn render(

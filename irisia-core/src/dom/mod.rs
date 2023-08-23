@@ -1,7 +1,5 @@
 use std::time::Duration;
 
-use irisia_backend::skia_safe::Canvas;
-
 use crate::{
     application::{
         event_comp::NewPointerEvent,
@@ -45,23 +43,6 @@ impl<El, Sty, Sc> ElementModel<El, Sty, Sc> {
             MaybeShared::Shared(shared) => {
                 let canvas = lr.new_layer(shared.clone())?;
                 shared.redraw(canvas, reg, interval)
-            }
-        }
-    }
-
-    pub(crate) fn render_as_root(
-        &self,
-        canvas: &mut Canvas,
-        reg: &mut IndepLayerRegister,
-        interval: Duration,
-    ) -> Result<()>
-    where
-        El: Element,
-    {
-        match &self.shared {
-            MaybeShared::Shared(shared) => shared.redraw(canvas, reg, interval),
-            MaybeShared::Unique(_) => {
-                unreachable!("expected self to have independent layer")
             }
         }
     }

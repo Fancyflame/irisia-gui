@@ -22,14 +22,6 @@ impl<T, U> MaybeShared<T, U> {
         Self::Unique(value)
     }
 
-    pub const fn is_unique(&self) -> bool {
-        matches!(self, Self::Unique(_))
-    }
-
-    pub const fn is_shared(&self) -> bool {
-        matches!(self, Self::Shared(_))
-    }
-
     pub fn to_shared(&mut self, extra: U) {
         take_mut::take(self, |this| match this {
             shared @ Self::Shared(_) => shared,
@@ -53,6 +45,7 @@ impl<T, U> MaybeShared<T, U> {
         result
     }
 
+    #[allow(dead_code)]
     pub fn borrow(&self) -> Ref<T> {
         match self {
             Self::Unique(v) => Ref::Unique(v),
@@ -66,19 +59,6 @@ impl<T, U> MaybeShared<T, U> {
             Self::Shared(v) => {
                 RefMut::Shared(CellRefMut::map(v.borrow_mut(), |inner| &mut inner.main))
             }
-        }
-    }
-
-    pub fn clone(&mut self, to_shared: impl FnOnce() -> U) -> Self {
-        match self {
-            Self::Unique(_) => {
-                self.to_shared(to_shared());
-                match self {
-                    Self::Shared(s) => Self::Shared(s.clone()),
-                    Self::Unique(_) => unreachable!(),
-                }
-            }
-            Self::Shared(shared) => Self::Shared(shared.clone()),
         }
     }
 }

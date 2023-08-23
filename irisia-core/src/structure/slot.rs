@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::cell::{RefCell, RefMut};
 use std::rc::Rc;
 
 use crate::dom::EMUpdateContent;
@@ -41,18 +41,12 @@ impl<T> UpdateWith<&Slot<T>> for Slot<T> {
 }
 
 impl<T> Slot<T> {
-    pub fn new<U>(value: U) -> Self
-    where
-        T: UpdateWith<U>,
-    {
-        Slot(Rc::new(RefCell::new(T::create_with(value))))
+    pub fn new(value: T) -> Self {
+        Slot(Rc::new(RefCell::new(value)))
     }
 
-    pub fn update_inner<U>(&self, value: U, equality_matters: bool) -> bool
-    where
-        T: UpdateWith<U>,
-    {
-        self.0.borrow_mut().update_with(value, equality_matters)
+    pub fn borrow_mut(&self) -> RefMut<T> {
+        self.0.borrow_mut()
     }
 }
 

@@ -6,7 +6,6 @@ use crate::{
         children::{ChildrenBox, ChildrenNodes},
         EMUpdateContent,
     },
-    UpdateWith,
 };
 
 pub use peek_styles::PeekStyles;
@@ -32,21 +31,36 @@ impl<'a> ChildrenSetter<'a> {
         }
     }
 
-    pub fn set_children<T>(self, children: T) -> PeekStyles<'a, T::AliasUpdateTo>
+    pub fn set_children<T>(self, children: T) -> PeekStyles<'a, T::Model>
     where
-        T: ChildrenNodes<'a>,
+        T: ChildrenNodes,
     {
-        let updater = children.map(&EMUpdateContent {
+        let updater = EMUpdateContent {
             global_content: self.global_content,
             dep_layer_id: self.dep_layer_id,
-        });
-        let (cb, _) = ChildrenBox::update_option(self.set_children, updater, false);
+        };
 
-        PeekStyles::new(
-            cb.as_render_multiple()
-                .as_any()
-                .downcast_ref()
-                .unwrap_or_else(|| unreachable!()),
-        )
+        let model = match self.set_children {
+            Some(cb) => {
+                let model=cb.as_render_multiple()
+                    .as_any()
+                    .downcast_mut::<T::Model>()
+                    .expect("the type of children is not equal to previous's, these two is expected to be the same");
+                children.update_model(model, &updater, &mut false);
+                model
+            }
+            None => {
+                *self.set_children = Some(ChildrenBox::new(children.create_model(&updater)));
+                self.set_children
+                    .as_mut()
+                    .unwrap()
+                    .as_render_multiple()
+                    .as_any()
+                    .downcast_ref()
+                    .unwrap()
+            }
+        };
+
+        PeekStyles::new(model)
     }
 }
