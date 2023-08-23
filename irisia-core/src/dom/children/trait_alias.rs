@@ -24,3 +24,7 @@ where
     type AliasMapOutput = T::Output;
     type AliasUpdateTo = <Self::AliasMapOutput as SpecificUpdate>::UpdateTo;
 }
+
+pub struct AsChildrenWrapper<T>(T);
+
+impl<T>

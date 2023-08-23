@@ -3,7 +3,7 @@ use std::{any::Any, time::Duration};
 use anyhow::anyhow;
 
 use crate::{
-    application::event_comp::NewPointerEvent,
+    application::{event_comp::NewPointerEvent, redraw_scheduler::IndepLayerRegister},
     dom::{layer::LayerRebuilder, ElementModel},
     element::Element,
     primitive::Region,
@@ -11,8 +11,13 @@ use crate::{
     Result,
 };
 
-pub trait RenderMultiple: 'static {
-    fn render(&mut self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()>;
+pub(crate) trait RenderMultiple: 'static {
+    fn render(
+        &mut self,
+        lr: &mut LayerRebuilder,
+        reg: &mut IndepLayerRegister,
+        interval: Duration,
+    ) -> Result<()>;
 
     fn layout(&mut self, iter: &mut dyn Iterator<Item = Region>) -> Result<()>;
 
@@ -28,8 +33,13 @@ where
         + for<'a> VisitMut<LayoutHelper<'a>>
         + 'static,
 {
-    fn render(&mut self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()> {
-        self.visit_mut(&mut RenderHelper { lr, interval })
+    fn render(
+        &mut self,
+        lr: &mut LayerRebuilder,
+        reg: &mut IndepLayerRegister,
+        interval: Duration,
+    ) -> Result<()> {
+        self.visit_mut(&mut RenderHelper { lr, reg, interval })
     }
 
     fn layout(&mut self, iter: &mut dyn Iterator<Item = Region>) -> Result<()> {
@@ -53,6 +63,7 @@ where
 
 struct RenderHelper<'a, 'lr> {
     lr: &'a mut LayerRebuilder<'lr>,
+    reg: &'a mut IndepLayerRegister,
     interval: Duration,
 }
 
@@ -61,7 +72,7 @@ where
     El: Element,
 {
     fn visit_mut(&mut self, data: &mut ElementModel<El, Sty, Sc>) -> Result<()> {
-        data.render(self.lr, self.interval)
+        data.render(self.lr, self.reg, self.interval)
     }
 }
 
@@ -107,9 +118,10 @@ where
     fn render(
         &mut self,
         lr: &mut crate::dom::layer::LayerRebuilder,
+        reg: &mut IndepLayerRegister,
         interval: std::time::Duration,
     ) -> crate::Result<()> {
-        self.0.borrow_mut().render(lr, interval)
+        self.0.borrow_mut().render(lr, reg, interval)
     }
 
     fn layout(&mut self, iter: &mut dyn Iterator<Item = Region>) -> Result<()> {

@@ -1,4 +1,4 @@
-use std::sync::{atomic::AtomicBool, Arc, Mutex as StdMutex};
+use std::sync::{Arc, RwLock as StdRwLock};
 
 use tokio::sync::RwLock;
 
@@ -26,7 +26,6 @@ pub struct ElementModel<El, Sty, Sc> {
 }
 
 pub(super) struct LayerSharedPart<El> {
-    pub(super) parent_layer_id: LayerId,
     pub(super) pub_shared: Arc<ElementHandle<El>>,
     pub(super) expanded_children: Option<ChildrenBox>,
     pub(super) draw_region: Region,
@@ -35,8 +34,19 @@ pub(super) struct LayerSharedPart<El> {
 
 pub struct ElementHandle<El> {
     pub(super) el: RwLock<Option<El>>,
-    pub(super) lock_independent_layer: AtomicBool,
     pub(super) ed: EventDispatcher,
     pub(super) global_content: Arc<GlobalContent>,
-    pub(super) dep_layer_id: StdMutex<LayerId>,
+    pub(super) layer_info: StdRwLock<LayerInfo>,
+}
+
+pub(super) struct LayerInfo {
+    pub acquire_independent_layer: bool,
+    pub parent_layer_id: LayerId,
+    pub indep_layer_id: Option<LayerId>,
+}
+
+impl LayerInfo {
+    pub fn render_layer_id(&self) -> LayerId {
+        self.indep_layer_id.unwrap_or(self.parent_layer_id)
+    }
 }

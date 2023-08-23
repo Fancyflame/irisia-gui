@@ -6,7 +6,7 @@ use crate::event::EventDispatcher;
 
 use super::{
     event_comp::global::focusing::Focusing,
-    redraw_scheduler::{list::RedrawList, LayerId},
+    redraw_scheduler::{LayerId, RedrawList},
 };
 
 pub struct GlobalContent {

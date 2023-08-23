@@ -1,6 +1,6 @@
 use std::{
     marker::PhantomData,
-    sync::{atomic::AtomicBool, Arc, Mutex as StdMutex},
+    sync::{Arc, RwLock as StdRwLock},
 };
 
 use tokio::sync::RwLock;
@@ -17,7 +17,7 @@ use crate::{
 
 use super::{
     children::ChildrenNodes,
-    data_structure::{maybe_shared::MaybeShared, ElementHandle, LayerSharedPart},
+    data_structure::{maybe_shared::MaybeShared, ElementHandle, LayerInfo, LayerSharedPart},
     ElementModel,
 };
 
@@ -97,8 +97,11 @@ where
                 el: RwLock::new(None),
                 ed: EventDispatcher::new(),
                 global_content: global_content.clone(),
-                lock_independent_layer: AtomicBool::new(false),
-                dep_layer_id: StdMutex::new(dep_layer_id),
+                layer_info: StdRwLock::new(LayerInfo {
+                    acquire_independent_layer: false,
+                    parent_layer_id: dep_layer_id,
+                    indep_layer_id: None,
+                }),
             });
 
             // hold the lock prevent from being accessed
@@ -118,7 +121,6 @@ where
         on_create(&element_handle);
 
         let shared = MaybeShared::new(LayerSharedPart {
-            parent_layer_id: dep_layer_id,
             pub_shared: element_handle.clone(),
             expanded_children: None,
             draw_region: Default::default(),
@@ -158,12 +160,7 @@ where
                 },
         } = updater;
 
-        self.shared.borrow_mut().parent_layer_id = dep_layer_id;
-
-        // if self is unique, then self has no indep layer. we need to update.
-        if self.shared.is_unique() {
-            *self.pub_shared.dep_layer_id.lock().unwrap() = dep_layer_id;
-        }
+        self.pub_shared.layer_info.write().unwrap().parent_layer_id = dep_layer_id;
 
         equality_matters &= self.slot_cache.update_inner(
             children.map(&EMUpdateContent {

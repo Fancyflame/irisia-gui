@@ -61,7 +61,7 @@ impl<El> ElementHandle<El> {
     /// Set dirty flag to `true`.
     pub fn set_dirty(&self) {
         self.global_content
-            .request_redraw(*self.dep_layer_id.lock().unwrap())
+            .request_redraw(self.layer_info.read().unwrap().render_layer_id())
     }
 
     /// Listen event with options
@@ -69,12 +69,32 @@ impl<El> ElementHandle<El> {
         Listen::new(self)
     }
 
-    /*pub fn require_independent_layer(&self, required: bool){
-        let old=self.lock_independent_layer.swap(required, std::sync::atomic::Ordering::Relaxed);
-        if required != old{
-            todo!()
+    /// Set `true` to acquire independent render layer for performance optimizations.
+    /// Duplicated acquirement will be ignored.
+    ///
+    /// A independent render layer will cause a heap allocation to render this
+    /// element and its children elements rather than drawing on parent's render
+    /// layer.
+    ///
+    /// Recommended when playing animation.
+    pub fn acquire_independent_layer(&self, acquire: bool) {
+        let mut write = self.layer_info.write().unwrap();
+        if write.acquire_independent_layer == acquire {
+            return;
         }
-    }*/
+
+        write.acquire_independent_layer = acquire;
+        self.global_content.request_redraw(write.parent_layer_id);
+    }
+
+    /// Query whether independent layer was acquired.
+    ///
+    /// Note that this function will NOT reflect the actual state of
+    /// the layer. Independent layer may not exists while result is `true`
+    /// and may exists while result is `false`.
+    pub fn independent_layer_acquired(&self) -> bool {
+        self.layer_info.read().unwrap().acquire_independent_layer
+    }
 }
 
 pub struct ElWriteGuard<'a, T> {

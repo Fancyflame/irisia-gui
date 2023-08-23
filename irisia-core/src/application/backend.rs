@@ -37,16 +37,17 @@ where
     El: Element + for<'a> UpdateWith<EmptyUpdateOptions<'a, El>>,
 {
     fn on_redraw(&mut self, canvas: &mut Canvas, interval: Duration) -> Result<()> {
+        canvas.clear(TRANSPARENT);
         self.redraw_scheduler.redraw(
             canvas,
-            |lr, interval| self.root_element.render(lr, interval),
+            |lr, reg, interval| self.root_element.render(lr, reg, interval),
             interval,
             &mut self.gc.redraw_list.lock().unwrap(),
         )?;
 
         // composite
         canvas.clear(TRANSPARENT);
-        self.root_element.render_as_root(canvas, interval)
+        self.redraw_scheduler.composite(canvas)
     }
 
     fn on_window_event(&mut self, event: StaticWindowEvent) {

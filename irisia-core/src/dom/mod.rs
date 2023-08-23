@@ -5,7 +5,7 @@ use irisia_backend::skia_safe::Canvas;
 use crate::{
     application::{
         event_comp::NewPointerEvent,
-        redraw_scheduler::{RedrawObject, RedrawScheduler},
+        redraw_scheduler::{IndepLayerRegister, RedrawObject},
     },
     element::{ChildrenSetter, Element},
     primitive::Region,
@@ -29,45 +29,58 @@ mod render;
 pub(crate) mod update;
 
 impl<El, Sty, Sc> ElementModel<El, Sty, Sc> {
-    pub fn render(&mut self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()>
+    pub(crate) fn render(
+        &mut self,
+        lr: &mut LayerRebuilder,
+        reg: &mut IndepLayerRegister,
+        interval: Duration,
+    ) -> Result<()>
     where
         El: Element,
     {
+        self.update_independent_layer(reg);
+
         match &mut self.shared {
-            MaybeShared::Unique(unique) => unique.redraw(lr, interval),
+            MaybeShared::Unique(unique) => unique.redraw(lr, reg, interval),
             MaybeShared::Shared(shared) => {
                 let canvas = lr.new_layer(shared.clone())?;
-                shared.redraw(canvas, interval)
+                shared.redraw(canvas, reg, interval)
             }
         }
     }
 
-    pub fn render_as_root(&self, canvas: &mut Canvas, interval: Duration) -> Result<()>
+    pub(crate) fn render_as_root(
+        &self,
+        canvas: &mut Canvas,
+        reg: &mut IndepLayerRegister,
+        interval: Duration,
+    ) -> Result<()>
     where
         El: Element,
     {
         match &self.shared {
-            MaybeShared::Shared(shared) => shared.redraw(canvas, interval),
+            MaybeShared::Shared(shared) => shared.redraw(canvas, reg, interval),
             MaybeShared::Unique(_) => {
                 unreachable!("expected self to have independent layer")
             }
         }
     }
 
-    pub fn layout(&mut self, draw_region: Region)
+    pub(crate) fn layout(&mut self, draw_region: Region)
     where
         El: Element,
         Sc: RenderMultiple + 'static,
     {
         let mut shared = self.shared.borrow_mut();
         shared.draw_region = draw_region;
+
         self.pub_shared.el_write_clean().layout(
             draw_region,
             &self.slot_cache,
             ChildrenSetter::new(
                 &mut shared.expanded_children,
                 &self.pub_shared.global(),
-                *self.pub_shared.dep_layer_id.lock().unwrap(),
+                self.pub_shared.layer_info.read().unwrap().render_layer_id(),
             ),
         )
     }
@@ -90,20 +103,21 @@ impl<El, Sty, Sc> ElementModel<El, Sty, Sc> {
         &self.styles
     }
 
-    fn update_independent_layer(&mut self, sch: &mut RedrawScheduler)
+    fn update_independent_layer(&mut self, reg: &mut IndepLayerRegister)
     where
         El: Element,
     {
-        let indep_layer_locked = self
-            .pub_shared
-            .lock_independent_layer
-            .load(std::sync::atomic::Ordering::Relaxed);
+        let mut layer_info = self.pub_shared.layer_info.write().unwrap();
 
-        match (&self.shared, indep_layer_locked) {
+        match (&self.shared, layer_info.acquire_independent_layer) {
             (MaybeShared::Shared(_), false) => {
-                let mut dep_layer_id = self.pub_shared.dep_layer_id.lock().unwrap();
-                sch.del(*dep_layer_id);
-                *dep_layer_id = self.shared.borrow().parent_layer_id;
+                reg.del(
+                    layer_info
+                        .indep_layer_id
+                        .take()
+                        .expect("independent layer id expected to be exists"),
+                );
+
                 assert!(self.shared.try_to_unique());
             }
 
@@ -115,10 +129,8 @@ impl<El, Sty, Sc> ElementModel<El, Sty, Sc> {
                     unreachable!()
                 };
 
-                let indep_layer_id = sch.reg(shared.clone());
-
-                let mut dep_layer_id = self.pub_shared.dep_layer_id.lock().unwrap();
-                *dep_layer_id = indep_layer_id;
+                debug_assert!(layer_info.indep_layer_id.is_none());
+                layer_info.indep_layer_id = Some(reg.reg(shared.clone()));
             }
 
             _ => {}
