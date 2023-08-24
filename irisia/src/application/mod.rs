@@ -3,7 +3,7 @@ use std::sync::Arc;
 use irisia_backend::{window_handle::WindowBuilder, WinitWindow};
 
 use crate::{
-    element::{Element, UpdateOptions},
+    element::{Element, UpdateElement},
     event::{standard::window_event::WindowDestroyed, EventDispatcher},
     Result, UpdateWith,
 };
@@ -24,7 +24,7 @@ pub struct Window {
     event_dispatcher: EventDispatcher,
 }
 
-type EmptyUpdateOptions<'a, El> = UpdateOptions<'a, El, (), ()>;
+type EmptyUpdateOptions<'a, El> = UpdateElement<'a, El, (), ()>;
 
 impl Window {
     pub async fn new<El>(title: impl Into<String>) -> Result<Self>

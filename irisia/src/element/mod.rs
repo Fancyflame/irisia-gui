@@ -1,24 +1,18 @@
 use std::{sync::Arc, time::Duration};
 
-use crate::{
-    dom::{children::ChildrenNodes, ElementHandle},
-    primitive::Region,
-    Result,
-};
+use crate::{dom::children::ChildrenNodes, primitive::Region, Result};
 
-//pub use init_content::{event_handle::EventHandle, InitContent};
 pub use self::{children_setter::ChildrenSetter, render_element::RenderElement};
+pub use crate::dom::ElementHandle;
 
-//pub mod init_content;
-pub mod children_setter;
-pub mod layouter;
+mod children_setter;
 pub mod props;
-pub mod render_element;
+mod render_element;
 
 /// Element is a thing can draw itself on the given canvas,
 /// according to its properties, styles and given drawing region.
 /// This trait is close to the native rendering, if you are not a
-/// component maker, please using exist element or using macros tos
+/// component maker, please using exist elements or macros to
 /// customize one.
 pub trait Element
 where
@@ -39,7 +33,7 @@ where
     ) -> Result<()>;
 }
 
-pub struct UpdateOptions<'a, El, Pr, Sty> {
+pub struct UpdateElement<'a, El, Pr, Sty> {
     pub props: Pr,
     pub styles: &'a Sty,
     pub handle: &'a Arc<ElementHandle<El>>,

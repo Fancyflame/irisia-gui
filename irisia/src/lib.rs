@@ -14,7 +14,7 @@ macro_rules! inner_error {
 }
 
 pub mod application;
-pub mod dom;
+pub(crate) mod dom;
 pub mod element;
 pub mod event;
 pub mod log;
