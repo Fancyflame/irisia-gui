@@ -1,0 +1,12 @@
+[package]
+name = "irisia_widgets"
+version = "0.0.1"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+irisia = { path = "../irisia" }
+smallvec = "1.10"
+tokio = { version = "1.27", features = ["sync"] }
+lazy_static = "1"

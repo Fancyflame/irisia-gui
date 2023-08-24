@@ -1,5 +1,5 @@
 use proc_macro2::TokenStream;
-use quote::{format_ident, quote, ToTokens};
+use quote::{quote, ToTokens};
 use syn::{parse_quote, Expr, Ident, Type};
 
 use crate::expr::state_block::stmts_to_tokens;
@@ -36,17 +36,12 @@ impl ToTokens for ElementStmt {
     }
 }
 
-fn gen_props(element: &Type, props: &[(Ident, Expr)]) -> TokenStream {
-    let set_prop = props.iter().map(|x| {
-        let id = &x.0;
-        let mut set_id = format_ident!("set_{}", id);
-        set_id.set_span(id.span());
-        set_id
-    });
-    let exprs = props.iter().map(|x| &x.1);
+fn gen_props(element: &Type, pairs: &[(Ident, Expr)]) -> TokenStream {
+    let props = pairs.iter().map(|x| &x.0);
+    let exprs = pairs.iter().map(|x| &x.1);
 
     quote! {
         <<#element as irisia::element::Element>::BlankProps as ::std::default::Default>::default()
-            #(.#set_prop((#exprs,)))*
+            #(.#props(#exprs))*
     }
 }

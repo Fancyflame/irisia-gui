@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-    "irisia-core",
+    "irisia-widgets",
     "irisia",
     "irisia-backend",
     "irisia-macros",

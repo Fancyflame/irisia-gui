@@ -7,7 +7,7 @@ use irisia::{
     structure_legacy::StructureBuilder,
     style,
     style::StyleColor,
-    textbox::{styles::*, TextBox},
+    textbox_legacy::{styles::*, TextBox},
 };
 use window_backend::{Flex, Rectangle, StyleHeight, StyleWidth};
 

@@ -5,13 +5,12 @@ use irisia::{
     skia_safe::{Color4f, ColorSpace, Paint},
 };
 use irisia_core::{
-    element::{Element, Frame, InitContent},
+    element::Element,
     skia_safe::{
         font_style::Width,
         textlayout::{FontCollection, Paragraph, ParagraphBuilder, ParagraphStyle, TextStyle},
         Color, FontMgr, FontStyle, Point as SkiaPoint,
     },
-    structure_legacy::EmptyStructure,
     style::{StyleColor, StyleContainer},
     StyleReader,
 };
@@ -54,6 +53,9 @@ struct OwnedState {
     drawing_region: Region,
 }
 
+impl Element for TextBox {}
+
+/*
 impl Element<EmptyStructure> for TextBox {
     type Props<'a> = Props<'a>;
 
@@ -128,7 +130,7 @@ impl Element<EmptyStructure> for TextBox {
 
         Ok(())
     }
-}
+}*/
 
 impl TextBox {
     fn handle_user_select(&mut self, new_state: bool) {
