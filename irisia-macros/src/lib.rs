@@ -1,15 +1,15 @@
 use expr::state_block::stmts_to_tokens;
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse::Parser, parse_macro_input, DeriveInput, ItemFn};
+use syn::{parse::Parser, parse_macro_input, DeriveInput, ItemFn, ItemStruct};
 
+mod derive_props;
 mod derive_style;
 mod derive_style_reader;
 mod element;
 pub(crate) mod expr;
 mod inner_impl_listen;
 mod main_macro;
-mod props;
 mod style;
 
 /// To build a element tree visually. This macro will returns
@@ -124,10 +124,15 @@ pub fn derive_style_reader(input: TokenStream) -> TokenStream {
     }
 }
 
+#[proc_macro_attribute]
+pub fn props(attr: TokenStream, input: TokenStream) -> TokenStream {
+    match derive_props::props(attr.into(), parse_macro_input!(input as ItemStruct)) {
+        Ok(t) => t.into(),
+        Err(e) => e.to_compile_error().into(),
+    }
+}
+
 #[proc_macro]
 pub fn __inner_impl_listen(_: TokenStream) -> TokenStream {
     inner_impl_listen::impl_listen().into()
 }
-
-//#[proc_macro_attribute]
-//pub fn props(attr: TokenStream, item: TokenStream) -> TokenStream {}
