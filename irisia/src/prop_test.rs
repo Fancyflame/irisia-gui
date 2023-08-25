@@ -79,7 +79,7 @@ macro_rules! expanded {
         }
 
         impl<T1, T2, T3, T4, T5, T6> PersonInfoUpdater<T1, T2, T3, T4, T5, T6> {
-            pub fn name<U>      (self, value: U) -> PersonInfoUpdater<U, T2, T3, T4, T5, T6> {
+            pub fn name<U>      (self, value: U) -> PersonInfoUpdater<(U,), T2, T3, T4, T5, T6> {
                 PersonInfoUpdater {
                     name:      (value,),
                     job_codes: self.job_codes,
@@ -90,7 +90,7 @@ macro_rules! expanded {
                 }
             }
 
-            pub fn job_codes<U> (self, value: U) -> PersonInfoUpdater<T1, U, T3, T4, T5, T6> {
+            pub fn job_codes<U> (self, value: U) -> PersonInfoUpdater<T1, (U,), T3, T4, T5, T6> {
                 PersonInfoUpdater {
                     name:      self.name,
                     job_codes: (value,),
@@ -101,7 +101,7 @@ macro_rules! expanded {
                 }
             }
 
-            pub fn rank<U>      (self, value: U) -> PersonInfoUpdater<T1, T2, U, T4, T5, T6> {
+            pub fn rank<U>      (self, value: U) -> PersonInfoUpdater<T1, T2, (U,), T4, T5, T6> {
                 PersonInfoUpdater {
                     name:      self.name,
                     job_codes: self.job_codes,
@@ -112,7 +112,7 @@ macro_rules! expanded {
                 }
             }
 
-            pub fn age<U>       (self, value: U) -> PersonInfoUpdater<T1, T2, T3, U, T5, T6> {
+            pub fn age<U>       (self, value: U) -> PersonInfoUpdater<T1, T2, T3, (U,), T5, T6> {
                 PersonInfoUpdater {
                     name:      self.name,
                     job_codes: self.job_codes,
@@ -123,7 +123,7 @@ macro_rules! expanded {
                 }
             }
 
-            pub fn gender<U>    (self, value: U) -> PersonInfoUpdater<T1, T2, T3, T4, U, T6> {
+            pub fn gender<U>    (self, value: U) -> PersonInfoUpdater<T1, T2, T3, T4, (U,), T6> {
                 PersonInfoUpdater {
                     name:      self.name,
                     job_codes: self.job_codes,
@@ -134,7 +134,7 @@ macro_rules! expanded {
                 }
             }
 
-            pub fn style<U>     (self, style: U) -> PersonInfoUpdater<T1, T2, T3, T4, T5, U> {
+            pub fn style<U>     (self, style: U) -> PersonInfoUpdater<T1, T2, T3, T4, T5, (U,)> {
                 PersonInfoUpdater {
                     name:      self.name,
                     job_codes: self.job_codes,
