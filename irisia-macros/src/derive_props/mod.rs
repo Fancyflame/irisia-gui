@@ -1,84 +1,128 @@
-use proc_macro2::{TokenStream};
-use quote::{format_ident, quote};
+use std::collections::HashSet;
+
+use case::CaseExt;
+use proc_macro2::{Span, TokenStream};
+use quote::{format_ident, quote, ToTokens};
 use syn::{
-    punctuated::Punctuated, token::Comma, Field, Fields, Ident, ItemStruct,
-    Result,
+    parse_quote, punctuated::Punctuated, spanned::Spanned, visit::Visit, Error, Fields,
+    GenericParam, Generics, Ident, ItemStruct, Result, Type,
 };
-// attr详情<https://doc.rust-lang.org/stable/book/ch19-06-macros.html#attribute-like-macros>
-pub fn props(_attr: TokenStream, item: ItemStruct) -> Result<TokenStream> {
-    let fields = match &item.fields {
-        Fields::Named(fields) => &fields.named,
-        _ => panic!("expected a struct with named fields"),
-    };
-    let iter = (1..=fields.len()).map(|num| format_ident!("T{}", num));
-    let (field_name, field_ty) = (
-        fields.iter().map(|field| &field.ident),
-        fields.iter().map(|field| &field.ty),
-    );
-    let (field_name_r, field_ty_r) = (field_name.clone(), field_ty.clone());
-    let iter_impl = iter.clone();
-    let iter_sign = iter.clone();
-    let struct_gen = quote! {
-        struct Foo<#(#iter=()),*>{
-            #(
-                #field_name_r:#field_ty_r,
-            )*
-        }
 
-    };
-    let gen_field = generate_field(fields)?;
-    
-    let impl_default = quote! {
-        impl Default for Foo{
-            fn default(){
-            #(
-                let #field_name:#field_ty = Default::default();
-            )*
-            }
-        }
-        impl <#(#iter_impl),*>Foo<#(#iter_sign),*>{
-            #gen_field
-        }
-    };
+use self::impl_::{impl_default, make_struct, regenerate_origin_struct, set_props};
 
-    let gen = quote! {
-        #struct_gen
-        #impl_default
-    };
-    Ok(gen)
+mod impl_;
+
+struct GenHelper<'a> {
+    item: &'a ItemStruct,
+    target_struct: Ident,
+    updater_generics: Generics,
 }
-fn generate_field(fields: &Punctuated<Field, Comma>) -> Result<TokenStream> {
-    let iter = (1..=fields.len()).map(|num| format_ident!("T{}", num));
-    let iter_vec: Vec<Ident> = iter.clone().collect();
-    let mut gen_vec = vec![];
-    let return_generic = quote! {
-        Foo<#(#iter),*>
-    };
-    for (index_o, fn_name) in fields.iter().enumerate() {
-        let iter_index = &iter_vec[index_o];
-        for (_index, ident) in fn_name.ident.iter().enumerate() {
-            if fn_name.ident.as_ref() == Some(ident) {
-                gen_vec.push(quote! {
-                  pub fn #ident<#iter_index> (self,value:#iter_index)->#return_generic{
-                    Foo{
-                        #ident:(value,),
-                    }
-                  }
-                });
-            } else {
-                gen_vec.push(quote! {
-                  pub fn #ident<#iter_index> (self,value:#iter_index)->#return_generic{
-                    Foo{
-                        #ident:self.#ident,
-                    }
-                  }
-                })
+
+impl<'a> GenHelper<'a> {
+    fn new(item: &'a ItemStruct) -> Self {
+        Self {
+            item,
+            target_struct: Ident::new("Foo", Span::call_site()),
+            updater_generics: new_generics(&item),
+        }
+    }
+
+    fn impl_self(&self, body: impl ToTokens) -> TokenStream {
+        let GenHelper {
+            target_struct,
+            updater_generics,
+            ..
+        } = self;
+        quote! {
+            impl #updater_generics #target_struct #updater_generics {
+                #body
             }
         }
     }
-    let gen_iter =gen_vec.into_iter();
-    let gen = quote!{
-        #(#gen_iter)*
+
+    fn impl_trait(&self, impl_trait: impl ToTokens, body: impl ToTokens) -> TokenStream {
+        let GenHelper {
+            target_struct,
+            updater_generics,
+            ..
+        } = self;
+        quote! {
+            impl #updater_generics #impl_trait for #target_struct #updater_generics {
+                #body
+            }
+        }
+    }
+
+    fn field_iter(&self) -> impl Iterator<Item = (&Ident, &Type)> {
+        self.item
+            .fields
+            .iter()
+            .map(|field| (field.ident.as_ref().unwrap(), &field.ty))
+    }
+
+    fn generics_iter(&self) -> impl Iterator<Item = &Ident> {
+        self.updater_generics.type_params().map(|p| &p.ident)
+    }
+
+    fn no_fields(&self) -> bool {
+        self.updater_generics.params.is_empty()
+    }
+}
+
+fn new_generics<'a>(stru: &ItemStruct) -> Generics {
+    let field_types: HashSet<&Ident> = {
+        struct IdentVisitor<'ast>(HashSet<&'ast Ident>);
+        impl<'ast> Visit<'ast> for IdentVisitor<'ast> {
+            fn visit_ident(&mut self, i: &'ast Ident) {
+                self.0.insert(i);
+            }
+        }
+
+        let mut ident_visitor = IdentVisitor(HashSet::new());
+        syn::visit::visit_item_struct(&mut ident_visitor, stru);
+        ident_visitor.0
     };
-    Ok(gen)
+
+    let param_iter = stru.fields.iter().map(|field| {
+        let raw_id = field
+            .ident
+            .as_ref()
+            .expect("expected named field")
+            .to_string()
+            .to_camel();
+
+        let mut id = format_ident!("Prop{raw_id}");
+        loop {
+            if !field_types.contains(&id) {
+                let gp: GenericParam = parse_quote!(#id);
+                break gp;
+            }
+            id = format_ident!("{id}Generic");
+        }
+    });
+
+    Generics {
+        params: Punctuated::from_iter(param_iter),
+        ..Default::default()
+    }
+}
+
+pub fn props(_attr: TokenStream, item: ItemStruct) -> Result<TokenStream> {
+    if !matches!(item.fields, Fields::Named(_)) {
+        return Err(Error::new(
+            item.span(),
+            "expected a struct with named fields",
+        ));
+    }
+
+    let helper = GenHelper::new(&item);
+
+    let mut output = regenerate_origin_struct(&helper);
+    output.extend(make_struct(&helper));
+    output.extend(impl_default(&helper));
+    output.extend(set_props(&helper));
+
+    println!("{}", output.to_string());
+
+    Ok(output)
 }
