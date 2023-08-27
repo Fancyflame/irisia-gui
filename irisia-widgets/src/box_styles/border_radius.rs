@@ -1,5 +1,5 @@
 use irisia::{primitive::Pixel, Style};
-use irisia_core::skia_safe::{Point as SkiaPoint, RRect, Rect};
+use irisia::skia_safe::{Point as SkiaPoint, RRect, Rect};
 
 #[derive(Style, Clone)]
 pub enum StyleBorderRadius {

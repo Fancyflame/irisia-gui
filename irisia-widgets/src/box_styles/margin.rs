@@ -1,4 +1,4 @@
-use irisia_core::{primitive::Pixel, Style};
+use irisia::{primitive::Pixel, Style};
 
 #[derive(Style, Clone, Copy)]
 #[style(from, from = "", impl_default)]

@@ -16,8 +16,11 @@ use self::{
     layer::{LayerCompositer, LayerRebuilder},
 };
 
-pub use self::{data_structure::ElementHandle, update::add_one};
 pub(crate) use self::{data_structure::ElementModel, update::EMUpdateContent};
+pub use self::{
+    data_structure::{ElementHandle, FullElementHandle},
+    update::add_one,
+};
 
 pub(crate) mod children;
 mod data_structure;

@@ -1,9 +1,13 @@
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
-use crate::{dom::children::ChildrenNodes, primitive::Region, Result};
+use crate::{
+    dom::{children::ChildrenNodes, FullElementHandle},
+    primitive::Region,
+    Result,
+};
 
 pub use self::{children_setter::ChildrenSetter, render_element::RenderElement};
-pub use crate::dom::ElementHandle;
+pub use crate::{application::content::GlobalContent, dom::ElementHandle};
 
 mod children_setter;
 pub mod props;
@@ -36,5 +40,5 @@ where
 pub struct UpdateElement<'a, El, Pr, Sty> {
     pub props: Pr,
     pub styles: &'a Sty,
-    pub handle: &'a Arc<ElementHandle<El>>,
+    pub handle: &'a FullElementHandle<El>,
 }

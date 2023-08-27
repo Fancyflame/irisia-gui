@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use case::CaseExt;
 use proc_macro2::{Span, TokenStream};
-use quote::{format_ident, quote, ToTokens};
+use quote::format_ident;
 use syn::{
     parse_quote, punctuated::Punctuated, spanned::Spanned, visit::Visit, Error, Fields,
     GenericParam, Generics, Ident, ItemStruct, Result, Type,
@@ -24,32 +24,6 @@ impl<'a> GenHelper<'a> {
             item,
             target_struct: Ident::new("Foo", Span::call_site()),
             updater_generics: new_generics(&item),
-        }
-    }
-
-    fn impl_self(&self, body: impl ToTokens) -> TokenStream {
-        let GenHelper {
-            target_struct,
-            updater_generics,
-            ..
-        } = self;
-        quote! {
-            impl #updater_generics #target_struct #updater_generics {
-                #body
-            }
-        }
-    }
-
-    fn impl_trait(&self, impl_trait: impl ToTokens, body: impl ToTokens) -> TokenStream {
-        let GenHelper {
-            target_struct,
-            updater_generics,
-            ..
-        } = self;
-        quote! {
-            impl #updater_generics #impl_trait for #target_struct #updater_generics {
-                #body
-            }
         }
     }
 

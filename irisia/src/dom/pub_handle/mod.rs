@@ -9,11 +9,11 @@ use crate::{application::content::GlobalContent, event::EventDispatcher};
 
 use self::listen::Listen;
 
-use super::data_structure::ElementHandle;
+use super::{data_structure::FullElementHandle, ElementHandle};
 
 pub mod listen;
 
-impl<El> ElementHandle<El> {
+impl<El> FullElementHandle<El> {
     /// Get a write guard without setting dirty
     pub(super) fn el_write_clean(&self) -> RwLockMappedWriteGuard<El> {
         RwLockWriteGuard::map(self.el.blocking_write(), |x| x.as_mut().unwrap())
@@ -32,6 +32,13 @@ impl<El> ElementHandle<El> {
         RwLockReadGuard::map(self.el.read().await, |x| x.as_ref().unwrap())
     }
 
+    /// Listen event with options
+    pub fn listen(&self) -> Listen<&Self, (), (), (), (), ()> {
+        Listen::new(self)
+    }
+}
+
+impl ElementHandle {
     /// Get event dispatcher of this element.
     pub fn event_dispatcher(&self) -> &EventDispatcher {
         &self.ed
@@ -64,9 +71,13 @@ impl<El> ElementHandle<El> {
             .request_redraw(self.layer_info.read().unwrap().render_layer_id())
     }
 
-    /// Listen event with options
-    pub fn listen<'a>(self: &'a Arc<Self>) -> Listen<'a, El, (), (), (), (), ()> {
-        Listen::new(self)
+    /// Query whether independent layer was acquired.
+    ///
+    /// Note that this function will NOT reflect the actual state of
+    /// the layer. Independent layer may not exists while result is `true`
+    /// and may exists while result is `false`.
+    pub fn independent_layer_acquired(&self) -> bool {
+        self.layer_info.read().unwrap().acquire_independent_layer
     }
 
     /// Set `true` to acquire independent render layer for performance optimizations.
@@ -87,19 +98,15 @@ impl<El> ElementHandle<El> {
         self.global_content.request_redraw(write.parent_layer_id);
     }
 
-    /// Query whether independent layer was acquired.
-    ///
-    /// Note that this function will NOT reflect the actual state of
-    /// the layer. Independent layer may not exists while result is `true`
-    /// and may exists while result is `false`.
-    pub fn independent_layer_acquired(&self) -> bool {
-        self.layer_info.read().unwrap().acquire_independent_layer
+    /// Listen event with options
+    pub fn listen<'a>(self: &'a Arc<Self>) -> Listen<&'a Arc<Self>, (), (), (), (), ()> {
+        Listen::new(self)
     }
 }
 
 pub struct ElWriteGuard<'a, T> {
     write: RwLockMappedWriteGuard<'a, T>,
-    set_dirty: &'a ElementHandle<T>,
+    set_dirty: &'a FullElementHandle<T>,
 }
 
 impl<T> Deref for ElWriteGuard<'_, T> {

@@ -26,18 +26,22 @@ impl GlobalContent {
         &self.focusing
     }
 
+    /// Returns a reference to the global event dispatcher
     pub fn global_event_dispatcher(&self) -> &EventDispatcher {
         &self.global_ed
     }
 
+    /// Returns the close handle
     pub fn close_handle(&self) -> CloseHandle {
         self.close_handle
     }
 
+    /// Closes the window
     pub fn close_window(&self) {
         self.close_handle.close();
     }
 
+    /// Returns a reference to the window
     pub fn window(&self) -> &WinitWindow {
         &self.window
     }

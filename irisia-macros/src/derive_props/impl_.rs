@@ -63,38 +63,50 @@ pub(super) fn set_props(helper: &GenHelper) -> TokenStream {
         return quote!();
     }
 
-    let mut tokens = TokenStream::new();
-    for (index, (fn_name, _)) in helper.field_iter().enumerate() {
-        let new_prop_type = quote!(NewPropType__);
+    let body = helper
+        .field_iter()
+        .enumerate()
+        .map(|(index, (fn_name, _))| {
+            let new_prop_type = quote!(NewPropType__);
 
-        let field_kv = helper.field_iter().map(|(field_name, _)| {
-            if field_name == fn_name {
-                quote!(#field_name: (value,))
-            } else {
-                quote!(#field_name: self.#field_name)
-            }
-        });
+            let field_kv = helper.field_iter().map(|(field_name, _)| {
+                if field_name == fn_name {
+                    quote!(#field_name: (value,))
+                } else {
+                    quote!(#field_name: self.#field_name)
+                }
+            });
 
-        let ret_generics = helper.generics_iter().enumerate().map(|(index2, gen)| {
-            if index2 == index {
-                quote!((#new_prop_type,))
-            } else {
-                gen.into_token_stream()
-            }
-        });
+            let ret_generics = helper.generics_iter().enumerate().map(|(index2, gen)| {
+                if index2 == index {
+                    quote!((#new_prop_type,))
+                } else {
+                    gen.into_token_stream()
+                }
+            });
 
-        let struct_name = &helper.target_struct;
+            let struct_name = &helper.target_struct;
 
-        tokens.extend(quote! {
-            fn #fn_name<#new_prop_type>(self, value: #new_prop_type)
-                -> #struct_name<#(#ret_generics,)*>
-            {
-                #struct_name {
-                    #(#field_kv,)*
+            quote! {
+                fn #fn_name<#new_prop_type>(self, value: #new_prop_type)
+                    -> #struct_name<#(#ret_generics,)*>
+                {
+                    #struct_name {
+                        #(#field_kv,)*
+                    }
                 }
             }
         });
-    }
 
-    helper.impl_self(tokens)
+    let GenHelper {
+        target_struct,
+        updater_generics,
+        ..
+    } = helper;
+
+    quote! {
+        impl #updater_generics #target_struct #updater_generics {
+            #(#body)*
+        }
+    }
 }

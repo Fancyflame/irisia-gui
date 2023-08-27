@@ -17,7 +17,9 @@ use crate::{
 
 use super::{
     children::ChildrenNodes,
-    data_structure::{maybe_shared::MaybeShared, ElementHandle, LayerInfo, LayerSharedPart},
+    data_structure::{
+        maybe_shared::MaybeShared, ElementHandle, FullElementHandle, LayerInfo, LayerSharedPart,
+    },
     ElementModel,
 };
 
@@ -72,7 +74,7 @@ where
     El: Element + for<'sty> UpdateWith<UpdateElement<'sty, El, Pr, Sty>>,
     Sty: StyleContainer + 'static,
     Ch: ChildrenNodes,
-    Oc: FnOnce(&Arc<ElementHandle<El>>),
+    Oc: FnOnce(&FullElementHandle<El>),
 {
     fn create_with(updater: ElementModelUpdater<El, Pr, Sty, Ch, Oc>) -> Self {
         let ElementModelUpdater {
@@ -92,16 +94,18 @@ where
         } = updater;
 
         let element_handle = {
-            let eh = Arc::new(ElementHandle {
-                el: RwLock::new(None),
-                ed: EventDispatcher::new(),
-                global_content: global_content.clone(),
-                layer_info: StdRwLock::new(LayerInfo {
-                    acquire_independent_layer: false,
-                    parent_layer_id: dep_layer_id,
-                    indep_layer_id: None,
+            let eh = FullElementHandle {
+                el: Arc::new(RwLock::new(None)),
+                base: Arc::new(ElementHandle {
+                    ed: EventDispatcher::new(),
+                    global_content: global_content.clone(),
+                    layer_info: StdRwLock::new(LayerInfo {
+                        acquire_independent_layer: false,
+                        parent_layer_id: dep_layer_id,
+                        indep_layer_id: None,
+                    }),
                 }),
-            });
+            };
 
             // hold the lock prevent from being accessed
             let mut write = eh.el.blocking_write();

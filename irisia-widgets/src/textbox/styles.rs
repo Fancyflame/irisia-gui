@@ -1,4 +1,4 @@
-use irisia_core::{
+use irisia::{
     primitive::Pixel,
     skia_safe::font_style::{Slant, Weight},
     Style,

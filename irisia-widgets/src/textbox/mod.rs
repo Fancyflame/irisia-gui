@@ -4,7 +4,7 @@ use irisia::{
     primitive::Region,
     skia_safe::{Color4f, ColorSpace, Paint},
 };
-use irisia_core::{
+use irisia::{
     element::Element,
     skia_safe::{
         font_style::Width,

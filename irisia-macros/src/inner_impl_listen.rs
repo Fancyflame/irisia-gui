@@ -27,8 +27,14 @@ impl ListenOptions {
         let where_clause = self.where_clause();
         let fn_body = self.fn_body();
 
+        let impl_head = if self.without_handle {
+            quote!(impl<Eh> Listen<Eh, #(#arg_types),*>)
+        } else {
+            quote!(impl<Eh> Listen<&Eh, #(#arg_types),*>)
+        };
+
         quote! {
-            impl<El> Listen<'_, El, #(#arg_types),*> {
+            #impl_head {
                 pub fn spawn<E, F, #fut_generic>(self, mut f: F)
                 #where_clause
                 { #fn_body }
@@ -89,12 +95,13 @@ impl ListenOptions {
     fn where_clause(&self) -> WhereClause {
         let mut tokens = quote!(where);
 
-        let handle_arg = if self.without_handle {
-            None
+        let (handle_extra_bound, handle_arg) = if self.without_handle {
+            (quote!(), quote!())
         } else {
-            tokens.extend(quote!(El: Send + Sync + 'static,));
-            Some(quote!(&ElementHandle<El>,))
+            (quote!(+ Clone + Send + Sync + 'static), quote!(&Eh,))
         };
+
+        tokens.extend(quote!(Eh: Deref<Target = ElementHandle> #handle_extra_bound,));
 
         let e_bound = if self.sub_event {
             quote!(SubEvent)

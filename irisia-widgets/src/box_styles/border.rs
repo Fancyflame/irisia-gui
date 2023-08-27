@@ -1,4 +1,4 @@
-use irisia_core::{
+use irisia::{
     primitive::Pixel,
     skia_safe::{
         paint::Cap, Canvas, Color, Color4f, ColorSpace, Paint, PaintStyle, PathEffect,
