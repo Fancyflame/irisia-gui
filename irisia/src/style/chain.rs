@@ -1,29 +1,32 @@
-use super::{Style, StyleContainer};
+use std::any::Any;
+
+use super::{style_box::InsideStyleBox, StyleContainer};
 
 #[derive(Clone)]
-pub struct Chain<Bsc, Ext> {
-    basic: Bsc,
-    extend: Ext,
+pub struct Chain<A, B> {
+    former: A,
+    latter: B,
 }
 
-impl<B, E> StyleContainer for Chain<B, E>
+impl<A, B> InsideStyleBox for Chain<A, B>
 where
+    A: StyleContainer,
     B: StyleContainer,
-    E: StyleContainer,
 {
-    fn get_style<T: Style>(&self) -> Option<T> {
-        self.basic
-            .get_style::<T>()
-            .or_else(|| self.extend.get_style())
+    fn get_style_raw(&self, empty_option: &mut dyn Any) -> bool {
+        self.former.get_style_raw(empty_option) || self.latter.get_style_raw(empty_option)
     }
 }
 
-impl<B, E> Chain<B, E>
+impl<A, B> Chain<A, B>
 where
+    A: StyleContainer,
     B: StyleContainer,
-    E: StyleContainer,
 {
-    pub fn new(basic: B, extend: E) -> Self {
-        Chain { basic, extend }
+    pub fn new(f: A, l: B) -> Self {
+        Chain {
+            former: f,
+            latter: l,
+        }
     }
 }

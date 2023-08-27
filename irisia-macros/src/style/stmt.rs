@@ -153,15 +153,13 @@ impl ToTokens for StyleStmt {
         });
 
         quote! {
-            irisia::style::AddStyle::new(
-                irisia::__new_chain_caller(
-                    <#style_ty as ::std::convert::From<_>>::from(
-                        (#(#args,)*)
-                    )
+            irisia::__new_chain_caller(
+                <#style_ty as ::std::convert::From<_>>::from(
+                    (#(#args,)*)
                 )
-                #(#options)*
-                .finish()
             )
+            #(#options)*
+            .finish()
         }
         .to_tokens(tokens);
     }

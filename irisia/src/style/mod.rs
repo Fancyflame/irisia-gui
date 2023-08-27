@@ -24,17 +24,14 @@
 //!   以`.`开头有参数，`style.blur(Pixel(20))`，至多只允许一个参数
 //!
 
-pub mod add_style;
 pub mod branch;
 pub mod chain;
 pub mod reader;
+mod style_box;
 
-use std::any::Any;
-
+use self::style_box::InsideStyleBox;
+pub use self::{branch::*, chain::*, style_box::StyleBox};
 use crate::{self as irisia, primitive::Pixel};
-pub use add_style::*;
-pub use branch::*;
-pub use chain::*;
 use irisia_backend::skia_safe::Color;
 use irisia_macros::Style;
 
@@ -55,29 +52,14 @@ pub enum XAxisBound {
     Right(#[style(default)] Pixel),
 }
 
-pub trait StyleContainer: Clone {
+pub trait StyleContainer: InsideStyleBox {
     fn get_style<T: Style>(&self) -> Option<T>;
 
-    fn read<S: StyleReader>(&self) -> S {
-        S::read_style(self)
-    }
-
-    fn chain<T: StyleContainer>(self, style: T) -> Chain<Self, T>
+    fn read<S>(&self) -> S
     where
         Self: Sized,
+        S: StyleReader,
     {
-        Chain::new(self, style)
-    }
-}
-
-impl StyleContainer for () {
-    fn get_style<T: Style>(&self) -> Option<T> {
-        None
-    }
-}
-
-impl<S: Style> StyleContainer for S {
-    fn get_style<T: Style>(&self) -> Option<T> {
-        (self as &dyn Any).downcast_ref::<T>().cloned()
+        S::read_style(self)
     }
 }
