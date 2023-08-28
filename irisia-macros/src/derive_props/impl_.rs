@@ -5,9 +5,11 @@ use syn::Attribute;
 use super::GenHelper;
 
 pub(super) fn make_struct(helper: &GenHelper) -> TokenStream {
+    let target_struct = &helper.target_struct;
+
     if helper.no_fields() {
         return quote! {
-            struct Foo;
+            struct #target_struct;
         };
     }
 
@@ -16,7 +18,7 @@ pub(super) fn make_struct(helper: &GenHelper) -> TokenStream {
     let fields = helper.field_iter().map(|(ident, _)| ident);
 
     quote! {
-        struct Foo<#(#generics_iter1 = (),)*> {
+        struct #target_struct<#(#generics_iter1 = (),)*> {
             #(#fields: #generics_iter2,)*
         }
     }

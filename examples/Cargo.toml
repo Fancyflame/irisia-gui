@@ -9,8 +9,8 @@ name = "window"
 path = "window.rs"
 
 [[example]]
-name = "test"
-path = "test_macro.rs"
+name = "props_macro"
+path = "props_macro.rs"
 
 [[example]]
 name = "simple_window"
@@ -19,4 +19,4 @@ path = "simple_window.rs"
 [dev-dependencies]
 tokio = { version = "1.27", features = ["sync", "rt-multi-thread", "macros"] }
 irisia = { path = "../irisia" }
-irisia_macros = {path = "../irisia-macros/"}
+irisia_macros = { path = "../irisia-macros/" }

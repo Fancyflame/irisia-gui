@@ -1,7 +1,7 @@
-use irisia_macros::props;
 use std::default::Default;
 
-#[irisia::props]
+#[irisia::props(After)]
+#[allow(unused)]
 struct Origin {
     name: String,
     sexual_orientation: String,
@@ -9,7 +9,7 @@ struct Origin {
 }
 
 fn main() {
-    Foo::default()
+    After::default()
         .name("a")
         .sexual_orientation("HeliCopter")
         .abcd(1);

@@ -5,24 +5,34 @@ use proc_macro2::{Span, TokenStream};
 use quote::format_ident;
 use syn::{
     parse_quote, punctuated::Punctuated, spanned::Spanned, visit::Visit, Error, Fields,
-    GenericParam, Generics, Ident, ItemStruct, Result, Type,
+    GenericParam, Generics, Ident, ItemStruct, Result, Type, Visibility,
 };
+
+use crate::derive_props::attrs::StructAttr;
 
 use self::impl_::{impl_default, make_struct, regenerate_origin_struct, set_props};
 
+mod attrs;
 mod impl_;
 
 struct GenHelper<'a> {
     item: &'a ItemStruct,
     target_struct: Ident,
+    vis: Visibility,
     updater_generics: Generics,
 }
 
+struct HandledField<'a> {
+    ident: &'a Ident,
+    ty: &'a Type,
+}
+
 impl<'a> GenHelper<'a> {
-    fn new(item: &'a ItemStruct) -> Self {
+    fn new(item: &'a ItemStruct, struct_attr: &StructAttr) -> Self {
         Self {
             item,
-            target_struct: Ident::new("Foo", Span::call_site()),
+            target_struct: struct_attr.updater_name.clone(),
+            vis: struct_attr.visibility.clone(),
             updater_generics: new_generics(&item),
         }
     }
@@ -81,7 +91,7 @@ fn new_generics<'a>(stru: &ItemStruct) -> Generics {
     }
 }
 
-pub fn props(_attr: TokenStream, item: ItemStruct) -> Result<TokenStream> {
+pub fn props(attr: TokenStream, item: ItemStruct) -> Result<TokenStream> {
     if !matches!(item.fields, Fields::Named(_)) {
         return Err(Error::new(
             item.span(),
@@ -89,7 +99,8 @@ pub fn props(_attr: TokenStream, item: ItemStruct) -> Result<TokenStream> {
         ));
     }
 
-    let helper = GenHelper::new(&item);
+    let struct_attr = StructAttr::parse_from(attr, item.vis.clone())?;
+    let helper = GenHelper::new(&item, &struct_attr);
 
     let mut output = regenerate_origin_struct(&helper);
     output.extend(make_struct(&helper));
