@@ -1,5 +1,5 @@
 use proc_macro2::Ident;
-use syn::{ExprPath, Type, Visibility};
+use syn::{Expr, ExprPath, Type, Visibility};
 
 mod parse_field_attr;
 mod parse_struct_attr;
@@ -9,13 +9,10 @@ pub struct StructAttr {
     pub visibility: Visibility,
 }
 
-pub enum FieldAttr {
-    Skipped,
-    Normal {
-        value_resolver: FieldResolver,
-        default_behavior: FieldDefault,
-        options: FieldOptions,
-    },
+pub struct FieldAttr {
+    pub value_resolver: FieldResolver,
+    pub default_behavior: FieldDefault,
+    pub options: FieldOptions,
 }
 
 #[derive(Clone)]
@@ -24,16 +21,17 @@ pub enum FieldResolver {
     CallUpdater,
     ReadStyle,
     WithFn { path: ExprPath, arg_type: Type },
+    Custom(Type),
 }
 
 #[derive(Clone)]
 pub enum FieldDefault {
     MustInit,
     Default,
-    DefaultWith(ExprPath),
+    DefaultWith(Expr),
 }
 
 #[derive(Clone)]
 pub struct FieldOptions {
-    rename: Option<Ident>,
+    pub rename: Option<Ident>,
 }

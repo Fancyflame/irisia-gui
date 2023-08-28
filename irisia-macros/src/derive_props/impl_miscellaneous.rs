@@ -2,6 +2,8 @@ use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::Attribute;
 
+use crate::derive_props::HandledField;
+
 use super::GenHelper;
 
 pub(super) fn make_struct(helper: &GenHelper) -> TokenStream {
@@ -15,7 +17,7 @@ pub(super) fn make_struct(helper: &GenHelper) -> TokenStream {
 
     let generics_iter1 = helper.generics_iter();
     let generics_iter2 = helper.generics_iter();
-    let fields = helper.field_iter().map(|(ident, _)| ident);
+    let fields = helper.fields.iter().map(|f| f.ident);
 
     quote! {
         struct #target_struct<#(#generics_iter1 = (),)*> {
@@ -28,7 +30,7 @@ pub(super) fn impl_default(helper: &GenHelper) -> TokenStream {
     let self_body = if helper.no_fields() {
         None
     } else {
-        let fields = helper.field_iter().map(|(ident, _)| ident);
+        let fields = helper.fields.iter().map(|f| f.ident);
         Some(quote! {
             {
                 #(#fields: (),)*
@@ -65,14 +67,20 @@ pub(super) fn set_props(helper: &GenHelper) -> TokenStream {
         return quote!();
     }
 
-    let body = helper
-        .field_iter()
-        .enumerate()
-        .map(|(index, (fn_name, _))| {
+    let body = helper.fields.iter().enumerate().map(
+        |(
+            index,
+            HandledField {
+                ident: fn_name,
+                attr,
+                ..
+            },
+        )| {
             let new_prop_type = quote!(NewPropType__);
 
-            let field_kv = helper.field_iter().map(|(field_name, _)| {
-                if field_name == fn_name {
+            let field_kv = helper.fields.iter().map(|f| {
+                let field_name = f.ident;
+                if field_name == *fn_name {
                     quote!(#field_name: (value,))
                 } else {
                     quote!(#field_name: self.#field_name)
@@ -87,18 +95,26 @@ pub(super) fn set_props(helper: &GenHelper) -> TokenStream {
                 }
             });
 
-            let struct_name = &helper.target_struct;
+            let GenHelper {
+                target_struct, vis, ..
+            } = &helper;
+
+            let fn_name = match &attr.options.rename {
+                Some(renamed) => renamed,
+                None => fn_name,
+            };
 
             quote! {
-                fn #fn_name<#new_prop_type>(self, value: #new_prop_type)
-                    -> #struct_name<#(#ret_generics,)*>
+                #vis fn #fn_name<#new_prop_type>(self, value: #new_prop_type)
+                    -> #target_struct<#(#ret_generics,)*>
                 {
-                    #struct_name {
+                    #target_struct {
                         #(#field_kv,)*
                     }
                 }
             }
-        });
+        },
+    );
 
     let GenHelper {
         target_struct,

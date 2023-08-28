@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use case::CaseExt;
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::TokenStream;
 use quote::format_ident;
 use syn::{
     parse_quote, punctuated::Punctuated, spanned::Spanned, visit::Visit, Error, Fields,
@@ -10,38 +10,43 @@ use syn::{
 
 use crate::derive_props::attrs::StructAttr;
 
-use self::impl_::{impl_default, make_struct, regenerate_origin_struct, set_props};
+use self::{
+    attrs::FieldAttr,
+    impl_miscellaneous::{impl_default, make_struct, regenerate_origin_struct, set_props},
+    impl_update_with::impl_update_with,
+};
 
 mod attrs;
-mod impl_;
+mod impl_miscellaneous;
+mod impl_update_with;
 
 struct GenHelper<'a> {
     item: &'a ItemStruct,
-    target_struct: Ident,
+    target_struct: &'a Ident,
     vis: Visibility,
     updater_generics: Generics,
+    fields: Vec<HandledField<'a>>,
 }
 
 struct HandledField<'a> {
     ident: &'a Ident,
     ty: &'a Type,
+    attr: FieldAttr,
 }
 
 impl<'a> GenHelper<'a> {
-    fn new(item: &'a ItemStruct, struct_attr: &StructAttr) -> Self {
+    fn new(
+        item: &'a ItemStruct,
+        struct_attr: &'a StructAttr,
+        fields: Vec<HandledField<'a>>,
+    ) -> Self {
         Self {
             item,
-            target_struct: struct_attr.updater_name.clone(),
+            target_struct: &struct_attr.updater_name,
             vis: struct_attr.visibility.clone(),
             updater_generics: new_generics(&item),
+            fields,
         }
-    }
-
-    fn field_iter(&self) -> impl Iterator<Item = (&Ident, &Type)> {
-        self.item
-            .fields
-            .iter()
-            .map(|field| (field.ident.as_ref().unwrap(), &field.ty))
     }
 
     fn generics_iter(&self) -> impl Iterator<Item = &Ident> {
@@ -100,14 +105,26 @@ pub fn props(attr: TokenStream, item: ItemStruct) -> Result<TokenStream> {
     }
 
     let struct_attr = StructAttr::parse_from(attr, item.vis.clone())?;
-    let helper = GenHelper::new(&item, &struct_attr);
+
+    let field_attrs: Vec<HandledField> = {
+        let mut attrs = Vec::new();
+        for field in item.fields.iter() {
+            attrs.push(HandledField {
+                ident: &field.ident.as_ref().unwrap(),
+                ty: &field.ty,
+                attr: FieldAttr::parse_from(&field.attrs, field.span())?,
+            });
+        }
+        attrs
+    };
+
+    let helper = GenHelper::new(&item, &struct_attr, field_attrs);
 
     let mut output = regenerate_origin_struct(&helper);
     output.extend(make_struct(&helper));
     output.extend(impl_default(&helper));
     output.extend(set_props(&helper));
-
-    println!("{}", output.to_string());
+    output.extend(impl_update_with(&helper));
 
     Ok(output)
 }

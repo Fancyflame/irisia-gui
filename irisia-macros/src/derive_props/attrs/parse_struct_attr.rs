@@ -1,4 +1,4 @@
-use proc_macro2::{Ident, TokenStream};
+use proc_macro2::TokenStream;
 use syn::{
     parse::{ParseStream, Parser},
     LitStr, Result, Token, Visibility,
