@@ -142,11 +142,15 @@ fn generate_create_with_fn(helper: &GenHelper) -> TokenStream {
             )
         };
 
-        fn use_defaulter(maybe_created: TokenStream, default_value: impl ToTokens) -> TokenStream {
+        fn use_defaulter(
+            maybe_created: TokenStream,
+            default_value: impl ToTokens,
+            ret_type: &Type,
+        ) -> TokenStream {
             quote! {
                 irisia::element::props::Defaulter::with_defaulter(
                     #maybe_created,
-                    || { #default_value }
+                    (|| -> #ret_type { #default_value } as fn() -> #ret_type)
                 )
             }
         }
@@ -157,8 +161,9 @@ fn generate_create_with_fn(helper: &GenHelper) -> TokenStream {
                 quote! {
                     ::std::default::Default::default()
                 },
+                ty,
             ),
-            FieldDefault::DefaultWith(def) => use_defaulter(maybe_created, def),
+            FieldDefault::DefaultWith(def) => use_defaulter(maybe_created, def, ty),
             FieldDefault::MustInit => quote!(#maybe_created.must_be_initialized()),
         };
 

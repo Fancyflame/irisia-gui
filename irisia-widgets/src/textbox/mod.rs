@@ -1,10 +1,6 @@
 use std::ops::Range;
 
 use irisia::{
-    primitive::Region,
-    skia_safe::{Color4f, ColorSpace, Paint},
-};
-use irisia::{
     element::Element,
     skia_safe::{
         font_style::Width,
@@ -13,6 +9,10 @@ use irisia::{
     },
     style::{StyleColor, StyleContainer},
     StyleReader,
+};
+use irisia::{
+    primitive::Region,
+    skia_safe::{Color4f, ColorSpace, Paint},
 };
 use styles::*;
 
@@ -39,9 +39,12 @@ struct TextBoxStyles {
     color: Option<StyleColor>,
 }
 
-#[derive(Default)]
-pub struct Props<'a> {
-    pub text: &'a str,
+#[irisia::props(Props, "pub")]
+pub struct TextBoxOwnedProps {
+    #[props(updated, must_init)]
+    pub text: String,
+
+    #[props(default = "false")]
     pub user_select: bool,
 }
 
