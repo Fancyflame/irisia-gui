@@ -71,8 +71,8 @@ pub struct ElementModelUpdater<'a, El, Pr, Sty, Ch, Oc> {
 impl<El, Pr, Sty, Ch, Oc> UpdateWith<ElementModelUpdater<'_, El, Pr, Sty, Ch, Oc>>
     for ElementModel<El, Sty, Ch::Model>
 where
-    Pr: SetStdStyles<Sty>,
-    El: Element + for<'sty> UpdateWith<UpdateElement<'sty, El, Pr::Output>>,
+    Pr: for<'sty> SetStdStyles<'sty, Sty>,
+    El: Element + for<'a> UpdateWith<UpdateElement<'a, El, <Pr as SetStdStyles<'a, Sty>>::Output>>,
     Sty: StyleContainer + 'static,
     Ch: ChildrenNodes,
     Oc: FnOnce(&FullElementHandle<El>),

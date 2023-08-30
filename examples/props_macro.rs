@@ -1,4 +1,4 @@
-use irisia::UpdateWith;
+use irisia::{element::props::SetStdStyles, style::StyleColor, UpdateWith};
 use std::default::Default;
 
 #[irisia::props(After)]
@@ -10,10 +10,15 @@ struct Origin {
     #[props(default = r#" "Walmart Bag".into() "#, updated)]
     gender: String,
 
-    #[props(default)]
-    abcd: i32,
+    #[props(read_style(stdin))]
+    abcd: Option<StyleColor>,
 }
 
 fn main() {
-    Origin::create_with(After::default().name("Bob").gender("Helicopter"));
+    Origin::create_with(
+        After::default()
+            .name("Bob")
+            .gender("Helicopter")
+            .set_std_styles(&()),
+    );
 }

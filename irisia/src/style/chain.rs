@@ -4,8 +4,8 @@ use super::{style_box::InsideStyleBox, StyleContainer};
 
 #[derive(Clone)]
 pub struct Chain<A, B> {
-    former: A,
-    latter: B,
+    pub former: A,
+    pub latter: B,
 }
 
 impl<A, B> InsideStyleBox for Chain<A, B>

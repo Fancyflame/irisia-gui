@@ -14,14 +14,12 @@ impl InsideStyleBox for () {
     }
 }
 
-impl<S: Style> InsideStyleBox for S {
+impl<T> InsideStyleBox for &T
+where
+    T: InsideStyleBox + ?Sized,
+{
     fn get_style_raw(&self, empty_option: &mut dyn Any) -> bool {
-        if let Some(this) = empty_option.downcast_mut::<Option<Self>>() {
-            *this = Some(self.clone());
-            true
-        } else {
-            false
-        }
+        (**self).get_style_raw(empty_option)
     }
 }
 

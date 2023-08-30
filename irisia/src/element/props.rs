@@ -10,15 +10,15 @@ pub struct ReadStyle;
 
 // standard input styles
 
-pub trait SetStdStyles<T>
+pub trait SetStdStyles<'a, T>
 where
     T: StyleContainer,
 {
     type Output;
-    fn set_std_styles(self, styles: &T) -> Self::Output;
+    fn set_std_styles(self, styles: &'a T) -> Self::Output;
 }
 
-impl<T> SetStdStyles<T> for ()
+impl<'a, T> SetStdStyles<'a, T> for ()
 where
     T: StyleContainer,
 {

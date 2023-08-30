@@ -138,11 +138,12 @@ fn set_std_style_input(helper: &GenHelper) -> TokenStream {
     } = helper;
 
     let style_generic: Ident = parse_quote!(__IrisiaStdInputStyles);
+    let lifetime = quote!('__irisia_std_input_styles);
 
-    let impl_generics = std::iter::once(&style_generic).chain(helper.generics_iter());
+    let impl_generics = helper.generics_iter();
 
-    let std_style_in_tuple = quote!((#style_generic,));
-    let output_generics = fields
+    let std_style_in_tuple = quote!((&#lifetime #style_generic,));
+    let return_generics = fields
         .iter()
         .zip(helper.generics_iter())
         .map(|(field, generic)| {
@@ -163,16 +164,17 @@ fn set_std_style_input(helper: &GenHelper) -> TokenStream {
     });
 
     quote! {
-        impl<#(#impl_generics,)*> irisia::element::props::SetStdStyles<#style_generic>
+        impl<#lifetime, #style_generic, #(#impl_generics,)*>
+            irisia::element::props::SetStdStyles<#lifetime, #style_generic>
             for #target_struct #updater_generics
         where
-            #style_generic: irisia::style::StyleContainer
+            #style_generic: irisia::style::StyleContainer + #lifetime
         {
-            type Output = #target_struct<#(#output_generics,)*>;
+            type Output = #target_struct<#(#return_generics,)*>;
 
             fn set_std_styles(
                 self,
-                __irisia_std_input_styles: &#style_generic
+                __irisia_std_input_styles: &#lifetime #style_generic
             ) -> Self::Output {
                 #target_struct {
                     #(#init_fields,)*

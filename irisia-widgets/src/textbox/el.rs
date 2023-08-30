@@ -20,10 +20,9 @@ impl Element for TextBox {
     type BlankProps = super::Props;
 }
 
-impl<Pr, Sty> UpdateWith<UpdateElement<'_, Self, Pr, Sty>> for TextBox
+impl<Pr> UpdateWith<UpdateElement<'_, Self, Pr>> for TextBox
 where
     OwnedProps: UpdateWith<Pr>,
-    Sty: StyleContainer,
 {
     fn create_with(updater: UpdateElement<'_, Self, Pr>) -> Self {
         let mut font_collection = FontCollection::new();
