@@ -8,9 +8,9 @@ use crate::{
     },
 };
 
-pub use peek_styles::PeekStyles;
+pub use layout_elements::LayoutElements;
 
-mod peek_styles;
+mod layout_elements;
 
 pub struct ChildrenSetter<'a> {
     set_children: &'a mut Option<ChildrenBox>,
@@ -31,7 +31,7 @@ impl<'a> ChildrenSetter<'a> {
         }
     }
 
-    pub fn set_children<T>(self, children: T) -> PeekStyles<'a, T::Model>
+    pub fn set_children<T>(self, children: T) -> LayoutElements<'a, T::Model>
     where
         T: ChildrenNodes,
     {
@@ -56,11 +56,11 @@ impl<'a> ChildrenSetter<'a> {
                     .unwrap()
                     .as_render_multiple()
                     .as_any()
-                    .downcast_ref()
+                    .downcast_mut()
                     .unwrap()
             }
         };
 
-        PeekStyles::new(model)
+        LayoutElements::new(model)
     }
 }
