@@ -20,13 +20,14 @@ use crate::box_styles::BoxStyleRenderer;
 
 use self::selection::SelectionRtMgr;
 
+mod el;
 mod selection;
 pub mod styles;
 
 pub struct TextBox {
+    props: OwnedProps,
     font_collection: FontCollection,
     paragraph: Option<Paragraph>,
-    previous_state: Option<OwnedState>,
     selection: Option<Range<usize>>,
     selection_rt_mgr: SelectionRtMgr,
 }
@@ -40,9 +41,12 @@ struct TextBoxStyles {
 }
 
 #[irisia::props(Props, "pub")]
-pub struct TextBoxOwnedProps {
+pub struct OwnedProps {
     #[props(updated, must_init)]
     pub text: String,
+
+    #[props(read_style(stdin))]
+    pub style: TextBoxStyles,
 
     #[props(default = "false")]
     pub user_select: bool,

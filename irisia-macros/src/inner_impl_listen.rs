@@ -35,7 +35,7 @@ impl ListenOptions {
 
         quote! {
             #impl_head {
-                pub fn spawn<E, F, #fut_generic>(self, mut f: F)
+                pub fn spawn<E, F, #fut_generic>(self, mut f: F) -> JoinHandle<()>
                 #where_clause
                 { #fn_body }
             }
@@ -88,7 +88,7 @@ impl ListenOptions {
                 #call_ed.cancel_on_abandoned(async {
                     #future
                 }).await;
-            });
+            })
         }
     }
 

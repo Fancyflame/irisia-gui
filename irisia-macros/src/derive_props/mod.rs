@@ -11,9 +11,7 @@ use syn::{
 use crate::derive_props::attrs::StructAttr;
 
 use self::{
-    attrs::FieldAttr,
-    impl_miscellaneous::{impl_default, make_struct, regenerate_origin_struct, set_props},
-    impl_update_with::impl_update_with,
+    attrs::FieldAttr, impl_miscellaneous::impl_miscellaneous, impl_update_with::impl_update_with,
 };
 
 mod attrs;
@@ -49,12 +47,16 @@ impl<'a> GenHelper<'a> {
         }
     }
 
-    fn generics_iter(&self) -> impl Iterator<Item = &Ident> {
-        self.updater_generics.type_params().map(|p| &p.ident)
-    }
-
-    fn no_fields(&self) -> bool {
-        self.updater_generics.params.is_empty()
+    fn generics_iter(&self) -> impl Iterator<Item = &Ident> + Clone {
+        self.updater_generics
+            .params
+            .iter()
+            .map(|param| match param {
+                GenericParam::Type(t) => &t.ident,
+                _ => unreachable!(
+                    "any `GenericParam` other than `GenericParam::Type` is not allowed"
+                ),
+            })
     }
 }
 
@@ -120,11 +122,7 @@ pub fn props(attr: TokenStream, item: ItemStruct) -> Result<TokenStream> {
 
     let helper = GenHelper::new(&item, &struct_attr, field_attrs);
 
-    let mut output = regenerate_origin_struct(&helper);
-    output.extend(make_struct(&helper));
-    output.extend(impl_default(&helper));
-    output.extend(set_props(&helper));
+    let mut output = impl_miscellaneous(&helper);
     output.extend(impl_update_with(&helper));
-
     Ok(output)
 }

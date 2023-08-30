@@ -4,9 +4,10 @@ use std::{
 };
 
 use irisia::{
-    event::standard::{PointerEntered, PointerOut},
-    primitive::Point,
-    skia_safe::textlayout::Paragraph,
+    element::ElementHandle,
+    event::standard::{Blured, PointerDown, PointerEntered, PointerMove, PointerOut, PointerUp},
+    primitive::{Pixel, Point},
+    skia_safe::{textlayout::Paragraph, Point as SkiaPoint},
     winit::window::CursorIcon,
     WinitWindow,
 };
@@ -14,9 +15,7 @@ use irisia::{
 use tokio::{sync::Mutex, task::JoinHandle};
 
 pub(super) struct SelectionRtMgr {
-    window: Arc<WinitWindow>,
-    win_ed: EventDispatcher,
-    eh: EventHandle,
+    eh: Arc<ElementHandle>,
     sel: Arc<SyncMutex<Selection>>,
     handle: Option<JoinHandle<Option<()>>>,
 }
@@ -27,10 +26,8 @@ struct Selection {
 }
 
 impl SelectionRtMgr {
-    pub fn new(window: Arc<WinitWindow>, win_ed: EventDispatcher, eh: EventHandle) -> Self {
+    pub fn new(eh: Arc<ElementHandle>) -> Self {
         Self {
-            window,
-            win_ed,
             eh,
             sel: Default::default(),
             handle: None,
@@ -38,12 +35,7 @@ impl SelectionRtMgr {
     }
 
     pub fn start_runtime(&mut self) {
-        self.handle = Some(self.eh.spawn(start(
-            self.eh.clone(),
-            self.sel.clone(),
-            self.window.clone(),
-            self.win_ed.clone(),
-        )));
+        self.handle = Some(self.eh.daemon(start(self.eh.clone(), self.sel.clone())));
     }
 
     pub fn stop_runtime(&mut self) {
@@ -63,16 +55,17 @@ impl SelectionRtMgr {
             let (start, end) = self.sel.lock().unwrap().cursor?;
             let checked_sub = |point: Point| {
                 Point(
-                    (point.0 - cursor_offset.0).max(0.0),
-                    (point.1 - cursor_offset.1).max(0.0),
+                    (point.0 - cursor_offset.0).max(Pixel(0.0)),
+                    (point.1 - cursor_offset.1).max(Pixel(0.0)),
                 )
             };
             (checked_sub(start), checked_sub(end))
         };
         let paragraph = paragraph.as_ref()?;
 
-        let get_word_b = |point: Point| {
-            let pos = paragraph.get_glyph_position_at_coordinate(SkiaPoint::new(point.0, point.1));
+        let get_word_b = |Point(x, y): Point| {
+            let pos = paragraph
+                .get_glyph_position_at_coordinate(SkiaPoint::new(x.to_physical(), y.to_physical()));
 
             glyph_index_to_byte_index(s, pos.position as _)
         };
@@ -126,51 +119,49 @@ impl CursorIconSetter {
     }
 }
 
-async fn start(
-    eh: EventHandle,
-    sel: Arc<SyncMutex<Selection>>,
-    win: Arc<WinitWindow>,
-    win_ed: EventDispatcher,
-) {
+async fn start(eh: Arc<ElementHandle>, sel: Arc<SyncMutex<Selection>>) {
     let cursor_icon_setter = Mutex::new(CursorIconSetter {
         showing_text_cursor: false,
         text_selecting: false,
         cursor_entered: false,
     });
 
+    let ed = eh.event_dispatcher();
+    let global_ed = eh.global().event_dispatcher();
+
     let a = async {
         loop {
             cursor_icon_setter
                 .lock()
                 .await
-                .set_text_selecting(&win, false);
+                .set_text_selecting(&eh.window(), false);
 
             let pd = tokio::select! {
-                pd = eh.recv_sys::<PointerDown>() => pd,
-                _ = eh.recv_sys::<Blured>() => {
+                pd = ed.recv_sys::<PointerDown>() => pd,
+                _ = ed.recv_sys::<Blured>() => {
                     sel.lock().unwrap().cursor = None;
                     continue;
                 }
             };
 
             if !pd.is_current {
-                eh.recv_sys::<PointerUp>().await;
+                ed.recv_sys::<PointerUp>().await;
                 continue;
             }
 
-            eh.focus().await;
+            eh.focus();
             cursor_icon_setter
                 .lock()
                 .await
-                .set_text_selecting(&win, true);
+                .set_text_selecting(eh.window(), true);
 
             let mut range = (pd.position, pd.position);
             sel.lock().unwrap().cursor = Some(range);
 
             loop {
                 let pm = tokio::select! {
-                    pm = win_ed.recv_sys::<PointerMove>() => pm,
-                    _ = win_ed.recv_sys::<PointerUp>() => break
+                    pm = global_ed.recv_sys::<PointerMove>() => pm,
+                    _ = global_ed.recv_sys::<PointerUp>() => break
                 };
 
                 range.1 = pm.position;
@@ -180,22 +171,22 @@ async fn start(
     };
 
     let b = async {
-        eh.recv_sys::<PointerMove>().await;
+        ed.recv_sys::<PointerMove>().await;
 
         loop {
             tokio::select! {
-                _ = eh.recv_sys::<PointerEntered>() => {
+                _ = ed.recv_sys::<PointerEntered>() => {
                     cursor_icon_setter
                         .lock()
                         .await
-                        .set_cursor_entered(&win, true);
+                        .set_cursor_entered(eh.window(), true);
                 }
 
-                _ = eh.recv_sys::<PointerOut>() => {
+                _ = ed.recv_sys::<PointerOut>() => {
                     cursor_icon_setter
                         .lock()
                         .await
-                        .set_cursor_entered(&win, false);
+                        .set_cursor_entered(eh.window(), false);
                 }
             }
         }

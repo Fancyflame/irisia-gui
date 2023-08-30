@@ -7,7 +7,7 @@ struct Origin {
     #[props(must_init, updated)]
     name: String,
 
-    #[props(default = r#""Walmart Bag".into()"#, updated)]
+    #[props(default = r#" "Walmart Bag".into() "#, updated)]
     gender: String,
 
     #[props(default)]

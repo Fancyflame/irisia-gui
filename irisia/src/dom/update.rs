@@ -7,7 +7,7 @@ use tokio::sync::RwLock;
 
 use crate::{
     application::{content::GlobalContent, event_comp::NodeEventMgr, redraw_scheduler::LayerId},
-    element::{Element, UpdateElement},
+    element::{props::SetStdStyles, Element, UpdateElement},
     event::EventDispatcher,
     structure::{slot::Slot, MapVisitor},
     style::StyleContainer,
@@ -71,7 +71,8 @@ pub struct ElementModelUpdater<'a, El, Pr, Sty, Ch, Oc> {
 impl<El, Pr, Sty, Ch, Oc> UpdateWith<ElementModelUpdater<'_, El, Pr, Sty, Ch, Oc>>
     for ElementModel<El, Sty, Ch::Model>
 where
-    El: Element + for<'sty> UpdateWith<UpdateElement<'sty, El, Pr, Sty>>,
+    Pr: SetStdStyles<Sty>,
+    El: Element + for<'sty> UpdateWith<UpdateElement<'sty, El, Pr::Output>>,
     Sty: StyleContainer + 'static,
     Ch: ChildrenNodes,
     Oc: FnOnce(&FullElementHandle<El>),
@@ -111,8 +112,7 @@ where
             let mut write = eh.el.blocking_write();
 
             let el = El::create_with(UpdateElement {
-                props,
-                styles: &styles,
+                props: props.set_std_styles(&styles),
                 handle: &eh,
             });
 
@@ -178,8 +178,7 @@ where
             & self.pub_shared.el_write_clean().update_with(
                 UpdateElement {
                     handle: &self.pub_shared,
-                    props,
-                    styles: &styles,
+                    props: props.set_std_styles(&styles),
                 },
                 equality_matters,
             )

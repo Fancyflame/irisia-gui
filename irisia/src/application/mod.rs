@@ -24,7 +24,7 @@ pub struct Window {
     event_dispatcher: EventDispatcher,
 }
 
-type EmptyUpdateOptions<'a, El> = UpdateElement<'a, El, (), ()>;
+type EmptyUpdateOptions<'a, El> = UpdateElement<'a, El, ()>;
 
 impl Window {
     pub async fn new<El>(title: impl Into<String>) -> Result<Self>

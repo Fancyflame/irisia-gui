@@ -20,6 +20,14 @@ impl Pixel {
     pub fn from_physical(p: f32) -> Self {
         Pixel(p) / DPI
     }
+
+    pub fn min(self, other: Self) -> Self {
+        Pixel(self.0.min(other.0))
+    }
+
+    pub fn max(self, other: Self) -> Self {
+        Pixel(self.0.max(other.0))
+    }
 }
 
 impl Debug for Pixel {

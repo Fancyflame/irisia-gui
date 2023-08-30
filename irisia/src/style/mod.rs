@@ -31,19 +31,19 @@ mod style_box;
 
 use self::style_box::InsideStyleBox;
 pub use self::{branch::*, chain::*, style_box::StyleBox};
-use crate::{self as irisia, primitive::Pixel};
+
+use crate::{self as irisia, primitive::Pixel, Style as DeriveStyle};
 use irisia_backend::skia_safe::Color;
-use irisia_macros::Style;
 
 pub use reader::StyleReader;
 
 pub trait Style: Clone + 'static {}
 
-#[derive(Debug, Style, Clone, PartialEq)]
+#[derive(Debug, DeriveStyle, Clone, PartialEq)]
 #[style(from)]
 pub struct StyleColor(pub Color);
 
-#[derive(Debug, Style, Clone, Copy, PartialEq)]
+#[derive(Debug, DeriveStyle, Clone, Copy, PartialEq)]
 pub enum XAxisBound {
     #[style(option)]
     Left(#[style(default)] Pixel),

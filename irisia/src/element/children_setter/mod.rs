@@ -13,7 +13,7 @@ pub use layout_elements::LayoutElements;
 mod layout_elements;
 
 pub struct ChildrenSetter<'a> {
-    set_children: &'a mut Option<ChildrenBox>,
+    set_children: Option<&'a mut Option<ChildrenBox>>,
     global_content: &'a Arc<GlobalContent>,
     dep_layer_id: LayerId,
 }
@@ -25,13 +25,13 @@ impl<'a> ChildrenSetter<'a> {
         dep_layer_id: LayerId,
     ) -> Self {
         Self {
-            set_children,
+            set_children: Some(set_children),
             global_content: gc,
             dep_layer_id,
         }
     }
 
-    pub fn set_children<T>(self, children: T) -> LayoutElements<'a, T::Model>
+    pub fn set_children<T>(mut self, children: T) -> LayoutElements<'a, T::Model>
     where
         T: ChildrenNodes,
     {
@@ -40,7 +40,7 @@ impl<'a> ChildrenSetter<'a> {
             dep_layer_id: self.dep_layer_id,
         };
 
-        let model = match self.set_children {
+        let model = match self.set_children.take().unwrap() {
             Some(cb) => {
                 let model=cb.as_render_multiple()
                     .as_any()
@@ -49,9 +49,9 @@ impl<'a> ChildrenSetter<'a> {
                 children.update_model(model, &updater, &mut false);
                 model
             }
-            None => {
-                *self.set_children = Some(ChildrenBox::new(children.create_model(&updater)));
-                self.set_children
+            place @ None => {
+                *place = Some(ChildrenBox::new(children.create_model(&updater)));
+                place
                     .as_mut()
                     .unwrap()
                     .as_render_multiple()
@@ -62,5 +62,15 @@ impl<'a> ChildrenSetter<'a> {
         };
 
         LayoutElements::new(model)
+    }
+}
+
+impl Drop for ChildrenSetter<'_> {
+    fn drop(&mut self) {
+        // if the children box was not setted, then initialize
+        // with a children box with empty node.
+        if let Some(cb @ None) = &mut self.set_children {
+            **cb = Some(ChildrenBox::new(()));
+        }
     }
 }

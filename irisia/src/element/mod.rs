@@ -24,10 +24,6 @@ where
 {
     type BlankProps: Default;
 
-    fn layout<'a, Ch>(&mut self, draw_region: Region, children: Ch, setter: ChildrenSetter<'a>)
-    where
-        Ch: ChildrenNodes;
-
     /// Draw to the canvas
     fn render(
         &mut self,
@@ -35,10 +31,16 @@ where
         interval: Duration,
         draw_region: Region,
     ) -> Result<()>;
+
+    #[allow(unused_variables)]
+    fn layout<'a, Ch>(&mut self, draw_region: Region, children: Ch, setter: ChildrenSetter<'a>)
+    where
+        Ch: ChildrenNodes,
+    {
+    }
 }
 
-pub struct UpdateElement<'a, El, Pr, Sty> {
+pub struct UpdateElement<'a, El, Pr> {
     pub props: Pr,
-    pub styles: &'a Sty,
     pub handle: &'a FullElementHandle<El>,
 }

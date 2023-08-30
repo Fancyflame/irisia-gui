@@ -35,5 +35,3 @@ pub use irisia_backend::{
 pub use irisia_macros::{build, main, props, style, Event, Style, StyleReader};
 pub use style::{reader::StyleReader, Style};
 pub use update_with::UpdateWith;
-
-//mod prop_test;

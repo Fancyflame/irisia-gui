@@ -1,3 +1,11 @@
 {
     "rust-analyzer.showUnlinkedFileNotification": false,
+    "GitCommitPlugin.CustomCommitType": [
+        {
+            "key": "api",
+            "label": "api",
+            "detail": "重构后更改了公共或私有的API",
+            "icon": "🔄"
+        }
+    ],
 }

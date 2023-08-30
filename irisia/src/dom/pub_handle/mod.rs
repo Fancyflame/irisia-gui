@@ -1,9 +1,13 @@
 use irisia_backend::WinitWindow;
 use std::{
+    future::Future,
     ops::{Deref, DerefMut},
     sync::Arc,
 };
-use tokio::sync::{RwLockMappedWriteGuard, RwLockReadGuard, RwLockWriteGuard};
+use tokio::{
+    sync::{RwLockMappedWriteGuard, RwLockReadGuard, RwLockWriteGuard},
+    task::JoinHandle,
+};
 
 use crate::{application::content::GlobalContent, event::EventDispatcher};
 
@@ -101,6 +105,19 @@ impl ElementHandle {
     /// Listen event with options
     pub fn listen<'a>(self: &'a Arc<Self>) -> Listen<&'a Arc<Self>, (), (), (), (), ()> {
         Listen::new(self)
+    }
+
+    /// Spwan a daemon task on `fut`.
+    ///
+    /// The spawned task will be cancelled when element dropped,
+    /// or can be cancelled manually.
+    pub fn daemon<F>(&self, fut: F) -> JoinHandle<Option<F::Output>>
+    where
+        F: Future + Send + 'static,
+        F::Output: Send,
+    {
+        let ed = self.ed.clone();
+        tokio::spawn(async move { ed.cancel_on_abandoned(fut).await })
     }
 }
 

@@ -27,7 +27,7 @@ impl GlobalContent {
     }
 
     /// Returns a reference to the global event dispatcher
-    pub fn global_event_dispatcher(&self) -> &EventDispatcher {
+    pub fn event_dispatcher(&self) -> &EventDispatcher {
         &self.global_ed
     }
 

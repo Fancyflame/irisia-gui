@@ -8,18 +8,8 @@ use super::{
 };
 
 pub(super) fn impl_update_with(helper: &GenHelper) -> TokenStream {
-    let target_struct = helper.target_struct;
     let update_with = generate_update_with_fn(helper);
     let create_with = generate_create_with_fn(helper);
-
-    if helper.no_fields() {
-        return quote! {
-            impl #target_struct {
-                #update_with
-                #create_with
-            }
-        };
-    }
 
     let GenHelper {
         item: ItemStruct {
@@ -50,7 +40,7 @@ fn get_resolver(fr: &FieldResolver, field_type: &Type, use_expr: bool) -> TokenS
         FieldResolver::CallUpdater => quote!(irisia::element::props::CallUpdater),
         FieldResolver::Custom(custom) => quote!(#custom),
         FieldResolver::MoveOwnership => quote!(irisia::element::props::MoveOwnership),
-        FieldResolver::ReadStyle => quote!(irisia::element::props::ReadStyle),
+        FieldResolver::ReadStyle { as_std_input: _ } => quote!(irisia::element::props::ReadStyle),
         FieldResolver::WithFn { arg_type, path } => {
             let ty = quote!(fn(#arg_type) -> #field_type);
             if use_expr {
@@ -121,16 +111,6 @@ fn generate_create_with_fn(helper: &GenHelper) -> TokenStream {
         fields,
         ..
     } = helper;
-
-    if helper.no_fields() {
-        return quote! {
-            fn create_with(
-                _: #target_struct #updater_generics
-            ) -> Self {
-                Self
-            }
-        };
-    }
 
     let iter = fields.iter().map(|HandledField { ident, ty, attr }| {
         let resolver = get_resolver(&attr.value_resolver, &ty, true);

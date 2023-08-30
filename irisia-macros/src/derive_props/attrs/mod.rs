@@ -15,11 +15,20 @@ pub struct FieldAttr {
     pub options: FieldOptions,
 }
 
+impl FieldAttr {
+    pub fn is_std_style_input(&self) -> bool {
+        matches!(
+            self.value_resolver,
+            FieldResolver::ReadStyle { as_std_input: true }
+        )
+    }
+}
+
 #[derive(Clone)]
 pub enum FieldResolver {
     MoveOwnership,
     CallUpdater,
-    ReadStyle,
+    ReadStyle { as_std_input: bool },
     WithFn { path: ExprPath, arg_type: Type },
     Custom(Type),
 }
