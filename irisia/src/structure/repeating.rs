@@ -1,12 +1,13 @@
-use std::collections::hash_map::Entry;
-use std::{collections::HashMap, hash::Hash};
+use std::{
+    collections::{hash_map::Entry, HashMap},
+    hash::Hash,
+};
 
 use smallvec::SmallVec;
 
-use crate::update_with::SpecificUpdate;
-use crate::Result;
+use crate::{update_with::SpecificUpdate, Result, UpdateWith};
 
-use super::{MapVisit, UpdateWith, Visit, VisitLen, VisitMut};
+use super::{MapVisit, Visit, VisitLen, VisitMut};
 
 pub struct Repeat<I> {
     iter: I,

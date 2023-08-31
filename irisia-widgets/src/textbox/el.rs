@@ -35,6 +35,14 @@ where
             selection_rt_mgr: SelectionRtMgr::new((*updater.handle).clone()),
         }
     }
+
+    fn update_with(
+        &mut self,
+        updater: UpdateElement<'_, Self, Pr>,
+        equality_matters: bool,
+    ) -> bool {
+        self.props.update_with(updater.props, equality_matters)
+    }
 }
 
 impl Element<EmptyStructure> for TextBox {

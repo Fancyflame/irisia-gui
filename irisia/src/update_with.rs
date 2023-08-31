@@ -5,18 +5,6 @@ use std::{
 
 use smallvec::{Array, SmallVec};
 
-pub trait SpecificUpdate {
-    type UpdateTo;
-
-    fn to_created(self) -> Self::UpdateTo
-    where
-        Self: Sized,
-        Self::UpdateTo: UpdateWith<Self>,
-    {
-        Self::UpdateTo::create_with(self)
-    }
-}
-
 /// Custom update methods.
 pub trait UpdateWith<T>: Sized {
     /// Update the state, returns whether
@@ -26,23 +14,21 @@ pub trait UpdateWith<T>: Sized {
     /// - `equality_matters`: Whether the return value is matters.
     ///   If not, there is no overhead returning `false` directly
     ///   without checking the equality.
-    /// - `return`: Whether the state has changed. Return `false` is always
-    /// correct, but may cause unnecessary redrawing.
+    /// - `return`: Update result, default be `bool`. Indicates whether
+    /// `Self` is updated, or what fields of `Self` are updated.
     fn update_with(&mut self, updater: T, equality_matters: bool) -> bool;
     fn create_with(updater: T) -> Self;
+}
 
-    fn update_option(
-        option: &mut Option<Self>,
-        updater: T,
-        equality_matters: bool,
-    ) -> (&mut Self, bool) {
-        match option {
-            Some(this) => {
-                let eq = equality_matters & this.update_with(updater, equality_matters);
-                (this, eq)
-            }
-            None => (option.insert(Self::create_with(updater)), false),
-        }
+pub trait SpecificUpdate {
+    type UpdateTo;
+
+    fn to_created(self) -> Self::UpdateTo
+    where
+        Self: Sized,
+        Self::UpdateTo: UpdateWith<Self>,
+    {
+        Self::UpdateTo::create_with(self)
     }
 }
 

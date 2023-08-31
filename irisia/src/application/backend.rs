@@ -15,7 +15,8 @@ use crate::{
     element::Element,
     event::EventDispatcher,
     primitive::{Pixel, Point, Region},
-    Result, UpdateWith,
+    update_with::UpdateWith,
+    Result,
 };
 
 use super::{

@@ -101,7 +101,7 @@ impl FieldAttrBuilder {
                 Some(FieldDefault::MustInit) | None => FieldDefault::MustInit,
                 _ => return Err(Error::new(
                     span,
-                    "standard style input is required to be either paired with `must_init` option \
+                    "standard style input is required to either be paired with `must_init` option \
                         or leave default behavior option unset",
                 )),
             },
@@ -129,7 +129,7 @@ fn parse_read_style(stream: ParseStream) -> Result<FieldResolver> {
             "stdin" => Ok(FieldResolver::ReadStyle { as_std_input: true }),
             _ => Err(Error::new_spanned(
                 &option,
-                format!("unrecognized read-style option `{option}`"),
+                format!("expected `stdin`, found `{option}`"),
             )),
         }
     } else {

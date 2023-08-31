@@ -7,6 +7,7 @@ mod parse_struct_attr;
 pub struct StructAttr {
     pub updater_name: Ident,
     pub visibility: Visibility,
+    pub update_result: Ident,
 }
 
 pub struct FieldAttr {

@@ -1,11 +1,9 @@
 use std::cell::{RefCell, RefMut};
 use std::rc::Rc;
 
-use crate::dom::EMUpdateContent;
-use crate::update_with::SpecificUpdate;
+use crate::{dom::EMUpdateContent, update_with::SpecificUpdate};
 
-use super::MapVisit;
-use super::{UpdateWith, VisitLen};
+use super::{MapVisit, UpdateWith, VisitLen};
 
 pub(crate) struct Slot<T>(pub Rc<RefCell<T>>);
 

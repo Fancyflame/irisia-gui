@@ -20,8 +20,9 @@ mod impl_update_with;
 
 struct GenHelper<'a> {
     item: &'a ItemStruct,
-    target_struct: &'a Ident,
+    updater_name: Ident,
     vis: Visibility,
+    update_result_name: Ident,
     updater_generics: Generics,
     fields: Vec<HandledField<'a>>,
 }
@@ -35,13 +36,18 @@ struct HandledField<'a> {
 impl<'a> GenHelper<'a> {
     fn new(
         item: &'a ItemStruct,
-        struct_attr: &'a StructAttr,
+        StructAttr {
+            updater_name,
+            visibility: vis,
+            update_result,
+        }: StructAttr,
         fields: Vec<HandledField<'a>>,
     ) -> Self {
         Self {
             item,
-            target_struct: &struct_attr.updater_name,
-            vis: struct_attr.visibility.clone(),
+            updater_name,
+            vis,
+            update_result_name: update_result,
             updater_generics: new_generics(&item),
             fields,
         }
@@ -120,7 +126,7 @@ pub fn props(attr: TokenStream, item: ItemStruct) -> Result<TokenStream> {
         attrs
     };
 
-    let helper = GenHelper::new(&item, &struct_attr, field_attrs);
+    let helper = GenHelper::new(&item, struct_attr, field_attrs);
 
     let mut output = impl_miscellaneous(&helper);
     output.extend(impl_update_with(&helper));

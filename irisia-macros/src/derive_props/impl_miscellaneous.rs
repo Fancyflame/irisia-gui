@@ -16,14 +16,16 @@ pub(super) fn impl_miscellaneous(helper: &GenHelper) -> TokenStream {
 }
 
 fn make_struct(helper: &GenHelper) -> TokenStream {
-    let target_struct = &helper.target_struct;
+    let GenHelper {
+        updater_name, vis, ..
+    } = helper;
 
     let generics_iter1 = helper.generics_iter();
     let generics_iter2 = helper.generics_iter();
     let fields = helper.fields.iter().map(|f| f.ident);
 
     quote! {
-        struct #target_struct<#(#generics_iter1 = (),)*> {
+        #vis struct #updater_name<#(#generics_iter1 = (),)*> {
             #(#fields: #generics_iter2,)*
         }
     }
@@ -32,9 +34,9 @@ fn make_struct(helper: &GenHelper) -> TokenStream {
 fn impl_default(helper: &GenHelper) -> TokenStream {
     let fields = helper.fields.iter().map(|f| f.ident);
 
-    let target_struct = &helper.target_struct;
+    let updater_name = &helper.updater_name;
     quote! {
-        impl ::std::default::Default for #target_struct {
+        impl ::std::default::Default for #updater_name {
             fn default() -> Self {
                 Self {
                     #(#fields: (),)*
@@ -94,9 +96,7 @@ fn set_props(helper: &GenHelper) -> TokenStream {
                 }
             });
 
-            let GenHelper {
-                target_struct, vis, ..
-            } = &helper;
+            let GenHelper { updater_name, .. } = &helper;
 
             // if renamed, replace function name with renamed value
             let fn_name = match &attr.options.rename {
@@ -105,10 +105,10 @@ fn set_props(helper: &GenHelper) -> TokenStream {
             };
 
             Some(quote! {
-                #vis fn #fn_name<#new_prop_type>(self, value: #new_prop_type)
-                    -> #target_struct<#(#ret_generics,)*>
+                pub fn #fn_name<#new_prop_type>(self, value: #new_prop_type)
+                    -> #updater_name<#(#ret_generics,)*>
                 {
-                    #target_struct {
+                    #updater_name {
                         #(#field_kv,)*
                     }
                 }
@@ -117,13 +117,13 @@ fn set_props(helper: &GenHelper) -> TokenStream {
     );
 
     let GenHelper {
-        target_struct,
+        updater_name,
         updater_generics,
         ..
     } = helper;
 
     quote! {
-        impl #updater_generics #target_struct #updater_generics {
+        impl #updater_generics #updater_name #updater_generics {
             #(#body)*
         }
     }
@@ -131,7 +131,7 @@ fn set_props(helper: &GenHelper) -> TokenStream {
 
 fn set_std_style_input(helper: &GenHelper) -> TokenStream {
     let GenHelper {
-        target_struct,
+        updater_name,
         updater_generics,
         fields,
         ..
@@ -166,17 +166,17 @@ fn set_std_style_input(helper: &GenHelper) -> TokenStream {
     quote! {
         impl<#lifetime, #style_generic, #(#impl_generics,)*>
             irisia::element::props::SetStdStyles<#lifetime, #style_generic>
-            for #target_struct #updater_generics
+            for #updater_name #updater_generics
         where
             #style_generic: irisia::style::StyleContainer + #lifetime
         {
-            type Output = #target_struct<#(#return_generics,)*>;
+            type Output = #updater_name<#(#return_generics,)*>;
 
             fn set_std_styles(
                 self,
                 __irisia_std_input_styles: &#lifetime #style_generic
             ) -> Self::Output {
-                #target_struct {
+                #updater_name {
                     #(#init_fields,)*
                 }
             }

@@ -11,8 +11,7 @@ use crate::{
     event::EventDispatcher,
     structure::{slot::Slot, MapVisitor},
     style::StyleContainer,
-    update_with::SpecificUpdate,
-    UpdateWith,
+    update_with::{SpecificUpdate, UpdateWith},
 };
 
 use super::{

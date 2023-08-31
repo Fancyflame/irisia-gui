@@ -1,5 +1,5 @@
 use proc_macro2::TokenStream;
-use quote::{quote, ToTokens};
+use quote::{format_ident, quote, ToTokens};
 use syn::{ItemStruct, Type};
 
 use super::{
@@ -8,30 +8,35 @@ use super::{
 };
 
 pub(super) fn impl_update_with(helper: &GenHelper) -> TokenStream {
-    let update_with = generate_update_with_fn(helper);
-    let create_with = generate_create_with_fn(helper);
+    let update_with = generate_update_with(helper);
+    let create_with = generate_create_with(helper);
+    let where_clause = generate_where_clause(helper);
+    let update_result = make_update_reuslt(helper);
 
     let GenHelper {
         item: ItemStruct {
             ident: origin_struct,
             ..
         },
-        target_struct,
+        update_result_name,
+        updater_name,
         updater_generics,
         ..
-    } = &helper;
-
-    let where_clause = generate_where_clause(helper);
+    } = helper;
 
     quote! {
-        impl #updater_generics irisia::UpdateWith<#target_struct #updater_generics>
+        impl #updater_generics irisia::element::props::PropsUpdateWith<#updater_name #updater_generics>
             for #origin_struct
         where
             #where_clause
         {
+            type UpdateResult = #update_result_name;
+
             #update_with
             #create_with
         }
+
+        #update_result
     }
 }
 
@@ -59,7 +64,7 @@ fn generate_where_clause(helper: &GenHelper) -> TokenStream {
         let resolver = get_resolver(&field.attr.value_resolver, field_type, false);
 
         let must_init = if let FieldDefault::MustInit = field.attr.default_behavior {
-            quote!(Def = irisia::element::props::MustBeInitialized<#field_type>,)
+            quote!(Def = irisia::element::props::PropInitialized<#field_type>,)
         } else {
             quote!()
         };
@@ -72,41 +77,43 @@ fn generate_where_clause(helper: &GenHelper) -> TokenStream {
     output
 }
 
-fn generate_update_with_fn(helper: &GenHelper) -> TokenStream {
+fn generate_update_with(helper: &GenHelper) -> TokenStream {
     let GenHelper {
-        target_struct,
+        updater_name,
         updater_generics,
+        update_result_name: update_result_struct,
         fields,
         ..
     } = helper;
 
     let iter = fields.iter().map(|HandledField { ident, ty, attr }| {
         let resolver = get_resolver(&attr.value_resolver, &ty, true);
+        let new_ident = format_ident!("{ident}_changed");
         quote! {
-            irisia::element::props::HelpUpdate::update(
+            #new_ident: !irisia::element::props::HelpUpdate::update(
                 &#resolver,
                 &mut self.#ident,
                 __irisia_updater.#ident,
-                __irisia_equality_matters
-            )
+                true
+            ),
         }
     });
 
     quote! {
         fn update_with(
             &mut self,
-            __irisia_updater: #target_struct #updater_generics,
-            mut __irisia_equality_matters: bool,
-        ) -> bool {
-            #(__irisia_equality_matters &= #iter;)*
-            __irisia_equality_matters
+            __irisia_updater: #updater_name #updater_generics,
+        ) -> #update_result_struct {
+            #update_result_struct {
+                #(#iter)*
+            }
         }
     }
 }
 
-fn generate_create_with_fn(helper: &GenHelper) -> TokenStream {
+fn generate_create_with(helper: &GenHelper) -> TokenStream {
     let GenHelper {
-        target_struct,
+        updater_name,
         updater_generics,
         fields,
         ..
@@ -154,11 +161,28 @@ fn generate_create_with_fn(helper: &GenHelper) -> TokenStream {
 
     quote! {
         fn create_with(
-            __irisia_updater: #target_struct #updater_generics
+            __irisia_updater: #updater_name #updater_generics
         ) -> Self {
             Self {
                 #(#iter)*
             }
+        }
+    }
+}
+
+fn make_update_reuslt(helper: &GenHelper) -> TokenStream {
+    let GenHelper {
+        vis,
+        update_result_name: update_result,
+        fields,
+        ..
+    } = helper;
+
+    let field_iter = fields.iter().map(|f| format_ident!("{}_changed", f.ident));
+
+    quote! {
+        #vis struct #update_result {
+            #(pub #field_iter: bool,)*
         }
     }
 }
