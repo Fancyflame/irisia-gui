@@ -2,7 +2,7 @@ use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{parse_quote, Attribute, Ident};
 
-use crate::derive_props::HandledField;
+use crate::derive_props::{attrs::StructAttr, HandledField};
 
 use super::GenHelper;
 
@@ -17,7 +17,13 @@ pub(super) fn impl_miscellaneous(helper: &GenHelper) -> TokenStream {
 
 fn make_struct(helper: &GenHelper) -> TokenStream {
     let GenHelper {
-        updater_name, vis, ..
+        struct_attr:
+            StructAttr {
+                updater_name,
+                visibility,
+                ..
+            },
+        ..
     } = helper;
 
     let generics_iter1 = helper.generics_iter();
@@ -25,7 +31,7 @@ fn make_struct(helper: &GenHelper) -> TokenStream {
     let fields = helper.fields.iter().map(|f| f.ident);
 
     quote! {
-        #vis struct #updater_name<#(#generics_iter1 = (),)*> {
+        #visibility struct #updater_name<#(#generics_iter1 = (),)*> {
             #(#fields: #generics_iter2,)*
         }
     }
@@ -34,7 +40,7 @@ fn make_struct(helper: &GenHelper) -> TokenStream {
 fn impl_default(helper: &GenHelper) -> TokenStream {
     let fields = helper.fields.iter().map(|f| f.ident);
 
-    let updater_name = &helper.updater_name;
+    let updater_name = &helper.struct_attr.updater_name;
     quote! {
         impl ::std::default::Default for #updater_name {
             fn default() -> Self {
@@ -96,10 +102,13 @@ fn set_props(helper: &GenHelper) -> TokenStream {
                 }
             });
 
-            let GenHelper { updater_name, .. } = &helper;
+            let GenHelper {
+                struct_attr: StructAttr { updater_name, .. },
+                ..
+            } = &helper;
 
             // if renamed, replace function name with renamed value
-            let fn_name = match &attr.options.rename {
+            let fn_name = match &attr.rename {
                 Some(renamed) => renamed,
                 None => fn_name,
             };
@@ -117,7 +126,7 @@ fn set_props(helper: &GenHelper) -> TokenStream {
     );
 
     let GenHelper {
-        updater_name,
+        struct_attr: StructAttr { updater_name, .. },
         updater_generics,
         ..
     } = helper;
@@ -131,7 +140,7 @@ fn set_props(helper: &GenHelper) -> TokenStream {
 
 fn set_std_style_input(helper: &GenHelper) -> TokenStream {
     let GenHelper {
-        updater_name,
+        struct_attr: StructAttr { updater_name, .. },
         updater_generics,
         fields,
         ..

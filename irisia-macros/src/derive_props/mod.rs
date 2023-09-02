@@ -5,7 +5,7 @@ use proc_macro2::TokenStream;
 use quote::format_ident;
 use syn::{
     parse_quote, punctuated::Punctuated, spanned::Spanned, visit::Visit, Error, Fields,
-    GenericParam, Generics, Ident, ItemStruct, Result, Type, Visibility,
+    GenericParam, Generics, Ident, ItemStruct, Result, Type,
 };
 
 use crate::derive_props::attrs::StructAttr;
@@ -18,11 +18,10 @@ mod attrs;
 mod impl_miscellaneous;
 mod impl_update_with;
 
+#[non_exhaustive]
 struct GenHelper<'a> {
     item: &'a ItemStruct,
-    updater_name: Ident,
-    vis: Visibility,
-    update_result_name: Ident,
+    struct_attr: StructAttr,
     updater_generics: Generics,
     fields: Vec<HandledField<'a>>,
 }
@@ -34,22 +33,12 @@ struct HandledField<'a> {
 }
 
 impl<'a> GenHelper<'a> {
-    fn new(
-        item: &'a ItemStruct,
-        StructAttr {
-            updater_name,
-            visibility: vis,
-            update_result,
-        }: StructAttr,
-        fields: Vec<HandledField<'a>>,
-    ) -> Self {
+    fn new(item: &'a ItemStruct, struct_attr: StructAttr, fields: Vec<HandledField<'a>>) -> Self {
         Self {
             item,
-            updater_name,
-            vis,
-            update_result_name: update_result,
             updater_generics: new_generics(&item),
             fields,
+            struct_attr,
         }
     }
 

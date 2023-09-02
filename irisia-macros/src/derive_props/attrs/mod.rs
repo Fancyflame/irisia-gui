@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use proc_macro2::Ident;
 use syn::{Expr, ExprPath, Type, Visibility};
 
@@ -8,21 +10,19 @@ pub struct StructAttr {
     pub updater_name: Ident,
     pub visibility: Visibility,
     pub update_result: Ident,
+    pub default_watch: Option<DefaultWatch>,
+}
+
+pub struct DefaultWatch {
+    pub group_name: Ident,
+    pub exclude: HashSet<Ident>,
 }
 
 pub struct FieldAttr {
     pub value_resolver: FieldResolver,
     pub default_behavior: FieldDefault,
-    pub options: FieldOptions,
-}
-
-impl FieldAttr {
-    pub fn is_std_style_input(&self) -> bool {
-        matches!(
-            self.value_resolver,
-            FieldResolver::ReadStyle { as_std_input: true }
-        )
-    }
+    pub rename: Option<Ident>,
+    pub watch: Option<Ident>,
 }
 
 #[derive(Clone)]
@@ -41,7 +41,11 @@ pub enum FieldDefault {
     DefaultWith(Expr),
 }
 
-#[derive(Clone)]
-pub struct FieldOptions {
-    pub rename: Option<Ident>,
+impl FieldAttr {
+    pub fn is_std_style_input(&self) -> bool {
+        matches!(
+            self.value_resolver,
+            FieldResolver::ReadStyle { as_std_input: true }
+        )
+    }
 }

@@ -18,14 +18,14 @@ struct Origin {
 }
 
 fn main() {
-    let mut origin = Origin::create_with(
+    let mut origin = Origin::props_create_with(
         After::default()
             .name("Bob")
             .gender("Helicopter")
             .set_std_styles(&()),
     );
 
-    let result = origin.update_with(After::default().name("Bob").set_std_styles(&()));
+    let result = origin.props_update_with(After::default().name("Bob").set_std_styles(&()));
     assert!(!result.name_changed);
     assert!(result.gender_changed);
     assert!(!result.abcd_changed);

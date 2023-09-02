@@ -2,6 +2,8 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use syn::{ItemStruct, Type};
 
+use crate::derive_props::attrs::StructAttr;
+
 use super::{
     attrs::{FieldDefault, FieldResolver},
     GenHelper, HandledField,
@@ -18,8 +20,7 @@ pub(super) fn impl_update_with(helper: &GenHelper) -> TokenStream {
             ident: origin_struct,
             ..
         },
-        update_result_name,
-        updater_name,
+        struct_attr: StructAttr { updater_name, .. },
         updater_generics,
         ..
     } = helper;
@@ -30,7 +31,7 @@ pub(super) fn impl_update_with(helper: &GenHelper) -> TokenStream {
         where
             #where_clause
         {
-            type UpdateResult = #update_result_name;
+            type UpdateResult = #update_result;
 
             #update_with
             #create_with
@@ -79,10 +80,14 @@ fn generate_where_clause(helper: &GenHelper) -> TokenStream {
 
 fn generate_update_with(helper: &GenHelper) -> TokenStream {
     let GenHelper {
-        updater_name,
         updater_generics,
-        update_result_name: update_result_struct,
         fields,
+        struct_attr:
+            StructAttr {
+                updater_name,
+                update_result,
+                ..
+            },
         ..
     } = helper;
 
@@ -100,11 +105,11 @@ fn generate_update_with(helper: &GenHelper) -> TokenStream {
     });
 
     quote! {
-        fn update_with(
+        fn props_update_with(
             &mut self,
             __irisia_updater: #updater_name #updater_generics,
-        ) -> #update_result_struct {
-            #update_result_struct {
+        ) -> #update_result {
+            #update_result {
                 #(#iter)*
             }
         }
@@ -113,9 +118,9 @@ fn generate_update_with(helper: &GenHelper) -> TokenStream {
 
 fn generate_create_with(helper: &GenHelper) -> TokenStream {
     let GenHelper {
-        updater_name,
         updater_generics,
         fields,
+        struct_attr: StructAttr { updater_name, .. },
         ..
     } = helper;
 
@@ -160,7 +165,7 @@ fn generate_create_with(helper: &GenHelper) -> TokenStream {
     });
 
     quote! {
-        fn create_with(
+        fn props_create_with(
             __irisia_updater: #updater_name #updater_generics
         ) -> Self {
             Self {
@@ -172,16 +177,24 @@ fn generate_create_with(helper: &GenHelper) -> TokenStream {
 
 fn make_update_reuslt(helper: &GenHelper) -> TokenStream {
     let GenHelper {
-        vis,
-        update_result_name: update_result,
+        struct_attr:
+            StructAttr {
+                visibility,
+                update_result,
+                default_watch,
+                ..
+            },
         fields,
         ..
     } = helper;
 
-    let field_iter = fields.iter().map(|f| format_ident!("{}_changed", f.ident));
+    let mut default_watch = default_watch.as_ref();
+
+    let field_iter = std::iter::from_fn(|| default_watch.take().map(|w| &w.group_name))
+        .chain(fields.iter().filter_map(|f| f.attr.watch.as_ref()));
 
     quote! {
-        #vis struct #update_result {
+        #visibility struct #update_result {
             #(pub #field_iter: bool,)*
         }
     }

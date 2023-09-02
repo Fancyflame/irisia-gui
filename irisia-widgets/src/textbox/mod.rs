@@ -32,6 +32,14 @@ pub struct TextBox {
     selection_rt_mgr: SelectionRtMgr,
 }
 
+#[derive(PartialEq)]
+struct OwnedState {
+    text: String,
+    styles: TextBoxStyles,
+    user_select: bool,
+    drawing_region: Region,
+}
+
 #[derive(StyleReader, PartialEq)]
 struct TextBoxStyles {
     font_size: StyleFontSize,
@@ -40,22 +48,14 @@ struct TextBoxStyles {
     color: Option<StyleColor>,
 }
 
-#[irisia::props(Props, "pub")]
+#[irisia::props(Props, vis = "pub")]
 pub struct OwnedProps {
     #[props(updated, must_init)]
-    pub text: String,
+    text: String,
 
     #[props(read_style(stdin))]
-    pub style: TextBoxStyles,
+    style: TextBoxStyles,
 
     #[props(default = "false")]
-    pub user_select: bool,
-}
-
-#[derive(PartialEq)]
-struct OwnedState {
-    text: String,
-    styles: TextBoxStyles,
     user_select: bool,
-    drawing_region: Region,
 }

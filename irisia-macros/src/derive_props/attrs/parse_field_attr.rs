@@ -1,18 +1,15 @@
-use proc_macro2::{Ident, Span};
+use proc_macro2::Span;
+use quote::format_ident;
 use syn::{
-    parenthesized, parse::ParseStream, token::Paren, Attribute, Error, ExprPath, LitStr, Result,
-    Token, Type,
+    parenthesized, parse::ParseStream, token::Paren, Attribute, Error, ExprPath, Ident, LitStr,
+    Result, Token, Type,
 };
 
-use super::{FieldAttr, FieldDefault, FieldOptions, FieldResolver};
+use super::{FieldAttr, FieldDefault, FieldResolver};
 
 impl FieldAttr {
     pub fn parse_from(attrs: &[Attribute], field_span: Span) -> Result<Self> {
-        let mut builder = FieldAttrBuilder {
-            resolver: None,
-            default: None,
-            options: FieldOptions { rename: None },
-        };
+        let mut builder = FieldAttrBuilder::default();
 
         for attr in attrs {
             if !attr.path().is_ident("props") {
@@ -33,10 +30,12 @@ impl FieldAttr {
     }
 }
 
+#[derive(Default)]
 struct FieldAttrBuilder {
     resolver: Option<FieldResolver>,
     default: Option<FieldDefault>,
-    options: FieldOptions,
+    rename: Option<Ident>,
+    watch: Option<Ident>,
 }
 
 impl FieldAttrBuilder {
@@ -44,7 +43,8 @@ impl FieldAttrBuilder {
         let FieldAttrBuilder {
             resolver,
             default,
-            options,
+            rename,
+            watch,
         } = self;
 
         let dup_resolver_err = || {
@@ -75,13 +75,12 @@ impl FieldAttrBuilder {
             "resolver" => set_option(resolver, parse_custom_resolver(stream)?, dup_resolver_err),
             "must_init" => set_option(default, FieldDefault::MustInit, dup_default_beh_err),
             "default" => set_option(default, parse_default(stream)?, dup_default_beh_err),
-            "rename" => set_option(&mut options.rename, parse_rename(stream)?, || {
-                dup_option("rename")
-            }),
-            _ => {
+            "rename" => set_option(rename, parse_rename(stream)?, || dup_option("rename")),
+            "watch" => set_option(watch, parse_watch(stream, path)?, || dup_option("watch")),
+            other => {
                 return Err(Error::new_spanned(
                     path,
-                    format!("unrecognized option `{path}`"),
+                    format!("unrecognized option `{other}`"),
                 ))
             }
         }
@@ -91,7 +90,8 @@ impl FieldAttrBuilder {
         let FieldAttrBuilder {
             resolver,
             default,
-            options,
+            rename,
+            watch,
         } = self;
 
         let value_resolver = resolver.unwrap_or(FieldResolver::MoveOwnership);
@@ -114,7 +114,8 @@ impl FieldAttrBuilder {
         Ok(FieldAttr {
             value_resolver,
             default_behavior,
-            options,
+            rename,
+            watch,
         })
     }
 }
@@ -171,6 +172,15 @@ fn parse_default(stream: ParseStream) -> Result<FieldDefault> {
 fn parse_rename(stream: ParseStream) -> Result<Ident> {
     stream.parse::<Token![=]>()?;
     stream.parse::<LitStr>()?.parse()
+}
+
+fn parse_watch(stream: ParseStream, field_name: &Ident) -> Result<Ident> {
+    if stream.peek(Token![=]) {
+        stream.parse::<Token![=]>()?;
+        stream.parse::<LitStr>()?.parse()
+    } else {
+        Ok(format_ident!("{field_name}_changed"))
+    }
 }
 
 fn set_option<T>(option: &mut Option<T>, value: T, err: impl FnOnce() -> Error) -> Result<()> {
