@@ -101,23 +101,25 @@ pub fn props(attr: TokenStream, item: ItemStruct) -> Result<TokenStream> {
         ));
     }
 
-    let struct_attr = StructAttr::parse_from(attr, item.vis.clone())?;
-
     let field_attrs: Vec<HandledField> = {
         let mut attrs = Vec::new();
         for field in item.fields.iter() {
+            let ident = field.ident.as_ref().unwrap();
             attrs.push(HandledField {
-                ident: &field.ident.as_ref().unwrap(),
+                ident,
                 ty: &field.ty,
-                attr: FieldAttr::parse_from(&field.attrs, field.span())?,
+                attr: FieldAttr::parse_from(&field.attrs, ident)?,
             });
         }
         attrs
     };
 
+    let struct_attr = StructAttr::parse_from(attr, &field_attrs)?;
+
     let helper = GenHelper::new(&item, struct_attr, field_attrs);
 
     let mut output = impl_miscellaneous(&helper);
     output.extend(impl_update_with(&helper));
+
     Ok(output)
 }

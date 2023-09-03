@@ -8,7 +8,7 @@ use syn::{
 use super::{FieldAttr, FieldDefault, FieldResolver};
 
 impl FieldAttr {
-    pub fn parse_from(attrs: &[Attribute], field_span: Span) -> Result<Self> {
+    pub fn parse_from(attrs: &[Attribute], field_name: &Ident) -> Result<Self> {
         let mut builder = FieldAttrBuilder::default();
 
         for attr in attrs {
@@ -22,11 +22,11 @@ impl FieldAttr {
                     return Err(Error::new_spanned(&nested.path, "expected ident"));
                 };
 
-                builder.update(ident, nested.input)
+                builder.update(field_name, ident, nested.input)
             })?;
         }
 
-        builder.build(field_span)
+        builder.build(field_name.span())
     }
 }
 
@@ -39,7 +39,7 @@ struct FieldAttrBuilder {
 }
 
 impl FieldAttrBuilder {
-    fn update(&mut self, path: &Ident, stream: ParseStream) -> Result<()> {
+    fn update(&mut self, field_name: &Ident, path: &Ident, stream: ParseStream) -> Result<()> {
         let FieldAttrBuilder {
             resolver,
             default,
@@ -76,7 +76,9 @@ impl FieldAttrBuilder {
             "must_init" => set_option(default, FieldDefault::MustInit, dup_default_beh_err),
             "default" => set_option(default, parse_default(stream)?, dup_default_beh_err),
             "rename" => set_option(rename, parse_rename(stream)?, || dup_option("rename")),
-            "watch" => set_option(watch, parse_watch(stream, path)?, || dup_option("watch")),
+            "watch" => set_option(watch, parse_watch(stream, field_name)?, || {
+                dup_option("watch")
+            }),
             other => {
                 return Err(Error::new_spanned(
                     path,

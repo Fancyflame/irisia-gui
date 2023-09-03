@@ -1,8 +1,8 @@
 use proc_macro2::TokenStream;
-use quote::{format_ident, quote, ToTokens};
+use quote::{quote, ToTokens};
 use syn::{ItemStruct, Type};
 
-use crate::derive_props::attrs::StructAttr;
+use crate::derive_props::attrs::{FieldAttr, StructAttr};
 
 use super::{
     attrs::{FieldDefault, FieldResolver},
@@ -13,14 +13,19 @@ pub(super) fn impl_update_with(helper: &GenHelper) -> TokenStream {
     let update_with = generate_update_with(helper);
     let create_with = generate_create_with(helper);
     let where_clause = generate_where_clause(helper);
-    let update_result = make_update_reuslt(helper);
+    let update_result_item = make_update_reuslt(helper);
 
     let GenHelper {
         item: ItemStruct {
             ident: origin_struct,
             ..
         },
-        struct_attr: StructAttr { updater_name, .. },
+        struct_attr:
+            StructAttr {
+                updater_name,
+                update_result,
+                ..
+            },
         updater_generics,
         ..
     } = helper;
@@ -37,7 +42,7 @@ pub(super) fn impl_update_with(helper: &GenHelper) -> TokenStream {
             #create_with
         }
 
-        #update_result
+        #update_result_item
     }
 }
 
@@ -79,6 +84,25 @@ fn generate_where_clause(helper: &GenHelper) -> TokenStream {
 }
 
 fn generate_update_with(helper: &GenHelper) -> TokenStream {
+    fn update_field(
+        HandledField {
+            ident,
+            ty,
+            attr: FieldAttr { value_resolver, .. },
+        }: &HandledField,
+        equality_matters: TokenStream,
+    ) -> TokenStream {
+        let resolver = get_resolver(value_resolver, &ty, true);
+        quote! {
+            irisia::element::props::HelpUpdate::update(
+                &#resolver,
+                &mut self.#ident,
+                __irisia_updater.#ident,
+                #equality_matters
+            )
+        }
+    }
+
     let GenHelper {
         updater_generics,
         fields,
@@ -86,31 +110,69 @@ fn generate_update_with(helper: &GenHelper) -> TokenStream {
             StructAttr {
                 updater_name,
                 update_result,
+                default_watch,
                 ..
             },
         ..
     } = helper;
 
-    let iter = fields.iter().map(|HandledField { ident, ty, attr }| {
-        let resolver = get_resolver(&attr.value_resolver, &ty, true);
-        let new_ident = format_ident!("{ident}_changed");
-        quote! {
-            #new_ident: !irisia::element::props::HelpUpdate::update(
-                &#resolver,
-                &mut self.#ident,
-                __irisia_updater.#ident,
-                true
-            ),
+    let unwatched = fields.iter().filter_map(|f| {
+        if f.attr.watch.is_some() {
+            return None;
         }
+
+        let tokens = match default_watch {
+            Some(dw) if dw.exclude.contains(f.ident) => {
+                let uf = update_field(f, quote!(false));
+                quote!(#uf;)
+            }
+            _ => {
+                let uf = update_field(f, quote!(__irisia_equality_matters));
+                quote!(__irisia_equality_matters &= #uf;)
+            }
+        };
+
+        Some(tokens)
+    });
+
+    let watched = fields.iter().filter_map(|f| {
+        let Some(field_changed) = &f.attr.watch
+        else {
+            return None;
+        };
+
+        let value = update_field(f, quote!(true));
+
+        let out = match default_watch {
+            Some(dw) if dw.exclude.contains(f.ident) => quote! {
+                #field_changed: {
+                    let __irisia_changed = #value;
+                    __irisia_equality_matters &= __irisia_changed;
+                    !__irisia_changed
+                },
+            },
+            _ => quote!(#field_changed: !#value,),
+        };
+
+        Some(out)
+    });
+
+    let add_global_change = default_watch.as_ref().map(|dw| {
+        let group_name = &dw.group_name;
+        quote!(#group_name: !__irisia_equality_matters,)
     });
 
     quote! {
         fn props_update_with(
             &mut self,
             __irisia_updater: #updater_name #updater_generics,
+            mut __irisia_equality_matters: bool,
         ) -> #update_result {
+            #(#unwatched)*
+
             #update_result {
-                #(#iter)*
+                #add_global_change
+                #(#watched)*
             }
         }
     }
