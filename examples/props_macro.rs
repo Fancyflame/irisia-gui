@@ -6,7 +6,7 @@ use irisia::{
 #[irisia::props(
     vis = "pub",
     updater = "After",
-    watch(group = "some_changed", exclude = "will_change")
+    watch(group = "all_unchanged", exclude = "will_change")
 )]
 #[allow(unused)]
 struct Origin {
@@ -14,7 +14,7 @@ struct Origin {
     will_change: String,
 
     #[props(
-        watch = "wont_chaaange_changed",
+        watch = "wont_chaaange_unchanged",
         default = r#""unknown".into()"#,
         updated
     )]
@@ -32,12 +32,9 @@ fn main() {
             .set_std_styles(&()),
     );
 
-    let result = origin.props_update_with(
-        After::default().will_change("Cats").set_std_styles(&()),
-        true,
-    );
+    let result = origin.props_update_with(After::default().will_change("Cats").set_std_styles(&()));
 
-    assert!(result.will_change_changed);
-    assert!(!result.wont_chaaange_changed);
-    assert!(!result.some_changed);
+    assert!(!result.will_change_unchanged);
+    assert!(result.wont_chaaange_unchanged);
+    assert!(result.all_unchanged);
 }

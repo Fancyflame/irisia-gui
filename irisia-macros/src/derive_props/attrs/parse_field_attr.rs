@@ -181,7 +181,7 @@ fn parse_watch(stream: ParseStream, field_name: &Ident) -> Result<Ident> {
         stream.parse::<Token![=]>()?;
         stream.parse::<LitStr>()?.parse()
     } else {
-        Ok(format_ident!("{field_name}_changed"))
+        Ok(format_ident!("{field_name}_unchanged"))
     }
 }
 

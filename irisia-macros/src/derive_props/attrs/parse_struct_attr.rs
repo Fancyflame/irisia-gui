@@ -69,7 +69,7 @@ impl StructAttr {
 
 fn parse_watch(nested: ParseNestedMeta, fields: &[HandledField]) -> Result<DefaultWatch> {
     let mut default_watch = DefaultWatch {
-        group_name: format_ident!("changed"),
+        group_name: format_ident!("unchanged"),
         exclude: HashSet::new(),
     };
 

@@ -31,13 +31,15 @@ pub(super) fn impl_update_with(helper: &GenHelper) -> TokenStream {
     } = helper;
 
     quote! {
+        impl irisia::element::props::PropsUpdateResult for #origin_struct {
+            type UpdateResult = #update_result;
+        }
+
         impl #updater_generics irisia::element::props::PropsUpdateWith<#updater_name #updater_generics>
             for #origin_struct
         where
             #where_clause
         {
-            type UpdateResult = #update_result;
-
             #update_with
             #create_with
         }
@@ -127,8 +129,8 @@ fn generate_update_with(helper: &GenHelper) -> TokenStream {
                 quote!(#uf;)
             }
             _ => {
-                let uf = update_field(f, quote!(__irisia_equality_matters));
-                quote!(__irisia_equality_matters &= #uf;)
+                let uf = update_field(f, quote!(__irisia_all_unchanged));
+                quote!(__irisia_all_unchanged &= #uf;)
             }
         };
 
@@ -146,12 +148,12 @@ fn generate_update_with(helper: &GenHelper) -> TokenStream {
         let out = match default_watch {
             Some(dw) if dw.exclude.contains(f.ident) => quote! {
                 #field_changed: {
-                    let __irisia_changed = #value;
-                    __irisia_equality_matters &= __irisia_changed;
-                    !__irisia_changed
+                    let __irisia_this_changed = #value;
+                    __irisia_all_unchanged &= __irisia_this_changed;
+                    __irisia_this_changed
                 },
             },
-            _ => quote!(#field_changed: !#value,),
+            _ => quote!(#field_changed: #value,),
         };
 
         Some(out)
@@ -159,15 +161,15 @@ fn generate_update_with(helper: &GenHelper) -> TokenStream {
 
     let add_global_change = default_watch.as_ref().map(|dw| {
         let group_name = &dw.group_name;
-        quote!(#group_name: !__irisia_equality_matters,)
+        quote!(#group_name: __irisia_all_unchanged,)
     });
 
     quote! {
         fn props_update_with(
             &mut self,
             __irisia_updater: #updater_name #updater_generics,
-            mut __irisia_equality_matters: bool,
         ) -> #update_result {
+            let mut __irisia_all_unchanged = true;
             #(#unwatched)*
 
             #update_result {

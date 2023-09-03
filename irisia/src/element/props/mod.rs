@@ -14,8 +14,11 @@ mod help_create;
 mod help_update;
 mod set_std_styles;
 
-pub trait PropsUpdateWith<T> {
+pub trait PropsUpdateResult {
     type UpdateResult;
-    fn props_update_with(&mut self, updater: T, equality_matters: bool) -> Self::UpdateResult;
+}
+
+pub trait PropsUpdateWith<T>: PropsUpdateResult {
+    fn props_update_with(&mut self, updater: T) -> Self::UpdateResult;
     fn props_create_with(updater: T) -> Self;
 }
