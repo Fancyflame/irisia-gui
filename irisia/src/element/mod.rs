@@ -1,15 +1,8 @@
-use std::time::Duration;
+use crate::Result;
 
-use crate::{
-    dom::{children::ChildrenNodes, FullElementHandle},
-    primitive::Region,
-    Result,
-};
+pub use self::render_element::RenderElement;
+pub use crate::{application::content::GlobalContent, dom::RcElementModel};
 
-pub use self::{children_setter::ChildrenSetter, render_element::RenderElement};
-pub use crate::{application::content::GlobalContent, dom::ElementHandle};
-
-mod children_setter;
 pub mod props;
 mod render_element;
 
@@ -25,22 +18,10 @@ where
     type BlankProps: Default;
 
     /// Draw to the canvas
-    fn render(
-        &mut self,
-        renderer: RenderElement,
-        interval: Duration,
-        draw_region: Region,
-    ) -> Result<()>;
-
-    #[allow(unused_variables)]
-    fn layout<'a, Ch>(&mut self, draw_region: Region, children: Ch, setter: ChildrenSetter<'a>)
-    where
-        Ch: ChildrenNodes,
-    {
-    }
+    fn render(&mut self, content: RenderElement) -> Result<()>;
 }
 
-pub struct UpdateElement<'a, El, Pr> {
+pub struct UpdateElement<'a, Pr, El, Sty, Sc> {
     pub props: Pr,
-    pub handle: &'a FullElementHandle<El>,
+    pub this: &'a RcElementModel<El, Sty, Sc>,
 }

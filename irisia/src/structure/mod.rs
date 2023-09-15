@@ -1,10 +1,12 @@
 use crate::{update_with::UpdateWith, Result};
 
+pub use self::{branch::Branch, chain::Chain, once::Once, repeat::Repeat};
+
 pub mod branch;
 pub mod chain;
 pub mod empty;
 pub mod once;
-pub mod repeating;
+pub mod repeat;
 pub(crate) mod slot;
 
 pub trait VisitLen: Sized {

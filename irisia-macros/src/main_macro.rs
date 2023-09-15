@@ -3,7 +3,7 @@ use quote::ToTokens;
 use syn::{parse_quote, Error, ItemFn, Result};
 
 pub fn main_macro(mut item: ItemFn) -> Result<TokenStream> {
-    if item.sig.asyncness.take().is_none() {
+    if item.sig.asyncness.is_none() {
         return Err(Error::new_spanned(
             &item.sig,
             "function is expected to be asynchronous",

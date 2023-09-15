@@ -7,34 +7,26 @@ struct ListenOptions {
     sys_only: bool,
     asyn: bool,
     sub_event: bool,
-    without_handle: bool,
+}
+
+fn rc_em() -> TokenStream {
+    quote!(Rc<ElementModel<El, Sty, Sc>>)
 }
 
 impl ListenOptions {
     fn impl_item(&self) -> TokenStream {
-        let arg_types = [
-            self.once,
-            self.sys_only,
-            self.asyn,
-            self.sub_event,
-            self.without_handle,
-        ]
-        .into_iter()
-        .map(|on| if on { quote!(FlagSet) } else { quote!(()) });
+        let arg_types = [self.once, self.sys_only, self.asyn, self.sub_event]
+            .into_iter()
+            .map(|on| if on { quote!(FlagSet) } else { quote!(()) });
 
         let fut_generic = if self.asyn { Some(quote!(Ret,)) } else { None };
 
         let where_clause = self.where_clause();
         let fn_body = self.fn_body();
 
-        let impl_head = if self.without_handle {
-            quote!(impl<Eh> Listen<Eh, #(#arg_types),*>)
-        } else {
-            quote!(impl<Eh> Listen<&Eh, #(#arg_types),*>)
-        };
-
+        let em = rc_em();
         quote! {
-            #impl_head {
+            impl<El, Sty, Sc> Listen<&#em, #(#arg_types),*> {
                 pub fn spawn<E, F, #fut_generic>(self, mut f: F) -> JoinHandle<()>
                 #where_clause
                 { #fn_body }
@@ -43,16 +35,6 @@ impl ListenOptions {
     }
 
     fn fn_body(&self) -> TokenStream {
-        let (cloned_obj, call_ed, callback) = if self.without_handle {
-            (quote!(self.eh.ed.clone()), quote!(obj), quote!(f(result)))
-        } else {
-            (
-                quote!(self.eh.clone()),
-                quote!(obj.ed),
-                quote!(f(result, &obj)),
-            )
-        };
-
         let recv_method = match (self.sub_event, self.sys_only) {
             (false, false) => quote!(receiver.recv().await.0),
             (false, true) => quote!(receiver.recv_sys().await),
@@ -61,20 +43,20 @@ impl ListenOptions {
         };
 
         let spwan_task = if self.asyn {
-            quote!(tokio::spawn(#callback))
+            quote!(tokio::task::spawn_local(f(result, &obj)))
         } else {
-            callback
+            quote!(f(result, &obj))
         };
 
         let future = if self.once {
             quote! {
-                let mut receiver = EventReceiver::EventDispatcher(&#call_ed);
+                let mut receiver = EventReceiver::EventDispatcher(&obj.ed);
                 let result = #recv_method;
                 #spwan_task;
             }
         } else {
             quote! {
-                let mut receiver = EventReceiver::Lock(#call_ed.lock());
+                let mut receiver = EventReceiver::Lock(obj.ed.lock());
                 loop {
                     let result = #recv_method;
                     #spwan_task;
@@ -83,9 +65,9 @@ impl ListenOptions {
         };
 
         quote! {
-            let obj = #cloned_obj;
-            tokio::spawn(async move {
-                #call_ed.cancel_on_abandoned(async {
+            let obj = self.eh.clone();
+            tokio::task::spawn_local(async move {
+                obj.ed.cancel_on_abandoned(async {
                     #future
                 }).await;
             })
@@ -95,14 +77,6 @@ impl ListenOptions {
     fn where_clause(&self) -> WhereClause {
         let mut tokens = quote!(where);
 
-        let (handle_extra_bound, handle_arg) = if self.without_handle {
-            (quote!(), quote!())
-        } else {
-            (quote!(+ Clone + Send + Sync + 'static), quote!(&Eh,))
-        };
-
-        tokens.extend(quote!(Eh: Deref<Target = ElementHandle> #handle_extra_bound,));
-
         let e_bound = if self.sub_event {
             quote!(SubEvent)
         } else {
@@ -111,16 +85,18 @@ impl ListenOptions {
         tokens.extend(quote!(E: #e_bound,));
 
         if self.asyn {
-            tokens.extend(quote!(Ret: Future<Output = ()> + Send + 'static,));
+            tokens.extend(quote!(Ret: Future<Output = ()> + 'static,));
         }
 
+        let element_model = rc_em();
+
         let f_bound = match (self.once, self.asyn) {
-            (false, false) => quote!(FnMut(E, #handle_arg)),
-            (true, false) => quote!(FnOnce(E, #handle_arg)),
-            (false, true) => quote!(FnMut(E, #handle_arg) -> Ret),
-            (true, true) => quote!(FnOnce(E, #handle_arg) -> Ret),
+            (false, false) => quote!(FnMut(E, &#element_model)),
+            (true, false) => quote!(FnOnce(E, &#element_model)),
+            (false, true) => quote!(FnMut(E, &#element_model) -> Ret),
+            (true, true) => quote!(FnOnce(E, &#element_model) -> Ret),
         };
-        tokens.extend(quote!(F: #f_bound + Send + 'static,));
+        tokens.extend(quote!(F: #f_bound + 'static,));
 
         syn::parse2(tokens).unwrap()
     }
@@ -129,13 +105,12 @@ impl ListenOptions {
 pub fn impl_listen() -> TokenStream {
     let mut tokens = TokenStream::new();
 
-    for index in 0b00000..=0b11111 {
+    for index in 0b0000..=0b1111 {
         let options = ListenOptions {
             once: index & 0b00001 != 0,
             sys_only: index & 0b00010 != 0,
             asyn: index & 0b00100 != 0,
             sub_event: index & 0b01000 != 0,
-            without_handle: index & 0b10000 != 0,
         };
 
         if options.sub_event && options.sys_only {

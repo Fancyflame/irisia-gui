@@ -1,5 +1,6 @@
 use std::{collections::HashMap, future::Future};
 
+use tokio::task::LocalSet;
 use winit::{
     event::{Event, StartCause},
     event_loop::{EventLoop, EventLoopBuilder},
@@ -30,7 +31,9 @@ where
         .enable_all()
         .build()
         .expect("cannot launch tokio runtime");
-    let _guard = tokio_runtime.enter();
+    let local_set = LocalSet::new();
+
+    let _guards = (tokio_runtime.enter(), local_set.enter());
 
     let event_loop: EventLoop<WindowReg> = EventLoopBuilder::with_user_event().build();
     let mut window_map: HashMap<WindowId, RenderWindow> = HashMap::new();

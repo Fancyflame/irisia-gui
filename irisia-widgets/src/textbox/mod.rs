@@ -16,8 +16,6 @@ use irisia::{
 };
 use styles::*;
 
-use crate::box_styles::BoxStyleRenderer;
-
 use self::selection::SelectionRtMgr;
 
 mod el;
@@ -48,14 +46,14 @@ struct TextBoxStyles {
     color: Option<StyleColor>,
 }
 
-#[irisia::props(Props, vis = "pub")]
+#[irisia::props(updater = "TextBoxProps", watch(exclude = "user_select"))]
 pub struct OwnedProps {
     #[props(updated, must_init)]
     text: String,
 
-    #[props(read_style(stdin))]
-    style: TextBoxStyles,
-
     #[props(default = "false")]
     user_select: bool,
+
+    #[props(read_style(stdin))]
+    style: TextBoxStyles,
 }

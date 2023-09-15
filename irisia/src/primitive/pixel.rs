@@ -70,3 +70,9 @@ impl Neg for Pixel {
         Pixel(-self.0)
     }
 }
+
+impl From<f32> for Pixel {
+    fn from(value: f32) -> Self {
+        Pixel(value)
+    }
+}

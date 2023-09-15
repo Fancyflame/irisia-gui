@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use crate::{dom::EMUpdateContent, update_with::SpecificUpdate};
 
-use super::{MapVisit, UpdateWith, VisitLen};
+use super::{MapVisit, UpdateWith, Visit, VisitLen, VisitMut};
 
 pub(crate) struct Slot<T>(pub Rc<RefCell<T>>);
 
@@ -14,14 +14,39 @@ impl<T> MapVisit<EMUpdateContent<'_>> for &Slot<T> {
     }
 }
 
-impl<T> VisitLen for Slot<T>
-where
-    T: VisitLen,
-{
-    fn len(&self) -> usize {
-        self.0.borrow().len()
-    }
+macro_rules! impl_visit_len {
+    ($Slot: ty) => {
+        impl<T> VisitLen for $Slot
+        where
+            T: VisitLen,
+        {
+            fn len(&self) -> usize {
+                self.0.borrow().len()
+            }
+        }
+    };
 }
+
+impl_visit_len!(Slot<T>);
+impl_visit_len!(&Slot<T>);
+
+macro_rules! impl_visit {
+    ($Visit: ident, $Slot: ty, $visit: ident, $borrow:ident, $($mut: ident)?) => {
+        impl<T, V> $Visit<V> for $Slot
+        where
+            T: $Visit<V>,
+        {
+            fn $visit(&$($mut)? self, visitor: &mut V) -> crate::Result<()> {
+                self.0.$borrow().$visit(visitor)
+            }
+        }
+    };
+}
+
+impl_visit!(Visit, Slot<T>, visit, borrow,);
+impl_visit!(VisitMut, Slot<T>, visit_mut, borrow_mut, mut);
+impl_visit!(Visit, &Slot<T>, visit, borrow,);
+impl_visit!(VisitMut, &Slot<T>, visit_mut, borrow_mut, mut);
 
 impl<T> UpdateWith<&Slot<T>> for Slot<T> {
     fn create_with(updater: &Slot<T>) -> Self {

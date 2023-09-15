@@ -1,69 +1,37 @@
-use std::{cell::RefCell, time::Duration};
+use std::{rc::Rc, time::Duration};
 
 use irisia_backend::skia_safe::Canvas;
 
-use crate::{
-    application::redraw_scheduler::{IndepLayerRegister, RedrawObject},
-    element::RenderElement,
-    Element, Result,
-};
+use crate::{application::redraw_scheduler::RedrawObject, element::RenderElement, Element, Result};
 
-use super::{
-    children::ChildrenBox,
-    data_structure::{LayerSharedPart, RcIndepLayer},
-    layer::{CustomLayer, LayerRebuilder},
-};
-
-impl<El> LayerSharedPart<El>
-where
-    El: Element,
-{
-    pub(super) fn redraw(
-        &mut self,
-        lr: &mut LayerRebuilder,
-        reg: &mut IndepLayerRegister,
-        interval: Duration,
-    ) -> Result<()> {
-        self.pub_shared.el_write_clean().render(
-            RenderElement::new(
-                lr,
-                reg,
-                unwrap_children(&mut self.expanded_children).as_render_multiple(),
-                &mut self.interact_region,
-                interval,
-            ),
-            interval,
-            self.draw_region,
-        )
-    }
-}
+use super::{children::ChildrenBox, ElementModel};
 
 fn unwrap_children(cb: &mut Option<ChildrenBox>) -> &mut ChildrenBox {
     cb.as_mut()
         .unwrap_or_else(|| unreachable!("children not initialized"))
 }
 
-impl<El> RedrawObject for RefCell<RcIndepLayer<El>>
+impl<El, Sty, Sc> RedrawObject for Rc<ElementModel<El, Sty, Sc>>
 where
     El: Element,
 {
-    fn redraw(
-        &self,
-        canvas: &mut Canvas,
-        reg: &mut IndepLayerRegister,
-        interval: Duration,
-    ) -> Result<()> {
-        let mut this = self.borrow_mut();
-        let inner = &mut *this;
-        let ret = inner
-            .main
-            .redraw(&mut inner.extra.rebuild(canvas), reg, interval);
-        ret
-    }
-}
+    fn redraw(&self, canvas: &mut Canvas, interval: Duration) -> Result<()> {
+        let mut in_cell = self.in_cell.borrow_mut();
+        let mut lr = in_cell
+            .indep_layer
+            .as_mut()
+            .expect("independent layer required")
+            .borrow_mut()
+            .rebuild(canvas);
 
-impl<El> CustomLayer for RefCell<RcIndepLayer<El>> {
-    fn composite(&self, canvas: &mut Canvas) -> Result<()> {
-        self.borrow().extra.composite(canvas)
+        self.el_write_clean().render(RenderElement::new(
+            &mut lr,
+            in_cell
+                .expanded_children
+                .as_mut()
+                .unwrap()
+                .as_render_multiple(),
+            interval,
+        ))
     }
 }

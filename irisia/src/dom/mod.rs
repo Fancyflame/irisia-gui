@@ -1,26 +1,17 @@
-use std::time::Duration;
+use std::{rc::Rc, time::Duration};
 
 use crate::{
-    application::{
-        event_comp::NewPointerEvent,
-        redraw_scheduler::{IndepLayerRegister, RedrawObject},
-    },
-    element::{ChildrenSetter, Element},
-    primitive::Region,
+    application::event_comp::NewPointerEvent,
+    element::{Element, RenderElement},
     Result,
 };
 
-use self::{
-    children::RenderMultiple,
-    data_structure::maybe_shared::MaybeShared,
-    layer::{LayerCompositer, LayerRebuilder},
-};
+use self::layer::{LayerCompositer, LayerRebuilder, SharedLayerCompositer};
 
-pub(crate) use self::{data_structure::ElementModel, update::EMUpdateContent};
-pub use self::{
-    data_structure::{ElementHandle, FullElementHandle},
-    update::add_one,
-};
+pub use data_structure::ElementModel;
+
+pub use self::update::add_one;
+pub(crate) use self::update::EMUpdateContent;
 
 pub(crate) mod children;
 mod data_structure;
@@ -29,95 +20,65 @@ pub mod pub_handle;
 mod render;
 pub(crate) mod update;
 
+pub type RcElementModel<El, Sty, Sc> = Rc<data_structure::ElementModel<El, Sty, Sc>>;
+
 impl<El, Sty, Sc> ElementModel<El, Sty, Sc> {
-    pub(crate) fn render(
-        &mut self,
-        lr: &mut LayerRebuilder,
-        reg: &mut IndepLayerRegister,
-        interval: Duration,
-    ) -> Result<()>
+    pub(crate) fn render(&self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()>
     where
         El: Element,
     {
-        self.update_independent_layer(reg);
+        let mut in_cell_ref = self.in_cell.borrow_mut();
+        let in_cell = &mut *in_cell_ref;
 
-        match &mut self.shared {
-            MaybeShared::Unique(unique) => unique.redraw(lr, reg, interval),
-            MaybeShared::Shared(shared) => {
-                let canvas = lr.new_layer(shared.clone())?;
-                shared.redraw(canvas, reg, interval)
+        let mut r = |lr: &mut LayerRebuilder| {
+            self.el_write_clean().render(RenderElement::new(
+                lr,
+                in_cell
+                    .expanded_children
+                    .as_mut()
+                    .unwrap()
+                    .as_render_multiple(),
+                interval,
+            ))
+        };
+
+        match &in_cell.indep_layer {
+            None => r(lr),
+            Some(il) => {
+                let canvas = lr.new_layer(il.clone())?;
+                r(&mut il.borrow_mut().rebuild(canvas))
             }
         }
     }
 
-    pub(crate) fn layout(&mut self, draw_region: Region)
-    where
-        El: Element,
-        Sc: RenderMultiple + 'static,
-    {
-        let mut shared = self.shared.borrow_mut();
-        shared.draw_region = draw_region;
-
-        self.pub_shared.el_write_clean().layout(
-            draw_region,
-            &self.slot_cache,
-            ChildrenSetter::new(
-                &mut shared.expanded_children,
-                &self.pub_shared.global(),
-                self.pub_shared.layer_info.read().unwrap().render_layer_id(),
-            ),
-        )
-    }
-
     /// returns whether this element is logically entered
     pub fn emit_event(&mut self, npe: &NewPointerEvent) -> bool {
-        let mut shared = self.shared.borrow_mut();
+        let mut in_cell = self.in_cell.borrow_mut();
 
-        let Some(children_box) = &mut shared.expanded_children
+        let Some(children_box) = &in_cell.expanded_children
         else {
-            return false;
+            unreachable!("children must be set");
         };
 
         let children_logically_entered = children_box.as_render_multiple().emit_event(npe);
-        self.event_mgr
-            .update_and_emit(npe, shared.interact_region, children_logically_entered)
+        in_cell.event_mgr.update_and_emit(
+            npe,
+            self.interact_region.take(),
+            children_logically_entered,
+        )
     }
 
-    pub fn styles(&self) -> &Sty {
-        &self.styles
-    }
-
-    fn update_independent_layer(&mut self, reg: &mut IndepLayerRegister)
+    fn update_independent_layer(&mut self)
     where
         El: Element,
     {
-        let mut layer_info = self.pub_shared.layer_info.write().unwrap();
+        let mut in_cell = self.in_cell.borrow_mut();
+        let acq = self.acquire_independent_layer.take();
 
-        match (&self.shared, layer_info.acquire_independent_layer) {
-            (MaybeShared::Shared(_), false) => {
-                reg.del(
-                    layer_info
-                        .indep_layer_id
-                        .take()
-                        .expect("independent layer id expected to be exists"),
-                );
-
-                assert!(self.shared.try_to_unique());
-            }
-
-            (MaybeShared::Unique(_), true) => {
-                self.shared.to_shared(LayerCompositer::new());
-
-                let MaybeShared::Shared(shared) = &self.shared
-                else {
-                    unreachable!()
-                };
-
-                debug_assert!(layer_info.indep_layer_id.is_none());
-                layer_info.indep_layer_id = Some(reg.reg(shared.clone()));
-            }
-
-            _ => {}
+        if !acq {
+            in_cell.indep_layer = None;
+        } else if in_cell.indep_layer.is_none() {
+            in_cell.indep_layer = Some(LayerCompositer::new())
         }
     }
 }

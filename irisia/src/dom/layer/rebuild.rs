@@ -1,9 +1,7 @@
-use std::rc::Rc;
-
 use anyhow::anyhow;
 use irisia_backend::skia_safe::{colors::TRANSPARENT, Canvas};
 
-use super::{CustomLayer, LayerCompositer};
+use super::{LayerCompositer, SharedLayerCompositer};
 use crate::Result;
 
 pub struct LayerRebuilder<'a> {
@@ -32,10 +30,7 @@ impl<'a> LayerRebuilder<'a> {
         self.canvas
     }
 
-    pub(crate) fn new_layer<T>(&mut self, custom_layer: Rc<T>) -> Result<&mut Canvas>
-    where
-        T: CustomLayer + 'static,
-    {
+    pub(crate) fn new_layer(&mut self, custom_layer: SharedLayerCompositer) -> Result<&mut Canvas> {
         self.flush()?;
         let matrix = self.canvas.local_to_device();
         self.lc.layers.add_layer(custom_layer, matrix);

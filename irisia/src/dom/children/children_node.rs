@@ -7,11 +7,11 @@ use super::RenderMultiple;
 pub trait ChildrenNodes: Sized {
     type Model: RenderMultiple;
 
-    fn create_model<'a>(self, updater: &EMUpdateContent) -> Self::Model;
+    fn create_model<'a>(self, updater: EMUpdateContent) -> Self::Model;
     fn update_model<'a>(
         self,
         model: &mut Self::Model,
-        updater: &EMUpdateContent,
+        updater: EMUpdateContent,
         equality_matters: &mut bool,
     );
 }
@@ -26,16 +26,16 @@ where
 {
     type Model = M;
 
-    fn create_model<'a>(self, updater: &EMUpdateContent) -> Self::Model {
-        M::create_with(self.map(updater))
+    fn create_model<'a>(self, updater: EMUpdateContent) -> Self::Model {
+        M::create_with(self.map(&updater))
     }
 
     fn update_model<'a>(
         self,
         model: &mut Self::Model,
-        updater: &EMUpdateContent,
+        updater: EMUpdateContent,
         equality_matters: &mut bool,
     ) {
-        *equality_matters &= model.update_with(self.map(updater), *equality_matters);
+        *equality_matters &= model.update_with(self.map(&updater), *equality_matters);
     }
 }

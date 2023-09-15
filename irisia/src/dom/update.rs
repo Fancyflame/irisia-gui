@@ -1,12 +1,14 @@
 use std::{
+    cell::{Cell, RefCell},
     marker::PhantomData,
-    sync::{Arc, RwLock as StdRwLock},
+    rc::Rc,
+    sync::Arc,
 };
 
 use tokio::sync::RwLock;
 
 use crate::{
-    application::{content::GlobalContent, event_comp::NodeEventMgr, redraw_scheduler::LayerId},
+    application::{content::GlobalContent, event_comp::NodeEventMgr},
     element::{props::SetStdStyles, Element, UpdateElement},
     event::EventDispatcher,
     structure::{slot::Slot, MapVisitor},
@@ -15,19 +17,18 @@ use crate::{
 };
 
 use super::{
-    children::ChildrenNodes,
-    data_structure::{
-        maybe_shared::MaybeShared, ElementHandle, FullElementHandle, LayerInfo, LayerSharedPart,
-    },
+    children::ChildrenNodes, data_structure::InsideRefCell, layer::SharedLayerCompositer,
     ElementModel,
 };
 
+// add one
+
 pub struct AddOne<El, Pr, Sty, Ch, Oc> {
     _el: PhantomData<El>,
-    pub(super) props: Pr,
-    pub(super) styles: Sty,
-    pub(super) children: Ch,
-    pub(super) on_create: Oc,
+    pub(crate) props: Pr,
+    pub(crate) styles: Sty,
+    pub(crate) children: Ch,
+    pub(crate) on_create: Oc,
 }
 
 pub fn add_one<El, Pr, Sty, Ch, Oc>(
@@ -45,10 +46,17 @@ pub fn add_one<El, Pr, Sty, Ch, Oc>(
     }
 }
 
-#[derive(Clone, Copy)]
-pub struct EMUpdateContent<'a> {
+// element model update content
+
+pub(crate) struct ElementModelUpdater<'a, El, Pr, Sty, Ch, Oc> {
+    pub(crate) add_one: AddOne<El, Pr, Sty, Ch, Oc>,
+    pub(crate) content: EMUpdateContent<'a>,
+}
+
+#[derive(Clone)]
+pub(crate) struct EMUpdateContent<'a> {
     pub(crate) global_content: &'a Arc<GlobalContent>,
-    pub(crate) dep_layer_id: LayerId,
+    pub(crate) parent_layer: SharedLayerCompositer,
 }
 
 impl<'a, El, Pr, Sty, Ch, Oc> MapVisitor<AddOne<El, Pr, Sty, Ch, Oc>> for EMUpdateContent<'a> {
@@ -61,26 +69,25 @@ impl<'a, El, Pr, Sty, Ch, Oc> MapVisitor<AddOne<El, Pr, Sty, Ch, Oc>> for EMUpda
     }
 }
 
-#[doc(hidden)]
-pub struct ElementModelUpdater<'a, El, Pr, Sty, Ch, Oc> {
-    pub(crate) add_one: AddOne<El, Pr, Sty, Ch, Oc>,
-    pub(crate) content: EMUpdateContent<'a>,
-}
+// impl update
+
+type ImplUpdateElement<'a, El, Pr, Sty, Ch> =
+    UpdateElement<'a, <Pr as SetStdStyles<'a, Sty>>::Output, El, Sty, <Ch as ChildrenNodes>::Model>;
 
 impl<El, Pr, Sty, Ch, Oc> UpdateWith<ElementModelUpdater<'_, El, Pr, Sty, Ch, Oc>>
-    for ElementModel<El, Sty, Ch::Model>
+    for Rc<ElementModel<El, Sty, Ch::Model>>
 where
     Pr: for<'sty> SetStdStyles<'sty, Sty>,
-    El: Element + for<'a> UpdateWith<UpdateElement<'a, El, <Pr as SetStdStyles<'a, Sty>>::Output>>,
+    El: Element + for<'a> UpdateWith<ImplUpdateElement<'a, El, Pr, Sty, Ch>>,
     Sty: StyleContainer + 'static,
     Ch: ChildrenNodes,
-    Oc: FnOnce(&FullElementHandle<El>),
+    Oc: FnOnce(&Rc<ElementModel<El, Sty, Ch::Model>>),
 {
     fn create_with(updater: ElementModelUpdater<El, Pr, Sty, Ch, Oc>) -> Self {
         let ElementModelUpdater {
             add_one:
                 AddOne {
-                    _el,
+                    _el: _,
                     props,
                     styles,
                     children,
@@ -89,56 +96,39 @@ where
             content:
                 EMUpdateContent {
                     global_content,
-                    dep_layer_id,
+                    parent_layer,
                 },
         } = updater;
 
-        let element_handle = {
-            let eh = FullElementHandle {
-                el: Arc::new(RwLock::new(None)),
-                base: Arc::new(ElementHandle {
-                    ed: EventDispatcher::new(),
-                    global_content: global_content.clone(),
-                    layer_info: StdRwLock::new(LayerInfo {
-                        acquire_independent_layer: false,
-                        parent_layer_id: dep_layer_id,
-                        indep_layer_id: None,
-                    }),
-                }),
-            };
+        let props = props.set_std_styles(&styles);
 
-            // hold the lock prevent from being accessed
-            let mut write = eh.el.blocking_write();
-
-            let el = El::create_with(UpdateElement {
-                props: props.set_std_styles(&styles),
-                handle: &eh,
-            });
-
-            *write = Some(el);
-            drop(write);
-            eh
-        };
-
-        on_create(&element_handle);
-
-        let shared = MaybeShared::new(LayerSharedPart {
-            pub_shared: element_handle.clone(),
-            expanded_children: None,
+        let this = Rc::new_cyclic(|weak| ElementModel {
+            el: RwLock::new(None),
+            global_content: global_content.clone(),
+            ed: EventDispatcher::new(),
+            in_cell: RefCell::new(InsideRefCell {
+                styles,
+                expanded_children: None,
+                event_mgr: NodeEventMgr::new(),
+                parent_layer: Rc::downgrade(&parent_layer),
+                indep_layer: None,
+            }),
+            slot_cache: Slot::new(children.create_model(EMUpdateContent {
+                global_content,
+                parent_layer: parent_layer.clone(),
+            })),
             draw_region: Default::default(),
-            interact_region: None,
+            interact_region: Cell::new(None),
+            acquire_independent_layer: Cell::new(false),
         });
 
-        ElementModel {
-            event_mgr: NodeEventMgr::new(),
-            slot_cache: Slot::new(children.create_model(&EMUpdateContent {
-                global_content,
-                dep_layer_id,
-            })),
-            styles,
-            shared,
-            pub_shared: element_handle,
-        }
+        // hold the lock prevent from being accessed
+        let mut write = this.el.blocking_write();
+        *write = Some(El::create_with(UpdateElement { props, this: &this }));
+        drop(write);
+
+        on_create(&this);
+        this
     }
 
     fn update_with(
@@ -149,7 +139,7 @@ where
         let ElementModelUpdater {
             add_one:
                 AddOne {
-                    _el,
+                    _el: _,
                     props,
                     styles,
                     children,
@@ -158,29 +148,29 @@ where
             content:
                 EMUpdateContent {
                     global_content: _,
-                    dep_layer_id,
+                    parent_layer,
                 },
         } = updater;
 
-        self.pub_shared.layer_info.write().unwrap().parent_layer_id = dep_layer_id;
+        let props = props.set_std_styles(&styles);
+
+        let mut in_cell = self.in_cell.borrow_mut();
+        in_cell.styles = styles;
+        in_cell.parent_layer = Rc::downgrade(&parent_layer);
 
         children.update_model(
             &mut self.slot_cache.borrow_mut(),
-            &EMUpdateContent {
-                global_content: self.pub_shared.global(),
-                dep_layer_id,
+            EMUpdateContent {
+                global_content: &self.global_content,
+                parent_layer: in_cell.get_children_layer(),
             },
             &mut equality_matters,
         );
 
         equality_matters
-            & self.pub_shared.el_write_clean().update_with(
-                UpdateElement {
-                    handle: &self.pub_shared,
-                    props: props.set_std_styles(&styles),
-                },
-                equality_matters,
-            )
+            & self
+                .el_write_clean()
+                .update_with(UpdateElement { props, this: self }, equality_matters)
     }
 }
 

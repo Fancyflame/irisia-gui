@@ -36,8 +36,8 @@ impl BoxStyleRenderer {
             left,
         } = Self::render(styles, canvas, maximum_region);
         (
-            maximum_region.0 + Point(left, top),
-            maximum_region.1 - Point(right, bottom),
+            maximum_region.0 + Point(left.into(), top.into()),
+            maximum_region.1 - Point(right.into(), bottom.into()),
         )
     }
 
@@ -53,8 +53,8 @@ impl BoxStyleRenderer {
             left,
         } = Self::render(styles, canvas, content_region);
         (
-            content_region.0 - Point(left, top),
-            content_region.1 + Point(right, bottom),
+            content_region.0 - Point(left.into(), top.into()),
+            content_region.1 + Point(right.into(), bottom.into()),
         )
     }
 
@@ -89,10 +89,10 @@ impl BoxStyleRenderer {
             reduction.bottom += bottom;
 
             Rect::new(
-                region.0 .0 + left,
-                region.0 .1 + top,
-                region.1 .0 - right,
-                region.1 .1 - bottom,
+                region.0 .0.to_physical() + left,
+                region.0 .1.to_physical() + top,
+                region.1 .0.to_physical() - right,
+                region.1 .1.to_physical() - bottom,
             )
         };
 

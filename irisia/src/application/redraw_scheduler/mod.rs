@@ -94,10 +94,5 @@ fn fmt_errors(errors: &[anyhow::Error]) -> Result<()> {
 }
 
 pub(crate) trait RedrawObject {
-    fn redraw(
-        &self,
-        canvas: &mut Canvas,
-        reg: &mut IndepLayerRegister,
-        interval: Duration,
-    ) -> Result<()>;
+    fn redraw(&self, canvas: &mut Canvas, interval: Duration) -> Result<()>;
 }

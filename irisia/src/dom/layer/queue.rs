@@ -1,14 +1,12 @@
-use std::rc::Rc;
-
 use irisia_backend::skia_safe::{Bitmap, ImageInfo, M44};
 use smallvec::SmallVec;
 
-use super::CustomLayer;
+use super::SharedLayerCompositer;
 
 pub(super) enum Layer {
     Normal(Bitmap),
     Extern {
-        layer: Rc<dyn CustomLayer>,
+        layer: SharedLayerCompositer,
         matrix: M44,
     },
 }
@@ -56,7 +54,7 @@ impl Queue {
         }
     }
 
-    pub fn add_layer(&mut self, layer: Rc<dyn CustomLayer>, matrix: M44) {
+    pub fn add_layer(&mut self, layer: SharedLayerCompositer, matrix: M44) {
         let layer = Layer::Extern { layer, matrix };
 
         match self.buffer.get_mut(self.len) {
