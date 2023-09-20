@@ -108,9 +108,7 @@ impl<El, Sty, Sc> ElementModel<El, Sty, Sc> {
     }
 
     /// Set dirty flag to `true`.
-    pub fn set_dirty(&self) {
-        todo!()
-    }
+    pub fn set_dirty(&self) {}
 
     /// Query whether independent layer was acquired.
     ///

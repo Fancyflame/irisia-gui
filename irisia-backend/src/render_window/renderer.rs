@@ -69,7 +69,7 @@ impl Renderer {
             Some(ColorSpace::new_srgb()),
         );
 
-        let surface = Surface::new_raster_n32_premul((w2x as _, h2x as _))
+        let surface = skia_safe::surfaces::raster_n32_premul((w2x as _, h2x as _))
             .ok_or_else(|| anyhow!("skia surface not found"))?;
 
         Ok(Renderer {
