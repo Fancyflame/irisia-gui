@@ -28,7 +28,7 @@ pub mod branch;
 pub mod chain;
 pub mod once;
 pub mod reader;
-mod style_box;
+pub(crate) mod style_box;
 
 use self::style_box::InsideStyleBox;
 pub use self::{branch::Branch, chain::Chain, once::Once, style_box::StyleBox};
@@ -58,7 +58,6 @@ pub trait StyleContainer: InsideStyleBox {
 
     fn read<S>(&self) -> S
     where
-        Self: Sized,
         S: StyleReader,
     {
         S::read_style(self)

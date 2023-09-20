@@ -5,7 +5,6 @@ use irisia_backend::skia_safe::Canvas;
 
 use crate::{
     dom::{children::RenderMultiple, layer::LayerRebuilder},
-    primitive::Region,
     Result,
 };
 

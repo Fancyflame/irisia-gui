@@ -1,18 +1,16 @@
 use std::{cell::RefMut, sync::Arc};
 
 use crate::{
-    application::{content::GlobalContent, redraw_scheduler::LayerId},
+    application::content::GlobalContent,
     dom::{
         children::{ChildrenBox, ChildrenNodes, RenderMultiple},
-        layer::{SharedLayerCompositer, WeakLayerCompositer},
+        layer::SharedLayerCompositer,
         EMUpdateContent,
     },
     primitive::Region,
-    structure::{Visit, VisitMut},
-    Result,
+    style::StyleContainer,
+    Result, StyleReader,
 };
-
-use self::visitors::{ApplyRegion, VisitStyles};
 
 mod visitors;
 
@@ -21,7 +19,10 @@ pub struct LayoutElements<'a, T> {
     layouted: bool,
 }
 
-impl<'a, T> LayoutElements<'a, T> {
+impl<'a, T> LayoutElements<'a, T>
+where
+    T: RenderMultiple,
+{
     pub(crate) fn new<U>(
         children: U,
         children_box: RefMut<'a, Option<ChildrenBox>>,
@@ -30,7 +31,6 @@ impl<'a, T> LayoutElements<'a, T> {
     ) -> Self
     where
         U: ChildrenNodes<Model = T>,
-        T: RenderMultiple,
     {
         let updater = EMUpdateContent {
             global_content,
@@ -62,19 +62,22 @@ impl<'a, T> LayoutElements<'a, T> {
         }
     }
 
-    pub fn peek_styles<F, Sr>(&self, f: F)
+    pub fn peek_styles<F, Sr>(&self, mut f: F)
     where
         F: FnMut(Sr),
-        T: Visit<VisitStyles<F, Sr>>,
+        Sr: StyleReader,
     {
-        let _ = self.model.visit(&mut VisitStyles::new(f));
+        let _ = self
+            .model
+            .peek_styles(&mut |inside_style_box| f(inside_style_box.read()));
     }
 
-    pub fn layout<F, Sr>(mut self, layouter: F) -> Result<()>
+    pub fn layout<F, Sr>(mut self, mut layouter: F) -> Result<()>
     where
         F: FnMut(Sr) -> Option<Region>,
-        T: VisitMut<ApplyRegion<F, Sr>>,
+        Sr: StyleReader,
     {
-        self.model.visit_mut(&mut ApplyRegion::new(layouter))
+        self.model
+            .layout(&mut |inside_style_box| layouter(inside_style_box.read()))
     }
 }

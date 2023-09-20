@@ -9,7 +9,7 @@ use tokio::sync::RwLock;
 
 use crate::{
     application::{content::GlobalContent, event_comp::NodeEventMgr},
-    element::{props::SetStdStyles, Element, UpdateElement},
+    element::{props::SetStdStyles, Element, ElementUpdate, UpdateElement},
     event::EventDispatcher,
     structure::{slot::Slot, MapVisitor},
     style::StyleContainer,
@@ -18,7 +18,7 @@ use crate::{
 
 use super::{
     children::ChildrenNodes, data_structure::InsideRefCell, layer::SharedLayerCompositer,
-    ElementModel,
+    ElementModel, RcElementModel,
 };
 
 // add one
@@ -78,7 +78,7 @@ impl<El, Pr, Sty, Ch, Oc> UpdateWith<ElementModelUpdater<'_, El, Pr, Sty, Ch, Oc
     for Rc<ElementModel<El, Sty, Ch::Model>>
 where
     Pr: for<'sty> SetStdStyles<'sty, Sty>,
-    El: Element + for<'a> UpdateWith<ImplUpdateElement<'a, El, Pr, Sty, Ch>>,
+    El: Element + for<'sty> ElementUpdate<<Pr as SetStdStyles<'sty, Sty>>::Output>,
     Sty: StyleContainer + 'static,
     Ch: ChildrenNodes,
     Oc: FnOnce(&Rc<ElementModel<El, Sty, Ch::Model>>),
@@ -124,7 +124,7 @@ where
 
         // hold the lock prevent from being accessed
         let mut write = this.el.blocking_write();
-        *write = Some(El::create_with(UpdateElement { props, this: &this }));
+        *write = Some(El::el_create(&this, props));
         drop(write);
 
         on_create(&this);
@@ -170,7 +170,7 @@ where
         equality_matters
             & self
                 .el_write_clean()
-                .update_with(UpdateElement { props, this: self }, equality_matters)
+                .el_update(self, props, equality_matters)
     }
 }
 
@@ -179,5 +179,5 @@ where
     El: Element,
     Ch: ChildrenNodes,
 {
-    type UpdateTo = ElementModel<El, Sty, Ch::Model>;
+    type UpdateTo = RcElementModel<El, Sty, Ch::Model>;
 }

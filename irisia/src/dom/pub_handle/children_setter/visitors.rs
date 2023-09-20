@@ -4,8 +4,9 @@ use anyhow::anyhow;
 
 use crate::{
     dom::{children::RenderMultiple, ElementModel},
+    element::RcElementModel,
     primitive::Region,
-    structure::{Visit, Visitor, VisitorMut},
+    structure::Visitor,
     style::StyleContainer,
     Element, Result, StyleReader,
 };
@@ -50,7 +51,7 @@ impl<F, Sr> ApplyRegion<F, Sr> {
     }
 }
 
-impl<El, Sty, Sc, F, Sr> Visitor<ElementModel<El, Sty, Sc>> for ApplyRegion<F, Sr>
+impl<El, Sty, Sc, F, Sr> Visitor<RcElementModel<El, Sty, Sc>> for ApplyRegion<F, Sr>
 where
     F: FnMut(Sr) -> Option<Region>,
     El: Element,
@@ -58,9 +59,9 @@ where
     Sty: StyleContainer,
     Sr: StyleReader,
 {
-    fn visit(&mut self, data: &ElementModel<El, Sty, Sc>) -> Result<()> {
+    fn visit(&mut self, data: &RcElementModel<El, Sty, Sc>) -> Result<()> {
         match (self.provider)(data.styles()) {
-            Some(region) => Ok(data.layout(region)),
+            Some(region) => Ok(data.set_draw_region(region)),
             None => Err(anyhow!("regions provided is not enough")),
         }
     }

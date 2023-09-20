@@ -3,15 +3,15 @@ use std::{rc::Rc, time::Duration};
 use crate::{
     application::event_comp::NewPointerEvent,
     element::{Element, RenderElement},
+    primitive::Region,
+    style::StyleContainer,
     Result,
 };
 
-use self::layer::{LayerCompositer, LayerRebuilder, SharedLayerCompositer};
+use self::layer::{LayerCompositer, LayerRebuilder};
 
-pub use data_structure::ElementModel;
-
-pub use self::update::add_one;
 pub(crate) use self::update::EMUpdateContent;
+pub use self::{children::RenderMultiple, data_structure::ElementModel, update::add_one};
 
 pub(crate) mod children;
 mod data_structure;
@@ -22,11 +22,11 @@ pub(crate) mod update;
 
 pub type RcElementModel<El, Sty, Sc> = Rc<data_structure::ElementModel<El, Sty, Sc>>;
 
-impl<El, Sty, Sc> ElementModel<El, Sty, Sc> {
-    pub(crate) fn render(&self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()>
-    where
-        El: Element,
-    {
+impl<El, Sty, Sc> ElementModel<El, Sty, Sc>
+where
+    El: Element,
+{
+    pub(crate) fn render(&self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()> {
         let mut in_cell_ref = self.in_cell.borrow_mut();
         let in_cell = &mut *in_cell_ref;
 
@@ -51,8 +51,17 @@ impl<El, Sty, Sc> ElementModel<El, Sty, Sc> {
         }
     }
 
+    pub(crate) fn set_draw_region(self: &Rc<Self>, region: Region)
+    where
+        Sty: StyleContainer,
+        Sc: RenderMultiple,
+    {
+        self.draw_region.set(region);
+        self.el_write_clean().draw_region_changed(self, region);
+    }
+
     /// returns whether this element is logically entered
-    pub fn emit_event(&mut self, npe: &NewPointerEvent) -> bool {
+    pub fn emit_event(&self, npe: &NewPointerEvent) -> bool {
         let mut in_cell = self.in_cell.borrow_mut();
 
         let Some(children_box) = &in_cell.expanded_children
@@ -68,10 +77,7 @@ impl<El, Sty, Sc> ElementModel<El, Sty, Sc> {
         )
     }
 
-    fn update_independent_layer(&mut self)
-    where
-        El: Element,
-    {
+    fn update_independent_layer(&mut self) {
         let mut in_cell = self.in_cell.borrow_mut();
         let acq = self.acquire_independent_layer.take();
 

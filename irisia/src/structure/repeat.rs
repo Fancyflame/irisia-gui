@@ -9,41 +9,57 @@ use crate::{update_with::SpecificUpdate, Result, UpdateWith};
 
 use super::{MapVisit, Visit, VisitLen, VisitMut};
 
-pub struct Repeat<K, V>(Vec<(K, V)>);
-
-impl<K, V> Repeat<K, V> {
-    pub fn new(iter: impl Iterator<Item = (K, V)>) -> Self {
-        Repeat(Vec::from_iter(iter))
-    }
-}
+pub struct Repeat<I>(pub I);
 
 pub struct RepeatModel<K, T> {
     map: HashMap<K, T>,
     order: SmallVec<[K; 5]>,
 }
 
+// map iter
+
+pub struct MapIter<I, V> {
+    iter: I,
+    map_visit: V,
+}
+
+impl<I, K, T, V> Iterator for MapIter<I, V>
+where
+    I: Iterator<Item = (K, T)>,
+    T: MapVisit<V>,
+{
+    type Item = (K, T::Output);
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter
+            .next()
+            .map(|(k, val)| (k, val.map(&self.map_visit)))
+    }
+}
+
 // update
 
-impl<K, T, U> UpdateWith<Repeat<K, U>> for RepeatModel<K, T>
+impl<I, K, T, U> UpdateWith<Repeat<I>> for RepeatModel<K, T>
 where
+    I: Iterator<Item = (K, U)>,
     K: Hash + Eq + Clone + 'static,
     T: UpdateWith<U>,
 {
-    fn create_with(update: Repeat<K, U>) -> Self {
+    fn create_with(update: Repeat<I>) -> Self {
+        let size_hint = update.0.size_hint().0;
         let mut output = Self {
-            order: SmallVec::from_iter(update.0.iter().map(|(key, _)| key.clone())),
-            map: HashMap::from_iter(
-                update
-                    .0
-                    .into_iter()
-                    .map(|(key, val)| (key, T::create_with(val))),
-            ),
+            order: SmallVec::with_capacity(size_hint),
+            map: HashMap::with_capacity(size_hint),
         };
+
+        for (k, v) in update.0 {
+            output.order.push(k.clone());
+            output.map.insert(k, T::create_with(v));
+        }
 
         output
     }
 
-    fn update_with(&mut self, mut update: Repeat<K, U>, mut equality_matters: bool) -> bool {
+    fn update_with(&mut self, mut update: Repeat<I>, mut equality_matters: bool) -> bool {
         let mut insert = |key: K, value: U, equality_matters: &mut bool| match self.map.entry(key) {
             Entry::Occupied(mut model) => {
                 *equality_matters &= model.get_mut().update_with(value, *equality_matters);
@@ -54,10 +70,9 @@ where
             }
         };
 
-        let mut update_iter = update.0.into_iter();
         let mut old_keys = self.order.iter_mut();
 
-        for ((k, v), vec_k) in (&mut update_iter).zip(&mut old_keys) {
+        for ((k, v), vec_k) in (&mut update.0).zip(&mut old_keys) {
             if equality_matters {
                 equality_matters = k == *vec_k;
             }
@@ -72,7 +87,7 @@ where
             return false;
         }
 
-        for (k, v) in update_iter {
+        for (k, v) in update.0 {
             equality_matters = false;
             self.order.push(k.clone());
             insert(k, v, &mut equality_matters);
@@ -84,49 +99,23 @@ where
 
 // map
 
-impl<K, V, Vis> MapVisit<Vis> for Repeat<K, V>
+impl<I, K, V, Vis> MapVisit<Vis> for Repeat<I>
 where
+    I: Iterator<Item = (K, V)>,
     V: MapVisit<Vis>,
+    Vis: Clone,
 {
-    type Output = Repeat<K, V::Output>;
+    type Output = Repeat<MapIter<I, Vis>>;
+
     fn map(self, visitor: &Vis) -> Self::Output {
-        Repeat(Vec::from_iter(
-            self.0.into_iter().map(|(key, val)| (key, val.map(visitor))),
-        ))
+        Repeat(MapIter {
+            iter: self.0,
+            map_visit: visitor.clone(),
+        })
     }
 }
 
 // visit
-
-impl<K, T> VisitLen for Repeat<K, T> {
-    fn len(&self) -> usize {
-        self.0.len()
-    }
-}
-
-impl<K, V, Vis> Visit<Vis> for Repeat<K, V>
-where
-    V: Visit<Vis>,
-{
-    fn visit(&self, visitor: &mut Vis) -> Result<()> {
-        for x in self.0.iter() {
-            x.1.visit(visitor)?;
-        }
-        Ok(())
-    }
-}
-
-impl<K, V, Vis> VisitMut<Vis> for Repeat<K, V>
-where
-    V: VisitMut<Vis>,
-{
-    fn visit_mut(&mut self, visitor: &mut Vis) -> Result<()> {
-        for x in self.0.iter_mut() {
-            x.1.visit_mut(visitor)?;
-        }
-        Ok(())
-    }
-}
 
 impl<K, T> VisitLen for RepeatModel<K, T> {
     fn len(&self) -> usize {
@@ -162,9 +151,10 @@ where
 
 // update
 
-impl<K, V> SpecificUpdate for Repeat<K, V>
+impl<I, K, V> SpecificUpdate for Repeat<I>
 where
+    I: Iterator<Item = (K, V)>,
     V: SpecificUpdate,
 {
-    type UpdateTo = RepeatModel<K, V>;
+    type UpdateTo = RepeatModel<K, V::UpdateTo>;
 }

@@ -1,14 +1,14 @@
 use super::{Style, StyleContainer};
 
 pub trait StyleReader {
-    fn read_style(container: &impl StyleContainer) -> Self;
+    fn read_style(container: impl StyleContainer) -> Self;
 }
 
 impl<T> StyleReader for Option<T>
 where
     T: Style,
 {
-    fn read_style(container: &impl StyleContainer) -> Self {
+    fn read_style(container: impl StyleContainer) -> Self {
         container.get_style()
     }
 }
@@ -17,7 +17,7 @@ impl<T> StyleReader for T
 where
     T: Style + Default,
 {
-    fn read_style(container: &impl StyleContainer) -> Self {
+    fn read_style(container: impl StyleContainer) -> Self {
         container.get_style().unwrap_or_default()
     }
 }
@@ -40,7 +40,7 @@ macro_rules! impl_reader {
             where
                 $($T: StyleReader,)*
             {
-                fn read_style(_container: &impl StyleContainer) -> Self {
+                fn read_style(_container: impl StyleContainer) -> Self {
                     ($($T::read_style(_container),)*)
                 }
             }

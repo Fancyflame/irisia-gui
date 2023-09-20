@@ -1,20 +1,23 @@
-use std::{any::Any, rc::Rc, time::Duration};
+use std::{any::Any, time::Duration};
 
 use anyhow::anyhow;
 
 use crate::{
-    application::{event_comp::NewPointerEvent, redraw_scheduler::IndepLayerRegister},
+    application::event_comp::NewPointerEvent,
     dom::{layer::LayerRebuilder, RcElementModel},
     element::Element,
     primitive::Region,
-    structure::{Visit, VisitMut, Visitor, VisitorMut},
+    structure::{Visit, Visitor},
+    style::{style_box::InsideStyleBox, StyleContainer},
     Result,
 };
 
 pub trait RenderMultiple: 'static {
     fn render(&self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()>;
 
-    fn layout(&self, iter: &mut dyn Iterator<Item = Region>) -> Result<()>;
+    fn peek_styles(&self, f: &mut dyn FnMut(&dyn InsideStyleBox));
+
+    fn layout(&self, f: &mut dyn FnMut(&dyn InsideStyleBox) -> Option<Region>) -> Result<()>;
 
     fn emit_event(&self, npe: &NewPointerEvent) -> bool;
 
@@ -26,14 +29,19 @@ where
     T: for<'a, 'lr> Visit<RenderHelper<'a, 'lr>>
         + for<'a, 'root> Visit<EmitEventHelper<'a, 'root>>
         + for<'a> Visit<LayoutHelper<'a>>
+        + for<'a> Visit<PeekStyles<'a>>
         + 'static,
 {
     fn render(&self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()> {
         self.visit(&mut RenderHelper { lr, interval })
     }
 
-    fn layout(&self, iter: &mut dyn Iterator<Item = Region>) -> Result<()> {
-        self.visit(&mut LayoutHelper { iter })
+    fn peek_styles(&self, f: &mut dyn FnMut(&dyn InsideStyleBox)) {
+        let _ = self.visit(&mut PeekStyles(f));
+    }
+
+    fn layout(&self, f: &mut dyn FnMut(&dyn InsideStyleBox) -> Option<Region>) -> Result<()> {
+        self.visit(&mut LayoutHelper(f))
     }
 
     fn emit_event(&self, npe: &NewPointerEvent) -> bool {
@@ -65,23 +73,35 @@ where
     }
 }
 
-struct LayoutHelper<'a> {
-    iter: &'a mut dyn Iterator<Item = Region>,
-}
+struct LayoutHelper<'a>(&'a mut dyn FnMut(&dyn InsideStyleBox) -> Option<Region>);
 
 impl<El, Sty, Sc> Visitor<RcElementModel<El, Sty, Sc>> for LayoutHelper<'_>
 where
     El: Element,
+    Sty: StyleContainer,
     Sc: RenderMultiple,
 {
     fn visit(&mut self, data: &RcElementModel<El, Sty, Sc>) -> Result<()> {
-        match self.iter.next() {
+        match (self.0)(&data.in_cell.borrow().styles) {
             Some(region) => {
-                data.layout(region);
+                data.set_draw_region(region);
                 Ok(())
             }
-            None => Err(anyhow!("regions in the iterator is not enough")),
+            None => Err(anyhow!("unexpected end of layouter")),
         }
+    }
+}
+
+struct PeekStyles<'a>(&'a mut dyn FnMut(&dyn InsideStyleBox));
+
+impl<El, Sty, Sc> Visitor<RcElementModel<El, Sty, Sc>> for PeekStyles<'_>
+where
+    El: Element,
+    Sty: StyleContainer,
+{
+    fn visit(&mut self, data: &RcElementModel<El, Sty, Sc>) -> Result<()> {
+        (self.0)(&data.in_cell.borrow().styles);
+        Ok(())
     }
 }
 
