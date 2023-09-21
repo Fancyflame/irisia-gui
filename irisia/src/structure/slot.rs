@@ -5,7 +5,7 @@ use crate::{dom::EMUpdateContent, update_with::SpecificUpdate};
 
 use super::{MapVisit, UpdateWith, Visit, VisitLen, VisitMut};
 
-pub(crate) struct Slot<T>(pub Rc<RefCell<T>>);
+pub struct Slot<T>(pub Rc<RefCell<T>>);
 
 impl<T> MapVisit<EMUpdateContent<'_>> for &Slot<T> {
     type Output = Self;

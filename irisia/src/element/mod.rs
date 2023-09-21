@@ -33,8 +33,3 @@ pub trait ElementUpdate<Pr>: Sized {
     fn el_create(model: &ElModel!(), props: Pr) -> Self;
     fn el_update(&mut self, model: &ElModel!(), props: Pr, equality_matters: bool) -> bool;
 }
-
-pub struct UpdateElement<'a, Pr, El, Sty, Sc> {
-    pub props: Pr,
-    pub this: &'a RcElementModel<El, Sty, Sc>,
-}

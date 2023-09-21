@@ -1,15 +1,16 @@
 use std::{
     cell::{Cell, RefCell},
     marker::PhantomData,
-    rc::Rc,
-    sync::Arc,
+    rc::{Rc, Weak},
 };
 
 use tokio::sync::RwLock;
 
 use crate::{
-    application::{content::GlobalContent, event_comp::NodeEventMgr},
-    element::{props::SetStdStyles, Element, ElementUpdate, UpdateElement},
+    application::{
+        content::GlobalContent, event_comp::NodeEventMgr, redraw_scheduler::RedrawObject,
+    },
+    element::{props::SetStdStyles, Element, ElementUpdate},
     event::EventDispatcher,
     structure::{slot::Slot, MapVisitor},
     style::StyleContainer,
@@ -17,8 +18,8 @@ use crate::{
 };
 
 use super::{
-    children::ChildrenNodes, data_structure::InsideRefCell, layer::SharedLayerCompositer,
-    ElementModel, RcElementModel,
+    children::ChildrenNodes, data_structure::InsideRefCell, layer::LayerCompositer, ElementModel,
+    RcElementModel,
 };
 
 // add one
@@ -48,15 +49,15 @@ pub fn add_one<El, Pr, Sty, Ch, Oc>(
 
 // element model update content
 
-pub(crate) struct ElementModelUpdater<'a, El, Pr, Sty, Ch, Oc> {
+pub struct ElementModelUpdater<'a, El, Pr, Sty, Ch, Oc> {
     pub(crate) add_one: AddOne<El, Pr, Sty, Ch, Oc>,
     pub(crate) content: EMUpdateContent<'a>,
 }
 
 #[derive(Clone)]
-pub(crate) struct EMUpdateContent<'a> {
-    pub(crate) global_content: &'a Arc<GlobalContent>,
-    pub(crate) parent_layer: SharedLayerCompositer,
+pub struct EMUpdateContent<'a> {
+    pub(crate) global_content: &'a Rc<GlobalContent>,
+    pub(crate) parent_layer: Option<Weak<dyn RedrawObject>>,
 }
 
 impl<'a, El, Pr, Sty, Ch, Oc> MapVisitor<AddOne<El, Pr, Sty, Ch, Oc>> for EMUpdateContent<'a> {
@@ -64,15 +65,12 @@ impl<'a, El, Pr, Sty, Ch, Oc> MapVisitor<AddOne<El, Pr, Sty, Ch, Oc>> for EMUpda
     fn map_visit(&self, data: AddOne<El, Pr, Sty, Ch, Oc>) -> Self::Output {
         ElementModelUpdater {
             add_one: data,
-            content: *self,
+            content: self.clone(),
         }
     }
 }
 
 // impl update
-
-type ImplUpdateElement<'a, El, Pr, Sty, Ch> =
-    UpdateElement<'a, <Pr as SetStdStyles<'a, Sty>>::Output, El, Sty, <Ch as ChildrenNodes>::Model>;
 
 impl<El, Pr, Sty, Ch, Oc> UpdateWith<ElementModelUpdater<'_, El, Pr, Sty, Ch, Oc>>
     for Rc<ElementModel<El, Sty, Ch::Model>>
@@ -100,9 +98,7 @@ where
                 },
         } = updater;
 
-        let props = props.set_std_styles(&styles);
-
-        let this = Rc::new_cyclic(|weak| ElementModel {
+        let this = Rc::new_cyclic(|weak: &Weak<ElementModel<_, _, _>>| ElementModel {
             el: RwLock::new(None),
             global_content: global_content.clone(),
             ed: EventDispatcher::new(),
@@ -110,12 +106,16 @@ where
                 styles,
                 expanded_children: None,
                 event_mgr: NodeEventMgr::new(),
-                parent_layer: Rc::downgrade(&parent_layer),
-                indep_layer: None,
+                parent_layer: parent_layer.clone(),
+                indep_layer: if parent_layer.is_some() {
+                    None
+                } else {
+                    Some(LayerCompositer::new())
+                },
             }),
             slot_cache: Slot::new(children.create_model(EMUpdateContent {
                 global_content,
-                parent_layer: parent_layer.clone(),
+                parent_layer: Some(parent_layer.unwrap_or_else(|| weak.clone())),
             })),
             draw_region: Default::default(),
             interact_region: Cell::new(None),
@@ -124,7 +124,10 @@ where
 
         // hold the lock prevent from being accessed
         let mut write = this.el.blocking_write();
-        *write = Some(El::el_create(&this, props));
+        *write = Some(El::el_create(
+            &this,
+            props.set_std_styles(&this.in_cell.borrow().styles),
+        ));
         drop(write);
 
         on_create(&this);
@@ -152,25 +155,25 @@ where
                 },
         } = updater;
 
-        let props = props.set_std_styles(&styles);
-
         let mut in_cell = self.in_cell.borrow_mut();
         in_cell.styles = styles;
-        in_cell.parent_layer = Rc::downgrade(&parent_layer);
+        in_cell.parent_layer = parent_layer;
 
         children.update_model(
             &mut self.slot_cache.borrow_mut(),
             EMUpdateContent {
                 global_content: &self.global_content,
-                parent_layer: in_cell.get_children_layer(),
+                parent_layer: Some(self.get_children_layer(&mut in_cell)),
             },
             &mut equality_matters,
         );
 
         equality_matters
-            & self
-                .el_write_clean()
-                .el_update(self, props, equality_matters)
+            & self.el_write_clean().el_update(
+                self,
+                props.set_std_styles(&in_cell.styles),
+                equality_matters,
+            )
     }
 }
 

@@ -4,7 +4,6 @@ use std::{
     future::Future,
     ops::{Deref, DerefMut},
     rc::Rc,
-    sync::Arc,
 };
 use tokio::{
     sync::{RwLockMappedWriteGuard, RwLockReadGuard, RwLockWriteGuard},
@@ -13,15 +12,16 @@ use tokio::{
 
 use crate::{
     application::content::GlobalContent, event::EventDispatcher, primitive::Region,
-    structure::slot::Slot, style::StyleContainer, StyleReader,
+    structure::slot::Slot, style::StyleContainer, Element, StyleReader,
 };
 
-use self::children_setter::LayoutElements;
-pub use self::listen::Listen;
+pub use self::{layout_el::LayoutElements, listen::Listen};
 
-use super::{children::ChildrenNodes, data_structure::ElementModel};
+use super::{
+    children::ChildrenNodes, data_structure::ElementModel, RcElementModel, RenderMultiple,
+};
 
-mod children_setter;
+mod layout_el;
 mod listen;
 
 impl<El, Sty, Sc> ElementModel<El, Sty, Sc> {
@@ -31,7 +31,10 @@ impl<El, Sty, Sc> ElementModel<El, Sty, Sc> {
     }
 
     /// Get a write guard of this element and setting dirty.
-    pub async fn el_write(&self) -> ElWriteGuard<El, Sty, Sc> {
+    pub async fn el_write<'a>(self: &'a Rc<Self>) -> ElWriteGuard<'a, El, Sty, Sc>
+    where
+        El: Element,
+    {
         ElWriteGuard {
             write: RwLockWriteGuard::map(self.el.write().await, |x| x.as_mut().unwrap()),
             set_dirty: self,
@@ -48,21 +51,27 @@ impl<El, Sty, Sc> ElementModel<El, Sty, Sc> {
         Listen::new(self)
     }
 
-    #[must_use]
-    pub fn set_children<Ch>(&self, children: Ch) -> (&Slot<Sc>, LayoutElements<Ch::Model>)
+    pub fn slot(&self) -> impl ChildrenNodes + '_
     where
+        Slot<Sc>: RenderMultiple,
+    {
+        &self.slot_cache
+    }
+
+    #[must_use]
+    pub fn set_children<'a, Ch>(self: &'a Rc<Self>, children: Ch) -> LayoutElements<'a, Ch::Model>
+    where
+        El: Element,
         Ch: ChildrenNodes,
+        Sty: 'static,
+        Sc: 'static,
     {
         let children_box = RefMut::map(self.in_cell.borrow_mut(), |x| &mut x.expanded_children);
-
-        (
-            &self.slot_cache,
-            LayoutElements::new(
-                children,
-                children_box,
-                &self.global_content,
-                self.in_cell.borrow().get_children_layer(),
-            ),
+        LayoutElements::new(
+            children,
+            children_box,
+            &self.global_content,
+            self.get_children_layer(&self.in_cell.borrow()),
         )
     }
 
@@ -83,7 +92,7 @@ impl<El, Sty, Sc> ElementModel<El, Sty, Sc> {
     }
 
     /// Get global content of the window.
-    pub fn global(&self) -> &Arc<GlobalContent> {
+    pub fn global(&self) -> &Rc<GlobalContent> {
         &self.global_content
     }
 
@@ -108,7 +117,14 @@ impl<El, Sty, Sc> ElementModel<El, Sty, Sc> {
     }
 
     /// Set dirty flag to `true`.
-    pub fn set_dirty(&self) {}
+    pub fn set_dirty(self: &Rc<Self>)
+    where
+        El: Element,
+        Sty: 'static,
+        Sc: 'static,
+    {
+        self.global_content.request_redraw(self.clone())
+    }
 
     /// Query whether independent layer was acquired.
     ///
@@ -145,25 +161,30 @@ impl<El, Sty, Sc> ElementModel<El, Sty, Sc> {
     }
 }
 
-pub struct ElWriteGuard<'a, El, Sty, Sc> {
+pub struct ElWriteGuard<'a, El, Sty, Sc>
+where
+    El: Element,
+    Sty: 'static,
+    Sc: 'static,
+{
     write: RwLockMappedWriteGuard<'a, El>,
-    set_dirty: &'a ElementModel<El, Sty, Sc>,
+    set_dirty: &'a RcElementModel<El, Sty, Sc>,
 }
 
-impl<El, Sty, Sc> Deref for ElWriteGuard<'_, El, Sty, Sc> {
+impl<El: Element, Sty, Sc> Deref for ElWriteGuard<'_, El, Sty, Sc> {
     type Target = El;
     fn deref(&self) -> &Self::Target {
         &self.write
     }
 }
 
-impl<El, Sty, Sc> DerefMut for ElWriteGuard<'_, El, Sty, Sc> {
+impl<El: Element, Sty, Sc> DerefMut for ElWriteGuard<'_, El, Sty, Sc> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.write
     }
 }
 
-impl<El, Sty, Sc> Drop for ElWriteGuard<'_, El, Sty, Sc> {
+impl<El: Element, Sty, Sc> Drop for ElWriteGuard<'_, El, Sty, Sc> {
     fn drop(&mut self) {
         self.set_dirty.set_dirty();
     }

@@ -41,7 +41,7 @@ macro_rules! impl_reader {
                 $($T: StyleReader,)*
             {
                 fn read_style(_container: impl StyleContainer) -> Self {
-                    ($($T::read_style(_container),)*)
+                    ($($T::read_style(&_container),)*)
                 }
             }
         )*

@@ -3,9 +3,9 @@ use std::sync::Arc;
 use irisia_backend::{window_handle::WindowBuilder, WinitWindow};
 
 use crate::{
-    element::{Element, UpdateElement},
+    element::{Element, ElementUpdate},
     event::{standard::window_event::WindowDestroyed, EventDispatcher},
-    Result, UpdateWith,
+    Result,
 };
 
 mod backend;
@@ -24,12 +24,10 @@ pub struct Window {
     event_dispatcher: EventDispatcher,
 }
 
-type EmptyUpdateOptions<'a, El> = UpdateElement<'a, (), El, (), ()>;
-
 impl Window {
     pub async fn new<El>(title: impl Into<String>) -> Result<Self>
     where
-        El: Element + for<'a> UpdateWith<EmptyUpdateOptions<'a, El>>,
+        El: Element + ElementUpdate<()>,
     {
         let title = title.into();
         new_window::<El, _>(move |wb| wb.with_title(title)).await
@@ -37,7 +35,7 @@ impl Window {
 
     pub async fn with_builder<El, F>(f: F) -> Result<Self>
     where
-        El: Element + for<'a> UpdateWith<EmptyUpdateOptions<'a, El>>,
+        El: Element + ElementUpdate<()>,
         F: FnOnce(WindowBuilder) -> WindowBuilder + Send + 'static,
     {
         new_window::<El, _>(f).await

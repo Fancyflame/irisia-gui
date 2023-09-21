@@ -75,7 +75,12 @@ impl ListenOptions {
     }
 
     fn where_clause(&self) -> WhereClause {
-        let mut tokens = quote!(where);
+        let mut tokens = quote! {
+            where
+                El: 'static,
+                Sty: 'static,
+                Sc: 'static,
+        };
 
         let e_bound = if self.sub_event {
             quote!(SubEvent)

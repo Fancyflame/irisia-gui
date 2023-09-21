@@ -1,10 +1,12 @@
-use std::{cell::RefMut, sync::Arc};
+use std::{
+    cell::RefMut,
+    rc::{Rc, Weak},
+};
 
 use crate::{
-    application::content::GlobalContent,
+    application::{content::GlobalContent, redraw_scheduler::RedrawObject},
     dom::{
         children::{ChildrenBox, ChildrenNodes, RenderMultiple},
-        layer::SharedLayerCompositer,
         EMUpdateContent,
     },
     primitive::Region,
@@ -12,12 +14,7 @@ use crate::{
     Result, StyleReader,
 };
 
-mod visitors;
-
-pub struct LayoutElements<'a, T> {
-    model: RefMut<'a, T>,
-    layouted: bool,
-}
+pub struct LayoutElements<'a, T>(RefMut<'a, T>);
 
 impl<'a, T> LayoutElements<'a, T>
 where
@@ -26,15 +23,15 @@ where
     pub(crate) fn new<U>(
         children: U,
         children_box: RefMut<'a, Option<ChildrenBox>>,
-        global_content: &'a Arc<GlobalContent>,
-        children_layer: SharedLayerCompositer,
+        global_content: &'a Rc<GlobalContent>,
+        children_layer: Weak<dyn RedrawObject>,
     ) -> Self
     where
         U: ChildrenNodes<Model = T>,
     {
         let updater = EMUpdateContent {
             global_content,
-            parent_layer: children_layer,
+            parent_layer: Some(children_layer),
         };
 
         let refmut = RefMut::map(children_box, |option| match option {
@@ -56,10 +53,7 @@ where
                 .unwrap(),
         });
 
-        Self {
-            model: refmut,
-            layouted: false,
-        }
+        Self(refmut)
     }
 
     pub fn peek_styles<F, Sr>(&self, mut f: F)
@@ -68,16 +62,16 @@ where
         Sr: StyleReader,
     {
         let _ = self
-            .model
+            .0
             .peek_styles(&mut |inside_style_box| f(inside_style_box.read()));
     }
 
-    pub fn layout<F, Sr>(mut self, mut layouter: F) -> Result<()>
+    pub fn layout<F, Sr>(self, mut layouter: F) -> Result<()>
     where
         F: FnMut(Sr) -> Option<Region>,
         Sr: StyleReader,
     {
-        self.model
+        self.0
             .layout(&mut |inside_style_box| layouter(inside_style_box.read()))
     }
 }

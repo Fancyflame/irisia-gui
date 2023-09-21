@@ -1,7 +1,4 @@
-use std::{
-    cell::RefCell,
-    rc::{Rc, Weak},
-};
+use std::{cell::RefCell, rc::Rc};
 
 use anyhow::anyhow;
 use irisia_backend::skia_safe::{
@@ -17,7 +14,6 @@ mod queue;
 pub(crate) mod rebuild;
 
 pub(crate) type SharedLayerCompositer = Rc<RefCell<LayerCompositer>>;
-pub(crate) type WeakLayerCompositer = Weak<RefCell<LayerCompositer>>;
 
 pub(crate) struct LayerCompositer {
     layers: Queue,

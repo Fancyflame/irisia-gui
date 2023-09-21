@@ -30,12 +30,12 @@ impl<'a> LayerRebuilder<'a> {
         self.canvas
     }
 
-    pub(crate) fn new_layer(&mut self, custom_layer: SharedLayerCompositer) -> Result<&mut Canvas> {
+    pub(crate) fn new_layer(&mut self, custom_layer: SharedLayerCompositer) -> Result<()> {
         self.flush()?;
         let matrix = self.canvas.local_to_device();
         self.lc.layers.add_layer(custom_layer, matrix);
         self.canvas.clear(TRANSPARENT);
-        Ok(self.canvas)
+        Ok(())
     }
 
     fn flush(&mut self) -> Result<()> {

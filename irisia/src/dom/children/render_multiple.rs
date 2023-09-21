@@ -69,7 +69,7 @@ where
     El: Element,
 {
     fn visit(&mut self, data: &RcElementModel<El, Sty, Sc>) -> Result<()> {
-        data.render(self.lr, self.interval)
+        data.build_layers(self.lr, self.interval)
     }
 }
 
