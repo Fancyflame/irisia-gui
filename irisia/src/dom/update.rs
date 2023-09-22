@@ -99,6 +99,7 @@ where
         } = updater;
 
         let this = Rc::new_cyclic(|weak: &Weak<ElementModel<_, _, _>>| ElementModel {
+            this: weak.clone(),
             el: RwLock::new(None),
             global_content: global_content.clone(),
             ed: EventDispatcher::new(),
@@ -170,7 +171,7 @@ where
 
         equality_matters
             & self.el_write_clean().el_update(
-                self,
+                &self.this.upgrade().unwrap(),
                 props.set_std_styles(&in_cell.styles),
                 equality_matters,
             )
@@ -180,6 +181,7 @@ where
 impl<'a, El, Pr, Sty, Ch, Oc> SpecificUpdate for ElementModelUpdater<'a, El, Pr, Sty, Ch, Oc>
 where
     El: Element,
+    Sty: StyleContainer,
     Ch: ChildrenNodes,
 {
     type UpdateTo = RcElementModel<El, Sty, Ch::Model>;

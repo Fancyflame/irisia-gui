@@ -3,9 +3,10 @@ use std::{future::Future, rc::Rc};
 use tokio::task::JoinHandle;
 
 use crate::{
-    dom::ElementModel,
+    dom::{ElementModel, RenderMultiple},
     event::{EventReceiver, SubEvent},
-    Event,
+    style::StyleContainer,
+    Element, Event,
 };
 
 pub struct Listen<Eh, T0, T1, T2, T3> {

@@ -1,6 +1,8 @@
 use super::styles::*;
 use irisia::{
-    element::{props::PropsUpdateWith, Element, UpdateElement},
+    element::{
+        props::PropsUpdateWith, AsChildren, Element, ElementUpdate, RcElementModel, RenderElement,
+    },
     primitive::Region,
     skia_safe::{
         font_style::Width,
@@ -14,36 +16,40 @@ use irisia::{
 
 use crate::box_styles::BoxStyleRenderer;
 
-use super::{selection::SelectionRtMgr, OwnedProps, TextBox};
+use super::{/*selection::SelectionRtMgr,*/ OwnedProps, TextBox};
 
 impl Element for TextBox {
     type BlankProps = super::TextBoxProps;
+    fn render(&mut self, content: RenderElement) -> irisia::Result<()> {
+        todo!()
+    }
 }
 
-impl<Pr> UpdateWith<UpdateElement<'_, Self, Pr>> for TextBox
+impl<Pr> ElementUpdate<Pr> for TextBox
 where
-    OwnedProps: PropsUpdateWith<Pr>,
+    OwnedProps: UpdateWith<Pr>,
 {
-    fn create_with(updater: UpdateElement<'_, Self, Pr>) -> Self {
+    fn el_create(
+        model: &RcElementModel<Self, impl StyleContainer, impl AsChildren>,
+        props: Pr,
+    ) -> Self {
         let mut font_collection = FontCollection::new();
         font_collection.set_default_font_manager(FontMgr::new(), None);
         TextBox {
-            props: OwnedProps::props_create_with(updater.props),
+            props: OwnedProps::props_create_with(props),
             font_collection,
             paragraph: None,
             selection: None,
-            selection_rt_mgr: SelectionRtMgr::new(updater.handle.clone_inner()),
+            //selection_rt_mgr: SelectionRtMgr::new(model),
         }
     }
 
-    fn update_with(&mut self, updater: UpdateElement<'_, Self, Pr>, _: bool) -> bool {
+    fn el_update(&mut self, props: Pr, equality_matters: bool) -> bool {
         let update_result = self.props.props_update_with(updater.props);
         if update_result.unchanged {
             return true;
         }
 
         let builder = ParagraphBuilder::new()
-
-        false
     }
 }

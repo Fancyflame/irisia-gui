@@ -33,8 +33,14 @@ pub type RcElementModel<El, Sty, Sc> = Rc<data_structure::ElementModel<El, Sty, 
 impl<El, Sty, Sc> ElementModel<El, Sty, Sc>
 where
     El: Element,
+    Sty: StyleContainer,
+    Sc: RenderMultiple,
 {
-    pub(crate) fn build_layers(&self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()> {
+    pub(crate) fn build_layers(
+        self: &Rc<Self>,
+        lr: &mut LayerRebuilder,
+        interval: Duration,
+    ) -> Result<()> {
         let mut in_cell_ref = self.in_cell.borrow_mut();
         let in_cell = &mut *in_cell_ref;
 
@@ -46,24 +52,23 @@ where
         }
 
         match &in_cell.indep_layer {
-            None => self.el_write_clean().render(RenderElement::new(
-                lr,
-                in_cell
-                    .expanded_children
-                    .as_mut()
-                    .unwrap()
-                    .as_render_multiple(),
-                interval,
-            )),
+            None => self.el_write_clean().render(
+                self,
+                RenderElement::new(
+                    lr,
+                    in_cell
+                        .expanded_children
+                        .as_mut()
+                        .unwrap()
+                        .as_render_multiple(),
+                    interval,
+                ),
+            ),
             Some(il) => lr.new_layer(il.clone()),
         }
     }
 
-    pub(crate) fn set_draw_region(self: &Rc<Self>, region: Region)
-    where
-        Sty: StyleContainer,
-        Sc: children::RenderMultiple,
-    {
+    pub(crate) fn set_draw_region(self: &Rc<Self>, region: Region) {
         self.draw_region.set(region);
         self.el_write_clean().draw_region_changed(self, region);
     }
@@ -124,6 +129,8 @@ fn panic_on_debug(msg: &str) -> Result<()> {
 impl<El, Sty, Sc> RedrawObject for ElementModel<El, Sty, Sc>
 where
     El: Element,
+    Sty: StyleContainer,
+    Sc: RenderMultiple,
 {
     fn redraw(&self, canvas: &mut Canvas, interval: Duration) -> Result<()> {
         let mut in_cell_ref = self.in_cell.borrow_mut();
@@ -137,14 +144,17 @@ where
         };
 
         let mut rebuilder = il.rebuild(canvas);
-        self.el_write_clean().render(RenderElement::new(
-            &mut rebuilder,
-            in_cell
-                .expanded_children
-                .as_mut()
-                .unwrap()
-                .as_render_multiple(),
-            interval,
-        ))
+        self.el_write_clean().render(
+            &self.this.upgrade().unwrap(),
+            RenderElement::new(
+                &mut rebuilder,
+                in_cell
+                    .expanded_children
+                    .as_mut()
+                    .unwrap()
+                    .as_render_multiple(),
+                interval,
+            ),
+        )
     }
 }

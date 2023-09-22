@@ -1,4 +1,4 @@
-use crate::{dom::RenderMultiple, primitive::Region, style::StyleContainer, Result};
+use crate::{dom::RenderMultiple, primitive::Region, Result};
 
 pub use self::render_element::RenderElement;
 pub use crate::{application::content::GlobalContent, dom::RcElementModel};
@@ -6,9 +6,14 @@ pub use crate::{application::content::GlobalContent, dom::RcElementModel};
 pub mod props;
 mod render_element;
 
-macro_rules! ElModel {
+#[macro_export]
+macro_rules! EModel {
     () => {
-        RcElementModel<Self, impl StyleContainer, impl RenderMultiple>
+        &RcElementModel<
+            Self,
+            impl $crate::style::StyleContainer,
+            impl $crate::element::AsChildren
+        >
     };
 }
 
@@ -24,12 +29,15 @@ where
     type BlankProps: Default;
 
     /// Draw to the canvas
-    fn render(&mut self, content: RenderElement) -> Result<()>;
+    fn render(&mut self, this: EModel!(), content: RenderElement) -> Result<()>;
 
-    fn draw_region_changed(&mut self, model: &ElModel!(), draw_region: Region);
+    fn draw_region_changed(&mut self, this: EModel!(), draw_region: Region);
 }
 
-pub trait ElementUpdate<Pr>: Sized {
-    fn el_create(model: &ElModel!(), props: Pr) -> Self;
-    fn el_update(&mut self, model: &ElModel!(), props: Pr, equality_matters: bool) -> bool;
+pub trait ElementUpdate<Pr>: Element + Sized {
+    fn el_create(this: EModel!(), props: Pr) -> Self;
+    fn el_update(&mut self, this: EModel!(), props: Pr, equality_matters: bool) -> bool;
 }
+
+pub trait AsChildren: RenderMultiple {}
+impl<T: RenderMultiple> AsChildren for T {}

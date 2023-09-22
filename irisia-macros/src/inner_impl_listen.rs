@@ -26,7 +26,12 @@ impl ListenOptions {
 
         let em = rc_em();
         quote! {
-            impl<El, Sty, Sc> Listen<&#em, #(#arg_types),*> {
+            impl<El, Sty, Sc> Listen<&#em, #(#arg_types),*>
+            where
+                El: Element,
+                Sty: StyleContainer + 'static,
+                Sc: RenderMultiple + 'static,
+            {
                 pub fn spawn<E, F, #fut_generic>(self, mut f: F) -> JoinHandle<()>
                 #where_clause
                 { #fn_body }
@@ -75,12 +80,7 @@ impl ListenOptions {
     }
 
     fn where_clause(&self) -> WhereClause {
-        let mut tokens = quote! {
-            where
-                El: 'static,
-                Sty: 'static,
-                Sc: 'static,
-        };
+        let mut tokens = quote!(where);
 
         let e_bound = if self.sub_event {
             quote!(SubEvent)

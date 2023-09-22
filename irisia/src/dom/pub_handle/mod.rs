@@ -1,10 +1,5 @@
 use irisia_backend::WinitWindow;
-use std::{
-    cell::RefMut,
-    future::Future,
-    ops::{Deref, DerefMut},
-    rc::Rc,
-};
+use std::{cell::RefMut, future::Future, rc::Rc};
 use tokio::{
     sync::{RwLockMappedWriteGuard, RwLockReadGuard, RwLockWriteGuard},
     task::JoinHandle,
@@ -15,25 +10,30 @@ use crate::{
     structure::slot::Slot, style::StyleContainer, Element, StyleReader,
 };
 
-pub use self::{layout_el::LayoutElements, listen::Listen};
+pub use self::{layout_el::LayoutElements, listen::Listen, write_guard::ElWriteGuard};
 
-use super::{
-    children::ChildrenNodes, data_structure::ElementModel, RcElementModel, RenderMultiple,
-};
+use super::{children::ChildrenNodes, data_structure::ElementModel, RenderMultiple};
 
 mod layout_el;
 mod listen;
+mod write_guard;
 
-impl<El, Sty, Sc> ElementModel<El, Sty, Sc> {
+impl<El, Sty, Sc> ElementModel<El, Sty, Sc>
+where
+    El: Element,
+    Sty: StyleContainer,
+    Sc: RenderMultiple,
+{
     /// Get a write guard without setting dirty
     pub(super) fn el_write_clean(&self) -> RwLockMappedWriteGuard<El> {
         RwLockWriteGuard::map(self.el.blocking_write(), |x| x.as_mut().unwrap())
     }
 
     /// Get a write guard of this element and setting dirty.
-    pub async fn el_write<'a>(self: &'a Rc<Self>) -> ElWriteGuard<'a, El, Sty, Sc>
+    pub async fn el_write<'a>(self: &'a Rc<Self>) -> ElWriteGuard<'a, El, Rc<Self>>
     where
-        El: Element,
+        Sty: 'static,
+        Sc: 'static,
     {
         ElWriteGuard {
             write: RwLockWriteGuard::map(self.el.write().await, |x| x.as_mut().unwrap()),
@@ -63,8 +63,8 @@ impl<El, Sty, Sc> ElementModel<El, Sty, Sc> {
     where
         El: Element,
         Ch: ChildrenNodes,
-        Sty: 'static,
-        Sc: 'static,
+        Sty: StyleContainer + 'static,
+        Sc: RenderMultiple + 'static,
     {
         let children_box = RefMut::map(self.in_cell.borrow_mut(), |x| &mut x.expanded_children);
         LayoutElements::new(
@@ -158,34 +158,5 @@ impl<El, Sty, Sc> ElementModel<El, Sty, Sc> {
     {
         let ed = self.ed.clone();
         tokio::task::spawn_local(async move { ed.cancel_on_abandoned(fut).await })
-    }
-}
-
-pub struct ElWriteGuard<'a, El, Sty, Sc>
-where
-    El: Element,
-    Sty: 'static,
-    Sc: 'static,
-{
-    write: RwLockMappedWriteGuard<'a, El>,
-    set_dirty: &'a RcElementModel<El, Sty, Sc>,
-}
-
-impl<El: Element, Sty, Sc> Deref for ElWriteGuard<'_, El, Sty, Sc> {
-    type Target = El;
-    fn deref(&self) -> &Self::Target {
-        &self.write
-    }
-}
-
-impl<El: Element, Sty, Sc> DerefMut for ElWriteGuard<'_, El, Sty, Sc> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.write
-    }
-}
-
-impl<El: Element, Sty, Sc> Drop for ElWriteGuard<'_, El, Sty, Sc> {
-    fn drop(&mut self) {
-        self.set_dirty.set_dirty();
     }
 }

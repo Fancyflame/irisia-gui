@@ -16,10 +16,10 @@ use irisia::{
 };
 use styles::*;
 
-use self::selection::SelectionRtMgr;
+//use self::selection::SelectionRtMgr;
 
 mod el;
-mod selection;
+//mod selection;
 pub mod styles;
 
 pub struct TextBox {
@@ -27,7 +27,7 @@ pub struct TextBox {
     font_collection: FontCollection,
     paragraph: Option<Paragraph>,
     selection: Option<Range<usize>>,
-    selection_rt_mgr: SelectionRtMgr,
+    //selection_rt_mgr: SelectionRtMgr,
 }
 
 #[derive(PartialEq)]

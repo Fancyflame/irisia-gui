@@ -12,11 +12,19 @@ use crate::{
     event::EventDispatcher,
     primitive::Region,
     structure::slot::Slot,
+    style::StyleContainer,
+    Element,
 };
 
-use super::{children::ChildrenBox, layer::SharedLayerCompositer};
+use super::{children::ChildrenBox, layer::SharedLayerCompositer, RenderMultiple};
 
-pub struct ElementModel<El, Sty, Sc> {
+pub struct ElementModel<El, Sty, Sc>
+where
+    El: Element,
+    Sty: StyleContainer,
+    Sc: RenderMultiple,
+{
+    pub(super) this: Weak<Self>,
     pub(super) el: RwLock<Option<El>>,
     pub(super) global_content: Rc<GlobalContent>,
     pub(super) ed: EventDispatcher,

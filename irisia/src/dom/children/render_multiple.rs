@@ -67,6 +67,8 @@ struct RenderHelper<'a, 'lr> {
 impl<El, Sty, Sc> Visitor<RcElementModel<El, Sty, Sc>> for RenderHelper<'_, '_>
 where
     El: Element,
+    Sty: StyleContainer,
+    Sc: RenderMultiple,
 {
     fn visit(&mut self, data: &RcElementModel<El, Sty, Sc>) -> Result<()> {
         data.build_layers(self.lr, self.interval)
@@ -98,6 +100,7 @@ impl<El, Sty, Sc> Visitor<RcElementModel<El, Sty, Sc>> for PeekStyles<'_>
 where
     El: Element,
     Sty: StyleContainer,
+    Sc: RenderMultiple,
 {
     fn visit(&mut self, data: &RcElementModel<El, Sty, Sc>) -> Result<()> {
         (self.0)(&data.in_cell.borrow().styles);
@@ -113,6 +116,8 @@ struct EmitEventHelper<'a, 'root> {
 impl<El, Sty, Sc> Visitor<RcElementModel<El, Sty, Sc>> for EmitEventHelper<'_, '_>
 where
     El: Element,
+    Sty: StyleContainer,
+    Sc: RenderMultiple,
 {
     fn visit(&mut self, data: &RcElementModel<El, Sty, Sc>) -> Result<()> {
         *self.children_entered |= data.emit_event(self.npe);
