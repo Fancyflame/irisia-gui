@@ -30,20 +30,24 @@ where
     }
 
     /// Get a write guard of this element and setting dirty.
-    pub async fn el_write<'a>(self: &'a Rc<Self>) -> ElWriteGuard<'a, El, Rc<Self>>
+    /// `None` if this element will no longer used.
+    pub async fn el_write<'a>(self: &'a Rc<Self>) -> Option<ElWriteGuard<'a, El, Rc<Self>>>
     where
         Sty: 'static,
         Sc: 'static,
     {
-        ElWriteGuard {
-            write: RwLockWriteGuard::map(self.el.write().await, |x| x.as_mut().unwrap()),
-            set_dirty: self,
-        }
+        RwLockWriteGuard::try_map(self.el.write().await, |x| x.as_mut())
+            .ok()
+            .map(|guard| ElWriteGuard {
+                write: guard,
+                set_dirty: self,
+            })
     }
 
     /// Get a read guard of this element and dirty flag is not affected.
-    pub async fn el_read(&self) -> RwLockReadGuard<El> {
-        RwLockReadGuard::map(self.el.read().await, |x| x.as_ref().unwrap())
+    /// `None` if this element will no longer used.
+    pub async fn el_read(&self) -> Option<RwLockReadGuard<El>> {
+        RwLockReadGuard::try_map(self.el.read().await, |x| x.as_ref()).ok()
     }
 
     /// Listen event with options

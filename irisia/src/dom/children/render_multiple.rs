@@ -4,7 +4,7 @@ use anyhow::anyhow;
 
 use crate::{
     application::event_comp::NewPointerEvent,
-    dom::{layer::LayerRebuilder, RcElementModel},
+    dom::{layer::LayerRebuilder, DropProtection},
     element::Element,
     primitive::Region,
     structure::{Visit, Visitor},
@@ -64,26 +64,26 @@ struct RenderHelper<'a, 'lr> {
     interval: Duration,
 }
 
-impl<El, Sty, Sc> Visitor<RcElementModel<El, Sty, Sc>> for RenderHelper<'_, '_>
+impl<El, Sty, Sc> Visitor<DropProtection<El, Sty, Sc>> for RenderHelper<'_, '_>
 where
     El: Element,
     Sty: StyleContainer,
     Sc: RenderMultiple,
 {
-    fn visit(&mut self, data: &RcElementModel<El, Sty, Sc>) -> Result<()> {
+    fn visit(&mut self, data: &DropProtection<El, Sty, Sc>) -> Result<()> {
         data.build_layers(self.lr, self.interval)
     }
 }
 
 struct LayoutHelper<'a>(&'a mut dyn FnMut(&dyn InsideStyleBox) -> Option<Region>);
 
-impl<El, Sty, Sc> Visitor<RcElementModel<El, Sty, Sc>> for LayoutHelper<'_>
+impl<El, Sty, Sc> Visitor<DropProtection<El, Sty, Sc>> for LayoutHelper<'_>
 where
     El: Element,
     Sty: StyleContainer,
     Sc: RenderMultiple,
 {
-    fn visit(&mut self, data: &RcElementModel<El, Sty, Sc>) -> Result<()> {
+    fn visit(&mut self, data: &DropProtection<El, Sty, Sc>) -> Result<()> {
         match (self.0)(&data.in_cell.borrow().styles) {
             Some(region) => {
                 data.set_draw_region(region);
@@ -96,13 +96,13 @@ where
 
 struct PeekStyles<'a>(&'a mut dyn FnMut(&dyn InsideStyleBox));
 
-impl<El, Sty, Sc> Visitor<RcElementModel<El, Sty, Sc>> for PeekStyles<'_>
+impl<El, Sty, Sc> Visitor<DropProtection<El, Sty, Sc>> for PeekStyles<'_>
 where
     El: Element,
     Sty: StyleContainer,
     Sc: RenderMultiple,
 {
-    fn visit(&mut self, data: &RcElementModel<El, Sty, Sc>) -> Result<()> {
+    fn visit(&mut self, data: &DropProtection<El, Sty, Sc>) -> Result<()> {
         (self.0)(&data.in_cell.borrow().styles);
         Ok(())
     }
@@ -113,13 +113,13 @@ struct EmitEventHelper<'a, 'root> {
     children_entered: &'a mut bool,
 }
 
-impl<El, Sty, Sc> Visitor<RcElementModel<El, Sty, Sc>> for EmitEventHelper<'_, '_>
+impl<El, Sty, Sc> Visitor<DropProtection<El, Sty, Sc>> for EmitEventHelper<'_, '_>
 where
     El: Element,
     Sty: StyleContainer,
     Sc: RenderMultiple,
 {
-    fn visit(&mut self, data: &RcElementModel<El, Sty, Sc>) -> Result<()> {
+    fn visit(&mut self, data: &DropProtection<El, Sty, Sc>) -> Result<()> {
         *self.children_entered |= data.emit_event(self.npe);
         Ok(())
     }

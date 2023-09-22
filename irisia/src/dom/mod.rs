@@ -19,11 +19,14 @@ use self::{
     layer::{LayerCompositer, LayerRebuilder},
 };
 
-pub(crate) use self::{children::RenderMultiple, update::EMUpdateContent};
+pub(crate) use self::{
+    children::RenderMultiple, drop_protection::DropProtection, update::EMUpdateContent,
+};
 pub use self::{data_structure::ElementModel, update::add_one};
 
 pub(crate) mod children;
 mod data_structure;
+mod drop_protection;
 pub(crate) mod layer;
 pub mod pub_handle;
 pub(crate) mod update;
@@ -116,6 +119,17 @@ where
             },
         }
     }
+
+    fn set_no_longer_use(self: &Rc<Self>)
+    where
+        Sty: 'static,
+        Sc: 'static,
+    {
+        let this = self.clone();
+        tokio::task::spawn_local(async move {
+            this.el.write().await.take();
+        });
+    }
 }
 
 fn panic_on_debug(msg: &str) -> Result<()> {
@@ -129,8 +143,8 @@ fn panic_on_debug(msg: &str) -> Result<()> {
 impl<El, Sty, Sc> RedrawObject for ElementModel<El, Sty, Sc>
 where
     El: Element,
-    Sty: StyleContainer,
-    Sc: RenderMultiple,
+    Sty: StyleContainer + 'static,
+    Sc: RenderMultiple + 'static,
 {
     fn redraw(&self, canvas: &mut Canvas, interval: Duration) -> Result<()> {
         let mut in_cell_ref = self.in_cell.borrow_mut();

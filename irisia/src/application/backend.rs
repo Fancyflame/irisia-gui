@@ -8,8 +8,8 @@ use irisia_backend::{
 };
 
 use crate::{
-    dom::{add_one, update::ElementModelUpdater, EMUpdateContent},
-    element::{Element, ElementUpdate, RcElementModel},
+    dom::{add_one, update::ElementModelUpdater, DropProtection, EMUpdateContent},
+    element::{Element, ElementUpdate},
     event::EventDispatcher,
     primitive::{Pixel, Point, Region},
     update_with::UpdateWith,
@@ -26,7 +26,7 @@ use super::{
 pub(super) struct BackendRuntime<El: Element> {
     gem: GlobalEventMgr,
     gc: Rc<GlobalContent>,
-    root_element: RcElementModel<El, (), ()>,
+    root_element: DropProtection<El, (), ()>,
 }
 
 impl<El> AppWindow for BackendRuntime<El>
@@ -90,7 +90,7 @@ where
                 close_handle,
             });
 
-            let root_element = <RcElementModel<El, (), ()> as UpdateWith<
+            let root_element = <DropProtection<El, (), ()> as UpdateWith<
                 ElementModelUpdater<'_, El, (), (), (), _>,
             >>::create_with(ElementModelUpdater {
                 add_one: add_one((), (), (), |_: &_| {}),

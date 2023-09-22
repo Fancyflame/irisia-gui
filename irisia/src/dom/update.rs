@@ -18,8 +18,8 @@ use crate::{
 };
 
 use super::{
-    children::ChildrenNodes, data_structure::InsideRefCell, layer::LayerCompositer, ElementModel,
-    RcElementModel,
+    children::ChildrenNodes, data_structure::InsideRefCell, layer::LayerCompositer, DropProtection,
+    ElementModel, RcElementModel,
 };
 
 // add one
@@ -73,7 +73,7 @@ impl<'a, El, Pr, Sty, Ch, Oc> MapVisitor<AddOne<El, Pr, Sty, Ch, Oc>> for EMUpda
 // impl update
 
 impl<El, Pr, Sty, Ch, Oc> UpdateWith<ElementModelUpdater<'_, El, Pr, Sty, Ch, Oc>>
-    for Rc<ElementModel<El, Sty, Ch::Model>>
+    for DropProtection<El, Sty, Ch::Model>
 where
     Pr: for<'sty> SetStdStyles<'sty, Sty>,
     El: Element + for<'sty> ElementUpdate<<Pr as SetStdStyles<'sty, Sty>>::Output>,
@@ -132,7 +132,7 @@ where
         drop(write);
 
         on_create(&this);
-        this
+        DropProtection(this)
     }
 
     fn update_with(
