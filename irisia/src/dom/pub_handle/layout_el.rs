@@ -5,7 +5,9 @@ use crate::{
 };
 
 #[must_use]
-pub struct LayoutElements<'a>(pub(super) RefMut<'a, dyn RenderMultiple>);
+pub struct LayoutElements<'a> {
+    pub(super) refmut: RefMut<'a, dyn RenderMultiple>,
+}
 
 impl<'a> LayoutElements<'a> {
     pub fn peek_styles<F, Sr>(&self, mut f: F)
@@ -14,8 +16,12 @@ impl<'a> LayoutElements<'a> {
         Sr: StyleReader,
     {
         let _ = self
-            .0
+            .refmut
             .peek_styles(&mut |inside_style_box| f(inside_style_box.read()));
+    }
+
+    pub fn len(&self) -> usize {
+        self.refmut.len()
     }
 
     pub fn layout<F, Sr>(self, mut layouter: F) -> Result<()>
@@ -23,7 +29,7 @@ impl<'a> LayoutElements<'a> {
         F: FnMut(Sr) -> Option<Region>,
         Sr: StyleReader,
     {
-        self.0
+        self.refmut
             .layout(&mut |inside_style_box| layouter(inside_style_box.read()))
     }
 

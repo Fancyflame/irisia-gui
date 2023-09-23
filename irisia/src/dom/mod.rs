@@ -62,8 +62,7 @@ where
                     in_cell
                         .expanded_children
                         .as_mut()
-                        .unwrap()
-                        .as_render_multiple(),
+                        .map(|cb| cb.as_render_multiple()),
                     interval,
                 ),
             ),
@@ -77,6 +76,7 @@ where
         }
         self.draw_region.set(region);
         self.el_write_clean().draw_region_changed(self, region);
+        self.set_dirty();
     }
 
     pub(crate) fn composite(&self, canvas: &mut Canvas) -> Result<()> {
@@ -123,13 +123,14 @@ where
         }
     }
 
-    fn set_no_longer_use(self: &Rc<Self>)
+    fn set_abandoned(self: &Rc<Self>)
     where
         Sty: 'static,
         Sc: 'static,
     {
         let this = self.clone();
         tokio::task::spawn_local(async move {
+            this.el_alive.set(false);
             this.el.write().await.take();
         });
     }
@@ -168,8 +169,7 @@ where
                 in_cell
                     .expanded_children
                     .as_mut()
-                    .unwrap()
-                    .as_render_multiple(),
+                    .map(|cb| cb.as_render_multiple()),
                 interval,
             ),
         )

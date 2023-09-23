@@ -4,7 +4,7 @@ use super::{RcElementModel, RenderMultiple};
 
 use std::ops::Deref;
 
-pub(crate) struct DropProtection<El, Sty, Sc>(pub RcElementModel<El, Sty, Sc>)
+pub struct DropProtection<El, Sty, Sc>(pub RcElementModel<El, Sty, Sc>)
 where
     El: Element,
     Sty: StyleContainer + 'static,
@@ -29,6 +29,6 @@ where
     Sc: RenderMultiple + 'static,
 {
     fn drop(&mut self) {
-        self.0.set_no_longer_use();
+        self.0.set_abandoned();
     }
 }

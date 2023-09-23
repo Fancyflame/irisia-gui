@@ -19,7 +19,7 @@ use crate::{
 
 use super::{
     children::ChildrenNodes, data_structure::InsideRefCell, layer::LayerCompositer, DropProtection,
-    ElementModel, RcElementModel,
+    ElementModel,
 };
 
 // add one
@@ -101,6 +101,7 @@ where
         let this = Rc::new_cyclic(|weak: &Weak<ElementModel<_, _, _>>| ElementModel {
             this: weak.clone(),
             el: RwLock::new(None),
+            el_alive: Cell::new(true),
             global_content: global_content.clone(),
             ed: EventDispatcher::new(),
             in_cell: RefCell::new(InsideRefCell {
@@ -131,6 +132,7 @@ where
         drop(write);
 
         on_create(&this);
+        this.set_dirty();
         DropProtection(this)
     }
 
@@ -183,8 +185,8 @@ where
 impl<'a, El, Pr, Sty, Ch, Oc> SpecificUpdate for ElementModelUpdater<'a, El, Pr, Sty, Ch, Oc>
 where
     El: Element,
-    Sty: StyleContainer,
+    Sty: StyleContainer + 'static,
     Ch: ChildrenNodes,
 {
-    type UpdateTo = RcElementModel<El, Sty, Ch::Model>;
+    type UpdateTo = DropProtection<El, Sty, Ch::Model>;
 }

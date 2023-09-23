@@ -22,6 +22,7 @@ impl<'a> LayerRebuilder<'a> {
     }
 
     pub(crate) fn draw_in_place(&mut self) -> &mut Canvas {
+        println!("draw in place");
         if self.dirty {
             self.canvas.restore();
         }
@@ -44,6 +45,7 @@ impl<'a> LayerRebuilder<'a> {
         }
 
         let bitmap = self.lc.layers.add_bitmap(&self.canvas.image_info());
+        dbg!(bitmap.width(), bitmap.height());
         if !self.canvas.read_pixels_to_bitmap(bitmap, (0, 0)) {
             self.lc.layers.pop();
             return Err(anyhow!("cannot flush canvas content"));

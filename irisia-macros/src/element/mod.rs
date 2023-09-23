@@ -22,7 +22,7 @@ impl Codegen for ElementCodegen {
 
     fn repetitive_applicate(iter: impl ToTokens) -> TokenStream {
         quote! {
-            irisia::structure::Repeat::new(#iter)
+            irisia::structure::Repeat(#iter)
         }
     }
 

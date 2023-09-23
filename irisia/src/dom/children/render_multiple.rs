@@ -7,7 +7,7 @@ use crate::{
     dom::{layer::LayerRebuilder, DropProtection},
     element::Element,
     primitive::Region,
-    structure::{Visit, Visitor},
+    structure::{Visit, VisitLen, Visitor},
     style::{style_box::InsideStyleBox, StyleContainer},
     Result,
 };
@@ -16,6 +16,8 @@ pub trait RenderMultiple: 'static {
     fn render(&self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()>;
 
     fn peek_styles(&self, f: &mut dyn FnMut(&dyn InsideStyleBox));
+
+    fn len(&self) -> usize;
 
     fn layout(&self, f: &mut dyn FnMut(&dyn InsideStyleBox) -> Option<Region>) -> Result<()>;
 
@@ -38,6 +40,10 @@ where
 
     fn peek_styles(&self, f: &mut dyn FnMut(&dyn InsideStyleBox)) {
         let _ = self.visit(&mut PeekStyles(f));
+    }
+
+    fn len(&self) -> usize {
+        VisitLen::len(self)
     }
 
     fn layout(&self, f: &mut dyn FnMut(&dyn InsideStyleBox) -> Option<Region>) -> Result<()> {
@@ -84,7 +90,8 @@ where
     Sc: RenderMultiple,
 {
     fn visit(&mut self, data: &DropProtection<El, Sty, Sc>) -> Result<()> {
-        match (self.0)(&data.in_cell.borrow().styles) {
+        let region = (self.0)(&data.in_cell.borrow().styles);
+        match region {
             Some(region) => {
                 data.set_draw_region(region);
                 Ok(())

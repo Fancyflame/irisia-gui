@@ -1,9 +1,9 @@
 use crate::{dom::RenderMultiple, primitive::Region, Result};
 
-pub use self::render_element::RenderElement;
+pub use self::{props::PropsUpdateWith, render_element::RenderElement};
 pub use crate::{
     application::content::GlobalContent,
-    dom::{one_child, RcElementModel},
+    dom::{one_child, pub_handle::LayoutElements, RcElementModel},
 };
 
 pub mod props;

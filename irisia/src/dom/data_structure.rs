@@ -26,6 +26,7 @@ where
 {
     pub(super) this: Weak<Self>,
     pub(super) el: RwLock<Option<El>>,
+    pub(super) el_alive: Cell<bool>,
     pub(super) global_content: Rc<GlobalContent>,
     pub(super) ed: EventDispatcher,
     pub(super) slot_cache: Slot<Sc>,

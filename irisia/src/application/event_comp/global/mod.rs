@@ -76,7 +76,7 @@ fn emit_physical_pointer_event(
         }),
         (PointerStateChange::Unchange, Some(position)) => ed.emit_sys(PointerMove {
             is_current: false,
-            delta: delta.unwrap(),
+            delta: delta.unwrap_or_default(),
             position,
         }),
         (PointerStateChange::Release, Some(position)) => ed.emit_sys(PointerUp {
@@ -84,7 +84,7 @@ fn emit_physical_pointer_event(
             position,
         }),
         (PointerStateChange::LeaveViewport, None) => ed.emit_sys(PointerOut),
-        _ => unreachable!("unexpected new-pointer-state and optioned position combination"),
+        _ => {} //unreachable!("unexpected new-pointer-state and optioned position combination")},
     }
 }
 

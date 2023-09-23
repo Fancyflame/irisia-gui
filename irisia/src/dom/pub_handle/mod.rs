@@ -54,15 +54,16 @@ where
         RwLockReadGuard::try_map(self.el.read().await, |x| x.as_ref()).ok()
     }
 
+    pub fn alive(&self) -> bool {
+        self.el_alive.take()
+    }
+
     /// Listen event with options
     pub fn listen<'a>(self: &'a Rc<Self>) -> Listen<&'a Rc<Self>, (), (), (), ()> {
         Listen::new(self)
     }
 
-    pub fn slot(&self) -> impl ChildrenNodes + '_
-    where
-        Slot<Sc>: RenderMultiple,
-    {
+    pub fn slot(&self) -> impl ChildrenNodes + '_ {
         &self.slot_cache
     }
 
@@ -108,13 +109,17 @@ where
     }
 
     /// Set dirty flag to `true`.
-    pub fn set_dirty(self: &Rc<Self>)
+    pub fn set_dirty(&self)
     where
         El: Element,
         Sty: 'static,
         Sc: 'static,
     {
-        self.global_content.request_redraw(self.clone())
+        self.global_content.request_redraw(
+            self.get_children_layer(&self.in_cell.borrow())
+                .upgrade()
+                .expect("parent layer unexpectedly dropped"),
+        )
     }
 
     /// Query whether independent layer was acquired.
@@ -151,7 +156,12 @@ where
         tokio::task::spawn_local(async move { ed.cancel_on_abandoned(fut).await })
     }
 
-    pub fn layout_children(&self) -> Option<LayoutElements> {
+    pub fn layout_children(&self) -> Option<LayoutElements>
+    where
+        Sty: 'static,
+        Sc: 'static,
+    {
+        self.set_dirty();
         RefMut::filter_map(self.in_cell.borrow_mut(), |in_cell| {
             in_cell
                 .expanded_children
@@ -159,7 +169,7 @@ where
                 .map(|x| x.as_render_multiple())
         })
         .ok()
-        .map(LayoutElements)
+        .map(|refmut| LayoutElements { refmut })
     }
 
     pub fn set_children<'a, Ch>(self: &'a Rc<Self>, children: Ch) -> LayoutElements<'a>
@@ -169,6 +179,7 @@ where
         Sty: StyleContainer + 'static,
         Sc: RenderMultiple + 'static,
     {
+        self.set_dirty();
         let in_cell = self.in_cell.borrow_mut();
 
         let updater = EMUpdateContent {
@@ -197,6 +208,6 @@ where
                 .unwrap(),
         });
 
-        LayoutElements(refmut)
+        LayoutElements { refmut }
     }
 }

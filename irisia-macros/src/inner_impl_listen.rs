@@ -48,7 +48,7 @@ impl ListenOptions {
         };
 
         let spwan_task = if self.asyn {
-            quote!(tokio::task::spawn_local(f(result, &obj)))
+            quote!(tokio::task::spawn_local(f(result, obj.clone())))
         } else {
             quote!(f(result, &obj))
         };
@@ -57,6 +57,9 @@ impl ListenOptions {
             quote! {
                 let mut receiver = EventReceiver::EventDispatcher(&obj.ed);
                 let result = #recv_method;
+                if !obj.alive() {
+                    return;
+                }
                 #spwan_task;
             }
         } else {
@@ -64,6 +67,9 @@ impl ListenOptions {
                 let mut receiver = EventReceiver::Lock(obj.ed.lock());
                 loop {
                     let result = #recv_method;
+                    if !obj.alive() {
+                        return;
+                    }
                     #spwan_task;
                 }
             }
@@ -98,8 +104,8 @@ impl ListenOptions {
         let f_bound = match (self.once, self.asyn) {
             (false, false) => quote!(FnMut(E, &#element_model)),
             (true, false) => quote!(FnOnce(E, &#element_model)),
-            (false, true) => quote!(FnMut(E, &#element_model) -> Ret),
-            (true, true) => quote!(FnOnce(E, &#element_model) -> Ret),
+            (false, true) => quote!(FnMut(E, #element_model) -> Ret),
+            (true, true) => quote!(FnOnce(E, #element_model) -> Ret),
         };
         tokens.extend(quote!(F: #f_bound + 'static,));
 

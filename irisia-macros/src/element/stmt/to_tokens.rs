@@ -22,7 +22,7 @@ impl ToTokens for ElementStmt {
             None => quote!(()),
         };
         let children = stmts_to_tokens(children);
-        let oncreate = oncreate.clone().unwrap_or_else(|| parse_quote!(|_| {}));
+        let oncreate = oncreate.clone().unwrap_or_else(|| parse_quote!(|_: &_| {}));
 
         quote! {
             irisia::structure::Once(

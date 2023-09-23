@@ -53,6 +53,7 @@ impl Element for TextBox {
     type BlankProps = TextBoxProps;
 
     fn render(&mut self, this: ElModel!(), mut content: RenderElement) -> irisia::Result<()> {
+        dbg!("text render");
         let draw_region = this.draw_region();
 
         if let Some(para) = &self.paragraph {

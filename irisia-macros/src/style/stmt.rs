@@ -1,7 +1,8 @@
 use case::CaseExt;
 use quote::{quote, ToTokens};
 use syn::{
-    parse::Parse, parse_quote, Error, Expr, ExprLit, Ident, Lit, Result, Token, Type, TypePath,
+    parse::Parse, parse_quote, visit_mut::VisitMut, Error, Expr, ExprLit, Ident, Lit, Result,
+    Token, Type, TypePath,
 };
 
 use crate::expr::{StateExpr, VisitUnit};
@@ -52,7 +53,7 @@ impl Parse for StyleStmt {
         loop {
             if !input.peek(Token![.]) && !input.peek(Token![;]) {
                 let mut arg = input.parse()?;
-                special_lit(&mut arg)?;
+                special_lit(&mut arg);
                 args.push(arg);
                 if input.peek(Token![,]) {
                     input.parse::<Token![,]>()?;
@@ -103,7 +104,7 @@ impl Parse for OptionArg {
                 None
             } else {
                 let mut e = input.parse()?;
-                special_lit(&mut e)?;
+                special_lit(&mut e);
                 Some(e)
             },
         };
@@ -167,25 +168,33 @@ impl ToTokens for StyleStmt {
     }
 }
 
-fn special_lit(expr: &mut Expr) -> Result<()> {
-    if let Expr::Lit(ExprLit { lit, .. }) = expr {
-        match lit {
-            Lit::Int(lit_int) if lit_int.suffix() == "px" => {
-                let val = lit_int.base10_parse::<u32>()? as f32;
-                *expr = parse_quote!(irisia::primitive::Pixel(#val));
+fn special_lit(expr: &mut Expr) {
+    struct LitReplacer;
+    impl VisitMut for LitReplacer {
+        fn visit_expr_mut(&mut self, expr: &mut Expr) {
+            if let Expr::Lit(ExprLit { lit, .. }) = expr {
+                match lit {
+                    Lit::Int(lit_int) if lit_int.suffix() == "px" => {
+                        let val = lit_int.base10_parse::<u32>().unwrap() as f32;
+                        *expr = parse_quote!(irisia::primitive::Pixel(#val));
+                    }
+                    Lit::Float(lit_float) if lit_float.suffix() == "px" => {
+                        let val = lit_float.base10_parse::<f32>().unwrap();
+                        *expr = parse_quote!(irisia::primitive::Pixel(#val));
+                    }
+                    Lit::Float(lit_float) if lit_float.suffix() == "pct" => {
+                        let val = lit_float.base10_parse::<f32>().unwrap() / 100.0;
+                        *expr = parse_quote!(#val);
+                    }
+                    _ => {}
+                }
+            } else {
+                syn::visit_mut::visit_expr_mut(&mut LitReplacer, expr);
             }
-            Lit::Float(lit_float) if lit_float.suffix() == "px" => {
-                let val = lit_float.base10_parse::<f32>()?;
-                *expr = parse_quote!(irisia::primitive::Pixel(#val));
-            }
-            Lit::Float(lit_float) if lit_float.suffix() == "pct" => {
-                let val = lit_float.base10_parse::<f32>()? / 100.0;
-                *expr = parse_quote!(#val);
-            }
-            _ => {}
         }
     }
-    Ok(())
+
+    LitReplacer::visit_expr_mut(&mut LitReplacer, expr);
 }
 
 pub fn handle_style_follow(stmts: &mut [StateExpr<StyleCodegen>]) -> Result<()> {

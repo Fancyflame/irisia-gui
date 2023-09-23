@@ -4,36 +4,49 @@ use crate::{
 
 use super::RenderMultiple;
 
-pub trait ChildrenNodes: Sized {
+pub trait ChildrenNodes
+where
+    Self: for<'a> Helper<'a, HelperModel = Self::Model>,
+{
     type Model: RenderMultiple;
+}
 
-    fn create_model<'a>(self, updater: EMUpdateContent) -> Self::Model;
-    fn update_model<'a>(
+impl<T, M> ChildrenNodes for T
+where
+    T: for<'a> Helper<'a, HelperModel = M>,
+    M: RenderMultiple,
+{
+    type Model = M;
+}
+
+pub trait Helper<'a>: Sized {
+    type HelperModel: RenderMultiple;
+
+    fn create_model(self, updater: EMUpdateContent<'a>) -> Self::HelperModel;
+    fn update_model(
         self,
-        model: &mut Self::Model,
-        updater: EMUpdateContent,
+        model: &mut Self::HelperModel,
+        updater: EMUpdateContent<'a>,
         equality_matters: &mut bool,
     );
 }
 
-type MapOutput<'a, T> = <T as MapVisit<EMUpdateContent<'a>>>::Output;
-
-impl<T, M> ChildrenNodes for T
+impl<'a, T, M> Helper<'a> for T
 where
-    T: for<'a> MapVisit<EMUpdateContent<'a>>,
-    for<'a> MapOutput<'a, T>: SpecificUpdate<UpdateTo = M>,
-    M: RenderMultiple + for<'a> UpdateWith<MapOutput<'a, T>> + 'static,
+    T: MapVisit<EMUpdateContent<'a>>,
+    T::Output: SpecificUpdate<UpdateTo = M>,
+    M: RenderMultiple + UpdateWith<T::Output> + 'static,
 {
-    type Model = M;
+    type HelperModel = M;
 
-    fn create_model<'a>(self, updater: EMUpdateContent) -> Self::Model {
+    fn create_model(self, updater: EMUpdateContent<'a>) -> Self::HelperModel {
         M::create_with(self.map(&updater))
     }
 
-    fn update_model<'a>(
+    fn update_model(
         self,
-        model: &mut Self::Model,
-        updater: EMUpdateContent,
+        model: &mut Self::HelperModel,
+        updater: EMUpdateContent<'a>,
         equality_matters: &mut bool,
     ) {
         *equality_matters &= model.update_with(self.map(&updater), *equality_matters);
