@@ -40,7 +40,7 @@ pub use reader::StyleReader;
 
 pub trait Style: Clone + 'static {}
 
-#[derive(Debug, DeriveStyle, Clone, PartialEq)]
+#[derive(Debug, DeriveStyle, Clone, Copy, PartialEq)]
 #[style(from)]
 pub struct StyleColor(pub Color);
 

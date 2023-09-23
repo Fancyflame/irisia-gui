@@ -10,14 +10,14 @@ use crate::{
 
 pub struct RenderElement<'a, 'lr> {
     lr: &'a mut LayerRebuilder<'lr>,
-    children: Option<&'a mut dyn RenderMultiple>,
+    children: Option<Option<&'a mut dyn RenderMultiple>>,
     interval: Duration,
 }
 
 impl<'a, 'lr> RenderElement<'a, 'lr> {
     pub(crate) fn new(
         lr: &'a mut LayerRebuilder<'lr>,
-        children: &'a mut dyn RenderMultiple,
+        children: Option<&'a mut dyn RenderMultiple>,
         interval: Duration,
     ) -> Self {
         RenderElement {
@@ -31,13 +31,16 @@ impl<'a, 'lr> RenderElement<'a, 'lr> {
         self.interval
     }
 
-    pub fn render_children(&mut self) -> Result<&mut Self> {
+    pub fn render_children(&mut self) -> Result<()> {
         match self.children.take() {
-            Some(c) => {
-                c.render(self.lr, self.interval)?;
-                Ok(self)
+            Some(children) => {
+                if let Some(c) = children {
+                    c.render(self.lr, self.interval)
+                } else {
+                    Ok(())
+                }
             }
-            None => Err(anyhow!("children cannot be rendered twice")),
+            None => Err(anyhow!("children cannot be rendered more than once")),
         }
     }
 

@@ -18,8 +18,8 @@ use crate::{
 };
 
 use super::{
-    children::ChildrenNodes, data_structure::InsideRefCell, layer::LayerCompositer, ElementModel,
-    RcElementModel,
+    children::ChildrenNodes, data_structure::InsideRefCell, layer::LayerCompositer, DropProtection,
+    ElementModel,
 };
 
 // add one
@@ -32,7 +32,7 @@ pub struct AddOne<El, Pr, Sty, Ch, Oc> {
     pub(crate) on_create: Oc,
 }
 
-pub fn add_one<El, Pr, Sty, Ch, Oc>(
+pub fn one_child<El, Pr, Sty, Ch, Oc>(
     props: Pr,
     styles: Sty,
     children: Ch,
@@ -73,7 +73,7 @@ impl<'a, El, Pr, Sty, Ch, Oc> MapVisitor<AddOne<El, Pr, Sty, Ch, Oc>> for EMUpda
 // impl update
 
 impl<El, Pr, Sty, Ch, Oc> UpdateWith<ElementModelUpdater<'_, El, Pr, Sty, Ch, Oc>>
-    for Rc<ElementModel<El, Sty, Ch::Model>>
+    for DropProtection<El, Sty, Ch::Model>
 where
     Pr: for<'sty> SetStdStyles<'sty, Sty>,
     El: Element + for<'sty> ElementUpdate<<Pr as SetStdStyles<'sty, Sty>>::Output>,
@@ -101,6 +101,7 @@ where
         let this = Rc::new_cyclic(|weak: &Weak<ElementModel<_, _, _>>| ElementModel {
             this: weak.clone(),
             el: RwLock::new(None),
+            el_alive: Cell::new(true),
             global_content: global_content.clone(),
             ed: EventDispatcher::new(),
             in_cell: RefCell::new(InsideRefCell {
@@ -125,14 +126,14 @@ where
 
         // hold the lock prevent from being accessed
         let mut write = this.el.blocking_write();
-        *write = Some(El::el_create(
-            &this,
-            props.set_std_styles(&this.in_cell.borrow().styles),
-        ));
+        let el = El::el_create(&this, props.set_std_styles(&this.in_cell.borrow().styles));
+        el.set_children(&this);
+        *write = Some(el);
         drop(write);
 
         on_create(&this);
-        this
+        this.set_dirty();
+        DropProtection(this)
     }
 
     fn update_with(
@@ -169,20 +170,23 @@ where
             &mut equality_matters,
         );
 
-        equality_matters
-            & self.el_write_clean().el_update(
+        let mut el = self.el_write_clean();
+        let unchanged = equality_matters
+            & el.el_update(
                 &self.this.upgrade().unwrap(),
                 props.set_std_styles(&in_cell.styles),
                 equality_matters,
-            )
+            );
+        el.set_children(self);
+        unchanged
     }
 }
 
 impl<'a, El, Pr, Sty, Ch, Oc> SpecificUpdate for ElementModelUpdater<'a, El, Pr, Sty, Ch, Oc>
 where
     El: Element,
-    Sty: StyleContainer,
+    Sty: StyleContainer + 'static,
     Ch: ChildrenNodes,
 {
-    type UpdateTo = RcElementModel<El, Sty, Ch::Model>;
+    type UpdateTo = DropProtection<El, Sty, Ch::Model>;
 }

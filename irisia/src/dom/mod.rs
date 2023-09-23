@@ -19,11 +19,14 @@ use self::{
     layer::{LayerCompositer, LayerRebuilder},
 };
 
-pub(crate) use self::{children::RenderMultiple, update::EMUpdateContent};
-pub use self::{data_structure::ElementModel, update::add_one};
+pub(crate) use self::{
+    children::RenderMultiple, drop_protection::DropProtection, update::EMUpdateContent,
+};
+pub use self::{data_structure::ElementModel, update::one_child};
 
 pub(crate) mod children;
 mod data_structure;
+mod drop_protection;
 pub(crate) mod layer;
 pub mod pub_handle;
 pub(crate) mod update;
@@ -33,8 +36,8 @@ pub type RcElementModel<El, Sty, Sc> = Rc<data_structure::ElementModel<El, Sty, 
 impl<El, Sty, Sc> ElementModel<El, Sty, Sc>
 where
     El: Element,
-    Sty: StyleContainer,
-    Sc: RenderMultiple,
+    Sty: StyleContainer + 'static,
+    Sc: RenderMultiple + 'static,
 {
     pub(crate) fn build_layers(
         self: &Rc<Self>,
@@ -59,8 +62,7 @@ where
                     in_cell
                         .expanded_children
                         .as_mut()
-                        .unwrap()
-                        .as_render_multiple(),
+                        .map(|cb| cb.as_render_multiple()),
                     interval,
                 ),
             ),
@@ -69,8 +71,12 @@ where
     }
 
     pub(crate) fn set_draw_region(self: &Rc<Self>, region: Region) {
+        if region == self.draw_region() {
+            return;
+        }
         self.draw_region.set(region);
         self.el_write_clean().draw_region_changed(self, region);
+        self.set_dirty();
     }
 
     pub(crate) fn composite(&self, canvas: &mut Canvas) -> Result<()> {
@@ -103,18 +109,30 @@ where
         )
     }
 
-    fn get_children_layer(self: &Rc<Self>, in_cell: &InsideRefCell<Sty>) -> Weak<dyn RedrawObject>
+    fn get_children_layer(&self, in_cell: &InsideRefCell<Sty>) -> Weak<dyn RedrawObject>
     where
         Sty: 'static,
         Sc: 'static,
     {
         match in_cell.indep_layer {
-            Some(_) => Rc::downgrade(self) as _,
+            Some(_) => self.this.clone() as _,
             None => match &in_cell.parent_layer {
                 Some(pl) => pl.clone(),
                 None => unreachable!("root element did not initialize independent layer"),
             },
         }
+    }
+
+    fn set_abandoned(self: &Rc<Self>)
+    where
+        Sty: 'static,
+        Sc: 'static,
+    {
+        let this = self.clone();
+        tokio::task::spawn_local(async move {
+            this.el_alive.set(false);
+            this.el.write().await.take();
+        });
     }
 }
 
@@ -129,8 +147,8 @@ fn panic_on_debug(msg: &str) -> Result<()> {
 impl<El, Sty, Sc> RedrawObject for ElementModel<El, Sty, Sc>
 where
     El: Element,
-    Sty: StyleContainer,
-    Sc: RenderMultiple,
+    Sty: StyleContainer + 'static,
+    Sc: RenderMultiple + 'static,
 {
     fn redraw(&self, canvas: &mut Canvas, interval: Duration) -> Result<()> {
         let mut in_cell_ref = self.in_cell.borrow_mut();
@@ -151,8 +169,7 @@ where
                 in_cell
                     .expanded_children
                     .as_mut()
-                    .unwrap()
-                    .as_render_multiple(),
+                    .map(|cb| cb.as_render_multiple()),
                 interval,
             ),
         )

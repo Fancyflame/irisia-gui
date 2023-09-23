@@ -44,6 +44,7 @@ impl<'a> LayerRebuilder<'a> {
         }
 
         let bitmap = self.lc.layers.add_bitmap(&self.canvas.image_info());
+        bitmap.alloc_pixels();
         if !self.canvas.read_pixels_to_bitmap(bitmap, (0, 0)) {
             self.lc.layers.pop();
             return Err(anyhow!("cannot flush canvas content"));

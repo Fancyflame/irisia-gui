@@ -1,15 +1,18 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
 
 use irisia_backend::{
-    skia_safe::{colors::TRANSPARENT, Canvas},
+    skia_safe::{
+        colors::{TRANSPARENT, WHITE},
+        Canvas,
+    },
     window_handle::{RawWindowHandle, WindowBuilder},
     winit::dpi::PhysicalSize,
     AppWindow, StaticWindowEvent, WinitWindow,
 };
 
 use crate::{
-    dom::{add_one, update::ElementModelUpdater, EMUpdateContent},
-    element::{Element, ElementUpdate, RcElementModel},
+    dom::{one_child, update::ElementModelUpdater, DropProtection, EMUpdateContent},
+    element::{Element, ElementUpdate},
     event::EventDispatcher,
     primitive::{Pixel, Point, Region},
     update_with::UpdateWith,
@@ -26,7 +29,7 @@ use super::{
 pub(super) struct BackendRuntime<El: Element> {
     gem: GlobalEventMgr,
     gc: Rc<GlobalContent>,
-    root_element: RcElementModel<El, (), ()>,
+    root_element: DropProtection<El, (), ()>,
 }
 
 impl<El> AppWindow for BackendRuntime<El>
@@ -41,7 +44,7 @@ where
 
         // composite
         canvas.reset_matrix();
-        canvas.clear(TRANSPARENT);
+        canvas.clear(WHITE);
         self.root_element.composite(canvas)
     }
 
@@ -90,10 +93,10 @@ where
                 close_handle,
             });
 
-            let root_element = <RcElementModel<El, (), ()> as UpdateWith<
+            let root_element = <DropProtection<El, (), ()> as UpdateWith<
                 ElementModelUpdater<'_, El, (), (), (), _>,
             >>::create_with(ElementModelUpdater {
-                add_one: add_one((), (), (), |_: &_| {}),
+                add_one: one_child((), (), (), |_: &_| {}),
                 content: EMUpdateContent {
                     global_content: &gc,
                     parent_layer: None,
@@ -101,6 +104,7 @@ where
             });
 
             root_element.set_draw_region(window_size_to_draw_region(gc.window().inner_size()));
+            gc.request_redraw(root_element.0.clone());
 
             BackendRuntime::<El> {
                 root_element,

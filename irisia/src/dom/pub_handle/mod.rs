@@ -12,7 +12,11 @@ use crate::{
 
 pub use self::{layout_el::LayoutElements, listen::Listen, write_guard::ElWriteGuard};
 
-use super::{children::ChildrenNodes, data_structure::ElementModel, RenderMultiple};
+use super::{
+    children::{ChildrenBox, ChildrenNodes},
+    data_structure::ElementModel,
+    EMUpdateContent, RenderMultiple,
+};
 
 mod layout_el;
 mod listen;
@@ -30,20 +34,28 @@ where
     }
 
     /// Get a write guard of this element and setting dirty.
-    pub async fn el_write<'a>(self: &'a Rc<Self>) -> ElWriteGuard<'a, El, Rc<Self>>
+    /// `None` if this element will no longer used.
+    pub async fn el_write<'a>(self: &'a Rc<Self>) -> Option<ElWriteGuard<'a, El, Rc<Self>>>
     where
         Sty: 'static,
         Sc: 'static,
     {
-        ElWriteGuard {
-            write: RwLockWriteGuard::map(self.el.write().await, |x| x.as_mut().unwrap()),
-            set_dirty: self,
-        }
+        RwLockWriteGuard::try_map(self.el.write().await, |x| x.as_mut())
+            .ok()
+            .map(|guard| ElWriteGuard {
+                write: guard,
+                set_dirty: self,
+            })
     }
 
     /// Get a read guard of this element and dirty flag is not affected.
-    pub async fn el_read(&self) -> RwLockReadGuard<El> {
-        RwLockReadGuard::map(self.el.read().await, |x| x.as_ref().unwrap())
+    /// `None` if this element will no longer used.
+    pub async fn el_read(&self) -> Option<RwLockReadGuard<El>> {
+        RwLockReadGuard::try_map(self.el.read().await, |x| x.as_ref()).ok()
+    }
+
+    pub fn alive(&self) -> bool {
+        self.el_alive.take()
     }
 
     /// Listen event with options
@@ -51,28 +63,8 @@ where
         Listen::new(self)
     }
 
-    pub fn slot(&self) -> impl ChildrenNodes + '_
-    where
-        Slot<Sc>: RenderMultiple,
-    {
+    pub fn slot(&self) -> impl ChildrenNodes + '_ {
         &self.slot_cache
-    }
-
-    #[must_use]
-    pub fn set_children<'a, Ch>(self: &'a Rc<Self>, children: Ch) -> LayoutElements<'a, Ch::Model>
-    where
-        El: Element,
-        Ch: ChildrenNodes,
-        Sty: StyleContainer + 'static,
-        Sc: RenderMultiple + 'static,
-    {
-        let children_box = RefMut::map(self.in_cell.borrow_mut(), |x| &mut x.expanded_children);
-        LayoutElements::new(
-            children,
-            children_box,
-            &self.global_content,
-            self.get_children_layer(&self.in_cell.borrow()),
-        )
     }
 
     /// Get event dispatcher of this element.
@@ -117,13 +109,17 @@ where
     }
 
     /// Set dirty flag to `true`.
-    pub fn set_dirty(self: &Rc<Self>)
+    pub fn set_dirty(&self)
     where
         El: Element,
         Sty: 'static,
         Sc: 'static,
     {
-        self.global_content.request_redraw(self.clone())
+        self.global_content.request_redraw(
+            self.get_children_layer(&self.in_cell.borrow())
+                .upgrade()
+                .expect("parent layer unexpectedly dropped"),
+        )
     }
 
     /// Query whether independent layer was acquired.
@@ -158,5 +154,60 @@ where
     {
         let ed = self.ed.clone();
         tokio::task::spawn_local(async move { ed.cancel_on_abandoned(fut).await })
+    }
+
+    pub fn layout_children(&self) -> Option<LayoutElements>
+    where
+        Sty: 'static,
+        Sc: 'static,
+    {
+        self.set_dirty();
+        RefMut::filter_map(self.in_cell.borrow_mut(), |in_cell| {
+            in_cell
+                .expanded_children
+                .as_mut()
+                .map(|x| x.as_render_multiple())
+        })
+        .ok()
+        .map(|refmut| LayoutElements { refmut })
+    }
+
+    pub fn set_children<'a, Ch>(self: &'a Rc<Self>, children: Ch) -> LayoutElements<'a>
+    where
+        El: Element,
+        Ch: ChildrenNodes,
+        Sty: StyleContainer + 'static,
+        Sc: RenderMultiple + 'static,
+    {
+        self.set_dirty();
+        let in_cell = self.in_cell.borrow_mut();
+
+        let updater = EMUpdateContent {
+            global_content: &self.global_content,
+            parent_layer: Some(self.get_children_layer(&in_cell)),
+        };
+
+        let children_box = RefMut::map(in_cell, |x| &mut x.expanded_children);
+
+        let refmut = RefMut::map(children_box, |option| match option {
+            Some(cb) => {
+                let model=
+                    cb.as_render_multiple()
+                    .as_any()
+                    .downcast_mut::<Ch::Model>()
+                    .expect("the type of children is not equal to previous's, these two is expected to be the same");
+
+                children.update_model(model, updater, &mut false);
+                model
+            }
+            place @ None => place
+                .insert(ChildrenBox::new(children.create_model(updater)))
+                .as_render_multiple()
+                .as_any()
+                .downcast_mut()
+                .unwrap(),
+        });
+
+        LayoutElements { refmut }
     }
 }

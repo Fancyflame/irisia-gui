@@ -1,9 +1,10 @@
 use std::cell::{RefCell, RefMut};
 use std::rc::Rc;
 
+use crate::dom::RenderMultiple;
 use crate::{dom::EMUpdateContent, update_with::SpecificUpdate};
 
-use super::{MapVisit, UpdateWith, Visit, VisitLen, VisitMut};
+use super::{MapVisit, UpdateWith};
 
 pub struct Slot<T>(pub Rc<RefCell<T>>);
 
@@ -13,40 +14,6 @@ impl<T> MapVisit<EMUpdateContent<'_>> for &Slot<T> {
         self
     }
 }
-
-macro_rules! impl_visit_len {
-    ($Slot: ty) => {
-        impl<T> VisitLen for $Slot
-        where
-            T: VisitLen,
-        {
-            fn len(&self) -> usize {
-                self.0.borrow().len()
-            }
-        }
-    };
-}
-
-impl_visit_len!(Slot<T>);
-impl_visit_len!(&Slot<T>);
-
-macro_rules! impl_visit {
-    ($Visit: ident, $Slot: ty, $visit: ident, $borrow:ident, $($mut: ident)?) => {
-        impl<T, V> $Visit<V> for $Slot
-        where
-            T: $Visit<V>,
-        {
-            fn $visit(&$($mut)? self, visitor: &mut V) -> crate::Result<()> {
-                self.0.$borrow().$visit(visitor)
-            }
-        }
-    };
-}
-
-impl_visit!(Visit, Slot<T>, visit, borrow,);
-impl_visit!(VisitMut, Slot<T>, visit_mut, borrow_mut, mut);
-impl_visit!(Visit, &Slot<T>, visit, borrow,);
-impl_visit!(VisitMut, &Slot<T>, visit_mut, borrow_mut, mut);
 
 impl<T> UpdateWith<&Slot<T>> for Slot<T> {
     fn create_with(updater: &Slot<T>) -> Self {
@@ -70,6 +37,44 @@ impl<T> Slot<T> {
 
     pub fn borrow_mut(&self) -> RefMut<T> {
         self.0.borrow_mut()
+    }
+}
+
+impl<T> RenderMultiple for Slot<T>
+where
+    T: RenderMultiple,
+{
+    fn render(
+        &self,
+        lr: &mut crate::dom::layer::LayerRebuilder,
+        interval: std::time::Duration,
+    ) -> crate::Result<()> {
+        self.0.borrow().render(lr, interval)
+    }
+
+    fn emit_event(&self, npe: &crate::application::event_comp::NewPointerEvent) -> bool {
+        self.0.borrow().emit_event(npe)
+    }
+
+    fn layout(
+        &self,
+        f: &mut dyn FnMut(
+            &dyn crate::style::style_box::InsideStyleBox,
+        ) -> Option<crate::primitive::Region>,
+    ) -> crate::Result<()> {
+        self.0.borrow().layout(f)
+    }
+
+    fn len(&self) -> usize {
+        self.0.borrow().len()
+    }
+
+    fn peek_styles(&self, f: &mut dyn FnMut(&dyn crate::style::style_box::InsideStyleBox)) {
+        self.0.borrow().peek_styles(f)
+    }
+
+    fn as_any(&mut self) -> &mut dyn std::any::Any {
+        self
     }
 }
 

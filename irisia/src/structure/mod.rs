@@ -13,16 +13,20 @@ pub trait VisitLen: Sized {
     fn len(&self) -> usize;
 }
 
-macro_rules! visit_trait {
-    ($Visit:ident $Visitor:ident $visit:ident $($mut:ident)?) => {
-        pub trait $Visit<V>: VisitLen {
-            fn $visit(& $($mut)? self, visitor: &mut V) -> Result<()>;
-        }
+pub trait Visit<V>: VisitLen {
+    fn visit(&self, visitor: &mut V) -> Result<()>;
+}
 
-        pub trait $Visitor<T>: Sized {
-            fn $visit(&mut self, data: & $($mut)? T) -> Result<()>;
-        }
-    };
+pub trait Visitor<T>: Sized {
+    fn visit(&mut self, data: &T) -> Result<()>;
+}
+
+pub trait VisitMut<V>: VisitLen {
+    fn visit_mut(&mut self, visitor: &mut V) -> Result<()>;
+}
+
+pub trait VisitorMut<T>: Sized {
+    fn visit_mut(&mut self, data: &mut T) -> Result<()>;
 }
 
 pub trait MapVisit<V> {
@@ -34,6 +38,3 @@ pub trait MapVisitor<T> {
     type Output;
     fn map_visit(&self, data: T) -> Self::Output;
 }
-
-visit_trait!(Visit Visitor visit);
-visit_trait!(VisitMut VisitorMut visit_mut mut);

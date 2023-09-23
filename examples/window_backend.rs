@@ -1,142 +1,96 @@
 use irisia::{
-    element::{Element, Frame, InitContent, NoProps},
-    event::standard::{ElementAbandoned, PointerEntered, PointerOut},
+    element::{Element, ElementUpdate, LayoutElements, PropsUpdateWith},
+    event::standard::{ElementAbandoned, PointerEntered, PointerLeft, PointerOut},
     exit_app,
-    primitive::Point,
+    primitive::{Pixel, Point},
     read_style,
     skia_safe::{Color, Color4f, Paint, Rect},
-    structure_legacy::{StructureBuilder, VisitIter},
     style,
     style::StyleColor,
-    Event, StaticWindowEvent, Style,
+    ElModel, Event, Result, StaticWindowEvent, Style, StyleReader,
 };
 use tokio::select;
 
-#[derive(Style, Clone)]
-#[irisia(style(from))]
-pub struct StyleWidth(f32);
+#[derive(Style, Clone, Copy, PartialEq)]
+#[style(from)]
+pub struct StyleWidth(Pixel);
 
-#[derive(Style, Clone)]
-#[irisia(style(from))]
-pub struct StyleHeight(f32);
+#[derive(Style, Clone, Copy, PartialEq)]
+#[style(from)]
+pub struct StyleHeight(Pixel);
 
+#[irisia::props(updater = "RectProps", watch)]
 pub struct Rectangle {
+    #[props(default = "false")]
     is_force: bool,
+
+    #[props(default = "Color::CYAN")]
     force_color: Color,
+
+    #[props(read_style(stdin))]
+    style: RectStyles,
+}
+
+#[derive(StyleReader, PartialEq)]
+struct RectStyles {
+    width: Option<StyleWidth>,
+    height: Option<StyleHeight>,
+    color: Option<StyleColor>,
 }
 
 impl Element for Rectangle {
-    type Props<'a> = NoProps;
-    type ChildProps<'a> = ();
+    type BlankProps = RectProps;
 
-    fn render<'a>(
+    fn render(
         &mut self,
-        Frame {
-            styles,
-            drawing_region: region,
-            mut content,
-            ..
-        }: irisia::element::Frame<
-            Self,
-            impl style::StyleContainer,
-            impl VisitIter<Self::ChildProps<'a>>,
-        >,
+        this: ElModel!(),
+        mut content: irisia::element::RenderElement,
     ) -> irisia::Result<()> {
-        read_style!(styles => {
-            w: Option<StyleWidth>,
-            h: Option<StyleHeight>,
-            c: Option<StyleColor>,
-        });
-
-        let (w, h) = (
-            w.unwrap_or(StyleWidth(50.0)),
-            h.unwrap_or(StyleHeight(50.0)),
-        );
-
-        content.set_interact_region((region.0, region.0 + Point(w.0, h.0)));
+        let region = this.draw_region();
 
         let rect = Rect::new(
-            region.0 .0,
-            region.0 .1,
-            region.0 .0 + w.0,
-            region.0 .1 + h.0,
+            region.0 .0.to_physical(),
+            region.0 .1.to_physical(),
+            (region.0 .0 + self.style.width.map(|x| x.0).unwrap_or(Pixel(50.0))).to_physical(),
+            (region.0 .1 + self.style.height.map(|h| h.0).unwrap_or(Pixel(50.0))).to_physical(),
         );
+
         let color = if self.is_force {
-            self.force_color.clone()
+            self.force_color
         } else {
-            c.unwrap_or(StyleColor(Color::GREEN)).0
+            self.style.color.unwrap_or(StyleColor(Color::GREEN)).0
         };
 
         let paint = Paint::new(Color4f::from(color), None);
-
         content.canvas().draw_rect(rect, &paint);
-
         Ok(())
     }
+}
 
-    fn create(init: &InitContent<Self>) -> Self {
-        let init = init.clone();
-        tokio::spawn(async move {
-            let app = init.app.upgrade().unwrap();
+impl<Pr> ElementUpdate<Pr> for Rectangle
+where
+    Self: PropsUpdateWith<Pr>,
+{
+    fn el_create(this: ElModel!(), props: Pr) -> Self {
+        this.listen()
+            .sys_only()
+            .asyn()
+            .spawn(|_: PointerEntered, this| async move {
+                this.el_write().await.unwrap().is_force = true;
+            });
 
-            let a = async {
-                loop {
-                    let window_event = init
-                        .window_event_dispatcher
-                        .recv_sys::<StaticWindowEvent>()
-                        .await;
-                    match window_event {
-                        StaticWindowEvent::CloseRequested => {
-                            println!("close event sent");
-                            init.event_handle.emit(MyRequestClose);
-                        }
+        this.listen()
+            .sys_only()
+            .asyn()
+            .spawn(|_: PointerLeft, this| async move {
+                this.el_write().await.unwrap().is_force = false;
+            });
 
-                        _ => {}
-                    }
-                }
-            };
+        Self::props_create_with(props)
+    }
 
-            let b = async {
-                loop {
-                    select! {
-                        _ = init.recv_sys::<ElementAbandoned>() => {
-                            println!("element dropped");
-                            exit_app(0).await;
-                            return;
-                        },
-
-                        _=init.recv_sys::<PointerEntered>()=>{
-                            app.lock().await.is_force=true;
-                        }
-
-                        _=init.recv_sys::<PointerOut>()=>{
-                            app.lock().await.is_force=false;
-                        }
-                    }
-                }
-            };
-
-            let c = async {
-                loop {
-                    select! {
-                        _ = init.recv_sys::<PointerEntered>() => {
-                            println!("pointer entered");
-                        },
-
-                        _ = init.recv_sys::<PointerOut>() => {
-                            println!("pointer out");
-                        },
-                    }
-                }
-            };
-
-            tokio::join!(a, b, c);
-        });
-
-        Self {
-            is_force: false,
-            force_color: Color::CYAN,
-        }
+    fn el_update(&mut self, this: ElModel!(), props: Pr, _: bool) -> bool {
+        self.props_update_with(props).unchanged
     }
 }
 
@@ -146,37 +100,44 @@ pub struct MyRequestClose;
 pub struct Flex;
 
 impl Element for Flex {
-    type Props<'a> = NoProps;
-    type ChildProps<'a> = ();
+    type BlankProps = ();
 
-    fn create(_: &InitContent<Self>) -> Self {
+    fn draw_region_changed(&mut self, this: ElModel!(), _: irisia::primitive::Region) {
+        flex_layout(this, this.layout_children().unwrap()).unwrap();
+    }
+}
+
+impl ElementUpdate<()> for Flex {
+    fn el_create(this: ElModel!(), props: ()) -> Self {
         Flex
     }
 
-    fn render<'a>(
-        &mut self,
-        Frame {
-            drawing_region,
-            mut content,
-            children,
-            ..
-        }: Frame<Self, impl style::StyleContainer, impl VisitIter<Self::ChildProps<'a>>>,
-    ) -> irisia::Result<()> {
-        let (start, end) = drawing_region;
-        let abs = end - start;
-
-        let rendering = children.into_rendering(&mut content);
-        let len = rendering.children_count();
-        let width = abs.0 / len as f32;
-
-        let mut index = 0;
-        rendering.finish_iter(|(), _| {
-            let result = Ok((
-                Point(index as f32 * width, start.1),
-                Point((index as f32 + 1.0) * width, end.1),
-            ));
-            index += 1;
-            result
-        })
+    fn el_update(&mut self, this: ElModel!(), props: (), equality_matters: bool) -> bool {
+        true
     }
+
+    fn set_children(&self, this: ElModel!()) {
+        flex_layout(this, this.set_children(this.slot())).unwrap();
+    }
+}
+
+fn flex_layout(this: ElModel!(Flex), layouter: LayoutElements) -> Result<()> {
+    let (start, end) = this.draw_region();
+    let abs = end - start;
+    let len = layouter.len();
+    let width = abs.0 / len as f32;
+
+    let mut index = 0;
+    layouter.layout(|()| {
+        if index >= len {
+            return None;
+        }
+
+        let region = (
+            Point(width * index as f32, start.1),
+            Point(width * (index + 1) as f32, end.1),
+        );
+        index += 1;
+        Some(region)
+    })
 }
