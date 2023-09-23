@@ -32,7 +32,7 @@ pub struct AddOne<El, Pr, Sty, Ch, Oc> {
     pub(crate) on_create: Oc,
 }
 
-pub fn add_one<El, Pr, Sty, Ch, Oc>(
+pub fn one_child<El, Pr, Sty, Ch, Oc>(
     props: Pr,
     styles: Sty,
     children: Ch,
@@ -125,10 +125,9 @@ where
 
         // hold the lock prevent from being accessed
         let mut write = this.el.blocking_write();
-        *write = Some(El::el_create(
-            &this,
-            props.set_std_styles(&this.in_cell.borrow().styles),
-        ));
+        let el = El::el_create(&this, props.set_std_styles(&this.in_cell.borrow().styles));
+        el.set_children(&this);
+        *write = Some(el);
         drop(write);
 
         on_create(&this);
@@ -169,12 +168,15 @@ where
             &mut equality_matters,
         );
 
-        equality_matters
-            & self.el_write_clean().el_update(
+        let mut el = self.el_write_clean();
+        let unchanged = equality_matters
+            & el.el_update(
                 &self.this.upgrade().unwrap(),
                 props.set_std_styles(&in_cell.styles),
                 equality_matters,
-            )
+            );
+        el.set_children(self);
+        unchanged
     }
 }
 

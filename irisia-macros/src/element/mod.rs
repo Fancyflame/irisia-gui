@@ -35,7 +35,7 @@ impl Codegen for ElementCodegen {
     }
 
     fn chain_applicate(tokens: &mut TokenStream, other: impl ToTokens) {
-        *tokens = quote!(irisia::structure::Chain::new(#tokens), #other);
+        *tokens = quote!(irisia::structure::Chain::new(#tokens, #other));
     }
 }
 

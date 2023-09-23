@@ -12,7 +12,11 @@ use crate::{
 
 pub use self::{layout_el::LayoutElements, listen::Listen, write_guard::ElWriteGuard};
 
-use super::{children::ChildrenNodes, data_structure::ElementModel, RenderMultiple};
+use super::{
+    children::{ChildrenBox, ChildrenNodes},
+    data_structure::ElementModel,
+    EMUpdateContent, RenderMultiple,
+};
 
 mod layout_el;
 mod listen;
@@ -60,23 +64,6 @@ where
         Slot<Sc>: RenderMultiple,
     {
         &self.slot_cache
-    }
-
-    #[must_use]
-    pub fn set_children<'a, Ch>(self: &'a Rc<Self>, children: Ch) -> LayoutElements<'a, Ch::Model>
-    where
-        El: Element,
-        Ch: ChildrenNodes,
-        Sty: StyleContainer + 'static,
-        Sc: RenderMultiple + 'static,
-    {
-        let children_box = RefMut::map(self.in_cell.borrow_mut(), |x| &mut x.expanded_children);
-        LayoutElements::new(
-            children,
-            children_box,
-            &self.global_content,
-            self.get_children_layer(&self.in_cell.borrow()),
-        )
     }
 
     /// Get event dispatcher of this element.
@@ -162,5 +149,54 @@ where
     {
         let ed = self.ed.clone();
         tokio::task::spawn_local(async move { ed.cancel_on_abandoned(fut).await })
+    }
+
+    pub fn layout_children(&self) -> Option<LayoutElements> {
+        RefMut::filter_map(self.in_cell.borrow_mut(), |in_cell| {
+            in_cell
+                .expanded_children
+                .as_mut()
+                .map(|x| x.as_render_multiple())
+        })
+        .ok()
+        .map(LayoutElements)
+    }
+
+    pub fn set_children<'a, Ch>(self: &'a Rc<Self>, children: Ch) -> LayoutElements<'a>
+    where
+        El: Element,
+        Ch: ChildrenNodes,
+        Sty: StyleContainer + 'static,
+        Sc: RenderMultiple + 'static,
+    {
+        let in_cell = self.in_cell.borrow_mut();
+
+        let updater = EMUpdateContent {
+            global_content: &self.global_content,
+            parent_layer: Some(self.get_children_layer(&in_cell)),
+        };
+
+        let children_box = RefMut::map(in_cell, |x| &mut x.expanded_children);
+
+        let refmut = RefMut::map(children_box, |option| match option {
+            Some(cb) => {
+                let model=
+                    cb.as_render_multiple()
+                    .as_any()
+                    .downcast_mut::<Ch::Model>()
+                    .expect("the type of children is not equal to previous's, these two is expected to be the same");
+
+                children.update_model(model, updater, &mut false);
+                model
+            }
+            place @ None => place
+                .insert(ChildrenBox::new(children.create_model(updater)))
+                .as_render_multiple()
+                .as_any()
+                .downcast_mut()
+                .unwrap(),
+        });
+
+        LayoutElements(refmut)
     }
 }

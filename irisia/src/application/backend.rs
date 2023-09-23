@@ -8,7 +8,7 @@ use irisia_backend::{
 };
 
 use crate::{
-    dom::{add_one, update::ElementModelUpdater, DropProtection, EMUpdateContent},
+    dom::{one_child, update::ElementModelUpdater, DropProtection, EMUpdateContent},
     element::{Element, ElementUpdate},
     event::EventDispatcher,
     primitive::{Pixel, Point, Region},
@@ -93,7 +93,7 @@ where
             let root_element = <DropProtection<El, (), ()> as UpdateWith<
                 ElementModelUpdater<'_, El, (), (), (), _>,
             >>::create_with(ElementModelUpdater {
-                add_one: add_one((), (), (), |_: &_| {}),
+                add_one: one_child((), (), (), |_: &_| {}),
                 content: EMUpdateContent {
                     global_content: &gc,
                     parent_layer: None,

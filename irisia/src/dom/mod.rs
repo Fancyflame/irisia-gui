@@ -22,7 +22,7 @@ use self::{
 pub(crate) use self::{
     children::RenderMultiple, drop_protection::DropProtection, update::EMUpdateContent,
 };
-pub use self::{data_structure::ElementModel, update::add_one};
+pub use self::{data_structure::ElementModel, update::one_child};
 
 pub(crate) mod children;
 mod data_structure;
@@ -36,8 +36,8 @@ pub type RcElementModel<El, Sty, Sc> = Rc<data_structure::ElementModel<El, Sty, 
 impl<El, Sty, Sc> ElementModel<El, Sty, Sc>
 where
     El: Element,
-    Sty: StyleContainer,
-    Sc: RenderMultiple,
+    Sty: StyleContainer + 'static,
+    Sc: RenderMultiple + 'static,
 {
     pub(crate) fn build_layers(
         self: &Rc<Self>,
@@ -72,6 +72,9 @@ where
     }
 
     pub(crate) fn set_draw_region(self: &Rc<Self>, region: Region) {
+        if region == self.draw_region() {
+            return;
+        }
         self.draw_region.set(region);
         self.el_write_clean().draw_region_changed(self, region);
     }
@@ -106,13 +109,13 @@ where
         )
     }
 
-    fn get_children_layer(self: &Rc<Self>, in_cell: &InsideRefCell<Sty>) -> Weak<dyn RedrawObject>
+    fn get_children_layer(&self, in_cell: &InsideRefCell<Sty>) -> Weak<dyn RedrawObject>
     where
         Sty: 'static,
         Sc: 'static,
     {
         match in_cell.indep_layer {
-            Some(_) => Rc::downgrade(self) as _,
+            Some(_) => self.this.clone() as _,
             None => match &in_cell.parent_layer {
                 Some(pl) => pl.clone(),
                 None => unreachable!("root element did not initialize independent layer"),

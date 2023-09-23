@@ -1,6 +1,6 @@
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 
-use irisia_backend::winit::dpi::PhysicalPosition;
+use irisia_backend::{skia_safe::Point as SkiaPoint, winit::dpi::PhysicalPosition};
 
 use super::Pixel;
 
@@ -70,5 +70,14 @@ impl From<PhysicalPosition<f64>> for Point {
             Pixel::from_physical(value.x as _),
             Pixel::from_physical(value.y as _),
         )
+    }
+}
+
+impl From<Point> for SkiaPoint {
+    fn from(value: Point) -> Self {
+        SkiaPoint {
+            x: value.0.to_physical(),
+            y: value.1.to_physical(),
+        }
     }
 }

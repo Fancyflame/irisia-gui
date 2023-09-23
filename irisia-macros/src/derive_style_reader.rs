@@ -38,7 +38,7 @@ pub fn derive_style_reader(
         impl #impl_gen irisia::StyleReader for #ident #type_gen
         #where_clause
         {
-            fn read_style(_container: &impl StyleContainer) -> Self {
+            fn read_style(_container: impl irisia::style::StyleContainer) -> Self {
                 #ident #inner
             }
         }
@@ -64,7 +64,7 @@ fn fields_iter(fields: Punctuated<Field, Token![,]>) -> TokenStream {
         };
 
         quote! {
-            #ident #colon_token <#ty as irisia::StyleReader>::read_style(_container) #comma
+            #ident #colon_token <#ty as irisia::StyleReader>::read_style(&_container) #comma
         }
         .to_tokens(&mut tokens);
     }

@@ -1,7 +1,7 @@
 use syn::{
     braced,
     parse::{Parse, ParseStream},
-    parse_quote, Error, Expr, Ident, Result, Token, Type,
+    Error, Expr, Ident, Result, Token, Type,
 };
 
 use crate::{element::stmt::ElementStmt, expr::state_block::parse_stmts};
@@ -56,7 +56,7 @@ impl Parse for ElementStmt {
         Ok(ElementStmt {
             element,
             props,
-            style: style.unwrap_or_else(|| parse_quote!(irisia::style::NoStyle)),
+            style,
             oncreate,
             children,
         })

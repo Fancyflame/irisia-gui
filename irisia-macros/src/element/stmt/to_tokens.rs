@@ -17,14 +17,16 @@ impl ToTokens for ElementStmt {
         } = self;
 
         let props = gen_props(element, props);
-
+        let style = match style {
+            Some(style) => style.into_token_stream(),
+            None => quote!(()),
+        };
         let children = stmts_to_tokens(children);
-
         let oncreate = oncreate.clone().unwrap_or_else(|| parse_quote!(|_| {}));
 
         quote! {
             irisia::structure::Once(
-                irisia::structure::add_child::<#element, _, _, _, _>(
+                irisia::element::one_child::<#element, _, _, _, _>(
                     #props,
                     #style,
                     #children,

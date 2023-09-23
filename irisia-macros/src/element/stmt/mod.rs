@@ -8,7 +8,7 @@ mod to_tokens;
 pub struct ElementStmt {
     element: Type,
     props: Vec<(Ident, Expr)>,
-    style: Expr,
+    style: Option<Expr>,
     oncreate: Option<Expr>,
     children: Vec<StateExpr<ElementCodegen>>,
 }

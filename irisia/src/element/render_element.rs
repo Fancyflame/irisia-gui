@@ -31,12 +31,9 @@ impl<'a, 'lr> RenderElement<'a, 'lr> {
         self.interval
     }
 
-    pub fn render_children(&mut self) -> Result<&mut Self> {
+    pub fn render_children(&mut self) -> Result<()> {
         match self.children.take() {
-            Some(c) => {
-                c.render(self.lr, self.interval)?;
-                Ok(self)
-            }
+            Some(c) => c.render(self.lr, self.interval),
             None => Err(anyhow!("children cannot be rendered twice")),
         }
     }
