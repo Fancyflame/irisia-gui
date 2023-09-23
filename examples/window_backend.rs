@@ -51,8 +51,8 @@ impl Element for Rectangle {
         let rect = Rect::new(
             region.0 .0.to_physical(),
             region.0 .1.to_physical(),
-            (region.0 .0 + self.style.width.map(|x| x.0).unwrap_or_default()).to_physical(),
-            (region.0 .1 + self.style.height.map(|h| h.0).unwrap_or_default()).to_physical(),
+            (region.0 .0 + self.style.width.map(|x| x.0).unwrap_or(Pixel(50.0))).to_physical(),
+            (region.0 .1 + self.style.height.map(|h| h.0).unwrap_or(Pixel(50.0))).to_physical(),
         );
 
         let color = if self.is_force {

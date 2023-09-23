@@ -1,7 +1,10 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
 
 use irisia_backend::{
-    skia_safe::{colors::TRANSPARENT, Canvas},
+    skia_safe::{
+        colors::{TRANSPARENT, WHITE},
+        Canvas,
+    },
     window_handle::{RawWindowHandle, WindowBuilder},
     winit::dpi::PhysicalSize,
     AppWindow, StaticWindowEvent, WinitWindow,
@@ -41,7 +44,7 @@ where
 
         // composite
         canvas.reset_matrix();
-        canvas.clear(TRANSPARENT);
+        canvas.clear(WHITE);
         self.root_element.composite(canvas)
     }
 
