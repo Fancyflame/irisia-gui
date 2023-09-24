@@ -25,8 +25,8 @@ mod write_guard;
 impl<El, Sty, Sc> ElementModel<El, Sty, Sc>
 where
     El: Element,
-    Sty: StyleContainer,
-    Sc: RenderMultiple,
+    Sty: StyleContainer + 'static,
+    Sc: RenderMultiple + 'static,
 {
     /// Get a write guard without setting dirty
     pub(super) fn el_write_clean(&self) -> RwLockMappedWriteGuard<El> {
@@ -35,11 +35,7 @@ where
 
     /// Get a write guard of this element and setting dirty.
     /// `None` if this element will no longer used.
-    pub async fn el_write<'a>(self: &'a Rc<Self>) -> Option<ElWriteGuard<'a, El, Rc<Self>>>
-    where
-        Sty: 'static,
-        Sc: 'static,
-    {
+    pub async fn el_write<'a>(self: &'a Rc<Self>) -> Option<ElWriteGuard<'a, El, Rc<Self>>> {
         RwLockWriteGuard::try_map(self.el.write().await, |x| x.as_mut())
             .ok()
             .map(|guard| ElWriteGuard {
@@ -109,12 +105,7 @@ where
     }
 
     /// Set dirty flag to `true`.
-    pub fn set_dirty(&self)
-    where
-        El: Element,
-        Sty: 'static,
-        Sc: 'static,
-    {
+    pub fn set_dirty(&self) {
         self.global_content.request_redraw(
             self.get_children_layer(&self.in_cell.borrow())
                 .upgrade()
@@ -140,8 +131,11 @@ where
     ///
     /// Recommended when playing animation.
     pub fn acquire_indep_layer(&self, acquire: bool) {
+        if self.indep_layer_acquired() == acquire {
+            return;
+        }
         self.acquire_independent_layer.set(acquire);
-        todo!()
+        self.set_dirty();
     }
 
     /// Spwan a daemon task on `fut`.
@@ -156,11 +150,7 @@ where
         tokio::task::spawn_local(async move { ed.cancel_on_abandoned(fut).await })
     }
 
-    pub fn layout_children(&self) -> Option<LayoutElements>
-    where
-        Sty: 'static,
-        Sc: 'static,
-    {
+    pub fn layout_children(&self) -> Option<LayoutElements> {
         self.set_dirty();
         RefMut::filter_map(self.in_cell.borrow_mut(), |in_cell| {
             in_cell
@@ -174,10 +164,7 @@ where
 
     pub fn set_children<'a, Ch>(self: &'a Rc<Self>, children: Ch) -> LayoutElements<'a>
     where
-        El: Element,
         Ch: ChildrenNodes,
-        Sty: StyleContainer + 'static,
-        Sc: RenderMultiple + 'static,
     {
         self.set_dirty();
         let in_cell = self.in_cell.borrow_mut();

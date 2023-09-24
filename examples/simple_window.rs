@@ -31,14 +31,6 @@ struct App {
 
 impl Element for App {
     type BlankProps = ();
-
-    fn render(
-        &mut self,
-        _: ElModel!(),
-        mut content: irisia::element::RenderElement,
-    ) -> irisia::Result<()> {
-        content.render_children()
-    }
 }
 
 impl ElementUpdate<()> for App {
