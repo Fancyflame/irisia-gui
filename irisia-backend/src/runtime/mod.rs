@@ -40,7 +40,7 @@ where
     WindowRegiterMutex::init(event_loop.create_proxy());
 
     event_loop.run(move |event, event_loop, flow| {
-        flow.set_poll();
+        flow.set_wait();
         match event {
             Event::NewEvents(StartCause::Init) => {
                 let future = future_option
