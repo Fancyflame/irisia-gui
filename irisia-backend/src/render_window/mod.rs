@@ -1,8 +1,5 @@
 use std::{
-    future::Future,
-    pin::Pin,
     sync::Arc,
-    task::{Context, Poll},
     time::{Duration, Instant},
 };
 
@@ -16,58 +13,21 @@ use self::renderer::Renderer;
 
 mod renderer;
 
-#[allow(clippy::large_enum_variant)]
-enum RendererGetter {
-    Pending(Pin<Box<dyn Future<Output = Result<Renderer>>>>),
-    Error,
-    Done(Renderer),
-}
-
 pub struct RenderWindow {
     app: Arc<Mutex<dyn AppWindow>>,
     window: Arc<WinitWindow>,
-    renderer: RendererGetter,
+    renderer: Renderer,
     last_frame_instant: Option<Instant>,
 }
 
 impl RenderWindow {
     pub fn new(app: Arc<Mutex<dyn AppWindow>>, window: Arc<WinitWindow>) -> Result<Self> {
-        let window_cloned = window.clone();
-        let mut renderer_creation =
-            RendererGetter::Pending(Box::pin(async move { Renderer::new(&window_cloned).await }));
-
-        // start poll
-        Self::renderer(&mut renderer_creation);
-
         Ok(RenderWindow {
             app: app as _,
-            renderer: renderer_creation,
+            renderer: Renderer::new(&window)?,
             window,
             last_frame_instant: None,
         })
-    }
-
-    fn renderer(renderer_getter: &mut RendererGetter) -> Option<&mut Renderer> {
-        if let RendererGetter::Pending(future) = renderer_getter {
-            let mut cx = Context::from_waker(futures::task::noop_waker_ref());
-            match future.as_mut().poll(&mut cx) {
-                Poll::Ready(Ok(r)) => {
-                    *renderer_getter = RendererGetter::Done(r);
-                }
-                Poll::Ready(Err(e)) => {
-                    eprintln!("renderer creation error: {e}");
-                    *renderer_getter = RendererGetter::Error;
-                    return None;
-                }
-                Poll::Pending => return None,
-            }
-        }
-
-        match renderer_getter {
-            RendererGetter::Done(r) => Some(r),
-            RendererGetter::Error => None,
-            RendererGetter::Pending(_) => unreachable!(),
-        }
     }
 
     pub fn redraw(&mut self) {
@@ -84,14 +44,12 @@ impl RenderWindow {
             Err(_) => self.app.blocking_lock(),
         };
 
-        if let Some(renderer) = Self::renderer(&mut self.renderer) {
-            if let Err(err) = renderer.resize(self.window.inner_size()) {
-                eprintln!("cannot resize window: {err}");
-            }
+        if let Err(err) = self.renderer.resize(self.window.inner_size()) {
+            eprintln!("cannot resize window: {err}");
+        }
 
-            if let Err(err) = renderer.render(|canvas| app.on_redraw(canvas, delta)) {
-                eprintln!("render error: {err}");
-            }
+        if let Err(err) = self.renderer.render(|canvas| app.on_redraw(canvas, delta)) {
+            eprintln!("render error: {err}");
         }
     }
 

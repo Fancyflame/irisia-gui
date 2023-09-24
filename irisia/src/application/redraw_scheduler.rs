@@ -36,7 +36,6 @@ impl RedrawScheduler {
         self.redraw_req_sent = false;
 
         for (_, ro) in self.list.drain() {
-            println!("something drawn");
             canvas.clear(TRANSPARENT);
             canvas.reset_matrix();
 

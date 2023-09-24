@@ -41,9 +41,7 @@ where
 
     event_loop.run(move |event, event_loop, flow| {
         flow.set_wait();
-        if let Event::RedrawRequested(_) = &event {
-            println!("req redraw");
-        }
+
         match event {
             Event::NewEvents(StartCause::Init) => {
                 let future = future_option
