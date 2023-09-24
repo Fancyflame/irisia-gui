@@ -16,6 +16,7 @@ use self::renderer::Renderer;
 
 mod renderer;
 
+#[allow(clippy::large_enum_variant)]
 enum RendererGetter {
     Pending(Pin<Box<dyn Future<Output = Result<Renderer>>>>),
     Error,
@@ -96,17 +97,6 @@ impl RenderWindow {
 
     pub fn handle_event(&mut self, event: Event<()>) {
         match event {
-            Event::MainEventsCleared => {
-                // restrict maximum drawing rate to 120fps
-                const MIN_INTERVAL: Duration = Duration::from_millis(1000 / 120);
-
-                if let Some(last) = self.last_frame_instant {
-                    if last.elapsed() < MIN_INTERVAL {
-                        return;
-                    }
-                }
-            }
-
             Event::RedrawRequested(_) => {
                 self.redraw();
             }

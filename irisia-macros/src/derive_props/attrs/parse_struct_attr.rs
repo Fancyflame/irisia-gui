@@ -44,7 +44,7 @@ impl StructAttr {
                 "watch" => default_watch = Some(parse_watch(nested, fields)?),
                 _ => {
                     return Err(Error::new_spanned(
-                        &ident,
+                        ident,
                         format!("unrecognized key `{ident}`"),
                     ))
                 }
@@ -97,7 +97,7 @@ fn parse_watch(nested: ParseNestedMeta, fields: &[HandledField]) -> Result<Defau
     })?;
 
     for ex in default_watch.exclude.iter() {
-        if fields.iter().find(|field| field.ident == ex).is_none() {
+        if !fields.iter().any(|field| field.ident == ex) {
             return Err(Error::new_spanned(
                 ex,
                 format!("cannot excluding unexisting field `{ex}`"),

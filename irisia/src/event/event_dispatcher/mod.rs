@@ -87,7 +87,7 @@ impl Default for EventDispatcher {
 
 impl WeakEventDispatcher {
     pub fn upgrade(&self) -> Option<EventDispatcher> {
-        self.0.upgrade().map(|arc| EventDispatcher(arc))
+        self.0.upgrade().map(EventDispatcher)
     }
 
     pub fn is_same(&self, other: &Self) -> bool {

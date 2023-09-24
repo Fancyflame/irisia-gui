@@ -130,7 +130,7 @@ where
 {
     fn visit(&self, visitor: &mut V) -> Result<()> {
         for k in self.order.iter() {
-            self.map[&k].visit(visitor)?;
+            self.map[k].visit(visitor)?;
         }
         Ok(())
     }

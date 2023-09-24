@@ -20,7 +20,7 @@ pub struct Listen<Eh, T0, T1, T2, T3> {
 #[derive(Default)]
 pub struct FlagSet;
 
-impl<'a, Eh> Listen<Eh, (), (), (), ()> {
+impl<Eh> Listen<Eh, (), (), (), ()> {
     pub(super) fn new(eh: Eh) -> Self {
         Listen {
             eh,

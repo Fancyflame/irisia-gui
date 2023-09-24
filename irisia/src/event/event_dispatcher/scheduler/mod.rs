@@ -20,6 +20,7 @@ pub(super) struct EmitScheduler {
 }
 
 struct QueuedEvent {
+    #[allow(clippy::type_complexity)]
     event: Box<dyn FnOnce(&mut EmitScheduler, AllConfirmedPermits) + Send + 'static>,
 }
 

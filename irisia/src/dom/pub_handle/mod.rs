@@ -7,7 +7,7 @@ use tokio::{
 
 use crate::{
     application::content::GlobalContent, event::EventDispatcher, primitive::Region,
-    structure::slot::Slot, style::StyleContainer, Element, StyleReader,
+    style::StyleContainer, Element, StyleReader,
 };
 
 pub use self::{layout_el::LayoutElements, listen::Listen, write_guard::ElWriteGuard};

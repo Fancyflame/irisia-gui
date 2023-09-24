@@ -79,12 +79,10 @@ impl FieldAttrBuilder {
             "watch" => set_option(watch, parse_watch(stream, field_name)?, || {
                 dup_option("watch")
             }),
-            other => {
-                return Err(Error::new_spanned(
-                    path,
-                    format!("unrecognized option `{other}`"),
-                ))
-            }
+            other => Err(Error::new_spanned(
+                path,
+                format!("unrecognized option `{other}`"),
+            )),
         }
     }
 

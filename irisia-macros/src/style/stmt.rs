@@ -230,7 +230,7 @@ pub fn handle_style_follow(stmts: &mut [StateExpr<StyleCodegen>]) -> Result<()> 
                 },
             }
 
-            return Ok(());
+            Ok(())
         })?;
     }
 

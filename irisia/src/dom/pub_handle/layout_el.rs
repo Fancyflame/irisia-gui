@@ -15,13 +15,16 @@ impl<'a> LayoutElements<'a> {
         F: FnMut(Sr),
         Sr: StyleReader,
     {
-        let _ = self
-            .refmut
+        self.refmut
             .peek_styles(&mut |inside_style_box| f(inside_style_box.read()));
     }
 
     pub fn len(&self) -> usize {
         self.refmut.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.refmut.len() == 0
     }
 
     pub fn layout<F, Sr>(self, mut layouter: F) -> Result<()>

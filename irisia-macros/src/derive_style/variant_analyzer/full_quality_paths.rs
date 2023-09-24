@@ -65,7 +65,7 @@ impl FullQualityPaths {
 
 fn fill_default(segs: &mut SegmentVec, path: &[Segment], fields: &FieldMap) -> Result<()> {
     for field in fields {
-        if path.iter().find(|seg| seg.tag() == field.0).is_some() {
+        if path.iter().any(|seg| seg.tag() == field.0) {
             continue;
         }
 
@@ -91,7 +91,7 @@ fn fill_path(segs: &mut SegmentVec, path: Vec<Segment>, fields: &FieldMap) -> Re
     for seg in path {
         let tag = seg.tag();
 
-        let Some(field) = fields.get(&tag)
+        let Some(field) = fields.get(tag)
         else {
             return Err(Error::new(Span::call_site(), format!(
                 "field `{}` doesn't exist, but it appears in `from` expression of style derive macros",

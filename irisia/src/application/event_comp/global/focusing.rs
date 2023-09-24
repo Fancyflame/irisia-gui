@@ -16,7 +16,7 @@ impl Focusing {
         let mut guard = self.0.lock().unwrap();
 
         match &*guard {
-            Some(old_ed) if ed.ptr_eq(old_ed) => return,
+            Some(old_ed) if ed.ptr_eq(old_ed) => {}
             _ => {
                 blur(&mut guard);
                 ed.emit_sys(Focused);

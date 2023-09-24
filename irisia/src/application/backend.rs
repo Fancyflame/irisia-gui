@@ -1,10 +1,7 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
 
 use irisia_backend::{
-    skia_safe::{
-        colors::{TRANSPARENT, WHITE},
-        Canvas,
-    },
+    skia_safe::{colors::WHITE, Canvas},
     window_handle::{RawWindowHandle, WindowBuilder},
     winit::dpi::PhysicalSize,
     AppWindow, StaticWindowEvent, WinitWindow,

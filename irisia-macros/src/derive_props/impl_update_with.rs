@@ -94,7 +94,7 @@ fn generate_update_with(helper: &GenHelper) -> TokenStream {
         }: &HandledField,
         equality_matters: TokenStream,
     ) -> TokenStream {
-        let resolver = get_resolver(value_resolver, &ty, true);
+        let resolver = get_resolver(value_resolver, ty, true);
         quote! {
             irisia::element::props::HelpUpdate::update(
                 &#resolver,
@@ -189,7 +189,7 @@ fn generate_create_with(helper: &GenHelper) -> TokenStream {
     } = helper;
 
     let iter = fields.iter().map(|HandledField { ident, ty, attr }| {
-        let resolver = get_resolver(&attr.value_resolver, &ty, true);
+        let resolver = get_resolver(&attr.value_resolver, ty, true);
 
         let maybe_created = quote! {
             irisia::element::props::HelpCreate::create(

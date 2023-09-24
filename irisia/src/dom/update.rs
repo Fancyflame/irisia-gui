@@ -165,7 +165,7 @@ where
             &mut self.slot_cache.borrow_mut(),
             EMUpdateContent {
                 global_content: &self.global_content,
-                parent_layer: Some(self.get_children_layer(&mut in_cell)),
+                parent_layer: Some(self.get_children_layer(&in_cell)),
             },
             &mut equality_matters,
         );

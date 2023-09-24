@@ -54,7 +54,7 @@ impl VariantAnalysis {
         let mut auto_from = Some(auto_from);
         let error = |msg| Err(Error::new(Span::call_site(), msg));
 
-        for attr in get_attrs(&attrs)? {
+        for attr in get_attrs(attrs)? {
             match attr {
                 DeriveAttr::From {
                     instruction: Some(field_paths),

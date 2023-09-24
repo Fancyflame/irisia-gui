@@ -11,7 +11,7 @@ pub fn derive_style(derive: DeriveInput) -> Result<TokenStream> {
     match &derive.data {
         Data::Struct(_) => derive_struct::derive_style_for_struct(derive),
         Data::Enum(_) => derive_enum::derive_style_for_enum(derive),
-        Data::Union(_) => return Err(Error::new(Span::call_site(), "union is unsupported")),
+        Data::Union(_) => Err(Error::new(Span::call_site(), "union is unsupported")),
     }
 }
 

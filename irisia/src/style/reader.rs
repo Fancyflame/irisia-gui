@@ -40,6 +40,7 @@ macro_rules! impl_reader {
             where
                 $($T: StyleReader,)*
             {
+                #[allow(clippy::unused_unit)]
                 fn read_style(_container: impl StyleContainer) -> Self {
                     ($($T::read_style(&_container),)*)
                 }

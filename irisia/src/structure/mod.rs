@@ -11,6 +11,9 @@ pub(crate) mod slot;
 
 pub trait VisitLen: Sized {
     fn len(&self) -> usize;
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 pub trait Visit<V>: VisitLen {

@@ -36,7 +36,7 @@ impl<'a> GenHelper<'a> {
     fn new(item: &'a ItemStruct, struct_attr: StructAttr, fields: Vec<HandledField<'a>>) -> Self {
         Self {
             item,
-            updater_generics: new_generics(&item),
+            updater_generics: new_generics(item),
             fields,
             struct_attr,
         }
@@ -55,7 +55,7 @@ impl<'a> GenHelper<'a> {
     }
 }
 
-fn new_generics<'a>(stru: &ItemStruct) -> Generics {
+fn new_generics(stru: &ItemStruct) -> Generics {
     let field_types: HashSet<&Ident> = {
         struct IdentVisitor<'ast>(HashSet<&'ast Ident>);
         impl<'ast> Visit<'ast> for IdentVisitor<'ast> {

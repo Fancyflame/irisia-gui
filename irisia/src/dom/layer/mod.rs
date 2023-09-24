@@ -49,9 +49,8 @@ impl LayerCompositer {
                 Layer::Extern { layer, matrix } => {
                     canvas.save();
                     canvas.set_matrix(matrix);
-                    let result = layer.borrow().composite(canvas)?;
+                    layer.borrow().composite(canvas)?;
                     canvas.restore();
-                    result
                 }
             }
         }
