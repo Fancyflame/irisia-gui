@@ -6,8 +6,8 @@ pub use winit::window::WindowBuilder;
 
 pub use self::close_handle::CloseHandle;
 
-pub mod close_handle;
-pub mod create;
+mod close_handle;
+mod create;
 
 #[derive(Clone)]
 pub struct RawWindowHandle {

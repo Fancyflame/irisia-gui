@@ -4,9 +4,8 @@ use std::{
 };
 
 use anyhow::Result;
-use winit::event::Event;
 
-use crate::{runtime::rt_event::AppBuildFn, AppWindow, WinitWindow};
+use crate::{runtime::rt_event::AppBuildFn, AppWindow, StaticWindowEvent, WinitWindow};
 
 use super::renderer::Renderer;
 
@@ -48,19 +47,7 @@ impl RenderWindow {
         }
     }
 
-    pub fn handle_event(&mut self, event: Event<()>) {
-        match event {
-            Event::RedrawRequested(_) => {
-                self.redraw();
-            }
-
-            Event::WindowEvent { event, .. } => {
-                if let Some(static_event) = event.to_static() {
-                    self.app.on_window_event(static_event);
-                }
-            }
-
-            _ => {}
-        }
+    pub fn handle_event(&mut self, event: StaticWindowEvent) {
+        self.app.on_window_event(event);
     }
 }

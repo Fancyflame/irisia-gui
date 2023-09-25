@@ -1,10 +1,9 @@
-use std::sync::Arc;
+use std::sync::{Arc, Condvar, Mutex as StdMutex};
 
 use anyhow::{anyhow, Result};
 use tokio::{sync::mpsc, task::LocalSet};
-use winit::event::Event;
 
-use crate::{runtime::rt_event::AppBuildFn, WinitWindow};
+use crate::{runtime::rt_event::AppBuildFn, StaticWindowEvent, WinitWindow};
 
 use self::window::RenderWindow;
 
@@ -13,21 +12,24 @@ mod window;
 
 enum Command {
     Redraw,
-    HandleEvent(Event<'static, ()>),
+    HandleEvent(StaticWindowEvent),
 }
 
 pub struct RenderWindowController {
     chan: mpsc::UnboundedSender<Command>,
+    draw_finished: Arc<(StdMutex<bool>, Condvar)>,
 }
 
 impl RenderWindowController {
     pub fn new(app: AppBuildFn, window: Arc<WinitWindow>) -> Self {
         let (tx, mut rx) = mpsc::unbounded_channel::<Command>();
+        let draw_finished = Arc::new((StdMutex::new(true), Condvar::new()));
+        let draw_finished_cloned = draw_finished.clone();
 
         std::thread::Builder::new()
             .name("irisia window".into())
             .spawn(move || {
-                let rt = tokio::runtime::Builder::new_current_thread()
+                let async_runtime = tokio::runtime::Builder::new_current_thread()
                     .enable_all()
                     .build()
                     .unwrap();
@@ -42,25 +44,39 @@ impl RenderWindowController {
                         };
 
                         match cmd {
-                            Command::Redraw => rw.redraw(),
+                            Command::Redraw => {
+                                rw.redraw();
+                                *draw_finished.0.lock().unwrap() = true;
+                                draw_finished.1.notify_all();
+                            }
                             Command::HandleEvent(ev) => rw.handle_event(ev),
                         }
                     }
                 });
-                rt.block_on(local);
+                async_runtime.block_on(local);
             })
             .unwrap();
 
-        Self { chan: tx }
+        Self {
+            chan: tx,
+            draw_finished: draw_finished_cloned,
+        }
     }
 
     pub fn redraw(&self) -> Result<()> {
+        let mut finished = self.draw_finished.0.lock().unwrap();
+        *finished = false;
         self.chan
             .send(Command::Redraw)
-            .map_err(|_| recv_shut_down_error())
+            .map_err(|_| recv_shut_down_error())?;
+
+        while !*finished {
+            finished = self.draw_finished.1.wait(finished).unwrap();
+        }
+        Ok(())
     }
 
-    pub fn handle_event(&self, event: Event<'static, ()>) -> Result<()> {
+    pub fn handle_event(&self, event: StaticWindowEvent) -> Result<()> {
         self.chan
             .send(Command::HandleEvent(event))
             .map_err(|_| recv_shut_down_error())

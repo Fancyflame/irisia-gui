@@ -50,16 +50,20 @@ where
                 tokio_runtime.spawn(future);
             }
 
-            Event::WindowEvent { window_id, .. } | Event::RedrawRequested(window_id) => {
+            Event::WindowEvent { window_id, event } => {
                 if let Some(w) = window_map.get_mut(&window_id) {
-                    match event.map_nonuser_event() {
-                        Ok(event) => {
-                            if let Err(err) = w.handle_event(event.to_static().unwrap()) {
-                                println!("{err}");
-                                window_map.remove(&window_id);
-                            }
-                        }
-                        _ => unreachable!(),
+                    if let Err(err) = w.handle_event(event.to_static().unwrap()) {
+                        println!("{err}");
+                        window_map.remove(&window_id);
+                    }
+                }
+            }
+
+            Event::RedrawRequested(window_id) => {
+                if let Some(w) = window_map.get_mut(&window_id) {
+                    if let Err(err) = w.redraw() {
+                        println!("{err}");
+                        window_map.remove(&window_id);
                     }
                 }
             }
