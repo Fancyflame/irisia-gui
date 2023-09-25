@@ -48,7 +48,7 @@ where
         let in_cell = &mut *in_cell_ref;
 
         // update independent later status
-        if !self.acquire_independent_layer.take() && in_cell.parent_layer.is_some() {
+        if !self.acquire_independent_layer.get() && in_cell.parent_layer.is_some() {
             in_cell.indep_layer = None;
         } else if in_cell.indep_layer.is_none() {
             in_cell.indep_layer = Some(LayerCompositer::new())
@@ -79,6 +79,10 @@ where
         self.set_dirty();
     }
 
+    pub fn set_interact_region(&self, region: Option<Region>) {
+        self.interact_region.set(region)
+    }
+
     pub(crate) fn composite(&self, canvas: &mut Canvas) -> Result<()> {
         let in_cell = self.in_cell.borrow();
         match &in_cell.indep_layer {
@@ -104,7 +108,7 @@ where
 
         in_cell.event_mgr.update_and_emit(
             npe,
-            self.interact_region.take(),
+            self.interact_region.get(),
             children_logically_entered,
         )
     }

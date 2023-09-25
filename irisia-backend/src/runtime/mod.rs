@@ -7,7 +7,7 @@ use winit::{
     window::{WindowBuilder, WindowId},
 };
 
-use crate::render_window::RenderWindow;
+use crate::render_window::RenderWindowController;
 
 use self::{global::WindowRegiterMutex, rt_event::WindowReg};
 
@@ -36,7 +36,7 @@ where
     let _guards = (tokio_runtime.enter(), local_set.enter());
 
     let event_loop: EventLoop<WindowReg> = EventLoopBuilder::with_user_event().build();
-    let mut window_map: HashMap<WindowId, RenderWindow> = HashMap::new();
+    let mut window_map: HashMap<WindowId, RenderWindowController> = HashMap::new();
     WindowRegiterMutex::init(event_loop.create_proxy());
 
     event_loop.run(move |event, event_loop, flow| {
@@ -53,7 +53,12 @@ where
             Event::WindowEvent { window_id, .. } | Event::RedrawRequested(window_id) => {
                 if let Some(w) = window_map.get_mut(&window_id) {
                     match event.map_nonuser_event() {
-                        Ok(event) => w.handle_event(event),
+                        Ok(event) => {
+                            if let Err(err) = w.handle_event(event.to_static().unwrap()) {
+                                println!("{err}");
+                                window_map.remove(&window_id);
+                            }
+                        }
                         _ => unreachable!(),
                     }
                 }
@@ -71,13 +76,13 @@ where
                 WindowReg::WindowRegister { app, raw_window } => {
                     let window_id = raw_window.id();
 
-                    let render_window =
-                        RenderWindow::new(app(), raw_window).expect("cannot load renderer");
+                    let render_window = RenderWindowController::new(app, raw_window);
+                    if let Err(err) = render_window.redraw() {
+                        println!("{err}");
+                        return;
+                    }
 
-                    window_map
-                        .entry(window_id)
-                        .or_insert(render_window)
-                        .redraw();
+                    window_map.insert(window_id, render_window);
                 }
 
                 WindowReg::WindowDestroyed(wid) => {
@@ -89,16 +94,21 @@ where
                 }
             },
 
-            _ => match event.map_nonuser_event() {
-                Ok(e) => {
-                    if let Some(e) = e.to_static() {
-                        for window in window_map.values_mut() {
-                            window.handle_event(e.clone());
+            _ => {} /*_ => match event.map_nonuser_event() {
+                        Ok(e) => {
+                            if let Some(e) = e.to_static() {
+                                window_map.retain(|_, window| {
+                                    if let Err(err) = window.handle_event(e.clone()) {
+                                        println!("{err}");
+                                        false
+                                    } else {
+                                        true
+                                    }
+                                });
+                            }
                         }
-                    }
-                }
-                _ => unreachable!(),
-            },
+                        _ => unreachable!(),
+                    },*/
         }
     });
 }

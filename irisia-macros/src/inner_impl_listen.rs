@@ -44,7 +44,7 @@ impl ListenOptions {
             (false, false) => quote!(receiver.recv().await.0),
             (false, true) => quote!(receiver.recv_sys().await),
             (true, false) => quote!(E::handle(&mut receiver).await),
-            (true, true) => panic!("sub event can never be system event"),
+            (true, true) => unreachable!("sub event can never be system event"),
         };
 
         let spwan_task = if self.asyn {
@@ -77,10 +77,8 @@ impl ListenOptions {
 
         quote! {
             let obj = self.eh.clone();
-            tokio::task::spawn_local(async move {
-                obj.ed.cancel_on_abandoned(async {
-                    #future
-                }).await;
+            self.eh.daemon(async move {
+                #future
             })
         }
     }

@@ -1,6 +1,6 @@
 use irisia::{
     element::{Element, ElementUpdate, LayoutElements, PropsUpdateWith},
-    event::standard::{ElementAbandoned, PointerEntered, PointerLeft, PointerOut},
+    event::standard::{ElementAbandoned, PointerDown, PointerEntered, PointerLeft, PointerOut},
     exit_app,
     primitive::{Pixel, Point},
     read_style,
@@ -48,11 +48,18 @@ impl Element for Rectangle {
     ) -> irisia::Result<()> {
         let region = this.draw_region();
 
+        let end_point = Point(
+            region.0 .0 + self.style.width.map(|x| x.0).unwrap_or(Pixel(50.0)),
+            region.0 .1 + self.style.height.map(|h| h.0).unwrap_or(Pixel(50.0)),
+        );
+
+        this.set_interact_region(Some((region.0, end_point)));
+
         let rect = Rect::new(
             region.0 .0.to_physical(),
             region.0 .1.to_physical(),
-            (region.0 .0 + self.style.width.map(|x| x.0).unwrap_or(Pixel(50.0))).to_physical(),
-            (region.0 .1 + self.style.height.map(|h| h.0).unwrap_or(Pixel(50.0))).to_physical(),
+            end_point.0.to_physical(),
+            end_point.1.to_physical(),
         );
 
         let color = if self.is_force {
@@ -82,7 +89,7 @@ where
         this.listen()
             .sys_only()
             .asyn()
-            .spawn(|_: PointerLeft, this| async move {
+            .spawn(|_: PointerOut, this| async move {
                 this.el_write().await.unwrap().is_force = false;
             });
 

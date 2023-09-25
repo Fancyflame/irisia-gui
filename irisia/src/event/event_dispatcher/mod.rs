@@ -1,9 +1,6 @@
 use self::{lock::EventDispatcherLock, scheduler::EmitScheduler};
-use crate::{event::standard::ElementAbandoned, Event};
-use std::{
-    future::Future,
-    sync::{Arc, Mutex as StdMutex, Weak},
-};
+use crate::Event;
+use std::sync::{Arc, Mutex as StdMutex, Weak};
 
 use super::{EventMetadata, EventReceive};
 
@@ -28,7 +25,7 @@ impl EventDispatcher {
         EmitScheduler::emit_raw(&self.0, event, EventMetadata::new());
     }
 
-    pub(crate) fn emit_sys(&self, event: impl Event) {
+    pub(crate) fn emit_sys<E: Event>(&self, event: E) {
         EmitScheduler::emit_raw(&self.0, event, EventMetadata::new_sys());
     }
 
@@ -49,16 +46,6 @@ impl EventDispatcher {
             if metadata.is_system_event {
                 return ev;
             }
-        }
-    }
-
-    pub(crate) async fn cancel_on_abandoned<F>(&self, f: F) -> Option<F::Output>
-    where
-        F: Future,
-    {
-        tokio::select! {
-            _ = self.recv_sys::<ElementAbandoned>() => None,
-            r = f => Some(r)
         }
     }
 

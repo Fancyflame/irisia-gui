@@ -22,7 +22,7 @@ pub(crate) struct GlobalEventMgr {
     pointer_state: PointerState,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub(crate) enum PointerState {
     Pressing,
     Release,
@@ -69,7 +69,7 @@ fn emit_physical_pointer_event(
     new_pointer_state: PointerStateChange,
 ) {
     match (new_pointer_state, position) {
-        (PointerStateChange::EnterViewport, None) => ed.emit_sys(PointerEntered),
+        (PointerStateChange::EnterViewport, _) => ed.emit_sys(PointerEntered),
         (PointerStateChange::Press, Some(position)) => ed.emit_sys(PointerDown {
             is_current: false,
             position,
@@ -84,7 +84,9 @@ fn emit_physical_pointer_event(
             position,
         }),
         (PointerStateChange::LeaveViewport, None) => ed.emit_sys(PointerOut),
-        _ => {} //unreachable!("unexpected new-pointer-state and optioned position combination")},
+        _ => {
+            unreachable!("unexpected new-pointer-state and optioned position combination")
+        }
     }
 }
 
@@ -94,6 +96,7 @@ fn cursor_behavior(
     old_position: Option<Point>,
 ) -> Option<(Option<Point>, PointerState)> {
     let mut new_pointer_state = old_state;
+
     let mut new_position: Option<Point> = match &event {
         StaticWindowEvent::Touch(touch) => Some(touch.location.into()),
         _ => old_position,
@@ -113,6 +116,9 @@ fn cursor_behavior(
         }
 
         StaticWindowEvent::CursorMoved { position, .. } => {
+            if let PointerState::OutOfViewport = new_pointer_state {
+                new_pointer_state = PointerState::Release;
+            }
             new_position = Some(Point::from(*position))
         }
 
@@ -138,6 +144,7 @@ fn cursor_behavior(
             phase: TouchPhase::Cancelled,
             ..
         }) => {
+            new_position.take();
             new_pointer_state = PointerState::OutOfViewport;
         }
 

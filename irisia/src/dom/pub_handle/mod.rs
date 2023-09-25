@@ -6,8 +6,11 @@ use tokio::{
 };
 
 use crate::{
-    application::content::GlobalContent, event::EventDispatcher, primitive::Region,
-    style::StyleContainer, Element, StyleReader,
+    application::content::GlobalContent,
+    event::{standard::ElementAbandoned, EventDispatcher},
+    primitive::Region,
+    style::StyleContainer,
+    Element, StyleReader,
 };
 
 pub use self::{layout_el::LayoutElements, listen::Listen, write_guard::ElWriteGuard};
@@ -30,7 +33,7 @@ where
 {
     /// Get a write guard without setting dirty
     pub(super) fn el_write_clean(&self) -> RwLockMappedWriteGuard<El> {
-        RwLockWriteGuard::map(self.el.blocking_write(), |x| x.as_mut().unwrap())
+        RwLockWriteGuard::map(self.el.try_write().unwrap(), |x| x.as_mut().unwrap())
     }
 
     /// Get a write guard of this element and setting dirty.
@@ -51,7 +54,7 @@ where
     }
 
     pub fn alive(&self) -> bool {
-        self.el_alive.take()
+        self.el_alive.get()
     }
 
     /// Listen event with options
@@ -142,12 +145,17 @@ where
     ///
     /// The spawned task will be cancelled when element dropped,
     /// or can be cancelled manually.
-    pub fn daemon<F>(&self, fut: F) -> JoinHandle<Option<F::Output>>
+    pub fn daemon<F>(&self, fut: F) -> JoinHandle<()>
     where
         F: Future + 'static,
     {
         let ed = self.ed.clone();
-        tokio::task::spawn_local(async move { ed.cancel_on_abandoned(fut).await })
+        tokio::task::spawn_local(async move {
+            tokio::select! {
+                _ = ed.recv_sys::<ElementAbandoned>() => {},
+                _ = fut => {}
+            }
+        })
     }
 
     pub fn layout_children(&self) -> Option<LayoutElements> {

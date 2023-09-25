@@ -1,18 +1,23 @@
+use std::rc::Rc;
+
 use irisia::{
     application::Window,
     build,
     element::{Element, ElementUpdate},
-    event::standard::Click,
+    event::{
+        standard::{Click, PointerDown, PointerEntered, PointerUp},
+        EventReceiver,
+    },
     skia_safe::Color,
     style,
     style::StyleColor,
-    ElModel,
+    ElModel, StaticWindowEvent,
 };
 use irisia_widgets::textbox::{
     styles::{StyleFontSize, StyleFontWeight},
     TextBox,
 };
-use window_backend::{Flex, Rectangle, StyleHeight, StyleWidth};
+use window_backend::{Flex, MyRequestClose, Rectangle, StyleHeight, StyleWidth};
 
 mod window_backend;
 
@@ -34,7 +39,8 @@ impl Element for App {
 }
 
 impl ElementUpdate<()> for App {
-    fn el_create(_this: ElModel!(), props: ()) -> Self {
+    fn el_create(this: ElModel!(), props: ()) -> Self {
+        //this.global().event_dispatcher().
         Self {
             rects: vec![
                 Color::RED,
@@ -87,7 +93,7 @@ impl ElementUpdate<()> for App {
 
 fn rect_rt(this: ElModel!(Rectangle), index: usize) {
     println!("rectangle {index} got");
-    this.listen().sys_only().spawn(move |_: Click, _| {
-        println!("rectangle {} clicked", index);
+    this.listen().sys_only().spawn(move |_: PointerDown, _| {
+        println!("rectangle {} pointer down", index);
     });
 }

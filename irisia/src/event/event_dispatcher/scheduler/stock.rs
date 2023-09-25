@@ -64,7 +64,7 @@ enum Ltnr<E> {
 
 pub(in crate::event) struct Row<E> {
     id_generator: u32,
-    confirmed_count: u32,
+    confirmed_count: usize,
     listeners: HashMap<u32, Ltnr<E>>,
     wait_lock: Arc<MaybeConfirmed>,
 }
@@ -80,13 +80,13 @@ impl<E: Event> Row<E> {
     }
 
     pub fn register(&mut self, increased_permits: bool) -> u32 {
+        if increased_permits {
+            self.confirmed_count += 1;
+        }
+
         loop {
             let id = self.id_generator;
             self.id_generator = self.id_generator.wrapping_add(1);
-
-            if increased_permits {
-                self.confirmed_count += 1;
-            }
 
             if let Entry::Vacant(place) = self.listeners.entry(id) {
                 place.insert(Ltnr::Pending {

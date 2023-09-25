@@ -98,16 +98,18 @@ where
                 },
         } = updater;
 
+        let ed = EventDispatcher::new();
+
         let this = Rc::new_cyclic(|weak: &Weak<ElementModel<_, _, _>>| ElementModel {
             this: weak.clone(),
             el: RwLock::new(None),
             el_alive: Cell::new(true),
             global_content: global_content.clone(),
-            ed: EventDispatcher::new(),
+            ed: ed.clone(),
             in_cell: RefCell::new(InsideRefCell {
                 styles,
                 expanded_children: None,
-                event_mgr: NodeEventMgr::new(),
+                event_mgr: NodeEventMgr::new(ed),
                 parent_layer: parent_layer.clone(),
                 indep_layer: if parent_layer.is_some() {
                     None
@@ -125,7 +127,7 @@ where
         });
 
         // hold the lock prevent from being accessed
-        let mut write = this.el.blocking_write();
+        let mut write = this.el.try_write().unwrap();
         let el = El::el_create(&this, props.set_std_styles(&this.in_cell.borrow().styles));
         el.set_children(&this);
         *write = Some(el);

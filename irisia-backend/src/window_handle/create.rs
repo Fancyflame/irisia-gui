@@ -6,7 +6,7 @@ use crate::{
 };
 
 use anyhow::Result;
-use tokio::sync::{oneshot, Mutex};
+use tokio::sync::oneshot;
 use winit::window::WindowBuilder;
 
 use super::{close_handle::CloseHandle, RawWindowHandle};
@@ -36,16 +36,13 @@ impl RawWindowHandle {
         let raw_window_cloned = raw_window.clone();
         let app = move || {
             let window_id = raw_window_cloned.id();
-            Arc::new(Mutex::new(create_app(
-                raw_window_cloned,
-                CloseHandle(window_id),
-            ))) as Arc<Mutex<dyn AppWindow>>
+            Box::new(create_app(raw_window_cloned, CloseHandle(window_id))) as Box<dyn AppWindow>
         };
 
         WindowRegiterMutex::lock()
             .await
             .send(WindowReg::WindowRegister {
-                app: Box::new(app) as _,
+                app: Box::new(app),
                 raw_window: raw_window.clone(),
             });
 

@@ -60,10 +60,10 @@ impl EmitScheduler {
         }
 
         // there is no existing executor, also has lock held
-        guard_ref.spwan_executor(this, event, metadata);
+        guard_ref.spawn_executor(this, event, metadata);
     }
 
-    fn spwan_executor<E: Event>(
+    fn spawn_executor<E: Event>(
         &mut self,
         this: &Arc<Mutex<Self>>,
         event: E,
@@ -71,15 +71,15 @@ impl EmitScheduler {
     ) {
         let this = this.clone();
         let wait_lock = self.wait_lock.clone();
-        let handle = tokio::spawn(async move {
-            let permits = wait_lock.all_confirmed().await;
+        let handle = tokio::task::spawn_local(async move {
             let mut next_event = {
+                let permits = wait_lock.all_confirmed().await;
                 let mut guard = this.lock().unwrap();
                 if let Some(item) = guard.stock.get() {
                     item.finish(event, metadata, permits);
                 }
 
-                match guard.get_event() {
+                match guard.event_queue.pop_front() {
                     Some(ev) => ev,
                     None => {
                         guard.executor = None;
@@ -105,13 +105,9 @@ impl EmitScheduler {
             }
         });
 
-        self.executor = Some(handle);
-    }
-
-    fn get_event(&mut self) -> Option<QueuedEvent> {
-        let event = self.event_queue.pop_front();
-        if event.is_none() {}
-        event
+        if !handle.is_finished() {
+            self.executor = Some(handle);
+        }
     }
 
     pub(super) fn stock(&mut self) -> &mut EventListenerStock {

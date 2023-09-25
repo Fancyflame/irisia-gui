@@ -27,7 +27,7 @@ enum NewFocused {
     Blur,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub(crate) enum PointerStateChange {
     Unchange,
     Press,

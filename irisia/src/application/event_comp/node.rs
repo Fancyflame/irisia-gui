@@ -16,7 +16,7 @@ pub(crate) struct NodeEventMgr {
     current_state: State,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 enum State {
     Untracked,
     LogicallyEnter,
@@ -24,9 +24,9 @@ enum State {
 }
 
 impl NodeEventMgr {
-    pub fn new() -> Self {
+    pub fn new(ed: EventDispatcher) -> Self {
         Self {
-            ed: EventDispatcher::new(),
+            ed,
             current_state: State::Untracked,
         }
     }
@@ -37,17 +37,12 @@ impl NodeEventMgr {
         region: Option<Region>,
         logically_entered: bool,
     ) -> bool {
-        let Some(region) = region
-        else {
-            return false;
-        };
-
-        let position = match update.new_position {
-            Some(p) if p.abs_ge(region.0) && p.abs_le(region.1) => {
+        let position = match (update.new_position, region) {
+            (Some(p), Some(region)) if p.abs_ge(region.0) && p.abs_le(region.1) => {
                 self.update_state(State::PhysicallyEnter);
                 p
             }
-            Some(p) if logically_entered => {
+            (Some(p), None) if logically_entered => {
                 self.update_state(State::LogicallyEnter);
                 p
             }
@@ -123,7 +118,13 @@ impl NodeEventMgr {
             }),
             PointerStateChange::Unchange => self.ed.emit_sys(PointerMove {
                 is_current: logically_entered,
-                delta: delta.unwrap(),
+                delta: delta.unwrap_or_else(|| {
+                    if cfg!(debug_assertions) {
+                        unreachable!("delta distance must be exist")
+                    } else {
+                        Default::default()
+                    }
+                }),
                 position,
             }),
             PointerStateChange::Release => self.ed.emit_sys(PointerUp {

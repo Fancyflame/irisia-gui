@@ -1,71 +1,72 @@
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::sync::Arc;
 
-use anyhow::Result;
-use tokio::sync::Mutex;
+use anyhow::{anyhow, Result};
+use tokio::{sync::mpsc, task::LocalSet};
 use winit::event::Event;
 
-use crate::{AppWindow, WinitWindow};
+use crate::{runtime::rt_event::AppBuildFn, WinitWindow};
 
-use self::renderer::Renderer;
+use self::window::RenderWindow;
 
 mod renderer;
+mod window;
 
-pub struct RenderWindow {
-    app: Arc<Mutex<dyn AppWindow>>,
-    window: Arc<WinitWindow>,
-    renderer: Renderer,
-    last_frame_instant: Option<Instant>,
+enum Command {
+    Redraw,
+    HandleEvent(Event<'static, ()>),
 }
 
-impl RenderWindow {
-    pub fn new(app: Arc<Mutex<dyn AppWindow>>, window: Arc<WinitWindow>) -> Result<Self> {
-        Ok(RenderWindow {
-            app: app as _,
-            renderer: Renderer::new(&window)?,
-            window,
-            last_frame_instant: None,
-        })
+pub struct RenderWindowController {
+    chan: mpsc::UnboundedSender<Command>,
+}
+
+impl RenderWindowController {
+    pub fn new(app: AppBuildFn, window: Arc<WinitWindow>) -> Self {
+        let (tx, mut rx) = mpsc::unbounded_channel::<Command>();
+
+        std::thread::Builder::new()
+            .name("irisia window".into())
+            .spawn(move || {
+                let rt = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .unwrap();
+
+                let local = LocalSet::new();
+                local.spawn_local(async move {
+                    let mut rw = RenderWindow::new(app, window).expect("cannot launch renderer");
+                    loop {
+                        let Some(cmd) = rx.recv().await
+                        else {
+                            return;
+                        };
+
+                        match cmd {
+                            Command::Redraw => rw.redraw(),
+                            Command::HandleEvent(ev) => rw.handle_event(ev),
+                        }
+                    }
+                });
+                rt.block_on(local);
+            })
+            .unwrap();
+
+        Self { chan: tx }
     }
 
-    pub fn redraw(&mut self) {
-        let delta = {
-            let now = Instant::now();
-            match self.last_frame_instant.replace(now) {
-                Some(last) => now.duration_since(last),
-                None => Duration::MAX,
-            }
-        };
-
-        let mut app = match self.app.try_lock() {
-            Ok(app) => app,
-            Err(_) => self.app.blocking_lock(),
-        };
-
-        if let Err(err) = self.renderer.resize(self.window.inner_size()) {
-            eprintln!("cannot resize window: {err}");
-        }
-
-        if let Err(err) = self.renderer.render(|canvas| app.on_redraw(canvas, delta)) {
-            eprintln!("render error: {err}");
-        }
+    pub fn redraw(&self) -> Result<()> {
+        self.chan
+            .send(Command::Redraw)
+            .map_err(|_| recv_shut_down_error())
     }
 
-    pub fn handle_event(&mut self, event: Event<()>) {
-        match event {
-            Event::RedrawRequested(_) => {
-                self.redraw();
-            }
-
-            Event::WindowEvent { event, .. } => {
-                if let Some(static_event) = event.to_static() {
-                    self.app.blocking_lock().on_window_event(static_event);
-                }
-            }
-
-            _ => {}
-        }
+    pub fn handle_event(&self, event: Event<'static, ()>) -> Result<()> {
+        self.chan
+            .send(Command::HandleEvent(event))
+            .map_err(|_| recv_shut_down_error())
     }
+}
+
+fn recv_shut_down_error() -> anyhow::Error {
+    anyhow!("worker unexpectedly shutted down")
 }

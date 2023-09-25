@@ -1,20 +1,20 @@
-use std::sync::atomic::AtomicU32;
+use std::sync::atomic::AtomicUsize;
 
 use tokio::sync::{Semaphore, TryAcquireError};
 
 // only when all permits taken back can emit events
 pub(crate) struct MaybeConfirmed {
     confirmed: Semaphore,
-    defer_cancel: AtomicU32,
+    defer_cancel: AtomicUsize,
 }
 
-const MAX_LOCKS: u32 = u32::MAX >> 3;
+const MAX_LOCKS: usize = 1000000;
 
 impl MaybeConfirmed {
     pub fn new() -> Self {
         MaybeConfirmed {
-            confirmed: Semaphore::new(MAX_LOCKS as _),
-            defer_cancel: AtomicU32::new(0),
+            confirmed: Semaphore::new(MAX_LOCKS),
+            defer_cancel: AtomicUsize::new(0),
         }
     }
 
@@ -26,8 +26,8 @@ impl MaybeConfirmed {
         self.cancel_many(1);
     }
 
-    pub fn cancel_many(&self, count: u32) {
-        match self.confirmed.try_acquire_many(count) {
+    pub fn cancel_many(&self, count: usize) {
+        match self.confirmed.try_acquire_many(count as _) {
             Ok(permit) => permit.forget(),
             Err(_) => {
                 self.defer_cancel
@@ -39,7 +39,7 @@ impl MaybeConfirmed {
     pub async fn all_confirmed(&self) -> AllConfirmedPermits {
         loop {
             self.confirmed
-                .acquire_many(MAX_LOCKS)
+                .acquire_many(MAX_LOCKS as _)
                 .await
                 .unwrap()
                 .forget();
@@ -70,6 +70,8 @@ impl MaybeConfirmed {
             .swap(0, std::sync::atomic::Ordering::Relaxed);
 
         if defer_cancel_count != 0 {
+            self.confirmed
+                .add_permits((MAX_LOCKS - defer_cancel_count) as _);
             return Err(TryAcquireError::NoPermits);
         }
 
@@ -82,11 +84,11 @@ impl MaybeConfirmed {
 
 pub struct AllConfirmedPermits<'a> {
     maybe_confirmed: &'a MaybeConfirmed,
-    semaphore_permits: u32,
+    semaphore_permits: usize,
 }
 
 impl AllConfirmedPermits<'_> {
-    pub fn cancel_many(&mut self, count: u32) {
+    pub fn cancel_many(&mut self, count: usize) {
         assert_ne!(count, MAX_LOCKS);
         self.semaphore_permits -= count;
     }
