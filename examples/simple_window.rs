@@ -1,23 +1,18 @@
-use std::rc::Rc;
-
 use irisia::{
     application::Window,
     build,
     element::{Element, ElementUpdate},
-    event::{
-        standard::{Click, PointerDown, PointerEntered, PointerUp},
-        EventReceiver,
-    },
+    event::standard::PointerDown,
     skia_safe::Color,
     style,
     style::StyleColor,
-    ElModel, StaticWindowEvent,
+    ElModel,
 };
 use irisia_widgets::textbox::{
     styles::{StyleFontSize, StyleFontWeight},
     TextBox,
 };
-use window_backend::{Flex, MyRequestClose, Rectangle, StyleHeight, StyleWidth};
+use window_backend::{Flex, Rectangle, StyleHeight, StyleWidth};
 
 mod window_backend;
 
@@ -39,7 +34,7 @@ impl Element for App {
 }
 
 impl ElementUpdate<()> for App {
-    fn el_create(this: ElModel!(), props: ()) -> Self {
+    fn el_create(_: ElModel!(), _: ()) -> Self {
         //this.global().event_dispatcher().
         Self {
             rects: vec![
@@ -52,8 +47,8 @@ impl ElementUpdate<()> for App {
         }
     }
 
-    fn el_update(&mut self, this: ElModel!(), props: (), equality_matters: bool) -> bool {
-        equality_matters
+    fn el_update(&mut self, _: ElModel!(), _: (), _: bool) -> bool {
+        true
     }
 
     fn set_children(&self, this: ElModel!()) {

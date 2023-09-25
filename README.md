@@ -1,4 +1,4 @@
-![irisia banner](images/irisia_new.jpg)
+![irisia logo](images/irisia_new.jpg)
 
 # Irisia GUI
 
@@ -63,13 +63,16 @@ Rust的应用场景很广泛，可以通过WebAssembly技术在浏览器运行�
 use irisia::{
     application::Window,
     build,
-    element::{Element, ElementHandle, NeverInitalized, NoProps, RuntimeInit},
-    event::standard::Click,
+    element::{Element, ElementUpdate},
+    event::standard::PointerDown,
     skia_safe::Color,
-    structure::StructureBuilder,
     style,
     style::StyleColor,
-    textbox::{styles::*, TextBox},
+    ElModel,
+};
+use irisia_widgets::textbox::{
+    styles::{StyleFontSize, StyleFontWeight},
+    TextBox,
 };
 use window_backend::{Flex, Rectangle, StyleHeight, StyleWidth};
 
@@ -89,18 +92,29 @@ struct App {
 }
 
 impl Element for App {
-    type Props<'a> = NoProps;
-    type ChildProps<'a> = NeverInitalized;
+    type BlankProps = ();
+}
 
-    fn render<'a>(
-        &mut self,
-        mut frame: irisia::Frame<
-            Self,
-            impl style::StyleContainer,
-            impl irisia::structure::VisitIter<Self::ChildProps<'a>>,
-        >,
-    ) -> irisia::Result<()> {
-        build! {
+impl ElementUpdate<()> for App {
+    fn el_create(_: ElModel!(), _: ()) -> Self {
+        //this.global().event_dispatcher().
+        Self {
+            rects: vec![
+                Color::RED,
+                Color::YELLOW,
+                Color::BLUE,
+                Color::GREEN,
+                Color::BLACK,
+            ],
+        }
+    }
+
+    fn el_update(&mut self, _: ElModel!(), _: (), _: bool) -> bool {
+        true
+    }
+
+    fn set_children(&self, this: ElModel!()) {
+        this.set_children(build! {
             Flex {
                 TextBox {
                     text: "Hello\nпpивeт\nこんにちは\n你好\n\nIrisia GUI🌺",
@@ -118,58 +132,40 @@ impl Element for App {
                     @key index;
                     Rectangle {
                         +style: style!{
-                            width: 100.0;
-                            height: 100.0 + 40.0 * index as f32;
+                            width: 100px;
+                            height: 100px + 40px * index as f32;
                             color: color.clone();
                         },
-                        +oncreate: move |eh| {
+                        +oncreate: move |eh:&_| {
                             rect_rt(eh, index);
                         },
                     }
                 }
             }
-        }
-        .into_rendering(&mut frame.content)
-        .finish(frame.drawing_region)
-    }
-
-    fn create(_: &RuntimeInit<Self>) -> Self {
-        Self {
-            rects: vec![
-                Color::RED,
-                Color::YELLOW,
-                Color::BLUE,
-                Color::GREEN,
-                Color::BLACK,
-            ],
-        }
+        })
+        .layout_once(this.draw_region())
+        .unwrap();
     }
 }
 
-fn rect_rt(eh: &ElementHandle, index: usize) {
+fn rect_rt(this: ElModel!(Rectangle), index: usize) {
     println!("rectangle {index} got");
-    let eh = eh.clone();
-    eh.clone().spawn(async move {
-        loop {
-            eh.recv_sys::<Click>().await;
-            println!("rectangle {} clicked", index);
-        }
+    this.listen().sys_only().spawn(move |_: PointerDown, _| {
+        println!("rectangle {} pointer down", index);
     });
 }
+
 ```
 
 ![render result](images/window.jpg)
 
 ## 亲自动手试试
 
-**十分抱歉，最新例程还未推出**。
-因为在制作缓存模型时涉及了大量渲染逻辑，API改动较大，example还没有完全修正，暂时没法运行。**不过可以运行缓存模型前一个版本的例程来快速体验irisia**。
-下面是运行f332664 commit（渲染模型开始前一个版本）中irisia例程的指令：
+下面是运行例子中简单窗口的命令
 ```sh
 git clone https://github.com/Fancyflame/irisia-gui.git
 cd irisia-gui
-git reset --hard f332664
-cargo r --example window
+cargo r --example simple_window
 ```
 **如果遇到编译错误，请查阅[Irisia Book](#irisia-book)！**
 
@@ -187,13 +183,11 @@ cargo r --example window
 - [x] 搭建后端支持（`skia`和`winit`）
 - [x] 文本渲染
 - [x] 缓存模型（独立渲染层、合成层）
-- [ ] 动画系统（基于Style）
 - [ ] 设计组件（按钮、复选框等）
 - [ ] 文档撰写
 - [ ] 预发布（Windows版本）
+- [ ] 动画系统（基于Style）
 - [ ] 支持更多平台
-
-额外工作：正在重构irisia全局异步执行器为单线程 --2023/9/7
 
 # 贡献代码
 
