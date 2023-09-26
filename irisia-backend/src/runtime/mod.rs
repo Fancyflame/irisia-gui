@@ -9,9 +9,9 @@ use winit::{
 
 use crate::render_window::RenderWindowController;
 
-use self::{global::WindowRegiterMutex, rt_event::WindowReg};
+use self::{global_event::WindowRegiterMutex, rt_event::WindowReg};
 
-pub(crate) mod global;
+pub(crate) mod global_event;
 pub(crate) mod rt_event;
 
 pub async fn exit_app(code: i32) {

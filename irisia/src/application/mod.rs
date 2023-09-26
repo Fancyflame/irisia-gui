@@ -1,10 +1,10 @@
-use std::sync::Arc;
+use std::sync::Weak;
 
 use irisia_backend::{window_handle::WindowBuilder, WinitWindow};
 
 use crate::{
     element::{Element, ElementUpdate},
-    event::{standard::window_event::WindowDestroyed, EventDispatcher},
+    event::{standard::WindowDestroyed, EventDispatcher},
     Result,
 };
 
@@ -19,7 +19,7 @@ pub use irisia_backend::window_handle::CloseHandle;
 
 #[derive(Clone)]
 pub struct Window {
-    winit_window: Arc<WinitWindow>,
+    winit_window: Weak<WinitWindow>,
     close_handle: CloseHandle,
     event_dispatcher: EventDispatcher,
 }
@@ -41,7 +41,7 @@ impl Window {
         new_window::<El, _>(f).await
     }
 
-    pub fn winit_window(&self) -> &Arc<WinitWindow> {
+    pub fn winit_window(&self) -> &Weak<WinitWindow> {
         &self.winit_window
     }
 
@@ -58,6 +58,10 @@ impl Window {
     }
 
     pub async fn join(&self) {
+        if self.winit_window.strong_count() == 0 {
+            return;
+        }
+
         self.event_dispatcher
             .recv_trusted::<WindowDestroyed>()
             .await;

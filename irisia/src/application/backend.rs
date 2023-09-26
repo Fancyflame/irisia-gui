@@ -10,7 +10,7 @@ use irisia_backend::{
 use crate::{
     dom::{one_child, update::ElementModelUpdater, DropProtection, EMUpdateContent},
     element::{Element, ElementUpdate},
-    event::EventDispatcher,
+    event::{standard::WindowDestroyed, EventDispatcher},
     primitive::{Pixel, Point, Region},
     update_with::UpdateWith,
     Result,
@@ -56,6 +56,10 @@ where
                 npe.focus_on(None);
             }
         }
+    }
+
+    fn on_destroy(&mut self) {
+        self.gc.event_dispatcher().emit_trusted(WindowDestroyed);
     }
 }
 
@@ -117,7 +121,7 @@ where
     } = RawWindowHandle::create(create_app, window_builder).await?;
 
     Ok(Window {
-        winit_window: raw_window,
+        winit_window: Arc::downgrade(&raw_window),
         close_handle,
         event_dispatcher: ev_disp,
     })

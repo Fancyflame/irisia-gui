@@ -2,7 +2,7 @@ use irisia::{
     application::Window,
     build,
     element::{Element, ElementUpdate},
-    event::standard::PointerDown,
+    event::standard::{CloseRequested, PointerDown},
     skia_safe::Color,
     style,
     style::StyleColor,
@@ -34,8 +34,16 @@ impl Element for App {
 }
 
 impl ElementUpdate<()> for App {
-    fn el_create(_: ElModel!(), _: ()) -> Self {
-        //this.global().event_dispatcher().
+    fn el_create(this: ElModel!(), _: ()) -> Self {
+        this.global()
+            .event_dispatcher()
+            .listen()
+            .no_handle()
+            .spawn(|cr: CloseRequested| {
+                println!("close requsted");
+                cr.0.close();
+            });
+
         Self {
             rects: vec![
                 Color::RED,

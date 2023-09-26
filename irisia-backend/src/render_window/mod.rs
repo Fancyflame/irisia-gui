@@ -35,12 +35,12 @@ impl RenderWindowController {
                     .unwrap();
 
                 let local = LocalSet::new();
-                local.spawn_local(async move {
+                local.block_on(&async_runtime, async move {
                     let mut rw = RenderWindow::new(app, window).expect("cannot launch renderer");
                     loop {
                         let Some(cmd) = rx.recv().await
                         else {
-                            return;
+                            break;
                         };
 
                         match cmd {
@@ -53,7 +53,6 @@ impl RenderWindowController {
                         }
                     }
                 });
-                async_runtime.block_on(local);
             })
             .unwrap();
 

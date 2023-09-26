@@ -1,8 +1,13 @@
+use irisia_backend::window_handle::CloseHandle;
+use irisia_backend::StaticWindowEvent;
+
 use crate as irisia;
 use crate::primitive::{Pixel, Point};
 use crate::Event;
 
-pub mod window_event;
+//pub mod window_event;
+
+impl Event for StaticWindowEvent {}
 
 /// Declares the element won't be used by the origin structure anymore,
 /// but may not dropped immediately due to strong references of `Arc`.
@@ -52,3 +57,9 @@ pub struct PointerLeft;
 pub struct Click {
     pub is_current: bool,
 }
+
+#[derive(Event, Clone, Copy)]
+pub struct CloseRequested(pub CloseHandle);
+
+#[derive(Event, Clone, Copy)]
+pub struct WindowDestroyed;

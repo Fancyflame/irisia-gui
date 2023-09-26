@@ -1,6 +1,6 @@
 use winit::window::WindowId;
 
-use crate::runtime::{global::WindowRegiterMutex, rt_event::WindowReg};
+use crate::runtime::{global_event::WindowRegiterMutex, rt_event::WindowReg};
 
 #[derive(Clone, Copy)]
 pub struct CloseHandle(pub(super) WindowId);

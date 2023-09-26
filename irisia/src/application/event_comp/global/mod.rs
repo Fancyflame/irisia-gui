@@ -6,7 +6,9 @@ use irisia_backend::{
 use crate::{
     application::content::GlobalContent,
     event::{
-        standard::{PointerDown, PointerEntered, PointerMove, PointerOut, PointerUp},
+        standard::{
+            CloseRequested, PointerDown, PointerEntered, PointerMove, PointerOut, PointerUp,
+        },
         EventDispatcher,
     },
     primitive::{Pixel, Point},
@@ -55,6 +57,13 @@ impl GlobalEventMgr {
                 Some(npe)
             }
             None => {
+                match &event {
+                    StaticWindowEvent::CloseRequested => {
+                        gc.global_ed.emit_trusted(CloseRequested(gc.close_handle))
+                    }
+                    _ => {}
+                }
+
                 gc.global_ed.emit_trusted(event);
                 None
             }

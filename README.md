@@ -102,7 +102,15 @@ impl Element for App {
 
 impl ElementUpdate<()> for App {
     fn el_create(_: ElModel!(), _: ()) -> Self {
-        //this.global().event_dispatcher().
+        this.global()
+            .event_dispatcher()
+            .listen()
+            .no_handle()
+            .spawn(|cr: CloseRequested| {
+                println!("close requsted");
+                cr.0.close();
+            });
+
         Self {
             rects: vec![
                 Color::RED,

@@ -51,3 +51,9 @@ impl RenderWindow {
         self.app.on_window_event(event);
     }
 }
+
+impl Drop for RenderWindow {
+    fn drop(&mut self) {
+        self.app.on_destroy();
+    }
+}

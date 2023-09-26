@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    runtime::{global::WindowRegiterMutex, rt_event::WindowReg},
+    runtime::{global_event::WindowRegiterMutex, rt_event::WindowReg},
     AppWindow, WinitWindow,
 };
 
