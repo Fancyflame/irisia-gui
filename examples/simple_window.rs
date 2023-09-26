@@ -88,7 +88,10 @@ impl ElementUpdate<()> for App {
 
 fn rect_rt(this: ElModel!(Rectangle), index: usize) {
     println!("rectangle {index} got");
-    this.listen().trusted().spawn(move |_: PointerDown, _| {
-        println!("rectangle {} pointer down", index);
-    });
+    this.listen()
+        .trusted()
+        .no_handle()
+        .spawn(move |_: PointerDown| {
+            println!("rectangle {} pointer down", index);
+        });
 }

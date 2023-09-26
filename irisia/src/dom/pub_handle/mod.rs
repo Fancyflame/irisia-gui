@@ -7,11 +7,7 @@ use tokio::{
 
 use crate::{
     application::content::GlobalContent,
-    event::{
-        listen::{EdProvider, Listen},
-        standard::ElementAbandoned,
-        EventDispatcher,
-    },
+    event::{standard::ElementAbandoned, EdProvider, EventDispatcher, Listen},
     primitive::Region,
     style::StyleContainer,
     Element, StyleReader,

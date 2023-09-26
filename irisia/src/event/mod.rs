@@ -1,11 +1,15 @@
+pub use self::{
+    event_dispatcher::{receive::EventReceive, EventDispatcher},
+    listen::Listen,
+    metadata::EventMetadata,
+};
 use async_trait::async_trait;
-pub use event_dispatcher::{receive::EventReceive, EventDispatcher};
-pub use metadata::EventMetadata;
 
 use self::event_dispatcher::lock::EventDispatcherLock;
+pub(crate) use listen::EdProvider;
 
 pub mod event_dispatcher;
-pub mod listen;
+mod listen;
 pub mod metadata;
 pub mod standard;
 

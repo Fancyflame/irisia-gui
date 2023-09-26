@@ -7,13 +7,20 @@ struct ListenOptions {
     trusted: bool,
     asyn: bool,
     sub_event: bool,
+    no_handle: bool,
 }
 
 impl ListenOptions {
     fn impl_item(&self) -> TokenStream {
-        let arg_types = [self.once, self.trusted, self.asyn, self.sub_event]
-            .into_iter()
-            .map(|on| if on { quote!(FlagSet) } else { quote!(()) });
+        let arg_types = [
+            self.once,
+            self.trusted,
+            self.asyn,
+            self.sub_event,
+            self.no_handle,
+        ]
+        .into_iter()
+        .map(|on| if on { quote!(FlagSet) } else { quote!(()) });
 
         let fut_generic = if self.asyn { Some(quote!(Ret,)) } else { None };
 
@@ -21,10 +28,7 @@ impl ListenOptions {
         let fn_body = self.fn_body();
 
         quote! {
-            impl<Ep> Listen<'_, Ep, #(#arg_types),*>
-            where
-                Ep: EdProvider
-            {
+            impl<Ep> Listen<'_, Ep, #(#arg_types),*> {
                 pub fn spawn<E, F, #fut_generic>(self, mut f: F) -> JoinHandle<()>
                 #where_clause
                 { #fn_body }
@@ -40,10 +44,19 @@ impl ListenOptions {
             (true, true) => unreachable!("sub event can never be trusted event"),
         };
 
-        let spwan_task = if self.asyn {
-            quote!(tokio::task::spawn_local(f(result, obj.clone())))
-        } else {
-            quote!(f(result, &obj))
+        let spwan_task = match (self.asyn, self.no_handle) {
+            (false, false) => {
+                quote!(f(result, &obj))
+            }
+            (false, true) => {
+                quote!(f(result))
+            }
+            (true, false) => {
+                quote!(tokio::task::spawn_local(f(result, obj.clone())))
+            }
+            (true, true) => {
+                quote!(tokio::task::spawn_local(f(result)))
+            }
         };
 
         let future = if self.once {
@@ -77,7 +90,10 @@ impl ListenOptions {
     }
 
     fn where_clause(&self) -> WhereClause {
-        let mut tokens = quote!(where);
+        let mut tokens = quote! {
+            where
+                Ep: EdProvider,
+        };
 
         let e_bound = if self.sub_event {
             quote!(SubEvent)
@@ -90,11 +106,18 @@ impl ListenOptions {
             tokens.extend(quote!(Ret: Future<Output = ()> + 'static,));
         }
 
-        let f_bound = match (self.once, self.asyn) {
-            (false, false) => quote!(FnMut(E, &Ep)),
-            (true, false) => quote!(FnOnce(E, &Ep)),
-            (false, true) => quote!(FnMut(E, Ep) -> Ret),
-            (true, true) => quote!(FnOnce(E, Ep) -> Ret),
+        let f_bound = {
+            let handle_arg = match (self.no_handle, self.asyn) {
+                (true, _) => quote!(),
+                (false, false) => quote!(&Ep),
+                (false, true) => quote!(Ep),
+            };
+            match (self.once, self.asyn) {
+                (false, false) => quote!(FnMut(E, #handle_arg)),
+                (true, false) => quote!(FnOnce(E, #handle_arg)),
+                (false, true) => quote!(FnMut(E, #handle_arg) -> Ret),
+                (true, true) => quote!(FnOnce(E, #handle_arg) -> Ret),
+            }
         };
         tokens.extend(quote!(F: #f_bound + 'static,));
 
@@ -105,12 +128,13 @@ impl ListenOptions {
 pub fn impl_listen() -> TokenStream {
     let mut tokens = TokenStream::new();
 
-    for index in 0b0000..=0b1111 {
+    for index in 0..=0b11111 {
         let options = ListenOptions {
             once: index & 0b00001 != 0,
             trusted: index & 0b00010 != 0,
             asyn: index & 0b00100 != 0,
             sub_event: index & 0b01000 != 0,
+            no_handle: index & 0b10000 != 0,
         };
 
         if options.sub_event && options.trusted {
