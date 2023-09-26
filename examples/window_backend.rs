@@ -80,14 +80,14 @@ where
 {
     fn el_create(this: ElModel!(), props: Pr) -> Self {
         this.listen()
-            .sys_only()
+            .trusted()
             .asyn()
             .spawn(|_: PointerEntered, this| async move {
                 this.el_write().await.unwrap().is_force = true;
             });
 
         this.listen()
-            .sys_only()
+            .trusted()
             .asyn()
             .spawn(|_: PointerOut, this| async move {
                 this.el_write().await.unwrap().is_force = false;

@@ -1,8 +1,8 @@
 use self::{lock::EventDispatcherLock, scheduler::EmitScheduler};
 use crate::Event;
-use std::sync::{Arc, Mutex as StdMutex, Weak};
+use std::sync::{Arc, Mutex as StdMutex};
 
-use super::{EventMetadata, EventReceive};
+use super::{listen::Listen, EventMetadata, EventReceive};
 
 mod extension;
 pub mod lock;
@@ -13,9 +13,6 @@ mod scheduler;
 #[derive(Clone)]
 pub struct EventDispatcher(Arc<StdMutex<EmitScheduler>>);
 
-#[derive(Clone)]
-pub struct WeakEventDispatcher(Weak<StdMutex<EmitScheduler>>);
-
 impl EventDispatcher {
     pub fn new() -> Self {
         EventDispatcher(Arc::new(StdMutex::new(EmitScheduler::new())))
@@ -25,8 +22,8 @@ impl EventDispatcher {
         EmitScheduler::emit_raw(&self.0, event, EventMetadata::new());
     }
 
-    pub(crate) fn emit_sys<E: Event>(&self, event: E) {
-        EmitScheduler::emit_raw(&self.0, event, EventMetadata::new_sys());
+    pub(crate) fn emit_trusted<E: Event>(&self, event: E) {
+        EmitScheduler::emit_raw(&self.0, event, EventMetadata::new_trusted());
     }
 
     pub fn recv<E: Event>(&self) -> EventReceive<E> {
@@ -40,17 +37,17 @@ impl EventDispatcher {
         EventReceive::new(self, id)
     }
 
-    pub async fn recv_sys<E: Event>(&self) -> E {
+    pub async fn recv_trusted<E: Event>(&self) -> E {
         loop {
             let (ev, metadata) = self.recv::<E>().await;
-            if metadata.is_system_event {
+            if metadata.is_trusted_event {
                 return ev;
             }
         }
     }
 
-    pub fn downgrade(&self) -> WeakEventDispatcher {
-        WeakEventDispatcher(Arc::downgrade(&self.0))
+    pub fn listen(&self) -> Listen<Self> {
+        Listen::new(self)
     }
 
     pub(crate) fn ptr_eq(&self, other: &EventDispatcher) -> bool {
@@ -69,15 +66,5 @@ impl EventDispatcher {
 impl Default for EventDispatcher {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-impl WeakEventDispatcher {
-    pub fn upgrade(&self) -> Option<EventDispatcher> {
-        self.0.upgrade().map(EventDispatcher)
-    }
-
-    pub fn is_same(&self, other: &Self) -> bool {
-        self.0.ptr_eq(&other.0)
     }
 }

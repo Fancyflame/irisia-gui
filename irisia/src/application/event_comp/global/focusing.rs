@@ -19,7 +19,7 @@ impl Focusing {
             Some(old_ed) if ed.ptr_eq(old_ed) => {}
             _ => {
                 blur(&mut guard);
-                ed.emit_sys(Focused);
+                ed.emit_trusted(Focused);
                 *guard = Some(ed);
             }
         }
@@ -41,6 +41,6 @@ impl Focusing {
 
 fn blur(ed: &mut Option<EventDispatcher>) {
     if let Some(ed) = ed.take() {
-        ed.emit_sys(Blured);
+        ed.emit_trusted(Blured);
     }
 }

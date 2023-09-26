@@ -59,7 +59,7 @@ impl NodeEventMgr {
             logically_entered,
         );
 
-        self.ed.emit_sys(update.event.clone());
+        self.ed.emit_trusted(update.event.clone());
 
         if let (PointerStateChange::Press, false) = (update.pointer_state_change, logically_entered)
         {
@@ -78,24 +78,24 @@ impl NodeEventMgr {
 
         match (old_state, self.current_state) {
             (Untracked, LogicallyEnter) => {
-                ed.emit_sys(PointerEntered);
+                ed.emit_trusted(PointerEntered);
             }
             (LogicallyEnter, PhysicallyEnter) => {
-                ed.emit_sys(PointerOver);
+                ed.emit_trusted(PointerOver);
             }
             (Untracked, PhysicallyEnter) => {
-                ed.emit_sys(PointerEntered);
-                ed.emit_sys(PointerOver);
+                ed.emit_trusted(PointerEntered);
+                ed.emit_trusted(PointerOver);
             }
             (PhysicallyEnter, Untracked) => {
-                ed.emit_sys(PointerLeft);
-                ed.emit_sys(PointerOut);
+                ed.emit_trusted(PointerLeft);
+                ed.emit_trusted(PointerOut);
             }
             (PhysicallyEnter, LogicallyEnter) => {
-                ed.emit_sys(PointerLeft);
+                ed.emit_trusted(PointerLeft);
             }
             (LogicallyEnter, Untracked) => {
-                ed.emit_sys(PointerOut);
+                ed.emit_trusted(PointerOut);
             }
             (Untracked, Untracked)
             | (LogicallyEnter, LogicallyEnter)
@@ -112,11 +112,11 @@ impl NodeEventMgr {
     ) {
         match psc {
             PointerStateChange::EnterViewport { .. } | PointerStateChange::LeaveViewport => {}
-            PointerStateChange::Press => self.ed.emit_sys(PointerDown {
+            PointerStateChange::Press => self.ed.emit_trusted(PointerDown {
                 is_current: logically_entered,
                 position,
             }),
-            PointerStateChange::Unchange => self.ed.emit_sys(PointerMove {
+            PointerStateChange::Unchange => self.ed.emit_trusted(PointerMove {
                 is_current: logically_entered,
                 delta: delta.unwrap_or_else(|| {
                     if cfg!(debug_assertions) {
@@ -127,7 +127,7 @@ impl NodeEventMgr {
                 }),
                 position,
             }),
-            PointerStateChange::Release => self.ed.emit_sys(PointerUp {
+            PointerStateChange::Release => self.ed.emit_trusted(PointerUp {
                 is_current: logically_entered,
                 position,
             }),

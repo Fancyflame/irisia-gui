@@ -1,23 +1,23 @@
 #[derive(Debug, Clone, Copy)]
 pub struct EventMetadata {
-    pub(crate) is_system_event: bool,
+    pub(crate) is_trusted_event: bool,
 }
 
 impl EventMetadata {
     pub fn new() -> Self {
         EventMetadata {
-            is_system_event: false,
+            is_trusted_event: false,
         }
     }
 
-    pub(crate) fn new_sys() -> Self {
+    pub(crate) fn new_trusted() -> Self {
         EventMetadata {
-            is_system_event: true,
+            is_trusted_event: true,
         }
     }
 
-    pub fn is_system_event(&self) -> bool {
-        self.is_system_event
+    pub fn is_trusted_event(&self) -> bool {
+        self.is_trusted_event
     }
 }
 

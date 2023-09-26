@@ -29,10 +29,10 @@ impl<'a> EventDispatcherLock<'a> {
         EventReceive::new(self.ed, id)
     }
 
-    pub async fn recv_sys<E: Event>(&mut self) -> E {
+    pub async fn recv_trusted<E: Event>(&mut self) -> E {
         loop {
             let (ev, metadata) = self.recv::<E>().await;
-            if metadata.is_system_event {
+            if metadata.is_trusted_event {
                 return ev;
             }
         }

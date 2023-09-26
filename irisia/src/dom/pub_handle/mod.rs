@@ -7,22 +7,25 @@ use tokio::{
 
 use crate::{
     application::content::GlobalContent,
-    event::{standard::ElementAbandoned, EventDispatcher},
+    event::{
+        listen::{EdProvider, Listen},
+        standard::ElementAbandoned,
+        EventDispatcher,
+    },
     primitive::Region,
     style::StyleContainer,
     Element, StyleReader,
 };
 
-pub use self::{layout_el::LayoutElements, listen::Listen, write_guard::ElWriteGuard};
+pub use self::{layout_el::LayoutElements, write_guard::ElWriteGuard};
 
 use super::{
     children::{ChildrenBox, ChildrenNodes},
     data_structure::ElementModel,
-    EMUpdateContent, RenderMultiple,
+    EMUpdateContent, RcElementModel, RenderMultiple,
 };
 
 mod layout_el;
-mod listen;
 mod write_guard;
 
 impl<El, Sty, Sc> ElementModel<El, Sty, Sc>
@@ -58,7 +61,7 @@ where
     }
 
     /// Listen event with options
-    pub fn listen<'a>(self: &'a Rc<Self>) -> Listen<&'a Rc<Self>, (), (), (), ()> {
+    pub fn listen<'a>(self: &'a Rc<Self>) -> Listen<'a, Rc<Self>, (), (), (), ()> {
         Listen::new(self)
     }
 
@@ -152,7 +155,7 @@ where
         let ed = self.ed.clone();
         tokio::task::spawn_local(async move {
             tokio::select! {
-                _ = ed.recv_sys::<ElementAbandoned>() => {},
+                _ = ed.recv_trusted::<ElementAbandoned>() => {},
                 _ = fut => {}
             }
         })
@@ -204,5 +207,27 @@ where
         });
 
         LayoutElements { refmut }
+    }
+}
+
+impl<El, Sty, Sc> EdProvider for RcElementModel<El, Sty, Sc>
+where
+    El: Element,
+    Sty: StyleContainer + 'static,
+    Sc: RenderMultiple + 'static,
+{
+    fn event_dispatcher(&self) -> &EventDispatcher {
+        ElementModel::event_dispatcher(self)
+    }
+
+    fn daemon<F>(&self, f: F) -> JoinHandle<()>
+    where
+        F: Future + 'static,
+    {
+        ElementModel::daemon(self, f)
+    }
+
+    fn handle_available(&self) -> bool {
+        self.alive()
     }
 }

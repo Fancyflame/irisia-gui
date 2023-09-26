@@ -5,6 +5,7 @@ pub use metadata::EventMetadata;
 use self::event_dispatcher::lock::EventDispatcherLock;
 
 pub mod event_dispatcher;
+pub mod listen;
 pub mod metadata;
 pub mod standard;
 
@@ -28,10 +29,10 @@ impl EventReceiver<'_> {
         }
     }
 
-    pub async fn recv_sys<E: Event>(&mut self) -> E {
+    pub async fn recv_trusted<E: Event>(&mut self) -> E {
         match self {
-            Self::EventDispatcher(ed) => ed.recv_sys().await,
-            Self::Lock(lock) => lock.recv_sys().await,
+            Self::EventDispatcher(ed) => ed.recv_trusted().await,
+            Self::Lock(lock) => lock.recv_trusted().await,
         }
     }
 }

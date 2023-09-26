@@ -9,17 +9,17 @@ use super::EventDispatcher;
 impl EventDispatcher {
     pub async fn hover(&self) {
         tokio::select! {
-            _ = self.recv_sys::<PointerUp>() => {},
-            _ = self.recv_sys::<PointerMove>() => {}
+            _ = self.recv_trusted::<PointerUp>() => {},
+            _ = self.recv_trusted::<PointerMove>() => {}
         }
 
         loop {
             tokio::select! {
-                _ = self.recv_sys::<PointerDown>() => {
-                    self.recv_sys::<PointerUp>().await;
+                _ = self.recv_trusted::<PointerDown>() => {
+                    self.recv_trusted::<PointerUp>().await;
                 }
-                _ = self.recv_sys::<PointerOut>() => {
-                    self.recv_sys::<PointerEntered>().await;
+                _ = self.recv_trusted::<PointerOut>() => {
+                    self.recv_trusted::<PointerEntered>().await;
                 }
                 _ = tokio::time::sleep(Duration::from_secs(1)) => {
                     break;
@@ -30,15 +30,15 @@ impl EventDispatcher {
 
     pub async fn hover_canceled(&self) {
         tokio::select! {
-            _ = self.recv_sys::<PointerDown>() => {},
-            _ = self.recv_sys::<PointerOut>() => {}
+            _ = self.recv_trusted::<PointerDown>() => {},
+            _ = self.recv_trusted::<PointerOut>() => {}
         }
     }
 
     pub async fn double_click(&self) {
         loop {
-            self.recv_sys::<Click>().await;
-            if tokio::time::timeout(Duration::from_millis(400), self.recv_sys::<Click>())
+            self.recv_trusted::<Click>().await;
+            if tokio::time::timeout(Duration::from_millis(400), self.recv_trusted::<Click>())
                 .await
                 .is_ok()
             {
@@ -49,8 +49,8 @@ impl EventDispatcher {
 
     pub async fn hold(&self) {
         loop {
-            self.recv_sys::<PointerDown>().await;
-            if tokio::time::timeout(Duration::from_secs(1), self.recv_sys::<PointerUp>())
+            self.recv_trusted::<PointerDown>().await;
+            if tokio::time::timeout(Duration::from_secs(1), self.recv_trusted::<PointerUp>())
                 .await
                 .is_err()
             {

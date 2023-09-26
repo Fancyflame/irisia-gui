@@ -58,6 +58,8 @@ impl Window {
     }
 
     pub async fn join(&self) {
-        self.event_dispatcher.recv_sys::<WindowDestroyed>().await;
+        self.event_dispatcher
+            .recv_trusted::<WindowDestroyed>()
+            .await;
     }
 }

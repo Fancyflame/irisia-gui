@@ -4,18 +4,14 @@ use syn::WhereClause;
 
 struct ListenOptions {
     once: bool,
-    sys_only: bool,
+    trusted: bool,
     asyn: bool,
     sub_event: bool,
 }
 
-fn rc_em() -> TokenStream {
-    quote!(Rc<ElementModel<El, Sty, Sc>>)
-}
-
 impl ListenOptions {
     fn impl_item(&self) -> TokenStream {
-        let arg_types = [self.once, self.sys_only, self.asyn, self.sub_event]
+        let arg_types = [self.once, self.trusted, self.asyn, self.sub_event]
             .into_iter()
             .map(|on| if on { quote!(FlagSet) } else { quote!(()) });
 
@@ -24,13 +20,10 @@ impl ListenOptions {
         let where_clause = self.where_clause();
         let fn_body = self.fn_body();
 
-        let em = rc_em();
         quote! {
-            impl<El, Sty, Sc> Listen<&#em, #(#arg_types),*>
+            impl<Ep> Listen<'_, Ep, #(#arg_types),*>
             where
-                El: Element,
-                Sty: StyleContainer + 'static,
-                Sc: RenderMultiple + 'static,
+                Ep: EdProvider
             {
                 pub fn spawn<E, F, #fut_generic>(self, mut f: F) -> JoinHandle<()>
                 #where_clause
@@ -40,11 +33,11 @@ impl ListenOptions {
     }
 
     fn fn_body(&self) -> TokenStream {
-        let recv_method = match (self.sub_event, self.sys_only) {
+        let recv_method = match (self.sub_event, self.trusted) {
             (false, false) => quote!(receiver.recv().await.0),
-            (false, true) => quote!(receiver.recv_sys().await),
+            (false, true) => quote!(receiver.recv_trusted().await),
             (true, false) => quote!(E::handle(&mut receiver).await),
-            (true, true) => unreachable!("sub event can never be system event"),
+            (true, true) => unreachable!("sub event can never be trusted event"),
         };
 
         let spwan_task = if self.asyn {
@@ -55,19 +48,19 @@ impl ListenOptions {
 
         let future = if self.once {
             quote! {
-                let mut receiver = EventReceiver::EventDispatcher(&obj.ed);
+                let mut receiver = EventReceiver::EventDispatcher(obj.event_dispatcher());
                 let result = #recv_method;
-                if !obj.alive() {
+                if !obj.handle_available() {
                     return;
                 }
                 #spwan_task;
             }
         } else {
             quote! {
-                let mut receiver = EventReceiver::Lock(obj.ed.lock());
+                let mut receiver = EventReceiver::Lock(obj.event_dispatcher().lock());
                 loop {
                     let result = #recv_method;
-                    if !obj.alive() {
+                    if !obj.handle_available() {
                         return;
                     }
                     #spwan_task;
@@ -76,8 +69,8 @@ impl ListenOptions {
         };
 
         quote! {
-            let obj = self.eh.clone();
-            self.eh.daemon(async move {
+            let obj = self.ep.clone();
+            self.ep.daemon(async move {
                 #future
             })
         }
@@ -97,13 +90,11 @@ impl ListenOptions {
             tokens.extend(quote!(Ret: Future<Output = ()> + 'static,));
         }
 
-        let element_model = rc_em();
-
         let f_bound = match (self.once, self.asyn) {
-            (false, false) => quote!(FnMut(E, &#element_model)),
-            (true, false) => quote!(FnOnce(E, &#element_model)),
-            (false, true) => quote!(FnMut(E, #element_model) -> Ret),
-            (true, true) => quote!(FnOnce(E, #element_model) -> Ret),
+            (false, false) => quote!(FnMut(E, &Ep)),
+            (true, false) => quote!(FnOnce(E, &Ep)),
+            (false, true) => quote!(FnMut(E, Ep) -> Ret),
+            (true, true) => quote!(FnOnce(E, Ep) -> Ret),
         };
         tokens.extend(quote!(F: #f_bound + 'static,));
 
@@ -117,12 +108,12 @@ pub fn impl_listen() -> TokenStream {
     for index in 0b0000..=0b1111 {
         let options = ListenOptions {
             once: index & 0b00001 != 0,
-            sys_only: index & 0b00010 != 0,
+            trusted: index & 0b00010 != 0,
             asyn: index & 0b00100 != 0,
             sub_event: index & 0b01000 != 0,
         };
 
-        if options.sub_event && options.sys_only {
+        if options.sub_event && options.trusted {
             continue;
         }
 

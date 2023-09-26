@@ -55,7 +55,7 @@ impl GlobalEventMgr {
                 Some(npe)
             }
             None => {
-                gc.global_ed.emit_sys(event);
+                gc.global_ed.emit_trusted(event);
                 None
             }
         }
@@ -69,21 +69,21 @@ fn emit_physical_pointer_event(
     new_pointer_state: PointerStateChange,
 ) {
     match (new_pointer_state, position) {
-        (PointerStateChange::EnterViewport, _) => ed.emit_sys(PointerEntered),
-        (PointerStateChange::Press, Some(position)) => ed.emit_sys(PointerDown {
+        (PointerStateChange::EnterViewport, _) => ed.emit_trusted(PointerEntered),
+        (PointerStateChange::Press, Some(position)) => ed.emit_trusted(PointerDown {
             is_current: false,
             position,
         }),
-        (PointerStateChange::Unchange, Some(position)) => ed.emit_sys(PointerMove {
+        (PointerStateChange::Unchange, Some(position)) => ed.emit_trusted(PointerMove {
             is_current: false,
             delta: delta.unwrap_or_default(),
             position,
         }),
-        (PointerStateChange::Release, Some(position)) => ed.emit_sys(PointerUp {
+        (PointerStateChange::Release, Some(position)) => ed.emit_trusted(PointerUp {
             is_current: false,
             position,
         }),
-        (PointerStateChange::LeaveViewport, None) => ed.emit_sys(PointerOut),
+        (PointerStateChange::LeaveViewport, None) => ed.emit_trusted(PointerOut),
         _ => {
             unreachable!("unexpected new-pointer-state and optioned position combination")
         }
