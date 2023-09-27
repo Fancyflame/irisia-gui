@@ -65,7 +65,7 @@ impl ElementUpdate<()> for App {
                 TextBox {
                     text: "Hello\nпpивeт\nこんにちは\n你好\n\nIrisia GUI🌺",
                     user_select: true,
-                    +style: style!{
+                    +style: style! {
                         if 1 + 1 == 2 {
                             color: Color::MAGENTA;
                         }
@@ -77,13 +77,13 @@ impl ElementUpdate<()> for App {
                 for (index, color) in self.rects.iter().enumerate() {
                     @key index;
                     Rectangle {
-                        +style: style!{
+                        +style: style! {
                             width: 100px;
                             height: 100px + 40px * index as f32;
                             color: color.clone();
                         },
-                        +oncreate: move |eh:&_| {
-                            rect_rt(eh, index);
+                        +oncreate: move |em| {
+                            rect_rt(em, index);
                         },
                     }
                 }

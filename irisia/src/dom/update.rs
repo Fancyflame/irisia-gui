@@ -37,7 +37,11 @@ pub fn one_child<El, Pr, Sty, Ch, Oc>(
     styles: Sty,
     children: Ch,
     on_create: Oc,
-) -> AddOne<El, Pr, Sty, Ch, Oc> {
+) -> AddOne<El, Pr, Sty, Ch, Oc>
+where
+    Ch: ChildrenNodes,
+    Oc: FnOnce(&Rc<ElementModel<El, Sty, Ch::Model>>),
+{
     AddOne {
         _el: Default::default(),
         props,
