@@ -31,7 +31,7 @@ impl ConditionalApplicator for DefaultConditionalApplicator {
         let stream = if self.skipped == self.count - 1 {
             other.to_token_stream()
         } else {
-            quote!(#path::Arm1(#other))
+            quote!(#path::ArmA(#other))
         };
 
         add_arm2(tokens, path, self.skipped, &stream);
@@ -45,7 +45,7 @@ fn add_arm2(tokens: &mut TokenStream, path: &TypePath, depth: usize, expr: &Toke
         return;
     }
 
-    quote!(#path::Arm2).to_tokens(tokens);
+    quote!(#path::ArmB).to_tokens(tokens);
 
     Paren::default().surround(tokens, |tokens| {
         add_arm2(tokens, path, depth - 1, expr);

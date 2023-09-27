@@ -183,6 +183,8 @@ where
                 props.set_std_styles(&in_cell.styles),
                 equality_matters,
             );
+
+        drop(in_cell);
         el.set_children(self);
         unchanged
     }

@@ -8,6 +8,7 @@ mod derive_style;
 mod derive_style_reader;
 mod element;
 pub(crate) mod expr;
+mod field_watch;
 mod inner_impl_listen;
 mod main_macro;
 mod style;

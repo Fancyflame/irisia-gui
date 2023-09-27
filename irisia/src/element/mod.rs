@@ -15,7 +15,7 @@ macro_rules! ElModel {
         $crate::ElModel!(Self)
     };
     ($El: ty) => {
-        &$crate::element::RcElementModel<
+        $crate::element::RcElementModel<
             $El,
             impl $crate::style::StyleContainer + 'static,
             impl $crate::element::AsChildren + 'static
@@ -36,12 +36,16 @@ where
 
     /// Draw to the canvas
 
-    fn render(&mut self, this: ElModel!(), mut content: RenderElement) -> Result<()> {
+    fn render(&mut self, this: &ElModel!(), mut content: RenderElement) -> Result<()> {
         let _ = this;
         content.render_children()
     }
 
-    fn draw_region_changed(&mut self, this: ElModel!(), draw_region: Region) {
+    fn set_children(&self, this: &ElModel!()) {
+        this.set_children(()).layout(|()| unreachable!()).unwrap();
+    }
+
+    fn draw_region_changed(&mut self, this: &ElModel!(), draw_region: Region) {
         if let Some(lc) = this.layout_children() {
             lc.layout_once(draw_region)
                 .expect("child elements are more than 1")
@@ -50,11 +54,8 @@ where
 }
 
 pub trait ElementUpdate<Pr>: Element + Sized {
-    fn el_create(this: ElModel!(), props: Pr) -> Self;
-    fn el_update(&mut self, this: ElModel!(), props: Pr, equality_matters: bool) -> bool;
-    fn set_children(&self, this: ElModel!()) {
-        this.set_children(()).layout(|()| unreachable!()).unwrap();
-    }
+    fn el_create(this: &ElModel!(), props: Pr) -> Self;
+    fn el_update(&mut self, this: &ElModel!(), props: Pr, equality_matters: bool) -> bool;
 }
 
 pub trait AsChildren: RenderMultiple {}

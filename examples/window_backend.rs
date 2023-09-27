@@ -43,7 +43,7 @@ impl Element for Rectangle {
 
     fn render(
         &mut self,
-        this: ElModel!(),
+        this: &ElModel!(),
         mut content: irisia::element::RenderElement,
     ) -> irisia::Result<()> {
         let region = this.draw_region();
@@ -78,7 +78,7 @@ impl<Pr> ElementUpdate<Pr> for Rectangle
 where
     Self: PropsUpdateWith<Pr>,
 {
-    fn el_create(this: ElModel!(), props: Pr) -> Self {
+    fn el_create(this: &ElModel!(), props: Pr) -> Self {
         this.listen()
             .trusted()
             .asyn()
@@ -96,7 +96,7 @@ where
         Self::props_create_with(props)
     }
 
-    fn el_update(&mut self, this: ElModel!(), props: Pr, _: bool) -> bool {
+    fn el_update(&mut self, this: &ElModel!(), props: Pr, _: bool) -> bool {
         self.props_update_with(props).unchanged
     }
 }
@@ -109,26 +109,26 @@ pub struct Flex;
 impl Element for Flex {
     type BlankProps = ();
 
-    fn draw_region_changed(&mut self, this: ElModel!(), _: irisia::primitive::Region) {
+    fn draw_region_changed(&mut self, this: &ElModel!(), _: irisia::primitive::Region) {
         flex_layout(this, this.layout_children().unwrap()).unwrap();
     }
-}
 
-impl ElementUpdate<()> for Flex {
-    fn el_create(this: ElModel!(), props: ()) -> Self {
-        Flex
-    }
-
-    fn el_update(&mut self, this: ElModel!(), props: (), equality_matters: bool) -> bool {
-        true
-    }
-
-    fn set_children(&self, this: ElModel!()) {
+    fn set_children(&self, this: &ElModel!()) {
         flex_layout(this, this.set_children(this.slot())).unwrap();
     }
 }
 
-fn flex_layout(this: ElModel!(Flex), layouter: LayoutElements) -> Result<()> {
+impl ElementUpdate<()> for Flex {
+    fn el_create(this: &ElModel!(), props: ()) -> Self {
+        Flex
+    }
+
+    fn el_update(&mut self, this: &ElModel!(), props: (), equality_matters: bool) -> bool {
+        true
+    }
+}
+
+fn flex_layout(this: &ElModel!(Flex), layouter: LayoutElements) -> Result<()> {
     let (start, end) = this.draw_region();
     let abs = end - start;
     let len = layouter.len();

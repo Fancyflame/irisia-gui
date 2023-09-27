@@ -26,40 +26,13 @@ async fn main() {
 }
 
 struct App {
-    rects: Vec<Color>,
+    rects: Vec<Option<Color>>,
 }
 
 impl Element for App {
     type BlankProps = ();
-}
 
-impl ElementUpdate<()> for App {
-    fn el_create(this: ElModel!(), _: ()) -> Self {
-        this.global()
-            .event_dispatcher()
-            .listen()
-            .no_handle()
-            .spawn(|cr: CloseRequested| {
-                println!("close requsted");
-                cr.0.close();
-            });
-
-        Self {
-            rects: vec![
-                Color::RED,
-                Color::YELLOW,
-                Color::BLUE,
-                Color::GREEN,
-                Color::BLACK,
-            ],
-        }
-    }
-
-    fn el_update(&mut self, _: ElModel!(), _: (), _: bool) -> bool {
-        true
-    }
-
-    fn set_children(&self, this: ElModel!()) {
+    fn set_children(&self, this: &ElModel!()) {
         this.set_children(build! {
             Flex {
                 TextBox {
@@ -76,15 +49,17 @@ impl ElementUpdate<()> for App {
 
                 for (index, color) in self.rects.iter().enumerate() {
                     @key index;
-                    Rectangle {
-                        +style: style! {
-                            width: 100px;
-                            height: 100px + 40px * index as f32;
-                            color: color.clone();
-                        },
-                        +oncreate: move |em| {
-                            rect_rt(em, index);
-                        },
+                    if let Some(color) = color {
+                        Rectangle {
+                            +style: style! {
+                                width: 100px;
+                                height: 100px + 40px * index as f32;
+                                color: color.clone();
+                            },
+                            +oncreate: move |em| {
+                                rect_rt(this, em, index);
+                            },
+                        }
                     }
                 }
             }
@@ -94,12 +69,43 @@ impl ElementUpdate<()> for App {
     }
 }
 
-fn rect_rt(this: ElModel!(Rectangle), index: usize) {
+impl ElementUpdate<()> for App {
+    fn el_create(this: &ElModel!(), _: ()) -> Self {
+        this.global()
+            .event_dispatcher()
+            .listen()
+            .no_handle()
+            .spawn(|cr: CloseRequested| {
+                println!("close requsted");
+                cr.0.close();
+            });
+
+        Self {
+            rects: vec![
+                Some(Color::RED),
+                Some(Color::YELLOW),
+                Some(Color::BLUE),
+                Some(Color::GREEN),
+                Some(Color::BLACK),
+            ],
+        }
+    }
+
+    fn el_update(&mut self, _: &ElModel!(), _: (), _: bool) -> bool {
+        true
+    }
+}
+
+fn rect_rt(this: &ElModel!(App), rect: &ElModel!(Rectangle), index: usize) {
     println!("rectangle {index} got");
-    this.listen()
+    let this = this.clone();
+    rect.listen()
         .trusted()
         .no_handle()
-        .spawn(move |_: PointerDown| {
-            println!("rectangle {} pointer down", index);
+        .once()
+        .asyn()
+        .spawn(move |_: PointerDown| async move {
+            println!("rectangle {} deleted", index);
+            this.el_write().await.unwrap().rects[index].take();
         });
 }

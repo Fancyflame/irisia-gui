@@ -69,7 +69,7 @@ use irisia::{
     application::Window,
     build,
     element::{Element, ElementUpdate},
-    event::standard::PointerDown,
+    event::standard::{CloseRequested, PointerDown},
     skia_safe::Color,
     style,
     style::StyleColor,
@@ -93,15 +93,51 @@ async fn main() {
 }
 
 struct App {
-    rects: Vec<Color>,
+    rects: Vec<Option<Color>>,
 }
 
 impl Element for App {
     type BlankProps = ();
+
+    fn set_children(&self, this: &ElModel!()) {
+        this.set_children(build! {
+            Flex {
+                TextBox {
+                    text: "Hello\nпpивeт\nこんにちは\n你好\n\nIrisia GUI🌺",
+                    user_select: true,
+                    +style: style! {
+                        if 1 + 1 == 2 {
+                            color: Color::MAGENTA;
+                        }
+                        font_weight: .bold;
+                        font_size: 30px;
+                    }
+                }
+
+                for (index, color) in self.rects.iter().enumerate() {
+                    @key index;
+                    if let Some(color) = color {
+                        Rectangle {
+                            +style: style! {
+                                width: 100px;
+                                height: 100px + 40px * index as f32;
+                                color: color.clone();
+                            },
+                            +oncreate: move |em| {
+                                rect_rt(this, em, index);
+                            },
+                        }
+                    }
+                }
+            }
+        })
+        .layout_once(this.draw_region())
+        .unwrap();
+    }
 }
 
 impl ElementUpdate<()> for App {
-    fn el_create(_: ElModel!(), _: ()) -> Self {
+    fn el_create(this: &ElModel!(), _: ()) -> Self {
         this.global()
             .event_dispatcher()
             .listen()
@@ -113,64 +149,37 @@ impl ElementUpdate<()> for App {
 
         Self {
             rects: vec![
-                Color::RED,
-                Color::YELLOW,
-                Color::BLUE,
-                Color::GREEN,
-                Color::BLACK,
+                Some(Color::RED),
+                Some(Color::YELLOW),
+                Some(Color::BLUE),
+                Some(Color::GREEN),
+                Some(Color::BLACK),
             ],
         }
     }
 
-    fn el_update(&mut self, _: ElModel!(), _: (), _: bool) -> bool {
+    fn el_update(&mut self, _: &ElModel!(), _: (), _: bool) -> bool {
         true
-    }
-
-    fn set_children(&self, this: ElModel!()) {
-        this.set_children(build! {
-            Flex {
-                TextBox {
-                    text: "Hello\nпpивeт\nこんにちは\n你好\n\nIrisia GUI🌺",
-                    user_select: true,
-                    +style: style!{
-                        if 1 + 1 == 2 {
-                            color: Color::MAGENTA;
-                        }
-                        font_weight: .bold;
-                        font_size: 30px;
-                    }
-                }
-
-                for (index, color) in self.rects.iter().enumerate() {
-                    @key index;
-                    Rectangle {
-                        +style: style!{
-                            width: 100px;
-                            height: 100px + 40px * index as f32;
-                            color: color.clone();
-                        },
-                        +oncreate: move |eh:&_| {
-                            rect_rt(eh, index);
-                        },
-                    }
-                }
-            }
-        })
-        .layout_once(this.draw_region())
-        .unwrap();
     }
 }
 
-fn rect_rt(this: ElModel!(Rectangle), index: usize) {
+fn rect_rt(this: &ElModel!(App), rect: &ElModel!(Rectangle), index: usize) {
     println!("rectangle {index} got");
-    this.listen().trusted().spawn(move |_: PointerDown, _| {
-        println!("rectangle {} pointer down", index);
-    });
+    let this = this.clone();
+    rect.listen()
+        .trusted()
+        .no_handle()
+        .once()
+        .asyn()
+        .spawn(move |_: PointerDown| async move {
+            println!("rectangle {} deleted", index);
+            this.el_write().await.unwrap().rects[index].take();
+        });
 }
 
 ```
 
-![render result](images/window.jpg)
+![运行结果](images/window.gif)
 
 ## 亲自动手试试
 

@@ -32,7 +32,14 @@ where
 {
     /// Get a write guard without setting dirty
     pub(super) fn el_write_clean(&self) -> RwLockMappedWriteGuard<El> {
-        RwLockWriteGuard::map(self.el.try_write().unwrap(), |x| x.as_mut().unwrap())
+        RwLockWriteGuard::map(
+            self.el.try_write().expect(
+                "do not hold a element write guard across `await`. \
+                this limitation will be lifted in the future, but still \
+                discouraged",
+            ),
+            |x| x.as_mut().unwrap(),
+        )
     }
 
     /// Get a write guard of this element and setting dirty.

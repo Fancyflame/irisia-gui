@@ -117,9 +117,13 @@ where
 
 // visit
 
-impl<K, T> VisitLen for RepeatModel<K, T> {
+impl<K, T> VisitLen for RepeatModel<K, T>
+where
+    K: Hash + Eq,
+    T: VisitLen,
+{
     fn len(&self) -> usize {
-        self.order.len()
+        self.order.iter().map(|key| self.map[key].len()).sum()
     }
 }
 
