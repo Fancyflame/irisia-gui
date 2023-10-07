@@ -54,7 +54,7 @@ impl Element for App {
                             +style: style! {
                                 width: 100px;
                                 height: 100px + 40px * index as f32;
-                                color: color.clone();
+                                color: *color;
                             },
                             +oncreate: move |em| {
                                 rect_rt(this, em, index);

@@ -170,6 +170,7 @@ impl ToTokens for StyleStmt {
 
 fn special_lit(expr: &mut Expr) {
     struct LitReplacer;
+
     impl VisitMut for LitReplacer {
         fn visit_expr_mut(&mut self, expr: &mut Expr) {
             if let Expr::Lit(ExprLit { lit, .. }) = expr {
