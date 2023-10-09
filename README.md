@@ -8,7 +8,7 @@
   - [为什么选择Rust](#为什么选择rust)
   - [为什么选择Irisia](#为什么选择irisia)
 - [体验Irisia](#体验irisia)
-  - [快速浏览](#快速浏览)
+  - [速览显示效果](#速览显示效果)
   - [亲自动手试试](#亲自动手试试)
 - [Irisia Book](#irisia-book)
 - [目前进度](#目前进度)
@@ -62,7 +62,7 @@ Rust的应用场景很广泛，可以通过WebAssembly技术在浏览器运行�
 
 # 体验Irisia
 
-## 快速浏览
+## 速览显示效果
 
 ```rust
 use irisia::{
