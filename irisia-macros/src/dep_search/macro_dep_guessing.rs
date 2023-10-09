@@ -1,7 +1,7 @@
 use proc_macro2::{Ident, TokenTree};
 use syn::{
     parenthesized,
-    parse::{Parse, ParseBuffer, ParseStream, Parser, Peek},
+    parse::{discouraged::Speculative, Parse, ParseStream, Parser, Peek},
     punctuated::Punctuated,
     Expr, ItemUse, Signature, Token, Visibility,
 };
@@ -9,9 +9,9 @@ use syn::{
 use super::DepSearcher;
 
 impl DepSearcher {
-    pub(super) fn guess_macro_dep(&mut self, mut input: ParseBuffer) -> syn::Result<()> {
+    pub(super) fn guess_macro_dep(&mut self, input: ParseStream) -> syn::Result<()> {
         #[must_use]
-        fn try_skip<F, R, P>(input: &mut ParseBuffer, parser: F, peek: P) -> bool
+        fn try_skip<F, R, P>(input: ParseStream, parser: F, peek: P) -> bool
         where
             F: FnOnce(ParseStream) -> syn::Result<R>,
             P: Peek,
@@ -22,17 +22,21 @@ impl DepSearcher {
 
             let forked = input.fork();
             if parser(&forked).is_ok() {
-                *input = forked;
+                input.advance_to(&forked);
                 true
             } else {
                 false
             }
         }
 
+        if self.try_parse_format_syntax(input) {
+            return Ok(());
+        }
+
         while let (Self::Some(watch_list), false) = (&mut *self, input.is_empty()) {
-            if try_skip(&mut input, Visibility::parse, Token![pub])
-                || try_skip(&mut input, ItemUse::parse, Token![use])
-                || try_skip(&mut input, parse_impl_fn, Token![fn])
+            if try_skip(input, Visibility::parse, Token![pub])
+                || try_skip(input, ItemUse::parse, Token![use])
+                || try_skip(input, parse_impl_fn, Token![fn])
             {
                 continue;
             }
@@ -47,7 +51,7 @@ impl DepSearcher {
                 let forked = input.fork();
                 if let Ok(field) = parse_self_call(&forked) {
                     watch_list.insert(field);
-                    input = forked;
+                    input.advance_to(&forked);
                     continue;
                 } else {
                     *self = Self::WatchAll;
@@ -57,7 +61,7 @@ impl DepSearcher {
 
             if let TokenTree::Group(group) = input.parse::<TokenTree>().unwrap() {
                 let parser = |content: ParseStream| {
-                    self.guess_macro_dep(content.fork()).unwrap();
+                    self.guess_macro_dep(content).unwrap();
                     Ok(())
                 };
                 let _ = parser.parse2(group.stream());
