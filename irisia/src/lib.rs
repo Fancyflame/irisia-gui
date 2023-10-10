@@ -4,8 +4,9 @@ pub mod anyhow {
 
 pub type Result<T> = anyhow::Result<T>;
 
-#[path = "macro_helper/mod.rs"]
-mod __macro_helper;
+#[doc(hidden)]
+#[path = "private/mod.rs"]
+pub mod __private;
 
 macro_rules! inner_error {
     ($($tt:tt)+) => {
@@ -22,9 +23,6 @@ pub mod primitive;
 pub mod structure;
 pub mod style;
 pub mod update_with;
-
-#[doc(hidden)]
-pub use __macro_helper::*;
 
 pub use application::Window;
 pub use element::Element;

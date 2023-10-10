@@ -155,7 +155,7 @@ impl ToTokens for StyleStmt {
 
         quote! {
             irisia::style::Once(
-                irisia::__new_chain_caller(
+                irisia::__private::new_chain_caller(
                     <#style_ty as ::std::convert::From<_>>::from(
                         (#(#args,)*)
                     )

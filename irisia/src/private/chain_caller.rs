@@ -16,6 +16,6 @@ impl<T> ChainCallHelper<T> {
     }
 }
 
-pub fn __new_chain_caller<T>(value: T) -> ChainCallHelper<T> {
+pub fn new_chain_caller<T>(value: T) -> ChainCallHelper<T> {
     ChainCallHelper(value)
 }

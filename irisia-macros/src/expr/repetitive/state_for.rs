@@ -45,7 +45,7 @@ impl<T: Codegen> ToTokens for StateForLoop<T> {
                 )
             },
             None => quote! {
-                irisia::__for_loop_iter_item_as_key(#iter, |#pat| #body)
+                irisia::__private::for_loop_iter_item_as_key(#iter, |#pat| #body)
             },
         };
 

@@ -17,6 +17,6 @@ where
     }
 }
 
-pub fn __for_loop_iter_item_as_key<I, F>(iter: I, map: F) -> ForLoopIterItemAsKey<I, F> {
+pub fn for_loop_iter_item_as_key<I, F>(iter: I, map: F) -> ForLoopIterItemAsKey<I, F> {
     ForLoopIterItemAsKey { iter, map }
 }
