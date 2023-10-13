@@ -1,12 +1,13 @@
-use quote::{quote, ToTokens};
-use syn::{parse::Parse, Expr, Result, Token};
+use proc_macro2::TokenStream;
+use quote::quote;
+use syn::{parse::Parse, Expr, Token};
 
-use crate::expr::{state_block::StateBlock, Codegen, StateExpr, VisitUnit};
+use crate::expr::{state_block::StateBlock, Codegen};
 
 pub struct StateWhile<T: Codegen> {
-    cond: Expr,
-    key: Expr,
-    state_block: StateBlock<T>,
+    pub cond: Expr,
+    pub key: Expr,
+    pub state_block: StateBlock<T>,
 }
 
 impl<T: Codegen> Parse for StateWhile<T> {
@@ -27,15 +28,15 @@ impl<T: Codegen> Parse for StateWhile<T> {
     }
 }
 
-impl<T: Codegen> ToTokens for StateWhile<T> {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+impl<T: Codegen> StateWhile<T> {
+    pub(super) fn expr_iter(&self) -> TokenStream {
         let StateWhile {
             cond,
             key,
             state_block,
         } = self;
 
-        tokens.extend(T::repetitive_applicate(quote! {
+        quote! {
             ::std::iter::from_fn(
                 || if #cond {
                     ::std::option::Option::Some((
@@ -46,24 +47,6 @@ impl<T: Codegen> ToTokens for StateWhile<T> {
                     ::std::option::Option::None
                 }
             )
-        }));
-    }
-}
-
-impl<T: Codegen> VisitUnit<T> for StateWhile<T> {
-    fn visit_unit<'a, F>(&'a self, depth: usize, f: &mut F) -> Result<()>
-    where
-        F: FnMut(&'a StateExpr<T>, usize) -> Result<()>,
-        T: 'a,
-    {
-        self.state_block.visit_unit(depth, f)
-    }
-
-    fn visit_unit_mut<'a, F>(&'a mut self, depth: usize, f: &mut F) -> Result<()>
-    where
-        F: FnMut(&'a mut StateExpr<T>, usize) -> Result<()>,
-        T: 'a,
-    {
-        self.state_block.visit_unit_mut(depth, f)
+        }
     }
 }

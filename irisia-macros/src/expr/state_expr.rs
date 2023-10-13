@@ -1,4 +1,4 @@
-use super::*;
+use super::{conditional::StateConditional, *};
 
 pub enum StateExpr<T>
 where
@@ -6,23 +6,21 @@ where
 {
     Raw(T::Stmt),
     Block(StateBlock<T>),
-    If(StateIf<T>),
-    Match(StateMatch<T>),
-    While(StateWhile<T>),
-    For(StateForLoop<T>),
+    Conditional(StateConditional<T>),
+    Repetitive(StateRepetitive<T>),
     Command(StateCommand<T>),
 }
 
 impl<T: Codegen> Parse for StateExpr<T> {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let r = if input.peek(Token![if]) {
-            StateExpr::If(input.parse()?)
+            StateExpr::Conditional(StateConditional::If(input.parse()?))
         } else if input.peek(Token![match]) {
-            StateExpr::Match(input.parse()?)
+            StateExpr::Conditional(StateConditional::Match(input.parse()?))
         } else if input.peek(Token![while]) {
-            StateExpr::While(input.parse()?)
+            StateExpr::Repetitive(StateRepetitive::While(input.parse()?))
         } else if input.peek(Token![for]) {
-            StateExpr::For(input.parse()?)
+            StateExpr::Repetitive(StateRepetitive::For(input.parse()?))
         } else if input.peek(Brace) {
             StateExpr::Block(input.parse()?)
         } else if input.peek(Token!(@)) {
@@ -46,7 +44,7 @@ macro_rules! impl_to_tokens {
     }
 }
 
-impl_to_tokens!(Raw Block If Match While For Command);
+impl_to_tokens!(Raw Block Conditional Repetitive Command);
 
 macro_rules! impl_from {
     ($($Arm:ident $Type:ident,)*) => {
@@ -62,41 +60,7 @@ macro_rules! impl_from {
 
 impl_from! {
     Block StateBlock,
-    If StateIf,
-    Match StateMatch,
-    While StateWhile,
-    For StateForLoop,
+    Conditional StateConditional,
+    Repetitive StateRepetitive,
     Command StateCommand,
 }
-
-macro_rules! impl_block_visit {
-    ($($Arm:ident)*) => {
-        impl<T: Codegen> VisitUnit<T> for StateExpr<T> {
-            fn visit_unit<'a, F>(&'a self, depth: usize, f: &mut F) -> Result<()>
-            where
-                F: FnMut(&'a StateExpr<T>, usize) -> Result<()>
-            {
-                match self {
-                    $(Self::$Arm(x) => x.visit_unit(depth, f),)*
-                    x @ Self::Command(_) | x @ Self::Raw(_) => {
-                        f(x, depth)
-                    }
-                }
-            }
-
-            fn visit_unit_mut<'a, F>(&'a mut self, depth: usize, f: &mut F) -> Result<()>
-            where
-                F: FnMut(&'a mut StateExpr<T>, usize) -> Result<()>
-            {
-                match self {
-                    $(Self::$Arm(x) => x.visit_unit_mut(depth, f),)*
-                    x @ Self::Command(_) | x @ Self::Raw(_) => {
-                        f(x, depth)
-                    }
-                }
-            }
-        }
-    };
-}
-
-impl_block_visit!(Block If Match While For);

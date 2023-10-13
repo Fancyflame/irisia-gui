@@ -1,3 +1,5 @@
+use std::cell::{Ref, RefCell, RefMut};
+
 use case::CaseExt;
 use quote::{quote, ToTokens};
 use syn::{
@@ -5,7 +7,7 @@ use syn::{
     Token, Type, TypePath,
 };
 
-use crate::expr::{StateExpr, VisitUnit};
+use crate::expr::StateExpr;
 
 use super::StyleCodegen;
 
@@ -15,7 +17,7 @@ enum StyleType {
 }
 
 pub struct StyleStmt {
-    style_ty: StyleType,
+    style_ty: RefCell<StyleType>,
     args: Vec<Expr>,
     options: Vec<OptionArg>,
 }
@@ -41,7 +43,7 @@ impl Parse for StyleStmt {
         if input.peek(Token![;]) {
             input.parse::<Token![;]>()?;
             return Ok(StyleStmt {
-                style_ty,
+                style_ty: RefCell::new(style_ty),
                 args: Vec::new(),
                 options: Vec::new(),
             });
@@ -78,7 +80,7 @@ impl Parse for StyleStmt {
         input.parse::<Token![;]>()?;
 
         Ok(StyleStmt {
-            style_ty,
+            style_ty: RefCell::new(style_ty),
             args,
             options,
         })
@@ -138,12 +140,14 @@ impl ToTokens for StyleStmt {
             options,
         } = self;
 
-        let style_ty = match style_ty {
+        let style_ty_ref = Ref::map(style_ty.borrow(), |t| match t {
             StyleType::Type(t) => t,
             StyleType::Follow(_) => {
                 panic!("inner error: style follow not handled");
             }
-        };
+        });
+
+        let style_ty = &*style_ty_ref;
 
         let options = options.iter().map(|x| {
             let OptionArg { dot, name, expr } = x;
@@ -198,41 +202,42 @@ fn special_lit(expr: &mut Expr) {
     LitReplacer::visit_expr_mut(&mut LitReplacer, expr);
 }
 
-pub fn handle_style_follow(stmts: &mut [StateExpr<StyleCodegen>]) -> Result<()> {
-    let mut type_stack: Vec<Option<Type>> = Vec::new();
-
+pub fn handle_style_follow(stmts: &[StateExpr<StyleCodegen>]) -> Result<()> {
+    let mut prev_type: Option<RefMut<Type>> = None;
     for stmt in stmts {
-        stmt.visit_unit_mut(0, &mut |expr, depth| {
-            let raw = match expr {
-                StateExpr::Raw(r) => r,
-                StateExpr::Command(_) => return Ok(()),
-                _ => unreachable!(),
-            };
+        match stmt {
+            StateExpr::Raw(r) => {
+                let mut borrowed = r.style_ty.borrow_mut();
 
-            type_stack.resize(depth + 1, {
-                const NONE_TYPE: Option<Type> = None;
-                NONE_TYPE
-            });
+                match &mut *borrowed {
+                    StyleType::Type(_) => {
+                        prev_type = Some(RefMut::map(borrowed, |b| match b {
+                            StyleType::Type(t) => t,
+                            _ => unreachable!(),
+                        }));
+                    }
 
-            match &raw.style_ty {
-                StyleType::Type(t) => {
-                    *type_stack.get_mut(depth).unwrap() = Some(t.clone());
+                    StyleType::Follow(f) => match &prev_type {
+                        Some(t) => *borrowed = StyleType::Type((*t).clone()),
+                        None => {
+                            return Err(Error::new_spanned(
+                                f,
+                                "cannot infer the type that following",
+                            ))
+                        }
+                    },
                 }
-                StyleType::Follow(follow) => match &type_stack.get(depth).unwrap() {
-                    Some(t) => {
-                        raw.style_ty = StyleType::Type(t.clone());
-                    }
-                    None => {
-                        return Err(Error::new_spanned(
-                            follow,
-                            "cannot infer the type that following",
-                        ))
-                    }
-                },
             }
 
-            Ok(())
-        })?;
+            StateExpr::Block(b) => handle_style_follow(&b.stmts)?,
+            StateExpr::Command(_) => {}
+            StateExpr::Conditional(c) => {
+                for arm in c.arms() {
+                    handle_style_follow(arm)?
+                }
+            }
+            StateExpr::Repetitive(r) => handle_style_follow(&r.body().stmts)?,
+        }
     }
 
     Ok(())

@@ -11,7 +11,7 @@ use syn::{
 
 use super::{
     state_command::{StateCommand, StateCommandBody},
-    Codegen, StateExpr, VisitUnit,
+    Codegen, StateExpr,
 };
 
 // {Empty.xxx().xxx()}
@@ -45,30 +45,6 @@ impl<T: Codegen> ToTokens for StateBlock<T> {
         self.brace.surround(tokens, |tokens| {
             tokens.extend(stmts_to_tokens(&self.stmts));
         });
-    }
-}
-
-impl<T: Codegen> VisitUnit<T> for StateBlock<T> {
-    fn visit_unit<'a, F>(&'a self, depth: usize, f: &mut F) -> Result<()>
-    where
-        F: FnMut(&'a StateExpr<T>, usize) -> Result<()>,
-        T: 'a,
-    {
-        for stmt in &self.stmts {
-            stmt.visit_unit(depth + 1, f)?;
-        }
-        Ok(())
-    }
-
-    fn visit_unit_mut<'a, F>(&'a mut self, depth: usize, f: &mut F) -> Result<()>
-    where
-        F: FnMut(&'a mut StateExpr<T>, usize) -> Result<()>,
-        T: 'a,
-    {
-        for stmt in &mut self.stmts {
-            stmt.visit_unit_mut(depth + 1, f)?;
-        }
-        Ok(())
     }
 }
 
@@ -107,7 +83,7 @@ pub fn parse_stmts<T: Codegen>(input: ParseStream) -> Result<Vec<StateExpr<T>>> 
 pub fn stmts_to_tokens<T: Codegen>(stmts: &[StateExpr<T>]) -> TokenStream {
     let mut tokens = T::empty();
     for expr in stmts {
-        T::chain_applicate(&mut tokens, expr);
+        tokens = T::chain_applicate(tokens, expr);
     }
     tokens
 }

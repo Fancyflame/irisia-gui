@@ -5,12 +5,10 @@ use syn::{
     parse::{Nothing, Parse},
     punctuated::Punctuated,
     token::Brace,
-    Expr, Pat, Result, Token,
+    Expr, Pat, Token,
 };
 
-use crate::expr::{
-    state_block::stmts_to_tokens, Codegen, ConditionalApplicator, StateExpr, VisitUnit,
-};
+use crate::expr::{Codegen, StateExpr};
 
 /*
     match expr1 {
@@ -30,7 +28,14 @@ pub struct Arm<T: Codegen> {
     pat: Pat,
     guard: Option<(Token![if], Expr)>,
     fat_arrow_token: Token![=>],
-    body: Box<StateExpr<T>>,
+    body: StateExpr<T>,
+    comma: Option<Token![,]>,
+}
+
+impl<T: Codegen> StateMatch<T> {
+    pub fn arms(&self) -> impl Iterator<Item = &StateExpr<T>> {
+        self.arms.iter().map(|arm| &arm.body)
+    }
 }
 
 impl<T: Codegen> Parse for StateMatch<T> {
@@ -52,15 +57,15 @@ impl<T: Codegen> Parse for StateMatch<T> {
                 },
                 fat_arrow_token: input.parse()?,
                 body: {
-                    let body: Box<StateExpr<T>> = input.parse()?;
-                    if matches!(&*body, StateExpr::Raw(_)) && T::MUST_IN_BLOCK {
+                    let body: StateExpr<T> = input.parse()?;
+                    if matches!(body, StateExpr::Raw(_)) && T::MUST_IN_BLOCK {
                         return Err(input.error(
                             "expression must be in block, consider move it into braces: `{expression}`.",
                         ));
                     }
-                    input.parse::<Option<Token![,]>>()?;
                     body
                 },
+                comma: input.parse()?
             })
         })?
         .into_iter()
@@ -87,21 +92,24 @@ impl<T: Codegen> ToTokens for StateMatch<T> {
         match_token.to_tokens(tokens);
         expr.to_tokens(tokens);
         self.brace_token.surround(tokens, |tokens| {
-            let mut applicator = T::conditional_applicate(arms.len());
-            for arm in arms.iter() {
-                arm_to_tokens(tokens, arm, &mut applicator);
+            let total = arms.len();
+            for (index, arm) in arms.iter().enumerate() {
+                let mut t = TokenStream::new();
+                arm_to_tokens(&mut t, arm, index, total);
+                *tokens = T::chain_applicate(&tokens, t);
             }
         });
     }
 }
 
 // pat if guard => expr,
-fn arm_to_tokens<T: Codegen>(tokens: &mut TokenStream, arm: &Arm<T>, ca: &mut T::Ca) {
+fn arm_to_tokens<T: Codegen>(tokens: &mut TokenStream, arm: &Arm<T>, index: usize, total: usize) {
     let Arm {
         pat,
         guard,
         fat_arrow_token,
         body,
+        comma,
     } = arm;
 
     pat.to_tokens(tokens);
@@ -112,34 +120,10 @@ fn arm_to_tokens<T: Codegen>(tokens: &mut TokenStream, arm: &Arm<T>, ca: &mut T:
     }
 
     fat_arrow_token.to_tokens(tokens);
+    tokens.extend(T::conditional_applicate(body, index, total));
 
-    match &**body {
-        StateExpr::Block(block) => ca.apply(tokens, stmts_to_tokens(&block.stmts)),
-        other => ca.apply(tokens, other),
-    }
-    <Token![,]>::default().to_tokens(tokens);
-}
-
-impl<T: Codegen> VisitUnit<T> for StateMatch<T> {
-    fn visit_unit<'a, F>(&'a self, depth: usize, f: &mut F) -> Result<()>
-    where
-        F: FnMut(&'a StateExpr<T>, usize) -> Result<()>,
-        T: 'a,
-    {
-        for x in &self.arms {
-            x.body.visit_unit(depth + 1, f)?;
-        }
-        Ok(())
-    }
-
-    fn visit_unit_mut<'a, F>(&'a mut self, depth: usize, f: &mut F) -> Result<()>
-    where
-        F: FnMut(&'a mut StateExpr<T>, usize) -> Result<()>,
-        T: 'a,
-    {
-        for x in &mut self.arms {
-            x.body.visit_unit_mut(depth + 1, f)?;
-        }
-        Ok(())
+    match comma {
+        Some(c) => c.to_tokens(tokens),
+        None => <Token![,]>::default().to_tokens(tokens),
     }
 }

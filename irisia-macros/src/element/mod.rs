@@ -1,8 +1,7 @@
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
-use syn::parse_quote;
 
-use crate::expr::{conditional::ca::DefaultConditionalApplicator, Codegen};
+use crate::expr::{enum_conditional, Codegen};
 
 pub mod build;
 pub mod stmt;
@@ -10,7 +9,6 @@ pub mod stmt;
 pub struct ElementCodegen;
 
 impl Codegen for ElementCodegen {
-    type Ca = DefaultConditionalApplicator;
     type Command = Cmd;
     type Stmt = stmt::ElementStmt;
 
@@ -26,16 +24,18 @@ impl Codegen for ElementCodegen {
         }
     }
 
-    fn conditional_applicate(count: usize) -> Self::Ca {
-        DefaultConditionalApplicator::new(count, parse_quote!(irisia::structure::Branch))
+    fn conditional_applicate(stmt: impl ToTokens, index: usize, total: usize) -> TokenStream {
+        enum_conditional(
+            quote!(irisia::structure::Branch::ArmA),
+            quote!(irisia::structure::Branch::ArmB),
+            stmt,
+            index,
+            total,
+        )
     }
 
-    fn parse_command(_: &str, _: syn::parse::ParseStream) -> syn::Result<Option<Self::Command>> {
-        Ok(None)
-    }
-
-    fn chain_applicate(tokens: &mut TokenStream, other: impl ToTokens) {
-        *tokens = quote!(irisia::structure::Chain::new(#tokens, #other));
+    fn chain_applicate(prev: impl ToTokens, after: impl ToTokens) -> TokenStream {
+        quote!(irisia::structure::Chain::new(#prev, #after))
     }
 }
 

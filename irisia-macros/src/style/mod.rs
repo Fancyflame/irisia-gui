@@ -1,10 +1,8 @@
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
-use syn::{parse::ParseStream, parse_quote, Result};
+use syn::{parse::ParseStream, Result};
 
-use crate::expr::{
-    conditional::ca::DefaultConditionalApplicator, state_block::parse_stmts, Codegen, StateExpr,
-};
+use crate::expr::{enum_conditional, state_block::parse_stmts, Codegen, StateExpr};
 
 use self::stmt::{handle_style_follow, StyleStmt};
 
@@ -23,7 +21,6 @@ pub struct StyleCodegen;
 impl Codegen for StyleCodegen {
     type Command = StyleCommand;
     type Stmt = StyleStmt;
-    type Ca = DefaultConditionalApplicator;
 
     const MUST_IN_BLOCK: bool = true;
 
@@ -41,12 +38,18 @@ impl Codegen for StyleCodegen {
         ))
     }
 
-    fn conditional_applicate(count: usize) -> Self::Ca {
-        DefaultConditionalApplicator::new(count, parse_quote!(irisia::style::Branch))
+    fn conditional_applicate(stmt: impl ToTokens, index: usize, total: usize) -> TokenStream {
+        enum_conditional(
+            quote!(irisia::style::Branch::ArmA),
+            quote!(irisia::style::Branch::ArmB),
+            stmt,
+            index,
+            total,
+        )
     }
 
-    fn chain_applicate(tokens: &mut TokenStream, other: impl ToTokens) {
-        *tokens = quote!(irisia::style::Chain::new(#tokens, #other));
+    fn chain_applicate(prev: impl ToTokens, after: impl ToTokens) -> TokenStream {
+        quote!(irisia::style::Chain::new(#prev, #after))
     }
 }
 

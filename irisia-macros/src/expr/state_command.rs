@@ -13,7 +13,6 @@ pub struct StateCommand<T: Codegen> {
 }
 
 pub enum StateCommandBody<T: Codegen> {
-    Extend(Expr),
     Key(Expr),
     Custom(T::Command),
 }
@@ -24,7 +23,6 @@ impl<T: Codegen> Parse for StateCommand<T> {
         let cmd_ident: Ident = input.parse()?;
 
         let cmd = match &*cmd_ident.to_string() {
-            "extend" => StateCommandBody::Extend(input.parse()?),
             "key" => parse_key(input)?,
             other => match T::parse_command(other, input)? {
                 Some(c) => StateCommandBody::Custom(c),
@@ -47,11 +45,14 @@ impl<T: Codegen> Parse for StateCommand<T> {
 
 impl<T: Codegen> ToTokens for StateCommand<T> {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        match &self.body {
-            StateCommandBody::Extend(expr) => expr.to_tokens(tokens),
-            StateCommandBody::Key(_) => T::empty().to_tokens(tokens),
-            StateCommandBody::Custom(other) => other.to_tokens(tokens),
+        if let StateCommandBody::Custom(other) = &self.body {
+            if let Some(t) = T::command_applicate(other) {
+                tokens.extend(t);
+                return;
+            }
         }
+
+        tokens.extend(T::empty());
     }
 }
 

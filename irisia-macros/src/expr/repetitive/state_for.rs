@@ -1,13 +1,14 @@
-use quote::{quote, ToTokens};
-use syn::{parse::Parse, Expr, Pat, Result, Token};
+use proc_macro2::TokenStream;
+use quote::quote;
+use syn::{parse::Parse, Expr, Pat, Token};
 
-use crate::expr::{state_block::StateBlock, Codegen, StateExpr, VisitUnit};
+use crate::expr::{state_block::StateBlock, Codegen};
 
 pub struct StateForLoop<T: Codegen> {
-    pat: Pat,
-    iter: Expr,
-    key: Option<Expr>,
-    body: StateBlock<T>,
+    pub pat: Pat,
+    pub iter: Expr,
+    pub key: Option<Expr>,
+    pub body: StateBlock<T>,
 }
 
 impl<T: Codegen> Parse for StateForLoop<T> {
@@ -28,8 +29,8 @@ impl<T: Codegen> Parse for StateForLoop<T> {
     }
 }
 
-impl<T: Codegen> ToTokens for StateForLoop<T> {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+impl<T: Codegen> StateForLoop<T> {
+    pub(super) fn expr_iter(&self) -> TokenStream {
         let StateForLoop {
             pat,
             iter,
@@ -37,7 +38,7 @@ impl<T: Codegen> ToTokens for StateForLoop<T> {
             key,
         } = self;
 
-        let iter = match key {
+        match key {
             Some(k) => quote! {
                 ::std::iter::Iterator::map(
                     #iter,
@@ -47,26 +48,6 @@ impl<T: Codegen> ToTokens for StateForLoop<T> {
             None => quote! {
                 irisia::__private::for_loop_iter_item_as_key(#iter, |#pat| #body)
             },
-        };
-
-        tokens.extend(T::repetitive_applicate(iter));
-    }
-}
-
-impl<T: Codegen> VisitUnit<T> for StateForLoop<T> {
-    fn visit_unit<'a, F>(&'a self, depth: usize, f: &mut F) -> Result<()>
-    where
-        F: FnMut(&'a StateExpr<T>, usize) -> Result<()>,
-        T: 'a,
-    {
-        self.body.visit_unit(depth, f)
-    }
-
-    fn visit_unit_mut<'a, F>(&'a mut self, depth: usize, f: &mut F) -> Result<()>
-    where
-        F: FnMut(&'a mut StateExpr<T>, usize) -> Result<()>,
-        T: 'a,
-    {
-        self.body.visit_unit_mut(depth, f)
+        }
     }
 }
