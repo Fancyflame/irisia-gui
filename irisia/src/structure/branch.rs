@@ -28,47 +28,44 @@ where
     }
 }
 
-macro_rules! impl_vlen {
-    ($Branch:ident $pat:tt $value:ident) => {
-        impl<A, B> VisitLen for $Branch<A, B>
-        where
-            A: VisitLen,
-            B: VisitLen,
-        {
-            fn len(&self) -> usize {
-                match self {
-                    $Branch::ArmA $pat => $value.len(),
-                    $Branch::ArmB $pat => $value.len(),
-                }
-            }
+impl<A, B> VisitLen for BranchModel<A, B>
+where
+    A: VisitLen,
+    B: VisitLen,
+{
+    fn len(&self) -> usize {
+        match self {
+            BranchModel::ArmA { value, .. } => value.len(),
+            BranchModel::ArmB { value, .. } => value.len(),
         }
-    };
+    }
 }
 
-impl_vlen!(Branch (value) value);
-impl_vlen!(BranchModel {value, ..} value);
-
-macro_rules! impl_visit {
-    ($Branch:ident $pat:tt $value:ident $Visit:ident $visit:ident $($mut:ident)?) => {
-        impl<A, B, V> $Visit<V> for $Branch<A, B>
-        where
-            A: $Visit<V>,
-            B: $Visit<V>,
-        {
-            fn $visit(& $($mut)? self, visitor: &mut V) -> Result<()> {
-                match self {
-                    $Branch::ArmA $pat => $value.$visit(visitor),
-                    $Branch::ArmB $pat => $value.$visit(visitor),
-                }
-            }
+impl<A, B, V> Visit<V> for BranchModel<A, B>
+where
+    A: Visit<V>,
+    B: Visit<V>,
+{
+    fn visit(&self, visitor: &mut V) -> Result<()> {
+        match self {
+            BranchModel::ArmA { value, .. } => value.visit(visitor),
+            BranchModel::ArmB { value, .. } => value.visit(visitor),
         }
-    };
+    }
 }
 
-impl_visit!(Branch (value) value Visit visit);
-impl_visit!(Branch (value) value VisitMut visit_mut mut);
-impl_visit!(BranchModel { value, .. } value Visit visit);
-impl_visit!(BranchModel { value, .. } value VisitMut visit_mut mut);
+impl<A, B, V> VisitMut<V> for BranchModel<A, B>
+where
+    A: VisitMut<V>,
+    B: VisitMut<V>,
+{
+    fn visit_mut(&mut self, visitor: &mut V) -> Result<()> {
+        match self {
+            BranchModel::ArmA { value, .. } => value.visit_mut(visitor),
+            BranchModel::ArmB { value, .. } => value.visit_mut(visitor),
+        }
+    }
+}
 
 impl<A, B, X, Y> UpdateWith<Branch<X, Y>> for BranchModel<A, B>
 where

@@ -3,7 +3,6 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse::Parser, parse_macro_input, DeriveInput, ItemFn, ItemStruct};
 
-mod dep_search;
 mod derive_props;
 mod derive_style;
 mod derive_style_reader;

@@ -1,6 +1,6 @@
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
-use syn::{parse::ParseStream, Result};
+use syn::{parse::ParseStream, Error, Result};
 
 use crate::expr::{enum_conditional, state_block::parse_stmts, Codegen, StateExpr};
 
@@ -8,18 +8,10 @@ use self::stmt::{handle_style_follow, StyleStmt};
 
 pub mod stmt;
 
-pub struct StyleCommand(());
-
-impl ToTokens for StyleCommand {
-    fn to_tokens(&self, _tokens: &mut TokenStream) {
-        unreachable!();
-    }
-}
-
 pub struct StyleCodegen;
 
 impl Codegen for StyleCodegen {
-    type Command = StyleCommand;
+    type Command = ();
     type Stmt = StyleStmt;
 
     const MUST_IN_BLOCK: bool = true;
@@ -32,10 +24,9 @@ impl Codegen for StyleCodegen {
         quote!(())
     }
 
-    fn repetitive_applicate(_: impl ToTokens) -> TokenStream {
-        quote!(::std::compile_error!(
-            "repetitive structure is not allowed in style macro"
-        ))
+    fn repetitive_applicate(t: impl ToTokens) -> TokenStream {
+        Error::new_spanned(t, "repetitive structure is not allowed in style macro")
+            .into_compile_error()
     }
 
     fn conditional_applicate(stmt: impl ToTokens, index: usize, total: usize) -> TokenStream {

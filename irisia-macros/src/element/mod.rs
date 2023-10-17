@@ -9,7 +9,7 @@ pub mod stmt;
 pub struct ElementCodegen;
 
 impl Codegen for ElementCodegen {
-    type Command = Cmd;
+    type Command = ();
     type Stmt = stmt::ElementStmt;
 
     const MUST_IN_BLOCK: bool = false;
@@ -36,13 +36,5 @@ impl Codegen for ElementCodegen {
 
     fn chain_applicate(prev: impl ToTokens, after: impl ToTokens) -> TokenStream {
         quote!(irisia::structure::Chain::new(#prev, #after))
-    }
-}
-
-pub struct Cmd;
-
-impl ToTokens for Cmd {
-    fn to_tokens(&self, _: &mut proc_macro2::TokenStream) {
-        unreachable!();
     }
 }
