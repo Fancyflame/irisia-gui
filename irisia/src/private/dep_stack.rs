@@ -1,6 +1,5 @@
 use std::{
     cell::RefCell,
-    marker::PhantomData,
     ops::{Deref, DerefMut},
 };
 
@@ -19,21 +18,21 @@ impl<const WD: usize> DependentStack<WD> {
         Self::default()
     }
 
-    pub fn scoped<T, F, R>(&self, target_ptr: &T, bitset: Bitset<WD>, f: F) -> R
+    pub fn scoped<T, F, R>(&self, target_ptr: &T, bitset: &Bitset<WD>, f: F) -> R
     where
         F: FnOnce() -> R,
     {
         debug_assert_eq!(bitset.iter().map(|x| x.count_ones()).sum::<u32>(), 1);
         self.stack.borrow_mut().push(DepInfo {
             self_ptr: target_ptr as *const T as _,
-            bitset,
+            bitset: bitset.clone(),
         });
         let r = f();
         self.stack.borrow_mut().pop();
         r
     }
 
-    pub fn apply_dep<T>(&self, target_ptr: &T, bitset: &mut Bitset<WD>) {
+    pub fn get_dep<T>(&self, target_ptr: &T, bitset: &mut Bitset<WD>) {
         let borrowed = self.stack.borrow();
         let src = match borrowed.last() {
             Some(info) if info.self_ptr == target_ptr as *const T as *const () => &info.bitset,
@@ -102,4 +101,46 @@ pub const fn bitset_width(field_count: u32) -> usize {
         width += 1;
     }
     width as usize
+}
+
+#[cfg(test)]
+mod test {
+    use super::{Bitset, DependentStack};
+
+    #[test]
+    fn test_bitset() {
+        assert!(usize::BITS >= 8);
+
+        let stack: DependentStack<2> = DependentStack::new();
+
+        let target = ();
+        let biggest = usize::BITS * 2 - 1;
+        let middle = usize::BITS * 3 / 2;
+        let smallest = usize::BITS / 3;
+
+        let mut dep_bitset = Bitset::<2>::new();
+
+        stack.scoped(&target, &Bitset::new_with_one_setted(biggest), || {
+            stack.get_dep(&target, &mut dep_bitset);
+        });
+
+        stack.scoped(&target, &Bitset::new_with_one_setted(smallest), || {
+            stack.get_dep(&target, &mut dep_bitset);
+        });
+
+        stack.scoped(&target, &Bitset::new_with_one_setted(middle), || {
+            stack.get_dep(&target, &mut dep_bitset);
+        });
+
+        // target is not the same, not captured
+        stack.scoped(&(), &Bitset::new_with_one_setted(0), || {
+            stack.get_dep(&target, &mut dep_bitset);
+        });
+
+        let mut iter = dep_bitset.dependency_indexes();
+        assert_eq!(iter.next(), Some(smallest));
+        assert_eq!(iter.next(), Some(middle));
+        assert_eq!(iter.next(), Some(biggest));
+        assert_eq!(iter.next(), None);
+    }
 }
