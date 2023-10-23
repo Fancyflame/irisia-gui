@@ -1,17 +1,7 @@
-use super::{MapVisit, MapVisitor, UpdateWith, Visit, VisitLen, VisitMut, Visitor, VisitorMut};
+use super::{UpdateWith, VisitBy, VisitLen, VisitMutBy, Visitor, VisitorMut};
 use crate::{update_with::SpecificUpdate, Result};
 
 pub struct Once<T>(pub T);
-
-impl<V, T> MapVisit<V> for Once<T>
-where
-    V: MapVisitor<T>,
-{
-    type Output = Once<V::Output>;
-    fn map(self, visitor: &V) -> Self::Output {
-        Once(visitor.map_visit(self.0))
-    }
-}
 
 impl<T> VisitLen for Once<T> {
     fn len(&self) -> usize {
@@ -19,7 +9,7 @@ impl<T> VisitLen for Once<T> {
     }
 }
 
-impl<T, V> Visit<V> for Once<T>
+impl<T, V> VisitBy<V> for Once<T>
 where
     V: Visitor<T>,
 {
@@ -28,7 +18,7 @@ where
     }
 }
 
-impl<T, V> VisitMut<V> for Once<T>
+impl<T, V> VisitMutBy<V> for Once<T>
 where
     V: VisitorMut<T>,
 {

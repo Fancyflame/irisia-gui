@@ -1,9 +1,9 @@
-use crate::{dom::RenderMultiple, primitive::Region, Result};
+use crate::{dom::ChildNodes, primitive::Region, Result};
 
 pub use self::{props::PropsUpdateWith, render_element::RenderElement};
 pub use crate::{
     application::content::GlobalContent,
-    dom::{one_child, pub_handle::LayoutElements, RcElementModel},
+    dom::{pub_handle::LayoutElements, RcElementModel},
 };
 
 pub mod props;
@@ -33,6 +33,7 @@ where
     Self: Sized + 'static,
 {
     type BlankProps: Default;
+    type Children<T: ChildNodes>: ChildNodes;
 
     /// Draw to the canvas
 
@@ -41,22 +42,24 @@ where
         content.render_children()
     }
 
-    fn set_children(&self, this: &ElModel!()) {
-        this.set_children(()).layout(|()| unreachable!()).unwrap();
-    }
-
     fn draw_region_changed(&mut self, this: &ElModel!(), draw_region: Region) {
         if let Some(lc) = this.layout_children() {
             lc.layout_once(draw_region)
                 .expect("child elements are more than 1")
         }
     }
+
+    fn slot<T: ChildNodes>(children: &Self::Children<T>) -> &T;
+    fn slot_mut<T: ChildNodes>(children: &mut Self::Children<T>) -> &mut T;
 }
 
-pub trait ElementUpdate<Pr>: Element + Sized {
+pub trait ElementCreate<Pr>: Element + Sized {
     fn el_create(this: &ElModel!(), props: Pr) -> Self;
-    fn el_update(&mut self, this: &ElModel!(), props: Pr, equality_matters: bool) -> bool;
 }
 
-pub trait AsChildren: RenderMultiple {}
-impl<T: RenderMultiple> AsChildren for T {}
+pub trait ElementPropsUpdate<Pr>: Element + Sized {
+    fn el_update(&mut self, props: Pr);
+}
+
+pub trait AsChildren: ChildNodes {}
+impl<T: ChildNodes> AsChildren for T {}

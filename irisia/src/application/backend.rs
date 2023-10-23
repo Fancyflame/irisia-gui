@@ -8,8 +8,8 @@ use irisia_backend::{
 };
 
 use crate::{
-    dom::{one_child, update::ElementModelUpdater, DropProtection, EMUpdateContent},
-    element::{Element, ElementUpdate},
+    dom::{DropProtection, ElementModel},
+    element::{Element, ElementCreate},
     event::{standard::WindowDestroyed, EventDispatcher},
     primitive::{Pixel, Point, Region},
     update_with::UpdateWith,
@@ -75,7 +75,7 @@ fn window_size_to_draw_region(size: PhysicalSize<u32>) -> Region {
 
 pub(super) async fn new_window<El, F>(window_builder: F) -> Result<Window>
 where
-    El: Element + ElementUpdate<()>,
+    El: Element + ElementCreate<()>,
     F: FnOnce(WindowBuilder) -> WindowBuilder + Send + 'static,
 {
     let ev_disp = EventDispatcher::new();
@@ -94,15 +94,7 @@ where
                 close_handle,
             });
 
-            let root_element = <DropProtection<El, (), ()> as UpdateWith<
-                ElementModelUpdater<'_, El, (), (), (), _>,
-            >>::create_with(ElementModelUpdater {
-                add_one: one_child((), (), (), |_: &_| {}),
-                content: EMUpdateContent {
-                    global_content: &gc,
-                    parent_layer: None,
-                },
-            });
+            let root_element = ElementModel::new((), (), (), |_| {});
 
             root_element.set_draw_region(window_size_to_draw_region(gc.window().inner_size()));
             gc.request_redraw(root_element.0.clone());

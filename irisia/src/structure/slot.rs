@@ -1,19 +1,12 @@
 use std::cell::{RefCell, RefMut};
 use std::rc::Rc;
 
-use crate::dom::RenderMultiple;
-use crate::{dom::EMUpdateContent, update_with::SpecificUpdate};
+use crate::dom::ChildNodes;
+use crate::update_with::SpecificUpdate;
 
-use super::{MapVisit, UpdateWith};
+use super::UpdateWith;
 
 pub struct Slot<T>(pub Rc<RefCell<T>>);
-
-impl<T> MapVisit<EMUpdateContent<'_>> for &Slot<T> {
-    type Output = Self;
-    fn map(self, _: &EMUpdateContent) -> Self {
-        self
-    }
-}
 
 impl<T> UpdateWith<&Slot<T>> for Slot<T> {
     fn create_with(updater: &Slot<T>) -> Self {
@@ -40,9 +33,9 @@ impl<T> Slot<T> {
     }
 }
 
-impl<T> RenderMultiple for Slot<T>
+impl<T> ChildNodes for Slot<T>
 where
-    T: RenderMultiple,
+    T: ChildNodes,
 {
     fn render(
         &self,

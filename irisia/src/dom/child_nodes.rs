@@ -1,18 +1,18 @@
-use std::{any::Any, time::Duration};
+use std::{any::Any, rc::Rc, time::Duration};
 
 use anyhow::anyhow;
 
 use crate::{
-    application::event_comp::NewPointerEvent,
-    dom::{layer::LayerRebuilder, DropProtection},
-    element::Element,
+    application::{event_comp::NewPointerEvent, redraw_scheduler::RedrawObject},
+    dom::{data_structure::Context, layer::LayerRebuilder, DropProtection},
+    element::{Element, GlobalContent},
     primitive::Region,
-    structure::{Visit, VisitLen, Visitor},
+    structure::{VisitBy, VisitLen, Visitor},
     style::{style_box::InsideStyleBox, StyleContainer},
     Result,
 };
 
-pub trait RenderMultiple: 'static {
+pub trait ChildNodes: 'static {
     fn render(&self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()>;
 
     fn peek_styles(&self, f: &mut dyn FnMut(&dyn InsideStyleBox));
@@ -26,12 +26,12 @@ pub trait RenderMultiple: 'static {
     fn as_any(&mut self) -> &mut dyn Any;
 }
 
-impl<T> RenderMultiple for T
+impl<T> ChildNodes for T
 where
-    T: for<'a, 'lr> Visit<RenderHelper<'a, 'lr>>
-        + for<'a, 'root> Visit<EmitEventHelper<'a, 'root>>
-        + for<'a> Visit<LayoutHelper<'a>>
-        + for<'a> Visit<PeekStyles<'a>>
+    T: for<'a, 'lr> VisitBy<RenderHelper<'a, 'lr>>
+        + for<'a, 'root> VisitBy<EmitEventHelper<'a, 'root>>
+        + for<'a> VisitBy<LayoutHelper<'a>>
+        + for<'a> VisitBy<PeekStyles<'a>>
         + 'static,
 {
     fn render(&self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()> {
@@ -74,7 +74,7 @@ impl<El, Sty, Sc> Visitor<DropProtection<El, Sty, Sc>> for RenderHelper<'_, '_>
 where
     El: Element,
     Sty: StyleContainer,
-    Sc: RenderMultiple,
+    Sc: ChildNodes,
 {
     fn visit(&mut self, data: &DropProtection<El, Sty, Sc>) -> Result<()> {
         data.build_layers(self.lr, self.interval)
@@ -87,7 +87,7 @@ impl<El, Sty, Sc> Visitor<DropProtection<El, Sty, Sc>> for LayoutHelper<'_>
 where
     El: Element,
     Sty: StyleContainer,
-    Sc: RenderMultiple,
+    Sc: ChildNodes,
 {
     fn visit(&mut self, data: &DropProtection<El, Sty, Sc>) -> Result<()> {
         let region = (self.0)(&data.in_cell.borrow().styles);
@@ -107,7 +107,7 @@ impl<El, Sty, Sc> Visitor<DropProtection<El, Sty, Sc>> for PeekStyles<'_>
 where
     El: Element,
     Sty: StyleContainer,
-    Sc: RenderMultiple,
+    Sc: ChildNodes,
 {
     fn visit(&mut self, data: &DropProtection<El, Sty, Sc>) -> Result<()> {
         (self.0)(&data.in_cell.borrow().styles);
@@ -124,10 +124,50 @@ impl<El, Sty, Sc> Visitor<DropProtection<El, Sty, Sc>> for EmitEventHelper<'_, '
 where
     El: Element,
     Sty: StyleContainer,
-    Sc: RenderMultiple,
+    Sc: ChildNodes,
 {
     fn visit(&mut self, data: &DropProtection<El, Sty, Sc>) -> Result<()> {
         *self.children_entered |= data.emit_event(self.npe);
         Ok(())
+    }
+}
+
+struct AttachHelper<'a> {
+    parent_layer: Option<&'a Rc<dyn RedrawObject>>,
+    global_content: Rc<GlobalContent>,
+}
+
+impl<El, Sty, Sc> Visitor<DropProtection<El, Sty, Sc>> for AttachHelper<'_>
+where
+    El: Element,
+    Sty: StyleContainer,
+    Sc: ChildNodes,
+{
+    fn visit(&mut self, data: &DropProtection<El, Sty, Sc>) -> Result<()> {
+        let mut borrowed = data.in_cell.borrow_mut();
+        match &mut borrowed.context {
+            Context::None => {
+                *borrowed = Context::Attached {
+                    global_content: self.global_content.clone(),
+                    parent_layer: self.parent_layer,
+                };
+                Ok(())
+            }
+
+            Context::Attached {
+                global_content,
+                parent_layer,
+            } => {
+                if !Rc::ptr_eq(global_content, &self.global_content) {
+                    return Err(anyhow!(
+                        "cannot attach element node in another context to this"
+                    ));
+                }
+                *parent_layer = self.parent_layer.map(Rc::downgrade);
+                Ok(())
+            }
+
+            Context::Destroyed => Err(anyhow!("cannot update context to an abondoned element")),
+        }
     }
 }

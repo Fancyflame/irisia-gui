@@ -11,35 +11,40 @@ use crate::{
     },
     event::EventDispatcher,
     primitive::Region,
-    structure::slot::Slot,
     style::StyleContainer,
     Element,
 };
 
-use super::{children::ChildrenBox, layer::SharedLayerCompositer, RenderMultiple};
+use super::{layer::SharedLayerCompositer, ChildNodes};
 
 pub struct ElementModel<El, Sty, Sc>
 where
     El: Element,
     Sty: StyleContainer,
-    Sc: RenderMultiple,
+    Sc: ChildNodes,
 {
     pub(super) this: Weak<Self>,
     pub(super) el: RwLock<Option<El>>,
-    pub(super) el_alive: Cell<bool>,
-    pub(super) global_content: Rc<GlobalContent>,
     pub(super) ed: EventDispatcher,
-    pub(super) slot_cache: Slot<Sc>,
     pub(super) draw_region: Cell<Region>,
     pub(super) interact_region: Cell<Option<Region>>,
     pub(super) acquire_independent_layer: Cell<bool>,
-    pub(super) in_cell: RefCell<InsideRefCell<Sty>>,
+    pub(super) in_cell: RefCell<InsideRefCell<Sty, El::Children<Sc>>>,
 }
 
-pub(super) struct InsideRefCell<Sty> {
+pub(super) struct InsideRefCell<Sty, Ch> {
     pub styles: Sty,
-    pub expanded_children: Option<ChildrenBox>,
+    pub expanded_children: Ch,
     pub event_mgr: NodeEventMgr,
-    pub parent_layer: Option<Weak<dyn RedrawObject>>,
+    pub context: Context,
     pub indep_layer: Option<SharedLayerCompositer>,
+}
+
+pub(super) enum Context {
+    None,
+    Attached {
+        global_content: Rc<GlobalContent>,
+        parent_layer: Option<Weak<dyn RedrawObject>>,
+    },
+    Destroyed,
 }

@@ -16,9 +16,8 @@ use crate::{
 pub use self::{layout_el::LayoutElements, write_guard::ElWriteGuard};
 
 use super::{
-    children::{ChildrenBox, ChildrenNodes},
-    data_structure::ElementModel,
-    EMUpdateContent, RcElementModel, RenderMultiple,
+    data_structure::{Context, ElementModel},
+    ChildNodes, RcElementModel,
 };
 
 mod layout_el;
@@ -28,7 +27,7 @@ impl<El, Sty, Sc> ElementModel<El, Sty, Sc>
 where
     El: Element,
     Sty: StyleContainer + 'static,
-    Sc: RenderMultiple + 'static,
+    Sc: ChildNodes + 'static,
 {
     /// Get a write guard without setting dirty
     pub(super) fn el_write_clean(&self) -> RwLockMappedWriteGuard<El> {
@@ -60,16 +59,12 @@ where
     }
 
     pub fn alive(&self) -> bool {
-        self.el_alive.get()
+        !matches!(self.in_cell.borrow().context, Context::Destroyed)
     }
 
     /// Listen event with options
     pub fn listen<'a>(self: &'a Rc<Self>) -> Listen<'a, Rc<Self>, (), (), (), ()> {
         Listen::new(self)
-    }
-
-    pub fn slot(&self) -> impl ChildrenNodes + '_ {
-        &self.slot_cache
     }
 
     /// Get event dispatcher of this element.
@@ -176,40 +171,18 @@ where
         .map(|refmut| LayoutElements { refmut })
     }
 
-    pub fn set_children<'a, Ch>(self: &'a Rc<Self>, children: Ch) -> LayoutElements<'a>
+    pub fn children<'a, F, R>(&'a self, f: F) -> R
     where
-        Ch: ChildrenNodes,
+        F: FnOnce(&'a Sc) -> R,
     {
-        self.set_dirty();
-        let in_cell = self.in_cell.borrow_mut();
+        f(&self.in_cell.borrow().expanded_children)
+    }
 
-        let updater = EMUpdateContent {
-            global_content: &self.global_content,
-            parent_layer: Some(self.get_children_layer(&in_cell)),
-        };
-
-        let children_box = RefMut::map(in_cell, |x| &mut x.expanded_children);
-
-        let refmut = RefMut::map(children_box, |option| match option {
-            Some(cb) => {
-                let model=
-                    cb.as_render_multiple()
-                    .as_any()
-                    .downcast_mut::<Ch::Model>()
-                    .expect("the type of children is not equal to previous's, these two is expected to be the same");
-
-                children.update_model(model, updater, &mut false);
-                model
-            }
-            place @ None => place
-                .insert(ChildrenBox::new(children.create_model(updater)))
-                .as_render_multiple()
-                .as_any()
-                .downcast_mut()
-                .unwrap(),
-        });
-
-        LayoutElements { refmut }
+    pub fn children_mut<'a, F, R>(&'a mut self, f: F) -> R
+    where
+        F: FnOnce(&'a mut Sc) -> R,
+    {
+        f(&mut self.in_cell.borrow_mut().expanded_children)
     }
 }
 
@@ -217,7 +190,7 @@ impl<El, Sty, Sc> EdProvider for RcElementModel<El, Sty, Sc>
 where
     El: Element,
     Sty: StyleContainer + 'static,
-    Sc: RenderMultiple + 'static,
+    Sc: ChildNodes + 'static,
 {
     fn event_dispatcher(&self) -> &EventDispatcher {
         ElementModel::event_dispatcher(self)

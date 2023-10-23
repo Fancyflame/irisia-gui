@@ -15,16 +15,14 @@ use crate::{
 };
 
 use self::{
-    data_structure::InsideRefCell,
+    data_structure::{Context, InsideRefCell},
     layer::{LayerCompositer, LayerRebuilder},
 };
 
-pub(crate) use self::{
-    children::RenderMultiple, drop_protection::DropProtection, update::EMUpdateContent,
-};
-pub use self::{data_structure::ElementModel, update::one_child};
+pub use self::data_structure::ElementModel;
+pub(crate) use self::{child_nodes::ChildNodes, drop_protection::DropProtection};
 
-pub(crate) mod children;
+pub(crate) mod child_nodes;
 mod data_structure;
 mod drop_protection;
 pub(crate) mod layer;
@@ -37,7 +35,7 @@ impl<El, Sty, Sc> ElementModel<El, Sty, Sc>
 where
     El: Element,
     Sty: StyleContainer + 'static,
-    Sc: RenderMultiple + 'static,
+    Sc: ChildNodes + 'static,
 {
     pub(crate) fn build_layers(
         self: &Rc<Self>,
@@ -113,7 +111,10 @@ where
         )
     }
 
-    fn get_children_layer(&self, in_cell: &InsideRefCell<Sty>) -> Weak<dyn RedrawObject>
+    fn get_children_layer(
+        &self,
+        in_cell: &InsideRefCell<Sty, El::Children<Sc>>,
+    ) -> Weak<dyn RedrawObject>
     where
         Sty: 'static,
         Sc: 'static,
@@ -134,8 +135,8 @@ where
     {
         let this = self.clone();
         tokio::task::spawn_local(async move {
-            this.el_alive.set(false);
             this.el.write().await.take();
+            *this.in_cell.borrow_mut().context = Context::Destroyed;
         });
     }
 }
@@ -152,7 +153,7 @@ impl<El, Sty, Sc> RedrawObject for ElementModel<El, Sty, Sc>
 where
     El: Element,
     Sty: StyleContainer + 'static,
-    Sc: RenderMultiple + 'static,
+    Sc: ChildNodes + 'static,
 {
     fn redraw(&self, canvas: &mut Canvas, interval: Duration) -> Result<()> {
         let mut in_cell_ref = self.in_cell.borrow_mut();

@@ -1,12 +1,10 @@
 use std::cell::RefMut;
 
-use crate::{
-    dom::children::RenderMultiple, primitive::Region, style::StyleContainer, Result, StyleReader,
-};
+use crate::{dom::ChildNodes, primitive::Region, style::StyleContainer, Result, StyleReader};
 
 #[must_use]
 pub struct LayoutElements<'a> {
-    pub(super) refmut: RefMut<'a, dyn RenderMultiple>,
+    pub(super) refmut: RefMut<'a, dyn ChildNodes>,
 }
 
 impl<'a> LayoutElements<'a> {

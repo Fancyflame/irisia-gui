@@ -2,7 +2,7 @@ use tokio::sync::RwLockMappedWriteGuard;
 
 use std::ops::{Deref, DerefMut};
 
-use crate::{dom::RenderMultiple, element::RcElementModel, style::StyleContainer, Element};
+use crate::{dom::ChildNodes, element::RcElementModel, style::StyleContainer, Element};
 
 pub struct ElWriteGuard<'a, El, Sd: SetDirty<El>> {
     pub(super) write: RwLockMappedWriteGuard<'a, El>,
@@ -36,7 +36,7 @@ impl<El, Sty, Sc> SetDirty<El> for RcElementModel<El, Sty, Sc>
 where
     El: Element,
     Sty: StyleContainer + 'static,
-    Sc: RenderMultiple + 'static,
+    Sc: ChildNodes + 'static,
 {
     fn _set_dirty(&self, el: &El) {
         el.set_children(self);
