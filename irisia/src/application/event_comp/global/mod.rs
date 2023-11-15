@@ -14,7 +14,7 @@ use crate::{
     primitive::{Pixel, Point},
 };
 
-use self::new_event::{NewPointerEvent, PointerStateChange};
+use self::new_event::{IncomingPointerEvent, PointerStateChange};
 
 pub(crate) mod focusing;
 pub(crate) mod new_event;
@@ -44,17 +44,18 @@ impl GlobalEventMgr {
         &'a mut self,
         event: StaticWindowEvent,
         gc: &'a GlobalContent,
-    ) -> Option<NewPointerEvent<'a>> {
+    ) -> Option<IncomingPointerEvent<'a>> {
         match cursor_behavior(&event, self.pointer_state, self.last_cursor_position) {
             Some((new_position, new_pointer_state)) => {
-                let npe = NewPointerEvent::new(event, self, gc, new_position, new_pointer_state);
+                let ipe =
+                    IncomingPointerEvent::new(event, self, gc, new_position, new_pointer_state);
                 emit_physical_pointer_event(
                     &gc.global_ed,
                     new_position,
-                    npe.cursor_delta,
-                    npe.pointer_state_change,
+                    ipe.cursor_delta,
+                    ipe.pointer_state_change,
                 );
-                Some(npe)
+                Some(ipe)
             }
             None => {
                 match &event {

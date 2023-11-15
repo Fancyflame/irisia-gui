@@ -1,4 +1,4 @@
-use crate::{update_with::UpdateWith, Result};
+use crate::{dom::DropProtection, style::StyleContainer, update_with::UpdateWith, Element, Result};
 
 pub use self::{
     chain::Chain,
@@ -12,27 +12,21 @@ pub mod empty;
 pub mod once;
 pub mod repeat;
 pub mod select;
-pub(crate) mod slot;
 
-pub trait VisitLen: Sized {
+pub trait VisitBy {
+    fn visit_by<V>(&self, visitor: &mut V) -> Result<()>
+    where
+        V: VisitOn;
+
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
 }
 
-pub trait VisitBy<V>: VisitLen {
-    fn visit(&self, visitor: &mut V) -> Result<()>;
-}
-
-pub trait Visitor<T>: Sized {
-    fn visit(&mut self, data: &T) -> Result<()>;
-}
-
-pub trait VisitMutBy<V>: VisitLen {
-    fn visit_mut(&mut self, visitor: &mut V) -> Result<()>;
-}
-
-pub trait VisitorMut<T>: Sized {
-    fn visit_mut(&mut self, data: &mut T) -> Result<()>;
+pub trait VisitOn {
+    fn visit_on<El, Sty>(&mut self, data: &DropProtection<El, Sty>) -> Result<()>
+    where
+        El: Element,
+        Sty: StyleContainer;
 }

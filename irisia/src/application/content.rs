@@ -6,7 +6,7 @@ use crate::event::EventDispatcher;
 
 use super::{
     event_comp::global::focusing::Focusing,
-    redraw_scheduler::{RedrawObject, RedrawScheduler},
+    redraw_scheduler::{RedrawScheduler, StandaloneRender},
 };
 
 pub struct GlobalContent {
@@ -26,7 +26,7 @@ impl GlobalContent {
         &self.focusing
     }
 
-    pub(crate) fn request_redraw(&self, ro: Rc<dyn RedrawObject>) {
+    pub(crate) fn request_redraw(&self, ro: Rc<dyn StandaloneRender>) {
         self.redraw_scheduler.borrow_mut().request_redraw(ro)
     }
 

@@ -10,7 +10,7 @@ use crate::Result;
 
 pub(super) struct RedrawScheduler {
     window: Arc<WinitWindow>,
-    list: HashMap<*const dyn RedrawObject, Rc<dyn RedrawObject>>,
+    list: HashMap<*const dyn StandaloneRender, Rc<dyn StandaloneRender>>,
     redraw_req_sent: bool,
 }
 
@@ -23,7 +23,7 @@ impl RedrawScheduler {
         }
     }
 
-    pub fn request_redraw(&mut self, ro: Rc<dyn RedrawObject>) {
+    pub fn request_redraw(&mut self, ro: Rc<dyn StandaloneRender>) {
         if !self.redraw_req_sent {
             self.redraw_req_sent = true;
             self.window.request_redraw();
@@ -39,7 +39,7 @@ impl RedrawScheduler {
             canvas.clear(TRANSPARENT);
             canvas.reset_matrix();
 
-            if let Err(err) = ro.redraw(canvas, interval) {
+            if let Err(err) = ro.standalone_render(canvas, interval) {
                 errors.push(err);
             }
         }
@@ -68,6 +68,6 @@ fn fmt_errors(errors: &[anyhow::Error]) -> Result<()> {
     ))
 }
 
-pub(crate) trait RedrawObject {
-    fn redraw(&self, canvas: &mut Canvas, interval: Duration) -> Result<()>;
+pub(crate) trait StandaloneRender {
+    fn standalone_render(&self, canvas: &mut Canvas, interval: Duration) -> Result<()>;
 }

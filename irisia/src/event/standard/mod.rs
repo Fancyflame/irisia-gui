@@ -2,7 +2,7 @@ use irisia_backend::window_handle::CloseHandle;
 use irisia_backend::StaticWindowEvent;
 
 use crate as irisia;
-use crate::primitive::{Pixel, Point};
+use crate::primitive::{Pixel, Point, Region};
 use crate::Event;
 
 //pub mod window_event;
@@ -63,3 +63,8 @@ pub struct CloseRequested(pub CloseHandle);
 
 #[derive(Event, Clone, Copy)]
 pub struct WindowDestroyed;
+
+#[derive(Event, Clone, Copy)]
+pub struct DrawRegionChanged {
+    pub region: Region,
+}

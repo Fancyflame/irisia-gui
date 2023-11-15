@@ -9,7 +9,7 @@ use crate::{
     primitive::{Pixel, Point, Region},
 };
 
-use super::{global::new_event::PointerStateChange, NewPointerEvent};
+use super::{global::new_event::PointerStateChange, IncomingPointerEvent};
 
 pub(crate) struct NodeEventMgr {
     ed: EventDispatcher,
@@ -33,7 +33,7 @@ impl NodeEventMgr {
 
     pub fn update_and_emit(
         &mut self,
-        update: &NewPointerEvent,
+        update: &IncomingPointerEvent,
         region: Option<Region>,
         logically_entered: bool,
     ) -> bool {

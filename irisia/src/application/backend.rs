@@ -12,7 +12,6 @@ use crate::{
     element::{Element, ElementCreate},
     event::{standard::WindowDestroyed, EventDispatcher},
     primitive::{Pixel, Point, Region},
-    update_with::UpdateWith,
     Result,
 };
 
@@ -26,7 +25,7 @@ use super::{
 pub(super) struct BackendRuntime<El: Element> {
     gem: GlobalEventMgr,
     gc: Rc<GlobalContent>,
-    root_element: DropProtection<El, (), ()>,
+    root_element: DropProtection<El, ()>,
 }
 
 impl<El> AppWindow for BackendRuntime<El>
@@ -42,7 +41,7 @@ where
         // composite
         canvas.reset_matrix();
         canvas.clear(WHITE);
-        self.root_element.composite(canvas)
+        self.root_element.composite_as_root(canvas)
     }
 
     fn on_window_event(&mut self, event: StaticWindowEvent) {
@@ -51,9 +50,9 @@ where
                 .set_draw_region(window_size_to_draw_region(*size));
         }
 
-        if let Some(npe) = self.gem.emit_event(event, &self.gc) {
-            if !self.root_element.emit_event(&npe) {
-                npe.focus_on(None);
+        if let Some(ipe) = self.gem.emit_event(event, &self.gc) {
+            if !self.root_element.emit_event(&ipe) {
+                ipe.focus_on(None);
             }
         }
     }
@@ -75,7 +74,7 @@ fn window_size_to_draw_region(size: PhysicalSize<u32>) -> Region {
 
 pub(super) async fn new_window<El, F>(window_builder: F) -> Result<Window>
 where
-    El: Element + ElementCreate<()>,
+    El: Element<Slot = ()> + ElementCreate<()>,
     F: FnOnce(WindowBuilder) -> WindowBuilder + Send + 'static,
 {
     let ev_disp = EventDispatcher::new();

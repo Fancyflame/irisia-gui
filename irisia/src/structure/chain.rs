@@ -1,4 +1,4 @@
-use super::{VisitBy, VisitLen, VisitMutBy};
+use super::{VisitBy, VisitOn};
 use crate::Result;
 
 pub struct Chain<A, B> {
@@ -12,34 +12,17 @@ impl<A, B> Chain<A, B> {
     }
 }
 
-impl<A, B> VisitLen for Chain<A, B>
+impl<A, B> VisitBy for Chain<A, B>
 where
-    A: VisitLen,
-    B: VisitLen,
+    A: VisitBy,
+    B: VisitBy,
 {
+    fn visit_by<V: VisitOn>(&self, visitor: &mut V) -> Result<()> {
+        self.former.visit_by(visitor)?;
+        self.latter.visit_by(visitor)
+    }
+
     fn len(&self) -> usize {
         self.former.len() + self.latter.len()
-    }
-}
-
-impl<A, B, V> VisitBy<V> for Chain<A, B>
-where
-    A: VisitBy<V>,
-    B: VisitBy<V>,
-{
-    fn visit(&self, visitor: &mut V) -> Result<()> {
-        self.former.visit(visitor)?;
-        self.latter.visit(visitor)
-    }
-}
-
-impl<A, B, V> VisitMutBy<V> for Chain<A, B>
-where
-    A: VisitMutBy<V>,
-    B: VisitMutBy<V>,
-{
-    fn visit_mut(&mut self, visitor: &mut V) -> Result<()> {
-        self.former.visit_mut(visitor)?;
-        self.latter.visit_mut(visitor)
     }
 }

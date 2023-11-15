@@ -1,5 +1,4 @@
-use irisia_backend::WinitWindow;
-use std::{cell::RefMut, future::Future, rc::Rc};
+use std::{future::Future, rc::Rc};
 use tokio::{
     sync::{RwLockMappedWriteGuard, RwLockReadGuard, RwLockWriteGuard},
     task::JoinHandle,
@@ -10,35 +9,32 @@ use crate::{
     event::{standard::ElementAbandoned, EdProvider, EventDispatcher, Listen},
     primitive::Region,
     style::StyleContainer,
-    Element, StyleReader,
+    Element, Result, StyleReader,
 };
 
-pub use self::{layout_el::LayoutElements, write_guard::ElWriteGuard};
+use self::write_guard::ElWriteGuard;
 
 use super::{
     data_structure::{Context, ElementModel},
-    ChildNodes, RcElementModel,
+    RcElementModel,
 };
 
-mod layout_el;
 mod write_guard;
 
-impl<El, Sty, Sc> ElementModel<El, Sty, Sc>
+const TRY_ACCESS_ERROR: &str = "do not hold a element write guard across `await`. \
+                this limitation will be lifted in the future, but still \
+                discouraged";
+
+impl<El, Sty> ElementModel<El, Sty>
 where
     El: Element,
     Sty: StyleContainer + 'static,
-    Sc: ChildNodes + 'static,
 {
     /// Get a write guard without setting dirty
     pub(super) fn el_write_clean(&self) -> RwLockMappedWriteGuard<El> {
-        RwLockWriteGuard::map(
-            self.el.try_write().expect(
-                "do not hold a element write guard across `await`. \
-                this limitation will be lifted in the future, but still \
-                discouraged",
-            ),
-            |x| x.as_mut().unwrap(),
-        )
+        RwLockWriteGuard::map(self.el.try_write().expect(TRY_ACCESS_ERROR), |x| {
+            x.as_mut().unwrap()
+        })
     }
 
     /// Get a write guard of this element and setting dirty.
@@ -58,8 +54,8 @@ where
         RwLockReadGuard::try_map(self.el.read().await, |x| x.as_ref()).ok()
     }
 
-    pub fn alive(&self) -> bool {
-        !matches!(self.in_cell.borrow().context, Context::Destroyed)
+    pub fn attached(&self) -> bool {
+        matches!(self.in_cell.borrow().context, Context::Attached(_))
     }
 
     /// Listen event with options
@@ -74,29 +70,42 @@ where
 
     /// Let this element being focused on.
     pub fn focus(&self) {
-        self.global_content.focusing().focus(self.ed.clone());
+        if let Ok(c) = self.in_cell.borrow().ctx() {
+            c.global_content.focusing().focus(self.ed.clone());
+        }
     }
 
     /// Let this element no longer being focused. does nothing if
     /// this element is not in focus.
     pub fn blur(&self) {
-        self.global_content.focusing().blur_checked(&self.ed);
+        if let Ok(c) = self.in_cell.borrow().ctx() {
+            c.global_content.focusing().blur_checked(&self.ed);
+        }
     }
 
     /// Get global content of the window.
-    pub fn global(&self) -> &Rc<GlobalContent> {
-        &self.global_content
-    }
-
-    /// Get the raw window. Alias to `self.global().window()`.
-    pub fn window(&self) -> &WinitWindow {
-        self.global_content.window()
+    pub fn global_content(&self) -> Result<Rc<GlobalContent>> {
+        self.in_cell
+            .borrow()
+            .ctx()
+            .map(|c| c.global_content.clone())
     }
 
     /// Get the region for drawing. Specified by parent element,
     /// and can only be changed by parent element.
     pub fn draw_region(&self) -> Region {
         self.draw_region.get()
+    }
+
+    pub fn set_interact_region(&self, region: Option<Region>) {
+        if region == self.interact_region.get() {
+            return;
+        }
+        self.interact_region.set(region);
+    }
+
+    pub fn interact_region(&self) -> Option<Region> {
+        self.interact_region.get()
     }
 
     /// Get styles bind to this element
@@ -110,11 +119,13 @@ where
 
     /// Set dirty flag to `true`.
     pub fn set_dirty(&self) {
-        self.global_content.request_redraw(
-            self.get_children_layer(&self.in_cell.borrow())
-                .upgrade()
-                .expect("parent layer unexpectedly dropped"),
-        )
+        if let Ok(c) = self.in_cell.borrow().ctx() {
+            c.global_content.request_redraw(
+                self.get_children_layer(&self.in_cell.borrow())
+                    .upgrade()
+                    .expect("parent layer unexpectedly dropped"),
+            )
+        }
     }
 
     /// Query whether independent layer was acquired.
@@ -158,39 +169,12 @@ where
             }
         })
     }
-
-    pub fn layout_children(&self) -> Option<LayoutElements> {
-        self.set_dirty();
-        RefMut::filter_map(self.in_cell.borrow_mut(), |in_cell| {
-            in_cell
-                .expanded_children
-                .as_mut()
-                .map(|x| x.as_render_multiple())
-        })
-        .ok()
-        .map(|refmut| LayoutElements { refmut })
-    }
-
-    pub fn children<'a, F, R>(&'a self, f: F) -> R
-    where
-        F: FnOnce(&'a Sc) -> R,
-    {
-        f(&self.in_cell.borrow().expanded_children)
-    }
-
-    pub fn children_mut<'a, F, R>(&'a mut self, f: F) -> R
-    where
-        F: FnOnce(&'a mut Sc) -> R,
-    {
-        f(&mut self.in_cell.borrow_mut().expanded_children)
-    }
 }
 
-impl<El, Sty, Sc> EdProvider for RcElementModel<El, Sty, Sc>
+impl<El, Sty> EdProvider for RcElementModel<El, Sty>
 where
     El: Element,
     Sty: StyleContainer + 'static,
-    Sc: ChildNodes + 'static,
 {
     fn event_dispatcher(&self) -> &EventDispatcher {
         ElementModel::event_dispatcher(self)
@@ -204,6 +188,6 @@ where
     }
 
     fn handle_available(&self) -> bool {
-        self.alive()
+        self.attached()
     }
 }

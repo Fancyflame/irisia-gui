@@ -10,7 +10,7 @@ use crate::{
 
 use super::{GlobalEventMgr, PointerState};
 
-pub struct NewPointerEvent<'a> {
+pub struct IncomingPointerEvent<'a> {
     pub(crate) event: StaticWindowEvent,
     pub(crate) gem: &'a mut GlobalEventMgr,
     pub(crate) global_content: &'a GlobalContent,
@@ -36,7 +36,7 @@ pub(crate) enum PointerStateChange {
     EnterViewport,
 }
 
-impl<'a> NewPointerEvent<'a> {
+impl<'a> IncomingPointerEvent<'a> {
     pub(super) fn new(
         event: StaticWindowEvent,
         gem: &'a mut GlobalEventMgr,
@@ -49,7 +49,7 @@ impl<'a> NewPointerEvent<'a> {
             .zip(new_position)
             .map(|(old, new)| (new.0 - old.0, new.1 - old.1));
 
-        NewPointerEvent {
+        IncomingPointerEvent {
             event,
             new_position,
             cursor_delta,
@@ -88,7 +88,7 @@ impl PointerStateChange {
     }
 }
 
-impl Drop for NewPointerEvent<'_> {
+impl Drop for IncomingPointerEvent<'_> {
     fn drop(&mut self) {
         self.gem.last_cursor_position = self.new_position;
 

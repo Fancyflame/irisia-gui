@@ -114,7 +114,7 @@ impl Element for Flex {
     }
 
     fn set_children(&self, this: &ElModel!()) {
-        flex_layout(this, this.set_children(this.slot())).unwrap();
+        flex_layout(this, this.set_children(this.slot_read())).unwrap();
     }
 }
 

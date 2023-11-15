@@ -1,6 +1,5 @@
 use std::{
     cell::{Cell, RefCell},
-    marker::PhantomData,
     rc::{Rc, Weak},
 };
 
@@ -15,38 +14,35 @@ use crate::{
 
 use super::{
     data_structure::{Context, InsideRefCell},
-    layer::LayerCompositer,
-    ChildNodes, DropProtection, ElementModel,
+    DropProtection, ElementModel,
 };
 
 // impl update
 
-impl<El, Sty, Sc> ElementModel<El, Sty, Sc>
+impl<El, Sty> ElementModel<El, Sty>
 where
     El: Element,
     Sty: StyleContainer + 'static,
-    Sc: ChildNodes,
 {
     pub fn new<Pr, Oc>(
         props: Pr,
         styles: Sty,
-        slot: Sc,
+        slot: El::Slot,
         on_create: Oc,
-    ) -> DropProtection<El, Sty, Sc>
+    ) -> DropProtection<El, Sty>
     where
-        Pr: for<'a> SetStdStyles<'a, Sty>,
-        El: ElementCreate<Pr>,
-        Oc: FnOnce(&Rc<ElementModel<El, Sty, Sc>>),
+        Pr: for<'a> SetStdStyles<&'a Sty>,
+        El: for<'a> ElementCreate<<Pr as SetStdStyles<&'a Sty>>::Output>,
+        Oc: FnOnce(&Rc<ElementModel<El, Sty>>),
     {
         let ed = EventDispatcher::new();
 
-        let this = Rc::new_cyclic(|weak: &Weak<ElementModel<_, _, _>>| ElementModel {
+        let this = Rc::new_cyclic(|weak: &Weak<ElementModel<_, _>>| ElementModel {
             this: weak.clone(),
             el: RwLock::new(None),
             ed: ed.clone(),
             in_cell: RefCell::new(InsideRefCell {
                 styles,
-                expanded_children: None,
                 event_mgr: NodeEventMgr::new(ed),
                 indep_layer: None,
                 context: Context::None,
@@ -58,8 +54,11 @@ where
 
         // hold the lock prevent from being accessed
         let mut write = this.el.try_write().unwrap();
-        let el = El::el_create(&this, props.set_std_styles(&this.in_cell.borrow().styles));
-        el.set_children(&this);
+        let el = El::el_create(
+            &this,
+            props.set_std_styles(&this.in_cell.borrow().styles),
+            slot,
+        );
         *write = Some(el);
         drop(write);
 

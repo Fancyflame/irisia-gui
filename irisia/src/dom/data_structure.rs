@@ -7,7 +7,7 @@ use tokio::sync::RwLock;
 
 use crate::{
     application::{
-        content::GlobalContent, event_comp::NodeEventMgr, redraw_scheduler::RedrawObject,
+        content::GlobalContent, event_comp::NodeEventMgr, redraw_scheduler::StandaloneRender,
     },
     event::EventDispatcher,
     primitive::Region,
@@ -15,13 +15,12 @@ use crate::{
     Element,
 };
 
-use super::{layer::SharedLayerCompositer, ChildNodes};
+use super::layer::SharedLayerCompositer;
 
-pub struct ElementModel<El, Sty, Sc>
+pub struct ElementModel<El, Sty>
 where
     El: Element,
     Sty: StyleContainer,
-    Sc: ChildNodes,
 {
     pub(super) this: Weak<Self>,
     pub(super) el: RwLock<Option<El>>,
@@ -29,12 +28,11 @@ where
     pub(super) draw_region: Cell<Region>,
     pub(super) interact_region: Cell<Option<Region>>,
     pub(super) acquire_independent_layer: Cell<bool>,
-    pub(super) in_cell: RefCell<InsideRefCell<Sty, El::Children<Sc>>>,
+    pub(super) in_cell: RefCell<InsideRefCell<Sty>>,
 }
 
-pub(super) struct InsideRefCell<Sty, Ch> {
+pub(super) struct InsideRefCell<Sty> {
     pub styles: Sty,
-    pub expanded_children: Ch,
     pub event_mgr: NodeEventMgr,
     pub context: Context,
     pub indep_layer: Option<SharedLayerCompositer>,
@@ -42,9 +40,11 @@ pub(super) struct InsideRefCell<Sty, Ch> {
 
 pub(super) enum Context {
     None,
-    Attached {
-        global_content: Rc<GlobalContent>,
-        parent_layer: Option<Weak<dyn RedrawObject>>,
-    },
+    Attached(AttachedCtx),
     Destroyed,
+}
+
+pub(super) struct AttachedCtx {
+    pub global_content: Rc<GlobalContent>,
+    pub parent_layer: Option<Weak<dyn StandaloneRender>>,
 }

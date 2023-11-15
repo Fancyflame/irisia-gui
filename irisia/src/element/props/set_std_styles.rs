@@ -1,17 +1,17 @@
 use crate::style::StyleContainer;
 
-pub trait SetStdStyles<'a, T>
+pub trait SetStdStyles<T>
 where
     T: StyleContainer,
 {
     type Output;
-    fn set_std_styles(self, styles: &'a T) -> Self::Output;
+    fn set_std_styles(self, styles: T) -> Self::Output;
 }
 
-impl<'a, T> SetStdStyles<'a, T> for ()
+impl<T> SetStdStyles<T> for ()
 where
     T: StyleContainer,
 {
     type Output = ();
-    fn set_std_styles(self, _: &T) -> Self::Output {}
+    fn set_std_styles(self, _: T) -> Self::Output {}
 }

@@ -1,18 +1,13 @@
+use anyhow::anyhow;
+
 use crate::{
-    structure::{VisitBy, VisitLen, VisitMutBy},
+    structure::{VisitBy, VisitOn},
     Result,
 };
 
-pub trait SelectVisitLen {
+pub trait SelectVisitBy {
+    fn visit<V: VisitOn>(&self, index: usize, visitor: &mut V) -> Result<()>;
     fn len(&self, index: usize) -> usize;
-}
-
-pub trait SelectVisitBy<V>: SelectVisitLen {
-    fn visit(&self, index: usize, visitor: &mut V) -> Result<()>;
-}
-
-pub trait SelectVisitMutBy<V>: SelectVisitLen {
-    fn visit_mut(&mut self, index: usize, visitor: &mut V) -> Result<()>;
 }
 
 pub struct SelectBody<T, B> {
@@ -20,11 +15,23 @@ pub struct SelectBody<T, B> {
     pub trailing: B,
 }
 
-impl<T, B> SelectVisitLen for SelectBody<T, B>
+impl<T, B> SelectVisitBy for SelectBody<T, B>
 where
-    T: VisitLen,
-    B: SelectVisitLen,
+    T: VisitBy,
+    B: SelectVisitBy,
 {
+    fn visit<V: VisitOn>(&self, index: usize, visitor: &mut V) -> crate::Result<()> {
+        match index.checked_sub(1) {
+            Some(new_index) => self.trailing.visit(new_index, visitor),
+            None => match &self.this {
+                Some(this) => this.visit_by(visitor),
+                None => {
+                    panic!("attempt to select an uninitialized select-body");
+                }
+            },
+        }
+    }
+
     fn len(&self, index: usize) -> usize {
         match index.checked_sub(1) {
             Some(new_index) => self.trailing.len(new_index),
@@ -37,38 +44,22 @@ where
     }
 }
 
-impl<T, B, V> SelectVisitBy<V> for SelectBody<T, B>
-where
-    T: VisitBy<V>,
-    B: SelectVisitBy<V>,
-{
-    fn visit(&self, index: usize, visitor: &mut V) -> crate::Result<()> {
-        match index.checked_sub(1) {
-            Some(new_index) => self.trailing.visit(new_index, visitor),
-            None => match &self.this {
-                Some(this) => this.visit(visitor),
-                None => {
-                    panic!("attempt to select an uninitialized select-body");
-                }
-            },
+const EOC_ERR: &str = "reached end of select chain";
+
+impl SelectVisitBy for () {
+    fn visit<V: VisitOn>(&self, _: usize, _: &mut V) -> Result<()> {
+        if cfg!(debug_assertions) {
+            unreachable!("{EOC_ERR}");
+        } else {
+            Err(anyhow!("{EOC_ERR}"))
         }
     }
-}
 
-impl<T, B, V> SelectVisitMutBy<V> for SelectBody<T, B>
-where
-    T: VisitMutBy<V>,
-    B: SelectVisitMutBy<V>,
-{
-    fn visit_mut(&mut self, index: usize, visitor: &mut V) -> crate::Result<()> {
-        match index.checked_sub(1) {
-            Some(new_index) => self.trailing.visit_mut(new_index, visitor),
-            None => match &mut self.this {
-                Some(this) => this.visit_mut(visitor),
-                None => {
-                    panic!("attempt to select an uninitialized select-body");
-                }
-            },
+    fn len(&self, _: usize) -> usize {
+        if cfg!(debug_assertions) {
+            unreachable!("{EOC_ERR}");
+        } else {
+            0
         }
     }
 }

@@ -1,29 +1,28 @@
-use super::{UpdateWith, VisitBy, VisitLen, VisitMutBy, Visitor, VisitorMut};
-use crate::{update_with::SpecificUpdate, Result};
+use super::{UpdateWith, VisitBy, VisitOn};
+use crate::{
+    dom::DropProtection, style::StyleContainer, update_with::SpecificUpdate, Element, Result,
+};
 
 pub struct Once<T>(pub T);
 
-impl<T> VisitLen for Once<T> {
+impl<El, Sty> VisitBy for Once<DropProtection<El, Sty>>
+where
+    El: Element,
+    Sty: StyleContainer,
+{
+    fn visit_by<V>(&self, visitor: &mut V) -> Result<()>
+    where
+        V: VisitOn,
+    {
+        visitor.visit_on(&self.0)
+    }
+
     fn len(&self) -> usize {
         1
     }
-}
 
-impl<T, V> VisitBy<V> for Once<T>
-where
-    V: Visitor<T>,
-{
-    fn visit(&self, visitor: &mut V) -> Result<()> {
-        visitor.visit(&self.0)
-    }
-}
-
-impl<T, V> VisitMutBy<V> for Once<T>
-where
-    V: VisitorMut<T>,
-{
-    fn visit_mut(&mut self, visitor: &mut V) -> Result<()> {
-        visitor.visit_mut(&mut self.0)
+    fn is_empty(&self) -> bool {
+        false
     }
 }
 

@@ -7,7 +7,7 @@ use smallvec::SmallVec;
 
 use crate::Result;
 
-use super::{VisitBy, VisitLen, VisitMutBy};
+use super::{VisitBy, VisitOn};
 
 const MAX_TIME_TO_LIVE: u8 = 5;
 
@@ -32,23 +32,23 @@ impl<K, T> Repeat<K, T>
 where
     K: Clone + Hash + Eq + 'static,
 {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             map: HashMap::new(),
             order: SmallVec::new(),
         }
     }
 
-    fn update<I, U, F>(&mut self, iter: I, mut update: F)
+    pub fn update<I, U, F>(&mut self, iter: I, mut update: F)
     where
         I: Iterator<Item = (K, U)>,
-        F: FnMut(UpdateNode<T>, &K, U),
+        F: FnMut(UpdateNode<T>, K, U),
     {
         self.order.clear();
 
         for (k, value) in iter {
             self.order.push(k.clone());
-            match self.map.entry(k) {
+            match self.map.entry(k.clone()) {
                 Entry::Occupied(mut occ) => {
                     let item = occ.get_mut();
                     assert_ne!(
@@ -56,11 +56,11 @@ where
                         "some keys in the iterator is duplicated"
                     );
                     item.time_to_live = MAX_TIME_TO_LIVE;
-                    update(UpdateNode::InPlace(&mut item.value), occ.key(), value);
+                    update(UpdateNode::NeedsUpdate(&mut item.value), k, value);
                 }
                 Entry::Vacant(vac) => {
                     let mut place: Option<T> = None;
-                    update(UpdateNode::NeedsOwnership(&mut place));
+                    update(UpdateNode::NeedsInit(&mut place), k, value);
 
                     vac.insert(Item {
                         value: place.expect("new node was not inserted"),
@@ -81,40 +81,22 @@ where
     }
 }
 
-// visit
-
-impl<K, T> VisitLen for Repeat<K, T>
+impl<K, T> VisitBy for Repeat<K, T>
 where
     K: Hash + Eq,
-    T: VisitLen,
+    T: VisitBy,
 {
+    fn visit_by<V>(&self, visitor: &mut V) -> Result<()>
+    where
+        V: VisitOn,
+    {
+        for k in self.order.iter() {
+            self.map[k].value.visit_by(visitor)?;
+        }
+        Ok(())
+    }
+
     fn len(&self) -> usize {
         self.order.iter().map(|key| self.map[key].value.len()).sum()
-    }
-}
-
-impl<K, T, V> VisitBy<V> for Repeat<K, T>
-where
-    K: Hash + Eq,
-    T: VisitBy<V>,
-{
-    fn visit(&self, visitor: &mut V) -> Result<()> {
-        for k in self.order.iter() {
-            self.map[k].value.visit(visitor)?;
-        }
-        Ok(())
-    }
-}
-
-impl<K, T, V> VisitMutBy<V> for Repeat<K, T>
-where
-    K: Hash + Eq,
-    T: VisitMutBy<V>,
-{
-    fn visit_mut(&mut self, visitor: &mut V) -> Result<()> {
-        for k in self.order.iter() {
-            self.map.get_mut(k).unwrap().value.visit_mut(visitor)?;
-        }
-        Ok(())
     }
 }

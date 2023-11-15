@@ -1,13 +1,13 @@
-use crate::{dom::ChildNodes, primitive::Region, Result};
-
-pub use self::{props::PropsUpdateWith, render_element::RenderElement};
-pub use crate::{
-    application::content::GlobalContent,
-    dom::{pub_handle::LayoutElements, RcElementModel},
+use crate::{
+    application::event_comp::IncomingPointerEvent,
+    dom::{child_nodes::RenderElement, ChildNodes},
+    Result,
 };
 
+pub use self::props::PropsUpdateWith;
+pub use crate::{application::content::GlobalContent, dom::RcElementModel};
+
 pub mod props;
-mod render_element;
 
 #[macro_export]
 macro_rules! ElModel {
@@ -18,7 +18,6 @@ macro_rules! ElModel {
         $crate::element::RcElementModel<
             $El,
             impl $crate::style::StyleContainer + 'static,
-            impl $crate::element::AsChildren + 'static
         >
     };
 }
@@ -33,28 +32,18 @@ where
     Self: Sized + 'static,
 {
     type BlankProps: Default;
-    type Children<T: ChildNodes>: ChildNodes;
+    type Slot: ChildNodes;
+    type Children: ChildNodes;
 
-    /// Draw to the canvas
+    fn render(this: &ElModel!(), content: RenderElement) -> Result<()>;
+    fn on_pointer_event(this: &ElModel!(), ipe: &IncomingPointerEvent) -> bool;
 
-    fn render(&mut self, this: &ElModel!(), mut content: RenderElement) -> Result<()> {
-        let _ = this;
-        content.render_children()
-    }
-
-    fn draw_region_changed(&mut self, this: &ElModel!(), draw_region: Region) {
-        if let Some(lc) = this.layout_children() {
-            lc.layout_once(draw_region)
-                .expect("child elements are more than 1")
-        }
-    }
-
-    fn slot<T: ChildNodes>(children: &Self::Children<T>) -> &T;
-    fn slot_mut<T: ChildNodes>(children: &mut Self::Children<T>) -> &mut T;
+    fn slot(&self) -> &Self::Slot;
+    fn slot_mut(&mut self) -> &mut Self::Slot;
 }
 
 pub trait ElementCreate<Pr>: Element + Sized {
-    fn el_create(this: &ElModel!(), props: Pr) -> Self;
+    fn el_create(this: &ElModel!(), props: Pr, slot: Self::Slot) -> Self;
 }
 
 pub trait ElementPropsUpdate<Pr>: Element + Sized {
