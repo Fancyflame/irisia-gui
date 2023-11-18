@@ -5,19 +5,19 @@ use syn::{
     Error, Expr, Result, Token,
 };
 
-use super::Codegen;
+use super::{CodegenAlias, StmtTree};
 
-pub struct StateCommand<T: Codegen> {
+pub struct StateCommand<T: StmtTree> {
     pub span: Span,
     pub body: StateCommandBody<T>,
 }
 
-pub enum StateCommandBody<T: Codegen> {
+pub enum StateCommandBody<T: StmtTree> {
     Key(Expr),
     Custom(T::Command),
 }
 
-impl<T: Codegen> Parse for StateCommand<T> {
+impl<T: StmtTree> Parse for StateCommand<T> {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         input.parse::<Token![@]>()?;
         let cmd_ident: Ident = input.parse()?;
@@ -43,7 +43,7 @@ impl<T: Codegen> Parse for StateCommand<T> {
     }
 }
 
-impl<T: Codegen> ToTokens for StateCommand<T> {
+impl<T: CodegenAlias> ToTokens for StateCommand<T> {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         if let StateCommandBody::Custom(other) = &self.body {
             if let Some(t) = T::command_applicate(other) {
@@ -56,6 +56,6 @@ impl<T: Codegen> ToTokens for StateCommand<T> {
     }
 }
 
-fn parse_key<T: Codegen>(input: ParseStream) -> Result<StateCommandBody<T>> {
+fn parse_key<T: StmtTree>(input: ParseStream) -> Result<StateCommandBody<T>> {
     Ok(StateCommandBody::Key(input.parse()?))
 }

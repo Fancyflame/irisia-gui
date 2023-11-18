@@ -2,7 +2,9 @@ use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{parse::ParseStream, Error, Result};
 
-use crate::expr::{enum_conditional, state_block::parse_stmts, Codegen, StateExpr};
+use crate::expr::{
+    enum_conditional, state_block::parse_stmts, StateExpr, StmtTree, StmtTreeCodegen,
+};
 
 use self::stmt::{handle_style_follow, StyleStmt};
 
@@ -10,7 +12,7 @@ pub mod stmt;
 
 pub struct StyleCodegen;
 
-impl Codegen for StyleCodegen {
+impl StmtTree for StyleCodegen {
     type Command = ();
     type Stmt = StyleStmt;
 
@@ -19,7 +21,9 @@ impl Codegen for StyleCodegen {
     fn parse_command(_cmd: &str, _input: ParseStream) -> syn::Result<Option<Self::Command>> {
         Ok(None)
     }
+}
 
+impl StmtTreeCodegen for StyleCodegen {
     fn empty() -> TokenStream {
         quote!(())
     }

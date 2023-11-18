@@ -8,7 +8,7 @@ use syn::{
     Expr, Pat, Token,
 };
 
-use crate::expr::{Codegen, StateExpr};
+use crate::expr::{CodegenAlias, StateExpr, StmtTree};
 
 /*
     match expr1 {
@@ -17,14 +17,14 @@ use crate::expr::{Codegen, StateExpr};
         Pat3(z) => Arm2(Arm2(...)),
     }
 */
-pub struct StateMatch<T: Codegen> {
+pub struct StateMatch<T: StmtTree> {
     match_token: Token![match],
     expr: Expr,
     brace_token: Brace,
     arms: Vec<Arm<T>>,
 }
 
-pub struct Arm<T: Codegen> {
+pub struct Arm<T: StmtTree> {
     pat: Pat,
     guard: Option<(Token![if], Expr)>,
     fat_arrow_token: Token![=>],
@@ -32,13 +32,13 @@ pub struct Arm<T: Codegen> {
     comma: Option<Token![,]>,
 }
 
-impl<T: Codegen> StateMatch<T> {
+impl<T: StmtTree> StateMatch<T> {
     pub fn arms(&self) -> impl Iterator<Item = &StateExpr<T>> {
         self.arms.iter().map(|arm| &arm.body)
     }
 }
 
-impl<T: Codegen> Parse for StateMatch<T> {
+impl<T: StmtTree> Parse for StateMatch<T> {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let match_token = input.parse()?;
         let expr = Expr::parse_without_eager_brace(input)?;
@@ -80,7 +80,7 @@ impl<T: Codegen> Parse for StateMatch<T> {
     }
 }
 
-impl<T: Codegen> ToTokens for StateMatch<T> {
+impl<T: CodegenAlias> ToTokens for StateMatch<T> {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let StateMatch {
             match_token,
@@ -103,7 +103,12 @@ impl<T: Codegen> ToTokens for StateMatch<T> {
 }
 
 // pat if guard => expr,
-fn arm_to_tokens<T: Codegen>(tokens: &mut TokenStream, arm: &Arm<T>, index: usize, total: usize) {
+fn arm_to_tokens<T: CodegenAlias>(
+    tokens: &mut TokenStream,
+    arm: &Arm<T>,
+    index: usize,
+    total: usize,
+) {
     let Arm {
         pat,
         guard,

@@ -2,7 +2,7 @@ use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{parse::Parse, token::Brace, Expr, Token};
 
-use crate::expr::{state_block::StateBlock, Codegen};
+use crate::expr::{state_block::StateBlock, CodegenAlias, StmtTree};
 
 /*
     // count 4
@@ -16,20 +16,20 @@ use crate::expr::{state_block::StateBlock, Codegen};
         Arm2(Arm2(Arm2(xxx))) // skipped 3
     }
 */
-pub struct StateIf<T: Codegen> {
+pub struct StateIf<T: StmtTree> {
     leading_if: If<T>,
     else_ifs: Vec<(Token![else], If<T>)>,
     default_else: Option<Token![else]>,
     default: StateBlock<T>,
 }
 
-struct If<T: Codegen> {
+struct If<T: StmtTree> {
     if_token: Token![if],
     cond: Expr,
     then: StateBlock<T>,
 }
 
-impl<T: Codegen> StateIf<T> {
+impl<T: StmtTree> StateIf<T> {
     pub fn arms(&self) -> impl Iterator<Item = &StateBlock<T>> {
         std::iter::once(&self.leading_if.then)
             .chain(self.else_ifs.iter().map(|(_, i)| &i.then))
@@ -37,7 +37,7 @@ impl<T: Codegen> StateIf<T> {
     }
 }
 
-impl<T: Codegen> Parse for StateIf<T> {
+impl<T: StmtTree> Parse for StateIf<T> {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let leading_if = input.parse()?;
 
@@ -68,7 +68,7 @@ impl<T: Codegen> Parse for StateIf<T> {
     }
 }
 
-impl<T: Codegen> Parse for If<T> {
+impl<T: StmtTree> Parse for If<T> {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         Ok(If {
             if_token: input.parse()?,
@@ -78,7 +78,7 @@ impl<T: Codegen> Parse for If<T> {
     }
 }
 
-impl<T: Codegen> If<T> {
+impl<T: CodegenAlias> If<T> {
     fn as_branch(&self, tokens: &mut TokenStream, index: usize, total: usize) {
         let If {
             if_token,
@@ -96,7 +96,7 @@ impl<T: Codegen> If<T> {
     }
 }
 
-impl<T: Codegen> ToTokens for StateIf<T> {
+impl<T: CodegenAlias> ToTokens for StateIf<T> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let mut index = 0;
 

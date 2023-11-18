@@ -65,13 +65,6 @@ mod style;
 ///
 /// element_tree.into_rendering().finish(drawing_region)?;
 /// ```
-#[proc_macro]
-pub fn build(input: TokenStream) -> TokenStream {
-    match element::build::build.parse(input) {
-        Ok(t) => t.into(),
-        Err(e) => e.to_compile_error().into(),
-    }
-}
 
 #[proc_macro]
 pub fn style(input: TokenStream) -> TokenStream {

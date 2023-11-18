@@ -20,8 +20,8 @@ pub mod state_block;
 pub mod state_command;
 pub mod state_expr;
 
-pub trait Codegen {
-    type Stmt: ToTokens + Parse;
+pub trait StmtTree {
+    type Stmt: Parse;
     type Command;
 
     const MUST_IN_BLOCK: bool;
@@ -29,7 +29,13 @@ pub trait Codegen {
     fn parse_command(_cmd: &str, _input: ParseStream) -> Result<Option<Self::Command>> {
         Ok(None)
     }
+}
 
+pub trait StmtTreeCodegen
+where
+    Self: StmtTree,
+    Self::Stmt: ToTokens,
+{
     fn empty() -> TokenStream;
 
     fn command_applicate(_cmd: &Self::Command) -> Option<TokenStream> {
@@ -41,6 +47,18 @@ pub trait Codegen {
     fn repetitive_applicate(stmt: impl ToTokens) -> TokenStream;
 
     fn chain_applicate(prev: impl ToTokens, after: impl ToTokens) -> TokenStream;
+}
+
+pub trait CodegenAlias: StmtTreeCodegen + StmtTree<Stmt = Self::StmtAlias> {
+    type StmtAlias: ToTokens;
+}
+
+impl<T> CodegenAlias for T
+where
+    T: StmtTreeCodegen + StmtTree,
+    T::Stmt: Parse + ToTokens,
+{
+    type StmtAlias = T::Stmt;
 }
 
 pub fn enum_conditional(

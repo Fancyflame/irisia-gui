@@ -11,16 +11,16 @@ use syn::{
 
 use super::{
     state_command::{StateCommand, StateCommandBody},
-    Codegen, StateExpr,
+    CodegenAlias, StateExpr, StmtTree,
 };
 
 // {Empty.xxx().xxx()}
-pub struct StateBlock<T: Codegen> {
+pub struct StateBlock<T: StmtTree> {
     pub brace: Brace,
     pub stmts: Vec<StateExpr<T>>,
 }
 
-impl<T: Codegen> Default for StateBlock<T> {
+impl<T: StmtTree> Default for StateBlock<T> {
     fn default() -> Self {
         StateBlock {
             brace: Default::default(),
@@ -29,7 +29,7 @@ impl<T: Codegen> Default for StateBlock<T> {
     }
 }
 
-impl<T: Codegen> Parse for StateBlock<T> {
+impl<T: StmtTree> Parse for StateBlock<T> {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let states;
         let brace = braced!(states in input);
@@ -40,7 +40,7 @@ impl<T: Codegen> Parse for StateBlock<T> {
     }
 }
 
-impl<T: Codegen> ToTokens for StateBlock<T> {
+impl<T: CodegenAlias> ToTokens for StateBlock<T> {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         self.brace.surround(tokens, |tokens| {
             tokens.extend(stmts_to_tokens(&self.stmts));
@@ -48,7 +48,7 @@ impl<T: Codegen> ToTokens for StateBlock<T> {
     }
 }
 
-impl<T: Codegen> StateBlock<T> {
+impl<T: StmtTree> StateBlock<T> {
     pub fn get_key(&self) -> Result<Option<&Expr>> {
         let mut key = None;
         for stmt in &self.stmts {
@@ -69,7 +69,7 @@ impl<T: Codegen> StateBlock<T> {
     }
 }
 
-pub fn parse_stmts<T: Codegen>(input: ParseStream) -> Result<Vec<StateExpr<T>>> {
+pub fn parse_stmts<T: StmtTree>(input: ParseStream) -> Result<Vec<StateExpr<T>>> {
     let vec = Punctuated::<StateExpr<T>, Nothing>::parse_terminated_with(input, |input| {
         let expr = input.parse()?;
         let _ = input.parse::<Option<Token![;]>>();
@@ -80,7 +80,7 @@ pub fn parse_stmts<T: Codegen>(input: ParseStream) -> Result<Vec<StateExpr<T>>> 
     Ok(vec)
 }
 
-pub fn stmts_to_tokens<T: Codegen>(stmts: &[StateExpr<T>]) -> TokenStream {
+pub fn stmts_to_tokens<T: CodegenAlias>(stmts: &[StateExpr<T>]) -> TokenStream {
     let mut tokens = T::empty();
     for expr in stmts {
         tokens = T::chain_applicate(tokens, expr);

@@ -1,40 +1,12 @@
-use proc_macro2::TokenStream;
-use quote::{quote, ToTokens};
+use crate::expr::StmtTree;
 
-use crate::expr::{enum_conditional, Codegen};
-
-pub mod build;
-pub mod stmt;
+pub mod parse;
 
 pub struct ElementCodegen;
 
-impl Codegen for ElementCodegen {
+impl StmtTree for ElementCodegen {
     type Command = ();
-    type Stmt = stmt::ElementStmt;
+    type Stmt = parse::ElementStmt;
 
     const MUST_IN_BLOCK: bool = false;
-
-    fn empty() -> TokenStream {
-        quote!(())
-    }
-
-    fn repetitive_applicate(iter: impl ToTokens) -> TokenStream {
-        quote! {
-            irisia::structure::Repeat(#iter)
-        }
-    }
-
-    fn conditional_applicate(stmt: impl ToTokens, index: usize, total: usize) -> TokenStream {
-        enum_conditional(
-            quote!(irisia::structure::Branch::ArmA),
-            quote!(irisia::structure::Branch::ArmB),
-            stmt,
-            index,
-            total,
-        )
-    }
-
-    fn chain_applicate(prev: impl ToTokens, after: impl ToTokens) -> TokenStream {
-        quote!(irisia::structure::Chain::new(#prev, #after))
-    }
 }

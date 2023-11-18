@@ -2,16 +2,16 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{parse::Parse, Expr, Pat, Token};
 
-use crate::expr::{state_block::StateBlock, Codegen};
+use crate::expr::{state_block::StateBlock, CodegenAlias, StmtTree};
 
-pub struct StateForLoop<T: Codegen> {
+pub struct StateForLoop<T: StmtTree> {
     pub pat: Pat,
     pub iter: Expr,
     pub key: Option<Expr>,
     pub body: StateBlock<T>,
 }
 
-impl<T: Codegen> Parse for StateForLoop<T> {
+impl<T: StmtTree> Parse for StateForLoop<T> {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         input.parse::<Token![for]>()?;
         let pat = Pat::parse_multi_with_leading_vert(input)?;
@@ -29,7 +29,7 @@ impl<T: Codegen> Parse for StateForLoop<T> {
     }
 }
 
-impl<T: Codegen> StateForLoop<T> {
+impl<T: CodegenAlias> StateForLoop<T> {
     pub(super) fn expr_iter(&self) -> TokenStream {
         let StateForLoop {
             pat,

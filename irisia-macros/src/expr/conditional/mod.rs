@@ -1,16 +1,16 @@
 use quote::ToTokens;
 
-use super::{Codegen, StateExpr, StateIf, StateMatch};
+use super::{CodegenAlias, StateExpr, StateIf, StateMatch, StmtTree};
 
 pub mod state_if;
 pub mod state_match;
 
-pub enum StateConditional<T: Codegen> {
+pub enum StateConditional<T: StmtTree> {
     If(StateIf<T>),
     Match(StateMatch<T>),
 }
 
-impl<T: Codegen> StateConditional<T> {
+impl<T: StmtTree> StateConditional<T> {
     pub fn arms(&self) -> impl Iterator<Item = &[StateExpr<T>]> {
         enum Branch<T, U> {
             T(T),
@@ -29,7 +29,7 @@ impl<T: Codegen> StateConditional<T> {
     }
 }
 
-impl<T: Codegen> ToTokens for StateConditional<T> {
+impl<T: CodegenAlias> ToTokens for StateConditional<T> {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         match self {
             Self::If(i) => i.to_tokens(tokens),

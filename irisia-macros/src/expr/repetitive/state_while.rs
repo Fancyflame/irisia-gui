@@ -2,15 +2,15 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{parse::Parse, Expr, Token};
 
-use crate::expr::{state_block::StateBlock, Codegen};
+use crate::expr::{state_block::StateBlock, CodegenAlias, StmtTree};
 
-pub struct StateWhile<T: Codegen> {
+pub struct StateWhile<T: StmtTree> {
     pub cond: Expr,
     pub key: Expr,
     pub state_block: StateBlock<T>,
 }
 
-impl<T: Codegen> Parse for StateWhile<T> {
+impl<T: StmtTree> Parse for StateWhile<T> {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         input.parse::<Token![while]>()?;
         let cond = Expr::parse_without_eager_brace(input)?;
@@ -28,7 +28,7 @@ impl<T: Codegen> Parse for StateWhile<T> {
     }
 }
 
-impl<T: Codegen> StateWhile<T> {
+impl<T: CodegenAlias> StateWhile<T> {
     pub(super) fn expr_iter(&self) -> TokenStream {
         let StateWhile {
             cond,
