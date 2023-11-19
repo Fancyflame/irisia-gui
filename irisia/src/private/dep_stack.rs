@@ -5,12 +5,7 @@ use std::{
 
 #[derive(Default)]
 pub struct DependentStack<const WD: usize> {
-    stack: RefCell<Vec<DepInfo<WD>>>,
-}
-
-struct DepInfo<const WD: usize> {
-    self_ptr: *const (),
-    bitset: Bitset<WD>,
+    stack: RefCell<Vec<u32>>,
 }
 
 impl<const WD: usize> DependentStack<WD> {
@@ -18,34 +13,27 @@ impl<const WD: usize> DependentStack<WD> {
         Self::default()
     }
 
-    pub fn scoped<T, F, R>(&self, target_ptr: &T, bitset: &Bitset<WD>, f: F) -> R
+    pub fn scoped<F, R>(&self, caller_id: u32, f: F) -> R
     where
         F: FnOnce() -> R,
     {
-        debug_assert_eq!(bitset.iter().map(|x| x.count_ones()).sum::<u32>(), 1);
-        self.stack.borrow_mut().push(DepInfo {
-            self_ptr: target_ptr as *const T as _,
-            bitset: bitset.clone(),
-        });
+        self.stack.borrow_mut().push(caller_id);
         let r = f();
         self.stack.borrow_mut().pop();
         r
     }
 
-    pub fn get_dep<T>(&self, target_ptr: &T, bitset: &mut Bitset<WD>) {
-        let borrowed = self.stack.borrow();
-        let src = match borrowed.last() {
-            Some(info) if info.self_ptr == target_ptr as *const T as *const () => &info.bitset,
-            _ => return,
+    pub fn collect_dep(&self, bitset: &mut Bitset<WD>) {
+        let Some(caller_id) = self.stack.borrow().last().copied()
+        else {
+            return;
         };
 
-        for index in 0..WD {
-            bitset[index] |= src[index];
-        }
+        bitset[(caller_id / usize::BITS) as usize] |= 1 << (caller_id % usize::BITS);
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct Bitset<const WD: usize>(pub [usize; WD]);
 
 impl<const WD: usize> Deref for Bitset<WD> {
@@ -64,13 +52,6 @@ impl<const WD: usize> DerefMut for Bitset<WD> {
 impl<const WD: usize> Bitset<WD> {
     pub fn new() -> Self {
         Bitset([0; WD])
-    }
-
-    pub fn new_with_one_setted(index: u32) -> Self {
-        let mut this = Self::new();
-        let chunk = &mut this.0[(index / usize::BITS) as usize];
-        *chunk |= 1 << (index % usize::BITS);
-        this
     }
 
     pub fn dependency_indexes(&self) -> impl Iterator<Item = u32> {
@@ -113,28 +94,22 @@ mod test {
 
         let stack: DependentStack<2> = DependentStack::new();
 
-        let target = ();
         let biggest = usize::BITS * 2 - 1;
         let middle = usize::BITS * 3 / 2;
         let smallest = usize::BITS / 3;
 
         let mut dep_bitset = Bitset::<2>::new();
 
-        stack.scoped(&target, &Bitset::new_with_one_setted(biggest), || {
-            stack.get_dep(&target, &mut dep_bitset);
+        stack.scoped(biggest, || {
+            stack.collect_dep(&mut dep_bitset);
         });
 
-        stack.scoped(&target, &Bitset::new_with_one_setted(smallest), || {
-            stack.get_dep(&target, &mut dep_bitset);
+        stack.scoped(smallest, || {
+            stack.collect_dep(&mut dep_bitset);
         });
 
-        stack.scoped(&target, &Bitset::new_with_one_setted(middle), || {
-            stack.get_dep(&target, &mut dep_bitset);
-        });
-
-        // target is not the same, not captured
-        stack.scoped(&(), &Bitset::new_with_one_setted(0), || {
-            stack.get_dep(&target, &mut dep_bitset);
+        stack.scoped(middle, || {
+            stack.collect_dep(&mut dep_bitset);
         });
 
         let mut iter = dep_bitset.dependency_indexes();

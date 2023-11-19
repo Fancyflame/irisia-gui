@@ -1,13 +1,22 @@
-use crate::{element::ElementCodegen, expr::state_block::parse_stmts, expr::StateExpr};
+use crate::{
+    expr::state_block::parse_stmts,
+    expr::{StateExpr, StmtTree},
+};
 use std::collections::{hash_map::Entry, HashMap};
 use syn::{braced, parse::Parse, Error, Expr, Ident, Token, Type};
+
+impl StmtTree for ElementStmt {
+    type Command = ();
+    type Stmt = Self;
+    const MUST_IN_BLOCK: bool = false;
+}
 
 pub struct ElementStmt {
     pub element: Type,
     pub props: HashMap<Ident, Expr>,
     pub style: Option<Expr>,
     pub oncreate: Option<Expr>,
-    pub children: Vec<StateExpr<ElementCodegen>>,
+    pub children: Vec<StateExpr<Self>>,
 }
 
 impl Parse for ElementStmt {

@@ -17,10 +17,6 @@ impl StmtTree for StyleCodegen {
     type Stmt = StyleStmt;
 
     const MUST_IN_BLOCK: bool = true;
-
-    fn parse_command(_cmd: &str, _input: ParseStream) -> syn::Result<Option<Self::Command>> {
-        Ok(None)
-    }
 }
 
 impl StmtTreeCodegen for StyleCodegen {
