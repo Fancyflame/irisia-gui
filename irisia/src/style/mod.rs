@@ -30,7 +30,7 @@ pub mod once;
 pub mod reader;
 pub(crate) mod style_box;
 
-use self::style_box::InsideStyleBox;
+use self::style_box::RawStyleGroup;
 pub use self::{branch::Branch, chain::Chain, once::Once, style_box::StyleBox};
 
 use crate::{self as irisia, primitive::Pixel, Style as DeriveStyle};
@@ -53,7 +53,7 @@ pub enum XAxisBound {
     Right(#[style(default)] Pixel),
 }
 
-pub trait StyleContainer: InsideStyleBox {
+pub trait StyleGroup: RawStyleGroup {
     fn get_style<T: Style>(&self) -> Option<T>;
 
     fn read<S>(&self) -> S

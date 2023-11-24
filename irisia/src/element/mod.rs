@@ -9,19 +9,6 @@ pub use crate::{application::content::GlobalContent, dom::RcElementModel};
 
 pub mod props;
 
-#[macro_export]
-macro_rules! ElModel {
-    () => {
-        $crate::ElModel!(Self)
-    };
-    ($El: ty) => {
-        $crate::element::RcElementModel<
-            $El,
-            impl $crate::style::StyleContainer + 'static,
-        >
-    };
-}
-
 /// Element is a thing can draw itself on the given canvas,
 /// according to its properties, styles and given drawing region.
 /// This trait is close to the native rendering, if you are not a
@@ -35,15 +22,15 @@ where
     type Slot: ChildNodes;
     type Children: ChildNodes;
 
-    fn render(this: &ElModel!(), content: RenderElement) -> Result<()>;
-    fn on_pointer_event(this: &ElModel!(), ipe: &IncomingPointerEvent) -> bool;
+    fn render(this: &RcElementModel<Self>, content: RenderElement) -> Result<()>;
+    fn on_pointer_event(this: &RcElementModel<Self>, ipe: &IncomingPointerEvent) -> bool;
 
     fn slot(&self) -> &Self::Slot;
     fn slot_mut(&mut self) -> &mut Self::Slot;
 }
 
 pub trait ElementCreate<Pr>: Element + Sized {
-    fn el_create(this: &ElModel!(), props: Pr, slot: Self::Slot) -> Self;
+    fn el_create(this: &RcElementModel<Self>, props: Pr, slot: Self::Slot) -> Self;
 }
 
 pub trait ElementPropsUpdate<Pr>: Element + Sized {

@@ -1,6 +1,6 @@
 use std::any::Any;
 
-use super::{style_box::InsideStyleBox, StyleContainer};
+use super::{style_box::RawStyleGroup, StyleGroup};
 
 #[derive(Clone)]
 pub struct Chain<A, B> {
@@ -8,10 +8,10 @@ pub struct Chain<A, B> {
     pub latter: B,
 }
 
-impl<A, B> InsideStyleBox for Chain<A, B>
+impl<A, B> RawStyleGroup for Chain<A, B>
 where
-    A: StyleContainer,
-    B: StyleContainer,
+    A: StyleGroup,
+    B: StyleGroup,
 {
     fn get_style_raw(&self, empty_option: &mut dyn Any) -> bool {
         self.former.get_style_raw(empty_option) || self.latter.get_style_raw(empty_option)
@@ -20,8 +20,8 @@ where
 
 impl<A, B> Chain<A, B>
 where
-    A: StyleContainer,
-    B: StyleContainer,
+    A: StyleGroup,
+    B: StyleGroup,
 {
     pub fn new(f: A, l: B) -> Self {
         Chain {

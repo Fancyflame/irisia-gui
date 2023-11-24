@@ -8,7 +8,6 @@ use crate::{
     element::{Element, GlobalContent},
     primitive::Region,
     structure::{VisitBy, VisitOn},
-    style::StyleContainer,
     Result, StyleReader,
 };
 
@@ -67,10 +66,9 @@ struct RenderHelper<'a, 'lr> {
 }
 
 impl VisitOn for RenderHelper<'_, '_> {
-    fn visit_on<El, Sty>(&mut self, data: &DropProtection<El, Sty>) -> Result<()>
+    fn visit_on<El>(&mut self, data: &DropProtection<El>) -> Result<()>
     where
         El: Element,
-        Sty: StyleContainer,
     {
         data.build_layers(self.lr, self.interval)
     }
@@ -86,10 +84,9 @@ where
     F: FnMut(Sr) -> Option<Region>,
     Sr: StyleReader,
 {
-    fn visit_on<El, Sty>(&mut self, data: &DropProtection<El, Sty>) -> Result<()>
+    fn visit_on<El>(&mut self, data: &DropProtection<El>) -> Result<()>
     where
         El: Element,
-        Sty: StyleContainer,
     {
         let region = (self.map)(data.in_cell.borrow().styles.read());
         match region {
@@ -112,10 +109,9 @@ where
     F: FnMut(Sr),
     Sr: StyleReader,
 {
-    fn visit_on<El, Sty>(&mut self, data: &DropProtection<El, Sty>) -> Result<()>
+    fn visit_on<El>(&mut self, data: &DropProtection<El>) -> Result<()>
     where
         El: Element,
-        Sty: StyleContainer,
     {
         (self.map)(data.in_cell.borrow().styles.read());
         Ok(())
@@ -128,10 +124,9 @@ struct EmitEventHelper<'a, 'root> {
 }
 
 impl VisitOn for EmitEventHelper<'_, '_> {
-    fn visit_on<El, Sty>(&mut self, data: &DropProtection<El, Sty>) -> Result<()>
+    fn visit_on<El>(&mut self, data: &DropProtection<El>) -> Result<()>
     where
         El: Element,
-        Sty: StyleContainer,
     {
         self.children_entered |= data.emit_event(self.ipe);
         Ok(())
@@ -144,10 +139,9 @@ struct AttachHelper<'a> {
 }
 
 impl VisitOn for AttachHelper<'_> {
-    fn visit_on<El, Sty>(&mut self, data: &DropProtection<El, Sty>) -> Result<()>
+    fn visit_on<El>(&mut self, data: &DropProtection<El>) -> Result<()>
     where
         El: Element,
-        Sty: StyleContainer,
     {
         match &mut data.in_cell.borrow_mut().context {
             ctx @ Context::None => {

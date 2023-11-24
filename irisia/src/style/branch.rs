@@ -1,6 +1,6 @@
 use std::any::Any;
 
-use super::{style_box::InsideStyleBox, StyleContainer};
+use super::{style_box::RawStyleGroup, StyleGroup};
 
 #[derive(Clone)]
 pub enum Branch<T, U> {
@@ -8,10 +8,10 @@ pub enum Branch<T, U> {
     ArmB(U),
 }
 
-impl<T, U> InsideStyleBox for Branch<T, U>
+impl<T, U> RawStyleGroup for Branch<T, U>
 where
-    T: StyleContainer,
-    U: StyleContainer,
+    T: StyleGroup,
+    U: StyleGroup,
 {
     fn get_style_raw(&self, empty_option: &mut dyn Any) -> bool {
         match self {

@@ -25,7 +25,7 @@ use super::{
 pub(super) struct BackendRuntime<El: Element> {
     gem: GlobalEventMgr,
     gc: Rc<GlobalContent>,
-    root_element: DropProtection<El, ()>,
+    root_element: DropProtection<El>,
 }
 
 impl<El> AppWindow for BackendRuntime<El>

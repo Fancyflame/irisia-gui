@@ -11,7 +11,6 @@ use crate::{
     element::Element,
     event::standard::DrawRegionChanged,
     primitive::Region,
-    style::StyleContainer,
     Result,
 };
 
@@ -21,22 +20,20 @@ use self::{
     layer::{LayerCompositer, LayerRebuilder},
 };
 
-pub use self::data_structure::ElementModel;
-pub(crate) use self::{child_nodes::ChildNodes, drop_protection::DropProtection};
+pub(crate) use self::child_nodes::ChildNodes;
+pub use self::{data_structure::ElementModel, drop_protection::DropProtection};
 
 pub(crate) mod child_nodes;
 mod data_structure;
 mod drop_protection;
 pub(crate) mod layer;
 pub mod pub_handle;
-pub(crate) mod update;
 
-pub type RcElementModel<El, Sty> = Rc<data_structure::ElementModel<El, Sty>>;
+pub type RcElementModel<El> = Rc<data_structure::ElementModel<El>>;
 
-impl<El, Sty> ElementModel<El, Sty>
+impl<El> ElementModel<El>
 where
     El: Element,
-    Sty: StyleContainer + 'static,
 {
     pub(crate) fn build_layers(
         self: &Rc<Self>,
@@ -94,10 +91,7 @@ where
         )
     }
 
-    fn get_children_layer(&self, in_cell: &InsideRefCell<Sty>) -> Weak<dyn StandaloneRender>
-    where
-        Sty: 'static,
-    {
+    fn get_children_layer(&self, in_cell: &InsideRefCell) -> Weak<dyn StandaloneRender> {
         match in_cell.indep_layer {
             Some(_) => self.this.clone() as _,
             None => match &in_cell.parent_layer() {
@@ -107,10 +101,7 @@ where
         }
     }
 
-    fn set_abandoned(self: &Rc<Self>)
-    where
-        Sty: 'static,
-    {
+    fn set_abandoned(self: &Rc<Self>) {
         let this = self.clone();
         tokio::task::spawn_local(async move {
             this.el.write().await.take();
@@ -119,7 +110,7 @@ where
     }
 }
 
-impl<Sty> InsideRefCell<Sty> {
+impl InsideRefCell {
     fn ctx(&self) -> Result<&AttachedCtx> {
         match &self.context {
             Context::None => Err(anyhow!("element have not attached to window yet")),
@@ -141,10 +132,9 @@ fn panic_on_debug(msg: &str) -> Result<()> {
     }
 }
 
-impl<El, Sty> StandaloneRender for ElementModel<El, Sty>
+impl<El> StandaloneRender for ElementModel<El>
 where
     El: Element,
-    Sty: StyleContainer + 'static,
 {
     fn standalone_render(&self, canvas: &mut Canvas, interval: Duration) -> Result<()> {
         let mut in_cell_ref = self.in_cell.borrow_mut();

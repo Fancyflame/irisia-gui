@@ -32,7 +32,7 @@ struct App {
 impl Element for App {
     type BlankProps = ();
 
-    fn set_children(&self, this: &ElModel!()) {
+    fn set_children(&self, this: &RcElementModel<Self>) {
         this.set_children(build! {
             Flex {
                 TextBox {
@@ -70,7 +70,7 @@ impl Element for App {
 }
 
 impl ElementUpdate<()> for App {
-    fn el_create(this: &ElModel!(), _: ()) -> Self {
+    fn el_create(this: &RcElementModel<Self>, _: ()) -> Self {
         this.global()
             .event_dispatcher()
             .listen()
@@ -91,7 +91,7 @@ impl ElementUpdate<()> for App {
         }
     }
 
-    fn el_update(&mut self, _: &ElModel!(), _: (), _: bool) -> bool {
+    fn el_update(&mut self, _: &RcElementModel<Self>, _: (), _: bool) -> bool {
         true
     }
 }

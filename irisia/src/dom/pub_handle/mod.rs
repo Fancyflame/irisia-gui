@@ -8,7 +8,6 @@ use crate::{
     application::content::GlobalContent,
     event::{standard::ElementAbandoned, EdProvider, EventDispatcher, Listen},
     primitive::Region,
-    style::StyleContainer,
     Element, Result, StyleReader,
 };
 
@@ -25,10 +24,9 @@ const TRY_ACCESS_ERROR: &str = "do not hold a element write guard across `await`
                 this limitation will be lifted in the future, but still \
                 discouraged";
 
-impl<El, Sty> ElementModel<El, Sty>
+impl<El> ElementModel<El>
 where
     El: Element,
-    Sty: StyleContainer + 'static,
 {
     /// Get a write guard without setting dirty
     pub(super) fn el_write_clean(&self) -> RwLockMappedWriteGuard<El> {
@@ -111,7 +109,6 @@ where
     /// Get styles bind to this element
     pub fn styles<Sr>(&self) -> Sr
     where
-        Sty: StyleContainer,
         Sr: StyleReader,
     {
         self.in_cell.borrow().styles.read()
@@ -171,10 +168,9 @@ where
     }
 }
 
-impl<El, Sty> EdProvider for RcElementModel<El, Sty>
+impl<El> EdProvider for RcElementModel<El>
 where
     El: Element,
-    Sty: StyleContainer + 'static,
 {
     fn event_dispatcher(&self) -> &EventDispatcher {
         ElementModel::event_dispatcher(self)

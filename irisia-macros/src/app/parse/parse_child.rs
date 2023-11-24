@@ -1,7 +1,4 @@
-use crate::{
-    expr::state_block::parse_stmts,
-    expr::{StateExpr, StmtTree},
-};
+use crate::expr::StmtTree;
 use std::collections::{hash_map::Entry, HashMap};
 use syn::{braced, parse::Parse, Error, Expr, Ident, Token, Type};
 
@@ -14,16 +11,16 @@ impl StmtTree for ElementStmt {
 pub struct ElementStmt {
     pub element: Type,
     pub props: HashMap<Ident, Expr>,
-    pub style: Option<Expr>,
+    pub styles: Option<Expr>,
     pub oncreate: Option<Expr>,
-    pub children: Vec<StateExpr<Self>>,
+    pub child: Box<Self>,
 }
 
 impl Parse for ElementStmt {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let element: Type = input.parse()?;
         let mut props: HashMap<Ident, Expr> = HashMap::new();
-        let mut style: Option<Expr> = None;
+        let mut styles: Option<Expr> = None;
         let mut oncreate: Option<Expr> = None;
 
         let content;
@@ -54,7 +51,7 @@ impl Parse for ElementStmt {
                 content.parse::<Token![:]>()?;
 
                 let is_ok = match &*cmd.to_string() {
-                    "style" => style.replace(content.parse()?).is_none(),
+                    "style" => styles.replace(content.parse()?).is_none(),
                     "oncreate" => oncreate.replace(content.parse()?).is_none(),
                     other => {
                         return Err(Error::new(cmd.span(), format!("unknown command `{other}`")))
@@ -77,14 +74,12 @@ impl Parse for ElementStmt {
             }
         }
 
-        let children = parse_stmts(&content)?;
-
         Ok(ElementStmt {
             element,
             props,
-            style,
+            styles,
             oncreate,
-            children,
+            child: content.parse()?,
         })
     }
 }

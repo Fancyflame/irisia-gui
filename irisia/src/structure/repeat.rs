@@ -39,7 +39,16 @@ where
         }
     }
 
-    pub fn update<I, U, F>(&mut self, iter: I, mut update: F)
+    pub fn update_tree<I, U, F>(&mut self, mut update: F)
+    where
+        F: FnMut(&mut T),
+    {
+        for key in &self.order {
+            update(&mut self.map.get_mut(key).unwrap().value);
+        }
+    }
+
+    pub fn update_data<I, U, F>(&mut self, iter: I, mut update: F)
     where
         I: Iterator<Item = (K, U)>,
         F: FnMut(UpdateNode<T>, K, U),

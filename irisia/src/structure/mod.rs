@@ -1,4 +1,4 @@
-use crate::{dom::DropProtection, style::StyleContainer, update_with::UpdateWith, Element, Result};
+use crate::{dom::DropProtection, style::StyleGroup, update_with::UpdateWith, Element, Result};
 
 pub use self::{
     chain::Chain,
@@ -25,8 +25,7 @@ pub trait VisitBy {
 }
 
 pub trait VisitOn {
-    fn visit_on<El, Sty>(&mut self, data: &DropProtection<El, Sty>) -> Result<()>
+    fn visit_on<El>(&mut self, data: &DropProtection<El>) -> Result<()>
     where
-        El: Element,
-        Sty: StyleContainer;
+        El: Element;
 }

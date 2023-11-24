@@ -5,7 +5,8 @@ use syn::{Expr, Type, Visibility};
 
 use self::parse::ElementStmt;
 
-pub mod parse;
+mod parse;
+//mod to_tokens;
 
 struct DataDec {
     ty: Type,
@@ -14,7 +15,9 @@ struct DataDec {
 
 struct PropDec {
     ty: Type,
-    default: Option<Expr>, // if not, prop is required
+
+    // if none, the prop is necessary
+    default: Option<Expr>,
 }
 
 pub struct App {

@@ -1,4 +1,4 @@
-use crate::{style::StyleContainer, StyleReader, UpdateWith};
+use crate::{style::StyleGroup, StyleReader, UpdateWith};
 
 use super::*;
 
@@ -29,7 +29,7 @@ where
 impl<S, T> HelpUpdate<S, (T,)> for ReadStyle
 where
     S: StyleReader + PartialEq<S>,
-    T: StyleContainer,
+    T: StyleGroup,
 {
     fn update(&self, source: &mut S, maybe_init: (T,), equality_matters: bool) -> bool {
         let style = S::read_style(&maybe_init.0);

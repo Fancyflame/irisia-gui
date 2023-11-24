@@ -1,15 +1,15 @@
-use super::{Style, StyleContainer};
+use super::{Style, StyleGroup};
 
 pub trait StyleReader {
-    fn read_style(container: impl StyleContainer) -> Self;
+    fn read_style(group: impl StyleGroup) -> Self;
 }
 
 impl<T> StyleReader for Option<T>
 where
     T: Style,
 {
-    fn read_style(container: impl StyleContainer) -> Self {
-        container.get_style()
+    fn read_style(group: impl StyleGroup) -> Self {
+        group.get_style()
     }
 }
 
@@ -17,8 +17,8 @@ impl<T> StyleReader for T
 where
     T: Style + Default,
 {
-    fn read_style(container: impl StyleContainer) -> Self {
-        container.get_style().unwrap_or_default()
+    fn read_style(group: impl StyleGroup) -> Self {
+        group.get_style().unwrap_or_default()
     }
 }
 
@@ -27,8 +27,8 @@ impl<T> StyleReader for (T,)
 where
     T: StyleReader,
 {
-    fn read_style(container: &impl StyleContainer) -> Self {
-        (T::read_style(container),)
+    fn read_style(group: &impl StyleGroup) -> Self {
+        (T::read_style(group),)
     }
 }
 
@@ -41,7 +41,7 @@ macro_rules! impl_reader {
                 $($T: StyleReader,)*
             {
                 #[allow(clippy::unused_unit)]
-                fn read_style(_container: impl StyleContainer) -> Self {
+                fn read_style(_container: impl StyleGroup) -> Self {
                     ($($T::read_style(&_container),)*)
                 }
             }
@@ -67,16 +67,16 @@ impl_reader! {
 
 #[macro_export]
 macro_rules! read_style {
-    ($container: expr => {
+    ($group: expr => {
         $($name:ident: $Style: ty,)*
     })=>{
         let ($($name,)*) = {
-            let style_container = $container;
-            ($(<$Style as $crate::style::reader::StyleReader>::read_style(style_container),)*)
+            let style_group = $group;
+            ($(<$Style as $crate::style::reader::StyleReader>::read_style(style_group),)*)
         };
     };
 
-    ($binding:ident in $container: expr => {
+    ($binding:ident in $group: expr => {
         $($name:ident: $Style: ty,)*
     }) => {
         let $binding = {
@@ -84,10 +84,10 @@ macro_rules! read_style {
                 $($name: $Style,)*
             }
 
-            let style_container = $container;
+            let style_group = $group;
 
             __IrisiaAnonymousStyleReader {
-                $($name: <$Style as $crate::style::reader::StyleReader>::read_style(style_container),)*
+                $($name: <$Style as $crate::style::reader::StyleReader>::read_style(style_group),)*
             }
         };
     };

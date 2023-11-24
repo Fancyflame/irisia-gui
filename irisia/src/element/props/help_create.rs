@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::{style::StyleContainer, StyleReader, UpdateWith};
+use crate::{style::StyleGroup, StyleReader, UpdateWith};
 
 use super::*;
 
@@ -29,7 +29,7 @@ impl<T> HelpCreate<T, (T,)> for MoveOwnership {
 impl<S, T> HelpCreate<S, (T,)> for ReadStyle
 where
     S: StyleReader,
-    T: StyleContainer,
+    T: StyleGroup,
 {
     type Def = PropInitialized<S>;
     fn create(&self, maybe_init: (T,)) -> Self::Def {

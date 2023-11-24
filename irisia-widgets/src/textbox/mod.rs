@@ -7,7 +7,7 @@ use irisia::{
         textlayout::{FontCollection, Paragraph, ParagraphBuilder, ParagraphStyle, TextStyle},
         Color, FontMgr, FontStyle, Point as SkiaPoint,
     },
-    style::{StyleColor, StyleContainer},
+    style::{StyleColor, StyleGroup},
     ElModel, StyleReader,
 };
 use irisia::{
@@ -52,7 +52,11 @@ pub struct OwnedProps {
 impl Element for TextBox {
     type BlankProps = TextBoxProps;
 
-    fn render(&mut self, this: &ElModel!(), mut content: RenderElement) -> irisia::Result<()> {
+    fn render(
+        &mut self,
+        this: &RcElementModel<Self>,
+        mut content: RenderElement,
+    ) -> irisia::Result<()> {
         let draw_region = this.draw_region();
 
         if let Some(para) = &self.paragraph {
@@ -76,7 +80,7 @@ impl Element for TextBox {
         Ok(())
     }
 
-    fn draw_region_changed(&mut self, _: &ElModel!(), draw_region: Region) {
+    fn draw_region_changed(&mut self, _: &RcElementModel<Self>, draw_region: Region) {
         let Some(p) = &mut self.paragraph
         else {
             return;
@@ -111,7 +115,7 @@ impl<Pr> ElementUpdate<Pr> for TextBox
 where
     OwnedProps: PropsUpdateWith<Pr>,
 {
-    fn el_create(_: &ElModel!(), props: Pr) -> Self {
+    fn el_create(_: &RcElementModel<Self>, props: Pr) -> Self {
         let mut font_collection = FontCollection::new();
         font_collection.set_default_font_manager(FontMgr::new(), None);
         TextBox {
@@ -122,7 +126,7 @@ where
         }
     }
 
-    fn el_update(&mut self, _: &ElModel!(), props: Pr, _equality_matters: bool) -> bool {
+    fn el_update(&mut self, _: &RcElementModel<Self>, props: Pr, _equality_matters: bool) -> bool {
         let update_result = self.props.props_update_with(props);
         if !update_result.unchanged {
             self.paragraph.take();

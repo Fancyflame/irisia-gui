@@ -2,7 +2,7 @@ use irisia::{
     primitive::{Point, Region},
     read_style,
     skia_safe::{Canvas, Rect},
-    style::StyleContainer,
+    style::StyleGroup,
 };
 
 use crate::box_styles::{
@@ -25,7 +25,7 @@ struct BoundReduction {
 
 impl BoxStyleRenderer {
     pub fn draw_border_limited(
-        styles: &impl StyleContainer,
+        styles: &impl StyleGroup,
         canvas: &mut Canvas,
         maximum_region: Region,
     ) -> Region {
@@ -42,7 +42,7 @@ impl BoxStyleRenderer {
     }
 
     pub fn draw_border_unlimited(
-        styles: &impl StyleContainer,
+        styles: &impl StyleGroup,
         canvas: &mut Canvas,
         content_region: Region,
     ) -> Region {
@@ -58,7 +58,7 @@ impl BoxStyleRenderer {
         )
     }
 
-    fn render(styles: &impl StyleContainer, canvas: &mut Canvas, region: Region) -> BoundReduction {
+    fn render(styles: &impl StyleGroup, canvas: &mut Canvas, region: Region) -> BoundReduction {
         read_style!(styles in styles => {
             border: Option<StyleBorder>,
             radius: StyleBorderRadius,

@@ -11,6 +11,15 @@ pub struct SelectHead<T> {
     pub branch: T,
 }
 
+impl<T: SelectVisitBy> SelectHead<T> {
+    pub fn extend_branch<U: VisitBy>(self) -> SelectHead<T::ExtendNode<U>> {
+        SelectHead {
+            branch_index: self.branch_index,
+            branch: self.branch.extend(),
+        }
+    }
+}
+
 impl<T> VisitBy for SelectHead<T>
 where
     T: SelectVisitBy,

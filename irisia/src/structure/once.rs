@@ -1,14 +1,11 @@
 use super::{UpdateWith, VisitBy, VisitOn};
-use crate::{
-    dom::DropProtection, style::StyleContainer, update_with::SpecificUpdate, Element, Result,
-};
+use crate::{dom::DropProtection, update_with::SpecificUpdate, Element, Result};
 
 pub struct Once<T>(pub T);
 
-impl<El, Sty> VisitBy for Once<DropProtection<El, Sty>>
+impl<El> VisitBy for Once<DropProtection<El>>
 where
     El: Element,
-    Sty: StyleContainer,
 {
     fn visit_by<V>(&self, visitor: &mut V) -> Result<()>
     where

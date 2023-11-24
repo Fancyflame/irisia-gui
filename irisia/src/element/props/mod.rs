@@ -2,7 +2,6 @@ pub use self::{
     defaulter::{Defaulter, PropInitialized, PropNotInitialized},
     help_create::HelpCreate,
     help_update::HelpUpdate,
-    set_std_styles::SetStdStyles,
 };
 
 pub struct CallUpdater;
@@ -12,7 +11,6 @@ pub struct ReadStyle;
 mod defaulter;
 mod help_create;
 mod help_update;
-mod set_std_styles;
 
 pub trait PropsUpdateResult {
     type UpdateResult;

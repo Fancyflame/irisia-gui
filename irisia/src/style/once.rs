@@ -1,11 +1,11 @@
 use crate::Style;
 
-use super::style_box::InsideStyleBox;
+use super::style_box::RawStyleGroup;
 
 #[derive(Clone)]
 pub struct Once<T>(pub T);
 
-impl<T> InsideStyleBox for Once<T>
+impl<T> RawStyleGroup for Once<T>
 where
     T: Style,
 {
