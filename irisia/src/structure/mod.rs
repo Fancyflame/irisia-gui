@@ -1,4 +1,4 @@
-use crate::{dom::DropProtection, style::StyleGroup, update_with::UpdateWith, Element, Result};
+use crate::{update_with::UpdateWith, ElModel, Result};
 
 pub use self::{
     chain::Chain,
@@ -19,13 +19,12 @@ pub trait VisitBy {
         V: VisitOn;
 
     fn len(&self) -> usize;
+
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
 }
 
 pub trait VisitOn {
-    fn visit_on<El>(&mut self, data: &DropProtection<El>) -> Result<()>
-    where
-        El: Element;
+    fn visit_on(&mut self, data: &ElModel!(_)) -> Result<()>;
 }

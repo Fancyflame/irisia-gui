@@ -2,12 +2,12 @@ use tokio::sync::RwLock;
 
 use crate::{
     application::event_comp::NodeEventMgr, element::ElementCreate, event::EventDispatcher,
-    style::style_box::IntoStyleBox, Element,
+    style::StyleGroup, Element,
 };
 
 use super::{
     data_structure::{Context, InsideRefCell},
-    ElementModel, RcElementModel,
+    ChildNodes, ElementModel, RcElementModel,
 };
 
 use std::{
@@ -16,41 +16,45 @@ use std::{
     rc::{Rc, Weak},
 };
 
-impl<El> ElementModel<El>
+impl<El, Sty, Slt> ElementModel<El, Sty, Slt>
 where
     El: Element,
+    Sty: StyleGroup + 'static,
+    Slt: ChildNodes,
 {
-    pub fn new<Pr, Isb, _Sln, Oc>(
+    pub fn new<Pr, Oc>(
         props: Pr,
-        styles: Isb,
-        slot: El::Slot,
+        styles: Sty,
+        slot: Slt,
         on_create: Oc,
-    ) -> DropProtection<El>
+    ) -> DropProtection<El, Sty, Slt>
     where
-        Isb: IntoStyleBox<_Sln>,
         El: ElementCreate<Pr>,
-        Oc: FnOnce(&RcElementModel<El>),
+        Oc: FnOnce(&RcElementModel<El, Sty, Slt>),
     {
         let ed = EventDispatcher::new();
 
-        let this = Rc::new_cyclic(|weak: &Weak<ElementModel<El>>| ElementModel {
+        let this = Rc::new_cyclic(|weak: &Weak<_>| ElementModel {
             this: weak.clone(),
+            standalone_render: weak.clone() as _,
             el: RwLock::new(None),
             ed: ed.clone(),
             in_cell: RefCell::new(InsideRefCell {
-                styles: styles.into_box(),
+                slot,
+                styles,
                 event_mgr: NodeEventMgr::new(ed),
                 indep_layer: None,
                 context: Context::None,
             }),
             draw_region: Default::default(),
             interact_region: Cell::new(None),
+            flag_dirty_setted: Cell::new(false),
             acquire_independent_layer: Cell::new(false),
         });
 
         // hold the lock prevent from being accessed
         let mut write = this.el.try_write().unwrap();
-        let el = El::el_create(&this, props, slot);
+        let el = El::el_create(&this, props);
         *write = Some(el);
         drop(write);
 
@@ -60,24 +64,18 @@ where
     }
 }
 
-pub struct DropProtection<El>(pub(crate) RcElementModel<El>)
+pub struct DropProtection<El, Sty, Slt>(pub(crate) RcElementModel<El, Sty, Slt>)
 where
-    El: Element;
+    RcElementModel<El, Sty, Slt>: 'static;
 
-impl<El> Deref for DropProtection<El>
-where
-    El: Element,
-{
-    type Target = RcElementModel<El>;
+impl<El, Sty, Slt> Deref for DropProtection<El, Sty, Slt> {
+    type Target = RcElementModel<El, Sty, Slt>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<El> Drop for DropProtection<El>
-where
-    El: Element,
-{
+impl<El, Sty, Slt> Drop for DropProtection<El, Sty, Slt> {
     fn drop(&mut self) {
         self.0.set_abandoned();
     }

@@ -31,7 +31,7 @@ pub mod reader;
 pub(crate) mod style_box;
 
 use self::style_box::RawStyleGroup;
-pub use self::{branch::Branch, chain::Chain, once::Once, style_box::StyleBox};
+pub use self::{branch::Branch, chain::Chain, once::Once};
 
 use crate::{self as irisia, primitive::Pixel, Style as DeriveStyle};
 use irisia_backend::skia_safe::Color;
@@ -62,4 +62,17 @@ pub trait StyleGroup: RawStyleGroup {
     {
         S::read_style(self)
     }
+}
+
+pub trait AnimaStyleGroup {
+    fn read0<Sr>(&self) -> Sr
+    where
+        Sr: StyleReader,
+    {
+        self.read(0.)
+    }
+
+    fn read<Sr>(&self, position: f32) -> Sr
+    where
+        Sr: StyleReader;
 }

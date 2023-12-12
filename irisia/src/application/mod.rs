@@ -27,7 +27,7 @@ pub struct Window {
 impl Window {
     pub async fn new<El>(title: impl Into<String>) -> Result<Self>
     where
-        El: Element<Slot = ()> + ElementCreate<()>,
+        El: Element + ElementCreate<()>,
     {
         let title = title.into();
         new_window::<El, _>(move |wb| wb.with_title(title)).await
@@ -35,7 +35,7 @@ impl Window {
 
     pub async fn with_builder<El, F>(f: F) -> Result<Self>
     where
-        El: Element<Slot = ()> + ElementCreate<()>,
+        El: Element + ElementCreate<()>,
         F: FnOnce(WindowBuilder) -> WindowBuilder + Send + 'static,
     {
         new_window::<El, _>(f).await

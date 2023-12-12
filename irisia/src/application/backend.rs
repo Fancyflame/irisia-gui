@@ -25,7 +25,7 @@ use super::{
 pub(super) struct BackendRuntime<El: Element> {
     gem: GlobalEventMgr,
     gc: Rc<GlobalContent>,
-    root_element: DropProtection<El>,
+    root_element: DropProtection<El, (), ()>,
 }
 
 impl<El> AppWindow for BackendRuntime<El>
@@ -74,7 +74,7 @@ fn window_size_to_draw_region(size: PhysicalSize<u32>) -> Region {
 
 pub(super) async fn new_window<El, F>(window_builder: F) -> Result<Window>
 where
-    El: Element<Slot = ()> + ElementCreate<()>,
+    El: Element + ElementCreate<()>,
     F: FnOnce(WindowBuilder) -> WindowBuilder + Send + 'static,
 {
     let ev_disp = EventDispatcher::new();

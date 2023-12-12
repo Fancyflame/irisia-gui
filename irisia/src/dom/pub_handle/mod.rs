@@ -1,6 +1,6 @@
 use std::{future::Future, rc::Rc};
 use tokio::{
-    sync::{RwLockMappedWriteGuard, RwLockReadGuard, RwLockWriteGuard},
+    sync::{RwLockReadGuard, RwLockWriteGuard, TryLockError},
     task::JoinHandle,
 };
 
@@ -8,7 +8,7 @@ use crate::{
     application::content::GlobalContent,
     event::{standard::ElementAbandoned, EdProvider, EventDispatcher, Listen},
     primitive::Region,
-    Element, Result, StyleReader,
+    Result, StyleGroup, StyleReader,
 };
 
 use self::write_guard::ElWriteGuard;
@@ -20,36 +20,35 @@ use super::{
 
 mod write_guard;
 
-const TRY_ACCESS_ERROR: &str = "do not hold a element write guard across `await`. \
-                this limitation will be lifted in the future, but still \
-                discouraged";
+pub type TryLockResult<T> = std::result::Result<T, TryLockError>;
 
-impl<El> ElementModel<El>
-where
-    El: Element,
-{
-    /// Get a write guard without setting dirty
-    pub(super) fn el_write_clean(&self) -> RwLockMappedWriteGuard<El> {
-        RwLockWriteGuard::map(self.el.try_write().expect(TRY_ACCESS_ERROR), |x| {
-            x.as_mut().unwrap()
-        })
-    }
-
+impl<El, Sty, Slt> ElementModel<El, Sty, Slt> {
     /// Get a write guard of this element and setting dirty.
     /// `None` if this element will no longer used.
-    pub async fn el_write<'a>(self: &'a Rc<Self>) -> Option<ElWriteGuard<'a, El, Rc<Self>>> {
-        RwLockWriteGuard::try_map(self.el.write().await, |x| x.as_mut())
-            .ok()
-            .map(|guard| ElWriteGuard {
-                write: guard,
-                set_dirty: self,
-            })
+    pub async fn el_write<'a>(self: &'a Rc<Self>) -> ElWriteGuard<'a, El, Rc<Self>> {
+        ElWriteGuard {
+            write: RwLockWriteGuard::map(self.el.write().await, |x| x.as_mut().unwrap()),
+            set_dirty: self,
+        }
     }
 
     /// Get a read guard of this element and dirty flag is not affected.
     /// `None` if this element will no longer used.
-    pub async fn el_read(&self) -> Option<RwLockReadGuard<El>> {
-        RwLockReadGuard::try_map(self.el.read().await, |x| x.as_ref()).ok()
+    pub async fn el_read(&self) -> RwLockReadGuard<El> {
+        RwLockReadGuard::map(self.el.read().await, |x| x.as_ref().unwrap())
+    }
+
+    pub fn try_el_write<'a>(self: &'a Rc<Self>) -> TryLockResult<ElWriteGuard<'a, El, Rc<Self>>> {
+        Ok(ElWriteGuard {
+            write: RwLockWriteGuard::map(self.el.try_write()?, |x| x.as_mut().unwrap()),
+            set_dirty: self,
+        })
+    }
+
+    pub fn try_el_read(&self) -> TryLockResult<RwLockReadGuard<El>> {
+        Ok(RwLockReadGuard::map(self.el.try_read()?, |x| {
+            x.as_ref().unwrap()
+        }))
     }
 
     pub fn attached(&self) -> bool {
@@ -109,6 +108,7 @@ where
     /// Get styles bind to this element
     pub fn styles<Sr>(&self) -> Sr
     where
+        Sty: StyleGroup,
         Sr: StyleReader,
     {
         self.in_cell.borrow().styles.read()
@@ -116,9 +116,15 @@ where
 
     /// Set dirty flag to `true`.
     pub fn set_dirty(&self) {
-        if let Ok(c) = self.in_cell.borrow().ctx() {
+        if self.flag_dirty_setted.take() {
+            return;
+        }
+
+        self.flag_dirty_setted.set(true);
+        let in_cell = self.in_cell.borrow();
+        if let Ok(c) = in_cell.ctx() {
             c.global_content.request_redraw(
-                self.get_children_layer(&self.in_cell.borrow())
+                self.get_children_layer(&in_cell)
                     .upgrade()
                     .expect("parent layer unexpectedly dropped"),
             )
@@ -168,9 +174,9 @@ where
     }
 }
 
-impl<El> EdProvider for RcElementModel<El>
+impl<El, Sty, Slt> EdProvider for RcElementModel<El, Sty, Slt>
 where
-    El: Element,
+    Self: 'static,
 {
     fn event_dispatcher(&self) -> &EventDispatcher {
         ElementModel::event_dispatcher(self)

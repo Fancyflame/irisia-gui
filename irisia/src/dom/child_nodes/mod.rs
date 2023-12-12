@@ -4,11 +4,11 @@ use anyhow::anyhow;
 
 use crate::{
     application::{event_comp::IncomingPointerEvent, redraw_scheduler::StandaloneRender},
-    dom::{data_structure::Context, layer::LayerRebuilder, DropProtection},
-    element::{Element, GlobalContent},
+    dom::{data_structure::Context, layer::LayerRebuilder},
+    element::GlobalContent,
     primitive::Region,
     structure::{VisitBy, VisitOn},
-    Result, StyleReader,
+    ElModel, Result, StyleReader,
 };
 
 pub use self::render_element::RenderElement;
@@ -60,16 +60,19 @@ pub trait ChildNodes: VisitBy + 'static {
     }
 }
 
+pub trait RawChildNodes: VisitBy + 'static {
+    
+}
+
+impl<T: VisitBy + 'static> ChildNodes for T {}
+
 struct RenderHelper<'a, 'lr> {
     lr: &'a mut LayerRebuilder<'lr>,
     interval: Duration,
 }
 
 impl VisitOn for RenderHelper<'_, '_> {
-    fn visit_on<El>(&mut self, data: &DropProtection<El>) -> Result<()>
-    where
-        El: Element,
-    {
+    fn visit_on(&mut self, data: &ElModel!(_)) -> Result<()> {
         data.build_layers(self.lr, self.interval)
     }
 }
@@ -84,10 +87,7 @@ where
     F: FnMut(Sr) -> Option<Region>,
     Sr: StyleReader,
 {
-    fn visit_on<El>(&mut self, data: &DropProtection<El>) -> Result<()>
-    where
-        El: Element,
-    {
+    fn visit_on(&mut self, data: &ElModel!(_)) -> Result<()> {
         let region = (self.map)(data.in_cell.borrow().styles.read());
         match region {
             Some(region) => {
@@ -109,10 +109,7 @@ where
     F: FnMut(Sr),
     Sr: StyleReader,
 {
-    fn visit_on<El>(&mut self, data: &DropProtection<El>) -> Result<()>
-    where
-        El: Element,
-    {
+    fn visit_on(&mut self, data: &ElModel!(_)) -> Result<()> {
         (self.map)(data.in_cell.borrow().styles.read());
         Ok(())
     }
@@ -124,10 +121,7 @@ struct EmitEventHelper<'a, 'root> {
 }
 
 impl VisitOn for EmitEventHelper<'_, '_> {
-    fn visit_on<El>(&mut self, data: &DropProtection<El>) -> Result<()>
-    where
-        El: Element,
-    {
+    fn visit_on(&mut self, data: &ElModel!(_)) -> Result<()> {
         self.children_entered |= data.emit_event(self.ipe);
         Ok(())
     }
@@ -139,10 +133,7 @@ struct AttachHelper<'a> {
 }
 
 impl VisitOn for AttachHelper<'_> {
-    fn visit_on<El>(&mut self, data: &DropProtection<El>) -> Result<()>
-    where
-        El: Element,
-    {
+    fn visit_on(&mut self, data: &ElModel!(_)) -> Result<()> {
         match &mut data.in_cell.borrow_mut().context {
             ctx @ Context::None => {
                 *ctx = Context::Attached(AttachedCtx {

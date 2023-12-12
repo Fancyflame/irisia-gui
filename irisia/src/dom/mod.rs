@@ -11,7 +11,7 @@ use crate::{
     element::Element,
     event::standard::DrawRegionChanged,
     primitive::Region,
-    Result,
+    Result, StyleGroup,
 };
 
 use self::{
@@ -20,7 +20,7 @@ use self::{
     layer::{LayerCompositer, LayerRebuilder},
 };
 
-pub(crate) use self::child_nodes::ChildNodes;
+pub use self::child_nodes::ChildNodes;
 pub use self::{data_structure::ElementModel, drop_protection::DropProtection};
 
 pub(crate) mod child_nodes;
@@ -29,17 +29,19 @@ mod drop_protection;
 pub(crate) mod layer;
 pub mod pub_handle;
 
-pub type RcElementModel<El> = Rc<data_structure::ElementModel<El>>;
+pub type RcElementModel<El, Sty, Slt> = Rc<data_structure::ElementModel<El, Sty, Slt>>;
 
-impl<El> ElementModel<El>
-where
-    El: Element,
-{
+impl<El, Sty, Slt> ElementModel<El, Sty, Slt> {
     pub(crate) fn build_layers(
         self: &Rc<Self>,
         lr: &mut LayerRebuilder,
         interval: Duration,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        El: Element,
+        Sty: StyleGroup,
+        Slt: ChildNodes,
+    {
         let mut in_cell_ref = self.in_cell.borrow_mut();
         let in_cell = &mut *in_cell_ref;
 
@@ -79,10 +81,13 @@ where
     }
 
     /// returns whether this element is logically entered
-    pub(crate) fn emit_event(&self, ipe: &IncomingPointerEvent) -> bool {
+    pub(crate) fn emit_event(&self, ipe: &IncomingPointerEvent) -> bool
+    where
+        Slt: ChildNodes,
+    {
         let mut in_cell = self.in_cell.borrow_mut();
 
-        let children_logically_entered = self.el_write_clean().slot().emit_event(ipe);
+        let children_logically_entered = in_cell.slot.emit_event(ipe);
 
         in_cell.event_mgr.update_and_emit(
             ipe,
@@ -91,16 +96,21 @@ where
         )
     }
 
-    fn get_children_layer(&self, in_cell: &InsideRefCell) -> Weak<dyn StandaloneRender> {
+    fn get_children_layer(&self, in_cell: &InsideRefCell<Sty, Slt>) -> Weak<dyn StandaloneRender> {
         match in_cell.indep_layer {
-            Some(_) => self.this.clone() as _,
+            Some(_) => self.standalone_render.clone(),
             None => match &in_cell.parent_layer() {
                 Some(pl) => pl.clone(),
                 None => unreachable!("root element did not initialize independent layer"),
             },
         }
     }
+}
 
+impl<El, Sty, Slt> ElementModel<El, Sty, Slt>
+where
+    Self: 'static,
+{
     fn set_abandoned(self: &Rc<Self>) {
         let this = self.clone();
         tokio::task::spawn_local(async move {
@@ -110,7 +120,7 @@ where
     }
 }
 
-impl InsideRefCell {
+impl<Sty, Slt> InsideRefCell<Sty, Slt> {
     fn ctx(&self) -> Result<&AttachedCtx> {
         match &self.context {
             Context::None => Err(anyhow!("element have not attached to window yet")),
@@ -132,9 +142,11 @@ fn panic_on_debug(msg: &str) -> Result<()> {
     }
 }
 
-impl<El> StandaloneRender for ElementModel<El>
+impl<El, Sty, Slt> StandaloneRender for ElementModel<El, Sty, Slt>
 where
     El: Element,
+    Sty: StyleGroup,
+    Slt: ChildNodes,
 {
     fn standalone_render(&self, canvas: &mut Canvas, interval: Duration) -> Result<()> {
         let mut in_cell_ref = self.in_cell.borrow_mut();

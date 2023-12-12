@@ -25,11 +25,12 @@ pub mod style;
 pub mod update_with;
 
 pub use application::Window;
+pub use dom::ChildNodes;
 pub use element::Element;
 pub use event::Event;
 pub use irisia_backend::{
     runtime::exit_app, skia_safe, start_runtime, winit, StaticWindowEvent, WinitWindow,
 };
 pub use irisia_macros::{main, props, style, Event, Style, StyleReader};
-pub use style::{reader::StyleReader, Style};
+pub use style::{reader::StyleReader, Style, StyleGroup};
 pub use update_with::UpdateWith;

@@ -2,7 +2,7 @@ use std::any::Any;
 
 use crate::{Style, StyleReader};
 
-use super::StyleGroup;
+use super::{AnimaStyleGroup, StyleGroup};
 
 pub trait RawStyleGroup {
     fn get_style_raw(&self, empty_option: &mut dyn Any) -> bool;
@@ -34,92 +34,57 @@ where
     }
 }
 
-trait StyleBoxInner: Fn(&mut dyn FnMut(&dyn RawStyleGroup), f32) + 'static {
-    fn as_any(&mut self) -> &mut dyn Any;
+pub trait IntoAnimaStyleGroup<_T> {
+    type Output: AnimaStyleGroup;
+    fn into_asg(self) -> Self::Output;
 }
 
-impl<T> StyleBoxInner for T
+pub struct FromStyleGroup<T>(T);
+impl<T> IntoAnimaStyleGroup<FromStyleGroup<T>> for T
 where
-    T: Fn(&mut dyn FnMut(&dyn RawStyleGroup), f32) + Any + 'static,
+    T: StyleGroup,
 {
-    fn as_any(&mut self) -> &mut dyn Any {
-        self
+    type Output = FromStyleGroup<T>;
+
+    fn into_asg(self) -> Self::Output {
+        FromStyleGroup(self)
     }
 }
 
-pub struct StyleBox(Box<dyn StyleBoxInner>);
-
-impl StyleBox {
-    pub fn new<T, _Sln>(into_sg: T) -> Self
+impl<T> AnimaStyleGroup for FromStyleGroup<T>
+where
+    T: StyleGroup,
+{
+    fn read<Sr>(&self, _position: f32) -> Sr
     where
-        T: IntoStyleBox<_Sln>,
+        Sr: StyleReader,
     {
-        into_sg.into_box()
-    }
-
-    fn update<T: StyleBoxInner>(&mut self, sbi: T) {
-        match self.0.as_any().downcast_mut::<T>() {
-            Some(place) => *place = sbi,
-            None => self.0 = Box::new(sbi),
-        }
-    }
-
-    pub fn read<Sr: StyleReader>(&self) -> Sr {
-        self.read_at(0.)
-    }
-
-    pub fn read_at<Sr: StyleReader>(&self, prog: f32) -> Sr {
-        let mut option: Option<Sr> = None;
-        let mut assign = |sg: &dyn RawStyleGroup| {
-            option = Some(sg.read());
-        };
-        (self.0)(&mut assign, prog);
-        option.unwrap()
+        self.0.read()
     }
 }
 
-pub trait IntoStyleBox<_T> {
-    fn into_box(self) -> StyleBox;
-    fn update(self, b: &mut StyleBox);
-}
-
-pub struct FromStyleGroup;
-impl<T> IntoStyleBox<FromStyleGroup> for T
+pub struct FromPosSgFn<T>(T);
+impl<F, R> IntoAnimaStyleGroup<FromPosSgFn<F>> for F
 where
-    T: StyleGroup + 'static,
-{
-    fn into_box(self) -> StyleBox {
-        StyleBox(Box::new(style_box_from_sg(self)))
-    }
-
-    fn update(self, b: &mut StyleBox) {
-        b.update(style_box_from_sg(self))
-    }
-}
-
-fn style_box_from_sg<T: StyleGroup + 'static>(sg: T) -> impl StyleBoxInner {
-    move |read_style, _| read_style(&sg)
-}
-
-pub struct FromAnimaStyleGroup;
-impl<F, R> IntoStyleBox<FromAnimaStyleGroup> for F
-where
-    F: Fn(f32) -> R + 'static,
+    F: Fn(f32) -> R,
     R: StyleGroup,
 {
-    fn into_box(self) -> StyleBox {
-        StyleBox(Box::new(style_box_from_asg(self)))
-    }
+    type Output = FromPosSgFn<F>;
 
-    fn update(self, b: &mut StyleBox) {
-        b.update(style_box_from_asg(self))
+    fn into_asg(self) -> Self::Output {
+        FromPosSgFn(self)
     }
 }
 
-fn style_box_from_asg<F, R>(sg: F) -> impl StyleBoxInner
+impl<F, R> AnimaStyleGroup for FromPosSgFn<F>
 where
-    F: Fn(f32) -> R + 'static,
+    F: Fn(f32) -> R,
     R: StyleGroup,
 {
-    move |read_style, progress| read_style(&sg(progress))
+    fn read<Sr>(&self, position: f32) -> Sr
+    where
+        Sr: StyleReader,
+    {
+        (self.0)(position).read()
+    }
 }

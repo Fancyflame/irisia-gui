@@ -2,7 +2,7 @@ use tokio::sync::RwLockMappedWriteGuard;
 
 use std::ops::{Deref, DerefMut};
 
-use crate::{element::RcElementModel, Element};
+use crate::element::RcElementModel;
 
 pub struct ElWriteGuard<'a, El, Sd: SetDirty> {
     pub(super) write: RwLockMappedWriteGuard<'a, El>,
@@ -32,10 +32,7 @@ pub trait SetDirty {
     fn _set_dirty(&self);
 }
 
-impl<El> SetDirty for RcElementModel<El>
-where
-    El: Element,
-{
+impl<El, Sty, Slt> SetDirty for RcElementModel<El, Sty, Slt> {
     fn _set_dirty(&self) {
         self.set_dirty();
     }
