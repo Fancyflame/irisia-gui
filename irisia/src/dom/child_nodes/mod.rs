@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, rc::Rc, time::Duration};
+use std::{rc::Rc, time::Duration};
 
 use anyhow::anyhow;
 
@@ -8,6 +8,7 @@ use crate::{
     element::GlobalContent,
     primitive::Region,
     structure::{VisitBy, VisitOn},
+    style::style_box::RawStyleGroup,
     ElModel, Result, StyleReader,
 };
 
@@ -16,41 +17,68 @@ use super::data_structure::AttachedCtx;
 
 mod render_element;
 
-pub trait ChildNodes: VisitBy + 'static {
+type TypeElimatedSrGroup<'a> = &'a mut dyn FnMut(&dyn RawStyleGroup);
+type TypeElimatedLayouter<'a> = &'a mut dyn FnMut(&dyn RawStyleGroup, usize) -> Option<Region>;
+
+pub trait ChildNodes: RawChildNodes {
     fn render<'a, 'lr>(&self, re: &'a mut RenderElement<'_, 'lr>) -> Result<()> {
+        self.render_raw(re)
+    }
+
+    fn peek_styles<F, Sr>(&self, mut f: F)
+    where
+        F: FnMut(Sr),
+        Sr: StyleReader,
+    {
+        self.peek_styles_raw(&mut |rsg| f(Sr::read_style(&rsg)))
+    }
+
+    fn len(&self) -> usize {
+        self.len_raw()
+    }
+
+    fn layout<F, Sr>(&self, mut f: F) -> Result<()>
+    where
+        F: FnMut(Sr, usize) -> Option<Region>,
+        Sr: StyleReader,
+    {
+        self.layout_raw(&mut |rsg, nth| f(Sr::read_style(rsg), nth))
+    }
+
+    fn emit_event(&self, ipe: &IncomingPointerEvent) -> bool {
+        self.emit_event_raw(ipe)
+    }
+}
+
+pub trait RawChildNodes: 'static {
+    fn render_raw<'a, 'lr>(&self, re: &'a mut RenderElement<'_, 'lr>) -> Result<()>;
+    fn peek_styles_raw(&self, f: TypeElimatedSrGroup);
+    fn len_raw(&self) -> usize;
+    fn layout_raw(&self, iter: TypeElimatedLayouter) -> Result<()>;
+    fn emit_event_raw(&self, ipe: &IncomingPointerEvent) -> bool;
+}
+
+impl<T: VisitBy + 'static> RawChildNodes for T {
+    fn render_raw<'a, 'lr>(&self, re: &'a mut RenderElement<'_, 'lr>) -> Result<()> {
         self.visit_by(&mut RenderHelper {
             lr: re.lr,
             interval: re.interval,
         })
     }
 
-    fn peek_styles<F, Sr>(&self, f: F)
-    where
-        F: FnMut(Sr),
-        Sr: StyleReader,
-    {
-        let _ = self.visit_by(&mut PeekStyles {
-            map: f,
-            _sr: PhantomData,
-        });
+    fn peek_styles_raw(&self, f: TypeElimatedSrGroup) {
+        self.visit_by(&mut PeekStyles { reader: f }).unwrap();
     }
 
-    fn len(&self) -> usize {
+    fn len_raw(&self) -> usize {
         VisitBy::len(self)
     }
 
-    fn layout<F, Sr>(&self, f: F) -> Result<()>
-    where
-        F: FnMut(Sr) -> Option<Region>,
-        Sr: StyleReader,
-    {
-        self.visit_by(&mut LayoutHelper {
-            map: f,
-            _sr: PhantomData,
-        })
+    fn layout_raw(&self, layouter: TypeElimatedLayouter) -> Result<()> {
+        self.visit_by(&mut LayoutHelper { nth: 0, layouter })
     }
 
-    fn emit_event(&self, ipe: &IncomingPointerEvent) -> bool {
+    fn emit_event_raw(&self, ipe: &IncomingPointerEvent) -> bool {
         let mut eeh = EmitEventHelper {
             children_entered: false,
             ipe,
@@ -60,11 +88,7 @@ pub trait ChildNodes: VisitBy + 'static {
     }
 }
 
-pub trait RawChildNodes: VisitBy + 'static {
-    
-}
-
-impl<T: VisitBy + 'static> ChildNodes for T {}
+impl<T: RawChildNodes> ChildNodes for T {}
 
 struct RenderHelper<'a, 'lr> {
     lr: &'a mut LayerRebuilder<'lr>,
@@ -77,20 +101,17 @@ impl VisitOn for RenderHelper<'_, '_> {
     }
 }
 
-struct LayoutHelper<F, Sr> {
-    map: F,
-    _sr: PhantomData<Sr>,
+struct LayoutHelper<'a> {
+    nth: usize,
+    layouter: TypeElimatedLayouter<'a>,
 }
 
-impl<F, Sr> VisitOn for LayoutHelper<F, Sr>
-where
-    F: FnMut(Sr) -> Option<Region>,
-    Sr: StyleReader,
-{
+impl VisitOn for LayoutHelper<'_> {
     fn visit_on(&mut self, data: &ElModel!(_)) -> Result<()> {
-        let region = (self.map)(data.in_cell.borrow().styles.read());
+        let region = (self.layouter)(&data.in_cell.borrow().styles, self.nth);
         match region {
             Some(region) => {
+                self.nth += 1;
                 data.set_draw_region(region);
                 Ok(())
             }
@@ -99,18 +120,13 @@ where
     }
 }
 
-struct PeekStyles<F, Sr> {
-    map: F,
-    _sr: PhantomData<Sr>,
+struct PeekStyles<'a> {
+    reader: TypeElimatedSrGroup<'a>,
 }
 
-impl<F, Sr> VisitOn for PeekStyles<F, Sr>
-where
-    F: FnMut(Sr),
-    Sr: StyleReader,
-{
+impl VisitOn for PeekStyles<'_> {
     fn visit_on(&mut self, data: &ElModel!(_)) -> Result<()> {
-        (self.map)(data.in_cell.borrow().styles.read());
+        (self.reader)(&data.in_cell.borrow().styles);
         Ok(())
     }
 }
