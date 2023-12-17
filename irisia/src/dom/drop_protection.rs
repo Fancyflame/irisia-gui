@@ -2,7 +2,7 @@ use tokio::sync::RwLock;
 
 use crate::{
     application::event_comp::NodeEventMgr, element::ElementCreate, event::EventDispatcher,
-    style::StyleGroup, Element,
+    structure::Slot, style::StyleGroup, Element,
 };
 
 use super::{
@@ -33,14 +33,16 @@ where
         Oc: FnOnce(&RcElementModel<El, Sty, Slt>),
     {
         let ed = EventDispatcher::new();
+        let slot = Slot::new(slot);
+        let (el, cb) = El::el_create(props, slot.private_clone());
 
         let this = Rc::new_cyclic(|weak: &Weak<_>| ElementModel {
             this: weak.clone(),
             standalone_render: weak.clone() as _,
-            el: RwLock::new(None),
+            el: RwLock::new(Some(el)),
             ed: ed.clone(),
             in_cell: RefCell::new(InsideRefCell {
-                slot,
+                children: cb,
                 styles,
                 event_mgr: NodeEventMgr::new(ed),
                 indep_layer: None,
@@ -52,12 +54,7 @@ where
             acquire_independent_layer: Cell::new(false),
         });
 
-        // hold the lock prevent from being accessed
-        let mut write = this.el.try_write().unwrap();
-        let el = El::el_create(&this, props);
-        *write = Some(el);
-        drop(write);
-
+        El::on_created(&this);
         on_create(&this);
         this.set_dirty();
         DropProtection(this)

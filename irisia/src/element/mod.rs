@@ -1,6 +1,9 @@
 use crate::{
-    application::event_comp::IncomingPointerEvent,
-    dom::{child_nodes::RenderElement, ChildNodes},
+    dom::{
+        child_nodes::{ChildBox, RenderElement},
+        ChildNodes,
+    },
+    structure::Slot,
     Result,
 };
 
@@ -40,11 +43,13 @@ where
     type BlankProps: Default;
 
     fn render(this: &ElModel!(), content: RenderElement) -> Result<()>;
-    fn on_pointer_event(this: &ElModel!(), ipe: &IncomingPointerEvent) -> bool;
+    fn on_created(this: &ElModel!());
 }
 
 pub trait ElementCreate<Pr>: Element + Sized {
-    fn el_create(this: &ElModel!(), props: Pr) -> Self;
+    fn el_create<Slt>(props: Pr, slot: Slot<Slt>) -> (Self, ChildBox<Slt>)
+    where
+        Slt: ChildNodes;
 }
 
 pub trait ElementPropsUpdate<Pr>: Element + Sized {

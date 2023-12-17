@@ -7,7 +7,7 @@ use crate::{
     dom::{data_structure::Context, layer::LayerRebuilder},
     element::GlobalContent,
     primitive::Region,
-    structure::{VisitBy, VisitOn},
+    structure::{UpdateNode, UpdateSlot, VisitBy, VisitOn},
     style::style_box::RawStyleGroup,
     ElModel, Result, StyleReader,
 };
@@ -18,39 +18,77 @@ use super::data_structure::AttachedCtx;
 mod render_element;
 
 type TypeElimatedSrGroup<'a> = &'a mut dyn FnMut(&dyn RawStyleGroup);
-type TypeElimatedLayouter<'a> = &'a mut dyn FnMut(&dyn RawStyleGroup, usize) -> Option<Region>;
+type TypeElimatedLayouter<'a> = &'a mut dyn FnMut(&dyn RawStyleGroup) -> Option<Region>;
 
-pub trait ChildNodes: RawChildNodes {
-    fn render<'a, 'lr>(&self, re: &'a mut RenderElement<'_, 'lr>) -> Result<()> {
-        self.render_raw(re)
+pub struct ChildBox<Slt>(Box<dyn DynTrait<Slt>>);
+
+impl<Slt: 'static> ChildBox<Slt> {
+    pub fn new<T>(children: T) -> Self
+    where
+        T: ChildNodes + UpdateSlot<Slt>,
+        Slt: ChildNodes,
+    {
+        ChildBox(Box::new(children))
     }
 
-    fn peek_styles<F, Sr>(&self, mut f: F)
+    pub fn update_slot<F>(&mut self, updater: F)
+    where
+        F: for<'a> FnOnce(UpdateNode<'a, Slt>),
+    {
+        let mut updater = Some(updater);
+        self.0
+            .update_slot(&mut |slot| updater.take().unwrap()(slot))
+    }
+
+    pub fn render<'a, 'lr>(&self, re: &'a mut RenderElement<'_, 'lr>) -> Result<()> {
+        self.0.render_raw(re)
+    }
+
+    pub fn peek_styles<F, Sr>(&self, mut f: F)
     where
         F: FnMut(Sr),
         Sr: StyleReader,
     {
-        self.peek_styles_raw(&mut |rsg| f(Sr::read_style(&rsg)))
+        self.0.peek_styles_raw(&mut |rsg| f(Sr::read_style(&rsg)))
     }
 
-    fn len(&self) -> usize {
-        self.len_raw()
+    pub fn len(&self) -> usize {
+        self.0.len_raw()
     }
 
-    fn layout<F, Sr>(&self, mut f: F) -> Result<()>
+    pub fn layout<F, Sr>(&self, mut f: F) -> Result<()>
     where
         F: FnMut(Sr, usize) -> Option<Region>,
         Sr: StyleReader,
     {
-        self.layout_raw(&mut |rsg, nth| f(Sr::read_style(rsg), nth))
+        let mut nth = 0;
+        self.0.layout_raw(&mut |rsg| {
+            let option = f(Sr::read_style(rsg), nth);
+            nth += 1;
+            option
+        })
     }
 
-    fn emit_event(&self, ipe: &IncomingPointerEvent) -> bool {
-        self.emit_event_raw(ipe)
+    pub fn emit_event(&self, ipe: &IncomingPointerEvent) -> bool {
+        self.0.emit_event_raw(ipe)
     }
 }
 
-pub trait RawChildNodes: 'static {
+trait DynTrait<Slt>
+where
+    Self: ChildNodes + UpdateSlot<Slt>,
+    Slt: ChildNodes,
+{
+}
+
+impl<T, Slt> DynTrait<Slt> for T
+where
+    Self: ChildNodes + UpdateSlot<Slt>,
+    Slt: ChildNodes,
+{
+}
+
+pub trait ChildNodes: 'static {
     fn render_raw<'a, 'lr>(&self, re: &'a mut RenderElement<'_, 'lr>) -> Result<()>;
     fn peek_styles_raw(&self, f: TypeElimatedSrGroup);
     fn len_raw(&self) -> usize;
@@ -58,7 +96,10 @@ pub trait RawChildNodes: 'static {
     fn emit_event_raw(&self, ipe: &IncomingPointerEvent) -> bool;
 }
 
-impl<T: VisitBy + 'static> RawChildNodes for T {
+impl<T> ChildNodes for T
+where
+    T: VisitBy + 'static,
+{
     fn render_raw<'a, 'lr>(&self, re: &'a mut RenderElement<'_, 'lr>) -> Result<()> {
         self.visit_by(&mut RenderHelper {
             lr: re.lr,
@@ -75,7 +116,7 @@ impl<T: VisitBy + 'static> RawChildNodes for T {
     }
 
     fn layout_raw(&self, layouter: TypeElimatedLayouter) -> Result<()> {
-        self.visit_by(&mut LayoutHelper { nth: 0, layouter })
+        self.visit_by(&mut LayoutHelper { layouter })
     }
 
     fn emit_event_raw(&self, ipe: &IncomingPointerEvent) -> bool {
@@ -87,8 +128,6 @@ impl<T: VisitBy + 'static> RawChildNodes for T {
         eeh.children_entered
     }
 }
-
-impl<T: RawChildNodes> ChildNodes for T {}
 
 struct RenderHelper<'a, 'lr> {
     lr: &'a mut LayerRebuilder<'lr>,
@@ -102,16 +141,14 @@ impl VisitOn for RenderHelper<'_, '_> {
 }
 
 struct LayoutHelper<'a> {
-    nth: usize,
     layouter: TypeElimatedLayouter<'a>,
 }
 
 impl VisitOn for LayoutHelper<'_> {
     fn visit_on(&mut self, data: &ElModel!(_)) -> Result<()> {
-        let region = (self.layouter)(&data.in_cell.borrow().styles, self.nth);
+        let region = (self.layouter)(&data.in_cell.borrow().styles);
         match region {
             Some(region) => {
-                self.nth += 1;
                 data.set_draw_region(region);
                 Ok(())
             }

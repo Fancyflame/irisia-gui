@@ -13,7 +13,7 @@ use crate::{
     primitive::Region,
 };
 
-use super::layer::SharedLayerCompositer;
+use super::{child_nodes::ChildBox, layer::SharedLayerCompositer};
 
 pub struct ElementModel<El, Sty, Slt> {
     pub(super) this: Weak<Self>,
@@ -28,8 +28,8 @@ pub struct ElementModel<El, Sty, Slt> {
 }
 
 pub(super) struct InsideRefCell<Sty, Slt> {
+    pub children: ChildBox<Slt>,
     pub styles: Sty,
-    pub slot: Slt,
     pub event_mgr: NodeEventMgr,
     pub context: Context,
     pub indep_layer: Option<SharedLayerCompositer>,

@@ -7,7 +7,7 @@ use smallvec::SmallVec;
 
 use crate::Result;
 
-use super::{VisitBy, VisitOn};
+use super::{UpdateNode, VisitBy, VisitOn};
 
 const MAX_TIME_TO_LIVE: u8 = 5;
 
@@ -23,41 +23,52 @@ struct Item<T> {
 
 // update
 
-pub enum UpdateNode<'a, T> {
-    NeedsInit(&'a mut Option<T>),
-    NeedsUpdate(&'a mut T),
-}
-
 impl<K, T> Repeat<K, T>
 where
     K: Clone + Hash + Eq + 'static,
 {
-    pub fn new() -> Self {
-        Self {
-            map: HashMap::new(),
-            order: SmallVec::new(),
+    pub fn new<I, U, F>(iter: I, update: F) -> Self
+    where
+        I: Iterator<Item = (K, U)>,
+        F: Fn(U) -> T,
+    {
+        let iter_size = iter.size_hint().0;
+        let mut map = HashMap::with_capacity(iter_size);
+        let mut order = SmallVec::with_capacity(iter_size);
+
+        for (key, value) in iter {
+            order.push(key.clone());
+            map.insert(
+                key,
+                Item {
+                    value: update(value),
+                    time_to_live: MAX_TIME_TO_LIVE,
+                },
+            );
         }
+
+        Self { map, order }
     }
 
-    pub fn update_tree<I, U, F>(&mut self, mut update: F)
+    pub fn update_tree<F>(&mut self, update: F)
     where
-        F: FnMut(&mut T),
+        F: Fn(&mut T),
     {
         for key in &self.order {
             update(&mut self.map.get_mut(key).unwrap().value);
         }
     }
 
-    pub fn update_data<I, U, F>(&mut self, iter: I, mut update: F)
+    pub fn update_data<I, U, F>(&mut self, iter: I, update: F)
     where
         I: Iterator<Item = (K, U)>,
-        F: FnMut(UpdateNode<T>, K, U),
+        F: Fn(UpdateNode<T>, U),
     {
         self.order.clear();
 
         for (k, value) in iter {
             self.order.push(k.clone());
-            match self.map.entry(k.clone()) {
+            match self.map.entry(k) {
                 Entry::Occupied(mut occ) => {
                     let item = occ.get_mut();
                     assert_ne!(
@@ -65,11 +76,11 @@ where
                         "some keys in the iterator is duplicated"
                     );
                     item.time_to_live = MAX_TIME_TO_LIVE;
-                    update(UpdateNode::NeedsUpdate(&mut item.value), k, value);
+                    update(UpdateNode::NeedsUpdate(&mut item.value), value);
                 }
                 Entry::Vacant(vac) => {
                     let mut place: Option<T> = None;
-                    update(UpdateNode::NeedsInit(&mut place), k, value);
+                    update(UpdateNode::NeedsInit(&mut place), value);
 
                     vac.insert(Item {
                         value: place.expect("new node was not inserted"),

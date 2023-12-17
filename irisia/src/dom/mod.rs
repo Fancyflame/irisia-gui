@@ -86,9 +86,7 @@ impl<El, Sty, Slt> ElementModel<El, Sty, Slt> {
         Slt: ChildNodes,
     {
         let mut in_cell = self.in_cell.borrow_mut();
-
-        let children_logically_entered = in_cell.slot.emit_event(ipe);
-
+        let children_logically_entered = in_cell.children.emit_event(ipe);
         in_cell.event_mgr.update_and_emit(
             ipe,
             self.interact_region.get(),

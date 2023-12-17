@@ -8,6 +8,7 @@ use crate::{
     application::content::GlobalContent,
     event::{standard::ElementAbandoned, EdProvider, EventDispatcher, Listen},
     primitive::Region,
+    structure::UpdateNode,
     Result, StyleGroup, StyleReader,
 };
 
@@ -49,6 +50,14 @@ impl<El, Sty, Slt> ElementModel<El, Sty, Slt> {
         Ok(RwLockReadGuard::map(self.el.try_read()?, |x| {
             x.as_ref().unwrap()
         }))
+    }
+
+    pub fn update_slot<F>(&self, update: F)
+    where
+        F: for<'a> FnOnce(UpdateNode<'a, Slt>),
+        Slt: 'static,
+    {
+        self.in_cell.borrow_mut().children.update_slot(update)
     }
 
     pub fn attached(&self) -> bool {

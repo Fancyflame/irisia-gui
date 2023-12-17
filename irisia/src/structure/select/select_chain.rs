@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 
 use crate::{
-    structure::{VisitBy, VisitOn},
+    structure::{UpdateNode, UpdateSlot, UpdateSlotFn, VisitBy, VisitOn},
     Result,
 };
 
@@ -81,6 +81,27 @@ impl SelectVisitBy for () {
             unreachable!("{EOC_ERR}");
         } else {
             0
+        }
+    }
+}
+
+impl<Slt, T, B> UpdateSlot<Slt> for SelectBody<T, B>
+where
+    T: UpdateSlot<Slt>,
+    B: UpdateSlot<Slt>,
+{
+    fn will_update() -> bool {
+        T::will_update() || B::will_update()
+    }
+
+    fn update_slot(&mut self, f: UpdateSlotFn<Slt>) {
+        if T::will_update() {
+            match &mut self.this {
+                Some(this) => f(UpdateNode::NeedsUpdate(this)),
+                this @ None => f(UpdateNode::NeedsInit(this)),
+            }
+        } else if B::will_update() {
+            self.trailing.update_slot(f);
         }
     }
 }
