@@ -1,9 +1,10 @@
+use std::future::Future;
+
 pub use self::{
     event_dispatcher::{receive::EventReceive, EventDispatcher},
     listen::Listen,
     metadata::EventMetadata,
 };
-use async_trait::async_trait;
 
 use self::event_dispatcher::lock::EventDispatcherLock;
 pub(crate) use listen::EdProvider;
@@ -15,9 +16,8 @@ pub mod standard;
 
 pub trait Event: Sized + Send + Unpin + Clone + 'static {}
 
-#[async_trait]
-pub trait SubEvent {
-    async fn handle(ed: &mut EventReceiver) -> Self;
+pub trait SubEvent: Sized {
+    fn handle(ed: &mut EventReceiver) -> impl Future<Output = Self>;
 }
 
 pub enum EventReceiver<'a> {

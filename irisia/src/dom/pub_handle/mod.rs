@@ -65,7 +65,9 @@ impl<El, Sty, Slt> ElementModel<El, Sty, Slt> {
     }
 
     /// Listen event with options
-    pub fn listen<'a>(self: &'a Rc<Self>) -> Listen<'a, Rc<Self>, (), (), (), ()> {
+    pub fn listen<'a, Async, SubEv, WithHd>(
+        self: &'a Rc<Self>,
+    ) -> Listen<'a, Rc<Self>, (), (), Async, SubEv, WithHd> {
         Listen::new(self)
     }
 

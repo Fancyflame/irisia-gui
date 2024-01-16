@@ -46,7 +46,7 @@ impl EventDispatcher {
         }
     }
 
-    pub fn listen(&self) -> Listen<Self> {
+    pub fn listen<Async, SubEv, WithHd>(&self) -> Listen<Self, (), (), Async, SubEv, WithHd> {
         Listen::new(self)
     }
 

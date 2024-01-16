@@ -9,7 +9,6 @@ edition = "2021"
 anyhow = "1"
 take_mut = "0.2"
 smallvec = "1.9"
-async-trait = "0.1"
 tokio = { version = "1.32", features = [
     "sync",
     "time",
