@@ -7,9 +7,6 @@ use crate::{
     Event,
 };
 
-mod auto_infer;
-mod exec;
-
 #[derive(Debug)]
 pub struct Listen<'a, Ep, Once, Trusted, Async, SubEv, WithHd> {
     ep: &'a Ep,
@@ -79,9 +76,9 @@ auto_fn! {
     asyn:            <T3, T4> <FlagSet, T3, T4>,
     sub_event:       <T2, T4> <T2, FlagSet, T4>,
     with_handle:     <T2, T3> <T2, T3, FlagSet>,
-    not_asyn:       <T3, T4> <(), T3, T4>,
-    not_sub_event:   <T2, T4> <T2, (), T4>,
-    not_with_handle: <T2, T3> <T2, T3, ()>,
+    sync:            <T3, T4> <(), T3, T4>,
+    normal_event:    <T2, T4> <T2, (), T4>,
+    no_handle:       <T2, T3> <T2, T3, ()>,
 }
 
 pub trait EdProvider: Clone + 'static {
