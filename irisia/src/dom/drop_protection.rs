@@ -48,6 +48,7 @@ where
                 indep_layer: None,
                 context: Context::None,
             }),
+            slot,
             draw_region: Default::default(),
             interact_region: Cell::new(None),
             flag_dirty_setted: Cell::new(false),

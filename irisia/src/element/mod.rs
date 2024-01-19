@@ -47,7 +47,7 @@ where
 }
 
 pub trait ElementCreate<Pr>: Element + Sized {
-    fn el_create<Slt>(props: Pr, slot: Slot<Slt>) -> (Self, ChildBox<Slt>)
+    fn el_create<Slt>(props: Pr, slot: Slot<Slt>) -> (Self, ChildBox)
     where
         Slt: ChildNodes;
 }

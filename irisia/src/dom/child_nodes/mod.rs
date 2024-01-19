@@ -7,7 +7,7 @@ use crate::{
     dom::{data_structure::Context, layer::LayerRebuilder},
     element::GlobalContent,
     primitive::Region,
-    structure::{UpdateNode, UpdateSlot, VisitBy, VisitOn},
+    structure::{VisitBy, VisitOn},
     style::style_box::RawStyleGroup,
     ElModel, Result, StyleReader,
 };
@@ -20,24 +20,14 @@ mod render_element;
 type TypeElimatedSrGroup<'a> = &'a mut dyn FnMut(&dyn RawStyleGroup);
 type TypeElimatedLayouter<'a> = &'a mut dyn FnMut(&dyn RawStyleGroup) -> Option<Region>;
 
-pub struct ChildBox<Slt>(Box<dyn DynTrait<Slt>>);
+pub struct ChildBox(Box<dyn ChildNodes>);
 
-impl<Slt: 'static> ChildBox<Slt> {
+impl ChildBox {
     pub fn new<T>(children: T) -> Self
     where
-        T: ChildNodes + UpdateSlot<Slt>,
-        Slt: ChildNodes,
+        T: ChildNodes,
     {
         ChildBox(Box::new(children))
-    }
-
-    pub fn update_slot<F>(&mut self, updater: F)
-    where
-        F: for<'a> FnOnce(UpdateNode<'a, Slt>),
-    {
-        let mut updater = Some(updater);
-        self.0
-            .update_slot(&mut |slot| updater.take().unwrap()(slot))
     }
 
     pub fn render<'a, 'lr>(&self, re: &'a mut RenderElement<'_, 'lr>) -> Result<()> {
@@ -72,20 +62,6 @@ impl<Slt: 'static> ChildBox<Slt> {
     pub fn emit_event(&self, ipe: &IncomingPointerEvent) -> bool {
         self.0.emit_event_raw(ipe)
     }
-}
-
-trait DynTrait<Slt>
-where
-    Self: ChildNodes + UpdateSlot<Slt>,
-    Slt: ChildNodes,
-{
-}
-
-impl<T, Slt> DynTrait<Slt> for T
-where
-    Self: ChildNodes + UpdateSlot<Slt>,
-    Slt: ChildNodes,
-{
 }
 
 pub trait ChildNodes: 'static {

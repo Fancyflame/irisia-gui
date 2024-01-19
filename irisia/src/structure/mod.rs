@@ -27,15 +27,6 @@ pub trait VisitBy {
     }
 }
 
-type UpdateSlotFn<'a, 'b, Slt> = &'a mut dyn FnMut(UpdateNode<'b, Slt>);
-
-pub trait UpdateSlot<Slt> {
-    fn will_update() -> bool
-    where
-        Self: Sized;
-    fn update_slot(&mut self, f: UpdateSlotFn<Slt>);
-}
-
 pub enum UpdateNode<'a, T> {
     NeedsInit(&'a mut Option<T>),
     NeedsUpdate(&'a mut T),

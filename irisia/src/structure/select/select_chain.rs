@@ -1,43 +1,48 @@
 use anyhow::anyhow;
 
 use crate::{
-    structure::{UpdateNode, UpdateSlot, UpdateSlotFn, VisitBy, VisitOn},
+    structure::{Slot, VisitBy, VisitOn},
     Result,
 };
 
 pub trait SelectVisitBy {
-    type ExtendNode<T: VisitBy>: SelectVisitBy;
+    type ExtendNode<T: VisitBy, Slt>: SelectVisitBy;
 
-    fn extend<T: VisitBy>(self) -> Self::ExtendNode<T>;
+    fn extend<T: VisitBy, Slt>(self, slot: Slot<Slt>) -> Self::ExtendNode<T, Slt>;
     fn visit<V: VisitOn>(&self, index: usize, visitor: &mut V) -> Result<()>;
     fn len(&self, index: usize) -> usize;
 }
 
-pub struct SelectBody<T, B> {
-    pub this: Option<T>,
+pub struct SelectBody<T, B, Slt> {
+    pub data: BranchData<T, Slt>,
     pub trailing: B,
 }
 
-impl<T, B> SelectVisitBy for SelectBody<T, B>
+pub enum BranchData<T, Slt> {
+    Initialized(T),
+    Uninitialized(Slot<Slt>),
+}
+
+impl<T, B, Slt> SelectVisitBy for SelectBody<T, B, Slt>
 where
     T: VisitBy,
     B: SelectVisitBy,
 {
-    type ExtendNode<U: VisitBy> = SelectBody<T, B::ExtendNode<U>>;
+    type ExtendNode<U: VisitBy, Slt2> = SelectBody<T, B::ExtendNode<U, Slt2>, Slt>;
 
-    fn extend<U: VisitBy>(self) -> Self::ExtendNode<U> {
+    fn extend<U: VisitBy, Slt2>(self, slot: Slot<Slt2>) -> Self::ExtendNode<U, Slt2> {
         SelectBody {
-            this: self.this,
-            trailing: self.trailing.extend(),
+            data: self.data,
+            trailing: self.trailing.extend(slot),
         }
     }
 
     fn visit<V: VisitOn>(&self, index: usize, visitor: &mut V) -> crate::Result<()> {
         match index.checked_sub(1) {
             Some(new_index) => self.trailing.visit(new_index, visitor),
-            None => match &self.this {
-                Some(this) => this.visit_by(visitor),
-                None => {
+            None => match &self.data {
+                BranchData::Initialized(this) => this.visit_by(visitor),
+                BranchData::Uninitialized(_) => {
                     panic!("attempt to select an uninitialized select-body");
                 }
             },
@@ -47,11 +52,12 @@ where
     fn len(&self, index: usize) -> usize {
         match index.checked_sub(1) {
             Some(new_index) => self.trailing.len(new_index),
-            None => self
-                .this
-                .as_ref()
-                .map(T::len)
-                .expect("attempt to select an uninitialized select-body"),
+            None => match &self.data {
+                BranchData::Initialized(this) => this.len(),
+                BranchData::Uninitialized(_) => {
+                    panic!("attempt to select an uninitialized select-body")
+                }
+            },
         }
     }
 }
@@ -59,11 +65,11 @@ where
 const EOC_ERR: &str = "reached end of select chain";
 
 impl SelectVisitBy for () {
-    type ExtendNode<T: VisitBy> = SelectBody<T, ()>;
+    type ExtendNode<T: VisitBy, Slt> = SelectBody<T, (), Slt>;
 
-    fn extend<T: VisitBy>(self) -> Self::ExtendNode<T> {
+    fn extend<T: VisitBy, Slt>(self, slot: Slot<Slt>) -> Self::ExtendNode<T, Slt> {
         SelectBody {
-            this: None,
+            data: BranchData::Uninitialized(slot),
             trailing: (),
         }
     }
@@ -81,27 +87,6 @@ impl SelectVisitBy for () {
             unreachable!("{EOC_ERR}");
         } else {
             0
-        }
-    }
-}
-
-impl<Slt, T, B> UpdateSlot<Slt> for SelectBody<T, B>
-where
-    T: UpdateSlot<Slt>,
-    B: UpdateSlot<Slt>,
-{
-    fn will_update() -> bool {
-        T::will_update() || B::will_update()
-    }
-
-    fn update_slot(&mut self, f: UpdateSlotFn<Slt>) {
-        if T::will_update() {
-            match &mut self.this {
-                Some(this) => f(UpdateNode::NeedsUpdate(this)),
-                this @ None => f(UpdateNode::NeedsInit(this)),
-            }
-        } else if B::will_update() {
-            self.trailing.update_slot(f);
         }
     }
 }

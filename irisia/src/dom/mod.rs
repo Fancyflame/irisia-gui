@@ -94,7 +94,7 @@ impl<El, Sty, Slt> ElementModel<El, Sty, Slt> {
         )
     }
 
-    fn get_children_layer(&self, in_cell: &InsideRefCell<Sty, Slt>) -> Weak<dyn StandaloneRender> {
+    fn get_children_layer(&self, in_cell: &InsideRefCell<Sty>) -> Weak<dyn StandaloneRender> {
         match in_cell.indep_layer {
             Some(_) => self.standalone_render.clone(),
             None => match &in_cell.parent_layer() {
@@ -118,7 +118,7 @@ where
     }
 }
 
-impl<Sty, Slt> InsideRefCell<Sty, Slt> {
+impl<Sty> InsideRefCell<Sty> {
     fn ctx(&self) -> Result<&AttachedCtx> {
         match &self.context {
             Context::None => Err(anyhow!("element have not attached to window yet")),

@@ -9,15 +9,15 @@ impl<T> Slot<T> {
         Self(Rc::new(RefCell::new(v)))
     }
 
-    pub(crate) fn update<F, R>(&self, update: F) -> R
+    pub(crate) fn update<F>(&self, update: F)
     where
-        F: FnOnce(&mut T) -> R,
+        F: FnOnce(&mut T),
     {
         update(&mut self.0.borrow_mut())
     }
 
     pub(crate) fn private_clone(&self) -> Self {
-        Self(self.0.clone())
+        Slot(self.0.clone())
     }
 }
 
