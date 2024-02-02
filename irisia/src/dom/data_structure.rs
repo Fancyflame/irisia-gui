@@ -3,8 +3,6 @@ use std::{
     rc::{Rc, Weak},
 };
 
-use tokio::sync::RwLock;
-
 use crate::{
     application::{
         content::GlobalContent, event_comp::NodeEventMgr, redraw_scheduler::StandaloneRender,
@@ -19,7 +17,7 @@ use super::{child_nodes::ChildBox, layer::SharedLayerCompositer};
 pub struct ElementModel<El, Sty, Slt> {
     pub(super) this: Weak<Self>,
     pub(super) standalone_render: Weak<dyn StandaloneRender>,
-    pub(super) el: RwLock<Option<El>>,
+    pub(super) el: RefCell<Option<El>>,
     pub(super) ed: EventDispatcher,
     pub(super) draw_region: Cell<Region>,
     pub(super) interact_region: Cell<Option<Region>>,

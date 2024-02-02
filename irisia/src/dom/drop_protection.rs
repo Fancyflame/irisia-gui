@@ -1,5 +1,3 @@
-use tokio::sync::RwLock;
-
 use crate::{
     application::event_comp::NodeEventMgr, element::ElementCreate, event::EventDispatcher,
     structure::Slot, style::StyleGroup, Element,
@@ -22,15 +20,9 @@ where
     Sty: StyleGroup + 'static,
     Slt: ChildNodes,
 {
-    pub fn new<Pr, Oc>(
-        props: Pr,
-        styles: Sty,
-        slot: Slt,
-        on_create: Oc,
-    ) -> DropProtection<El, Sty, Slt>
+    pub fn new<Pr>(props: Pr, styles: Sty, slot: Slt) -> DropProtection<El, Sty, Slt>
     where
         El: ElementCreate<Pr>,
-        Oc: FnOnce(&RcElementModel<El, Sty, Slt>),
     {
         let ed = EventDispatcher::new();
         let slot = Slot::new(slot);
@@ -39,7 +31,7 @@ where
         let this = Rc::new_cyclic(|weak: &Weak<_>| ElementModel {
             this: weak.clone(),
             standalone_render: weak.clone() as _,
-            el: RwLock::new(Some(el)),
+            el: RefCell::new(Some(el)),
             ed: ed.clone(),
             in_cell: RefCell::new(InsideRefCell {
                 children: cb,
@@ -56,7 +48,6 @@ where
         });
 
         El::on_created(&this);
-        on_create(&this);
         this.set_dirty();
         DropProtection(this)
     }

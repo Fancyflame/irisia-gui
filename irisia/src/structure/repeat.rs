@@ -1,19 +1,21 @@
 use std::{
+    cell::Cell,
     collections::{hash_map::Entry, HashMap},
     hash::Hash,
 };
 
 use smallvec::SmallVec;
 
-use crate::Result;
+use crate::{Result, __private::dep_stack::Bitset};
 
-use super::{UpdateNode, VisitBy, VisitOn};
+use super::{tracert::TracertBase, StructureUpdateTo, Updating, VisitBy, VisitOn};
 
-const MAX_TIME_TO_LIVE: u8 = 5;
+const MAX_TIME_TO_LIVE: u8 = 3;
 
-pub struct Repeat<K, T> {
+pub struct Repeat<K, T, const WD: usize> {
     map: HashMap<K, Item<T>>,
     order: SmallVec<[K; 5]>,
+    dependents: Cell<Bitset<WD>>,
 }
 
 struct Item<T> {
@@ -21,87 +23,12 @@ struct Item<T> {
     time_to_live: u8,
 }
 
-// update
-
-impl<K, T> Repeat<K, T>
-where
-    K: Clone + Hash + Eq + 'static,
-{
-    pub fn new<I, U, F>(iter: I, update: F) -> Self
-    where
-        I: Iterator<Item = (K, U)>,
-        F: Fn(U) -> T,
-    {
-        let iter_size = iter.size_hint().0;
-        let mut map = HashMap::with_capacity(iter_size);
-        let mut order = SmallVec::with_capacity(iter_size);
-
-        for (key, value) in iter {
-            order.push(key.clone());
-            map.insert(
-                key,
-                Item {
-                    value: update(value),
-                    time_to_live: MAX_TIME_TO_LIVE,
-                },
-            );
-        }
-
-        Self { map, order }
-    }
-
-    pub fn update_tree<F>(&mut self, update: F)
-    where
-        F: Fn(&mut T),
-    {
-        for key in &self.order {
-            update(&mut self.map.get_mut(key).unwrap().value);
-        }
-    }
-
-    pub fn update_data<I, U, F>(&mut self, iter: I, update: F)
-    where
-        I: Iterator<Item = (K, U)>,
-        F: Fn(UpdateNode<T>, U),
-    {
-        self.order.clear();
-
-        for (k, value) in iter {
-            self.order.push(k.clone());
-            match self.map.entry(k) {
-                Entry::Occupied(mut occ) => {
-                    let item = occ.get_mut();
-                    assert_ne!(
-                        item.time_to_live, MAX_TIME_TO_LIVE,
-                        "some keys in the iterator is duplicated"
-                    );
-                    item.time_to_live = MAX_TIME_TO_LIVE;
-                    update(UpdateNode::NeedsUpdate(&mut item.value), value);
-                }
-                Entry::Vacant(vac) => {
-                    let mut place: Option<T> = None;
-                    update(UpdateNode::NeedsInit(&mut place), value);
-
-                    vac.insert(Item {
-                        value: place.expect("new node was not inserted"),
-                        time_to_live: MAX_TIME_TO_LIVE,
-                    });
-                }
-            }
-        }
-
-        self.map
-            .retain(|_, item| match item.time_to_live.checked_sub(1) {
-                Some(ttl) => {
-                    item.time_to_live = ttl;
-                    true
-                }
-                None => false,
-            });
-    }
+pub struct RepeatUpdater<Fi, Fm> {
+    get_iter: Fi,
+    map: Fm,
 }
 
-impl<K, T> VisitBy for Repeat<K, T>
+impl<K, T, const WD: usize> VisitBy for Repeat<K, T, WD>
 where
     K: Hash + Eq,
     T: VisitBy,
@@ -118,5 +45,102 @@ where
 
     fn len(&self) -> usize {
         self.order.iter().map(|key| self.map[key].value.len()).sum()
+    }
+}
+
+impl<K, T, Fi, I, Fm, Tu, const WD: usize> StructureUpdateTo<WD> for RepeatUpdater<Fi, Fm>
+where
+    Self: VisitBy,
+    K: Hash + Eq + Clone,
+    Fi: FnOnce() -> I,
+    I: Iterator,
+    Fm: for<'a> FnMut(I::Item, TracertBase<'a, WD>) -> (K, Tu),
+    Tu: StructureUpdateTo<WD, Target = T>,
+{
+    type Target = Repeat<K, T, WD>;
+    // 1 for the iterator expression
+    const UPDATE_POINTS: u32 = 1 + Tu::UPDATE_POINTS;
+
+    fn create(mut self, mut info: Updating<WD>) -> Self::Target {
+        let mut map = HashMap::new();
+        let mut order = SmallVec::new();
+        let dependents: Cell<Bitset<WD>> = Default::default();
+
+        let mut new_info = info.inherit(1, true);
+
+        let tracert_base = TracertBase::new(new_info.stack, &dependents);
+        let iterator = new_info.scoped(0, || {
+            (self.get_iter)().map(|item| (self.map)(item, tracert_base))
+        });
+
+        for (key, upd) in iterator {
+            order.push(key.clone());
+            map.insert(
+                key,
+                Item {
+                    value: upd.create(new_info.inherit(0, true)),
+                    time_to_live: MAX_TIME_TO_LIVE,
+                },
+            );
+        }
+
+        Repeat {
+            map,
+            order,
+            dependents,
+        }
+    }
+
+    fn update(mut self, target: &mut Self::Target, mut info: Updating<WD>) {
+        if info.no_update::<Self>() {
+            return;
+        }
+
+        info.step_if(0);
+
+        let mut new_info = info.inherit(1, true);
+        new_info.points.union(&target.dependents.take());
+
+        let tracert_base = TracertBase::new(new_info.stack, &target.dependents);
+        let iterator = new_info.scoped(0, || {
+            (self.get_iter)().map(|item| (self.map)(item, tracert_base))
+        });
+
+        target.order.clear();
+        for (key, upd) in iterator {
+            target.order.push(key.clone());
+
+            match target.map.entry(key) {
+                Entry::Occupied(mut occ) => {
+                    let item = occ.get_mut();
+                    assert_ne!(
+                        item.time_to_live, MAX_TIME_TO_LIVE,
+                        "some keys in the iterator is duplicated"
+                    );
+                    item.time_to_live = MAX_TIME_TO_LIVE;
+                    upd.update(&mut item.value, new_info.inherit(0, true));
+                }
+                Entry::Vacant(vac) => {
+                    vac.insert(Item {
+                        value: upd.create(new_info.inherit(0, true)),
+                        time_to_live: MAX_TIME_TO_LIVE,
+                    });
+                }
+            }
+        }
+
+        target
+            .map
+            .retain(|_, item| match item.time_to_live.checked_sub(1) {
+                Some(ttl) => {
+                    item.time_to_live = ttl;
+                    true
+                }
+                None => false,
+            });
+
+        info.points.skip_range(
+            info.update_point_offset + 1..info.update_point_offset + Self::UPDATE_POINTS,
+        );
     }
 }

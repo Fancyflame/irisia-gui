@@ -93,7 +93,7 @@ where
                 close_handle,
             });
 
-            let root_element = ElementModel::new((), (), (), |_| {});
+            let root_element = ElementModel::new((), (), ());
 
             root_element.set_draw_region(window_size_to_draw_region(gc.window().inner_size()));
             gc.request_redraw(root_element.0.clone());

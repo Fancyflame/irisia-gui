@@ -1,8 +1,9 @@
 use std::{cell::RefCell, rc::Rc};
 
-use super::VisitBy;
+use super::{StructureUpdateTo, VisitBy, VisitOn};
 
 pub struct Slot<T>(Rc<RefCell<T>>);
+pub struct SlotUpdater<'a, T>(&'a Slot<T>);
 
 impl<T> Slot<T> {
     pub(crate) fn new(v: T) -> Self {
@@ -27,7 +28,7 @@ where
 {
     fn visit_by<V>(&self, visitor: &mut V) -> crate::Result<()>
     where
-        V: super::VisitOn,
+        V: VisitOn,
     {
         self.0.borrow().visit_by(visitor)
     }
@@ -38,5 +39,20 @@ where
 
     fn is_empty(&self) -> bool {
         self.0.borrow().is_empty()
+    }
+}
+
+impl<T, const WD: usize> StructureUpdateTo<WD> for SlotUpdater<'_, T> {
+    type Target = Slot<T>;
+    const UPDATE_POINTS: u32 = 0;
+
+    fn create(self, _: super::Updating<WD>) -> Self::Target {
+        self.0.private_clone()
+    }
+
+    fn update(self, target: &mut Self::Target, _: super::Updating<WD>) {
+        if !Rc::ptr_eq(&self.0 .0, &target.0) {
+            *target = self.0.private_clone();
+        }
     }
 }

@@ -1,8 +1,10 @@
-use std::{future::Future, rc::Rc};
-use tokio::{
-    sync::{RwLockReadGuard, RwLockWriteGuard, TryLockError},
-    task::JoinHandle,
+use anyhow::anyhow;
+use std::{
+    cell::{Ref, RefMut},
+    future::Future,
+    rc::Rc,
 };
+use tokio::{sync::TryLockError, task::JoinHandle};
 
 use crate::{
     application::content::GlobalContent,
@@ -10,8 +12,6 @@ use crate::{
     primitive::Region,
     Result, StyleGroup, StyleReader,
 };
-
-use self::write_guard::ElWriteGuard;
 
 use super::{
     data_structure::{Context, ElementModel},
@@ -24,31 +24,25 @@ pub type TryLockResult<T> = std::result::Result<T, TryLockError>;
 
 impl<El, Sty, Slt> ElementModel<El, Sty, Slt> {
     /// Get a write guard of this element and setting dirty.
-    /// `None` if this element will no longer used.
-    pub async fn el_write<'a>(self: &'a Rc<Self>) -> ElWriteGuard<'a, El, Rc<Self>> {
-        ElWriteGuard {
-            write: RwLockWriteGuard::map(self.el.write().await, |x| x.as_mut().unwrap()),
-            set_dirty: self,
-        }
+    /// Panics if this element is no longer used.
+    pub fn el_mut(&self) -> RefMut<El> {
+        self.try_el_mut().unwrap()
+    }
+
+    pub fn try_el_mut(&self) -> Result<RefMut<El>> {
+        RefMut::filter_map(self.el.borrow_mut(), Option::as_mut)
+            .map_err(|_| anyhow!("this element is no longer used"))
     }
 
     /// Get a read guard of this element and dirty flag is not affected.
-    /// `None` if this element will no longer used.
-    pub async fn el_read(&self) -> RwLockReadGuard<El> {
-        RwLockReadGuard::map(self.el.read().await, |x| x.as_ref().unwrap())
+    /// Panics if this element is no longer used.
+    pub fn el(&self) -> Ref<El> {
+        self.try_el().unwrap()
     }
 
-    pub fn try_el_write<'a>(self: &'a Rc<Self>) -> TryLockResult<ElWriteGuard<'a, El, Rc<Self>>> {
-        Ok(ElWriteGuard {
-            write: RwLockWriteGuard::map(self.el.try_write()?, |x| x.as_mut().unwrap()),
-            set_dirty: self,
-        })
-    }
-
-    pub fn try_el_read(&self) -> TryLockResult<RwLockReadGuard<El>> {
-        Ok(RwLockReadGuard::map(self.el.try_read()?, |x| {
-            x.as_ref().unwrap()
-        }))
+    pub fn try_el(&self) -> Result<Ref<El>> {
+        Ref::filter_map(self.el.borrow(), Option::as_ref)
+            .map_err(|_| anyhow!("this element is no longer used"))
     }
 
     pub fn update_slot<F>(&self, update: F)

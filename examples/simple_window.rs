@@ -106,6 +106,6 @@ fn rect_rt(this: &ElModel!(App), rect: &ElModel!(Rectangle), index: usize) {
         .asyn()
         .spawn(move |_: PointerDown| async move {
             println!("rectangle {} deleted", index);
-            this.el_write().await.unwrap().rects[index].take();
+            this.el_mut().await.unwrap().rects[index].take();
         });
 }

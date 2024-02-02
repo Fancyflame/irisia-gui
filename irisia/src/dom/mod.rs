@@ -94,6 +94,10 @@ impl<El, Sty, Slt> ElementModel<El, Sty, Slt> {
         )
     }
 
+    pub(crate) fn set_styles(&self, styles: Sty) {
+        self.in_cell.borrow_mut().styles = styles;
+    }
+
     fn get_children_layer(&self, in_cell: &InsideRefCell<Sty>) -> Weak<dyn StandaloneRender> {
         match in_cell.indep_layer {
             Some(_) => self.standalone_render.clone(),
@@ -111,10 +115,8 @@ where
 {
     fn set_abandoned(self: &Rc<Self>) {
         let this = self.clone();
-        tokio::task::spawn_local(async move {
-            this.el.write().await.take();
-            this.in_cell.borrow_mut().context = Context::Destroyed;
-        });
+        this.el.take();
+        this.in_cell.borrow_mut().context = Context::Destroyed;
     }
 }
 
