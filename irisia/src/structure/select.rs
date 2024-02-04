@@ -1,14 +1,17 @@
 use std::cell::Cell;
 
-use crate::{Result, __private::dep_stack::Bitset};
+use crate::{
+    dep_watch::{bitset::UsizeArray, Bitset},
+    Result,
+};
 
 use super::{StructureUpdateTo, Updating, VisitBy, VisitOn};
 
-pub struct Select<T, C, const WD: usize> {
+pub struct Select<T, C, A: UsizeArray> {
     selected: bool,
     data: Option<T>,
     child: Option<C>,
-    update_delay: Cell<Bitset<WD>>,
+    update_delay: Cell<Bitset<A>>,
 }
 
 pub struct SelectUpdater<F>(F);
@@ -17,7 +20,7 @@ pub enum SelectUpdateBranch<Tu, Cu> {
     NotSelected(Cu),
 }
 
-impl<T, C, const WD: usize> VisitBy for Select<T, C, WD>
+impl<T, C, A: UsizeArray> VisitBy for Select<T, C, A>
 where
     T: VisitBy,
     C: VisitBy,
@@ -42,17 +45,19 @@ where
     }
 }
 
-impl<T, C, F, Tu, Cu, const WD: usize> StructureUpdateTo<WD> for SelectUpdater<F>
+impl<T, C, F, Tu, Cu, A: UsizeArray> StructureUpdateTo<A> for SelectUpdater<F>
 where
+    T: VisitBy + 'static,
+    C: VisitBy + 'static,
     F: FnOnce() -> SelectUpdateBranch<Tu, Cu>,
-    Tu: StructureUpdateTo<WD, Target = T>,
-    Cu: StructureUpdateTo<WD, Target = C>,
+    Tu: StructureUpdateTo<A, Target = T>,
+    Cu: StructureUpdateTo<A, Target = C>,
 {
-    type Target = Select<T, C, WD>;
+    type Target = Select<T, C, A>;
     // 1 for condition expression
     const UPDATE_POINTS: u32 = 1 + Tu::UPDATE_POINTS + Cu::UPDATE_POINTS;
 
-    fn create(self, mut info: Updating<WD>) -> Self::Target {
+    fn create(self, mut info: Updating<A>) -> Self::Target {
         match info.scoped(0, self.0) {
             SelectUpdateBranch::Selected(upd) => Select {
                 selected: true,
@@ -69,7 +74,7 @@ where
         }
     }
 
-    fn update(self, target: &mut Self::Target, mut info: Updating<WD>) {
+    fn update(self, target: &mut Self::Target, mut info: Updating<A>) {
         if info.no_update::<Self>() {
             return;
         }

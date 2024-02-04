@@ -2,8 +2,9 @@ use std::marker::PhantomData;
 
 use super::{StructureUpdateTo, Updating, VisitBy, VisitOn};
 use crate::{
+    dep_watch::bitset::UsizeArray,
     dom::{DropProtection, ElementModel},
-    element::{ElementCreate, RcElementModel},
+    element::RcElementModel,
     ChildNodes, Element, Result, StyleGroup,
 };
 
@@ -41,15 +42,15 @@ where
     }
 }
 
-impl<El, Sty, Slt, const P: u32, Fe, Pr, Su, Fs, Oc, const WD: usize> StructureUpdateTo<WD>
+impl<El, Sty, Slt, const P: u32, Fe, Pr, Su, Fs, Oc, A: UsizeArray> StructureUpdateTo<A>
     for OnceUpdater<El, P, Fe, Fs, Su, Oc>
 where
     Self: VisitBy,
-    El: Element + ElementCreate<Pr>,
+    El: Element + From<Pr>,
     Sty: StyleGroup + 'static,
     Slt: VisitBy + 'static,
-    Su: StructureUpdateTo<WD, Target = Slt>,
-    Fe: FnOnce(Option<&mut El>, Updating<WD>) -> Option<Pr>,
+    Su: StructureUpdateTo<A, Target = Slt>,
+    Fe: FnOnce(Option<&mut El>, Updating<A>) -> Option<Pr>,
     Fs: FnOnce() -> Sty,
     Oc: FnOnce(&RcElementModel<El, Sty, Slt>),
 {
@@ -57,7 +58,7 @@ where
     // 1 for style update
     const UPDATE_POINTS: u32 = P + Su::UPDATE_POINTS + 1;
 
-    fn create(self, mut info: Updating<WD>) -> Self::Target {
+    fn create(self, mut info: Updating<A>) -> Self::Target {
         let Some(props) = (self.update_el)(None, info.inherit(0, false)) else {
             panic!("element instance must be returned when the `once` node is creating");
         };
@@ -70,7 +71,7 @@ where
         Once { data }
     }
 
-    fn update(self, target: &mut Self::Target, mut info: Updating<WD>) {
+    fn update(self, target: &mut Self::Target, mut info: Updating<A>) {
         if info.no_update::<Self>() {
             return;
         }

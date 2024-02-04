@@ -1,24 +1,24 @@
 use std::{cell::Cell, ops::Deref};
 
-use crate::__private::dep_stack::{Bitset, DependentStack};
+use crate::dep_watch::{bitset::UsizeArray, Bitset, DependentStack};
 
-pub struct Tracert<'a, T, const WD: usize> {
+pub struct Tracert<'a, T, A: UsizeArray> {
     data: T,
-    base: TracertBase<'a, WD>,
+    base: TracertBase<'a, A>,
 }
 
 #[derive(Clone, Copy)]
-pub struct TracertBase<'a, const WD: usize> {
-    pub(crate) dep_stack: &'a DependentStack<WD>,
-    pub(crate) bitset: &'a Cell<Bitset<WD>>,
+pub struct TracertBase<'a, A: UsizeArray> {
+    pub(crate) dep_stack: &'a DependentStack<A>,
+    pub(crate) bitset: &'a Cell<Bitset<A>>,
 }
 
 pub trait TupleWatch {
-    type Output<'a, const WD: usize>;
-    fn trace_all<'a, const WD: usize>(self, tb: TracertBase<'a, WD>) -> Self::Output<'a, WD>;
+    type Output<'a, A: UsizeArray>;
+    fn trace_all<'a, A: UsizeArray>(self, tb: TracertBase<'a, A>) -> Self::Output<'a, A>;
 }
 
-impl<T, const WD: usize> Deref for Tracert<'_, T, WD> {
+impl<T, A: UsizeArray> Deref for Tracert<'_, T, A> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
         self.base
@@ -28,16 +28,16 @@ impl<T, const WD: usize> Deref for Tracert<'_, T, WD> {
     }
 }
 
-impl<'a, const WD: usize> TracertBase<'a, WD> {
-    pub(crate) fn new(dep_stack: &'a DependentStack<WD>, bitset: &'a Cell<Bitset<WD>>) -> Self {
+impl<'a, A: UsizeArray> TracertBase<'a, A> {
+    pub(crate) fn new(dep_stack: &'a DependentStack<A>, bitset: &'a Cell<Bitset<A>>) -> Self {
         Self { dep_stack, bitset }
     }
 
-    pub fn tuple_into_tracert<T: TupleWatch>(self, tuple: T) -> T::Output<'a, WD> {
+    pub fn tuple_into_tracert<T: TupleWatch>(self, tuple: T) -> T::Output<'a, A> {
         tuple.trace_all(self)
     }
 
-    pub fn into_tracert<T>(self, data: T) -> Tracert<'a, T, WD> {
+    pub fn into_tracert<T>(self, data: T) -> Tracert<'a, T, A> {
         Tracert { data, base: self }
     }
 }
@@ -46,9 +46,9 @@ macro_rules! trace_tuple {
     ()=>{};
     ($T0:ident $var0:ident $($T:ident $var:ident)*) => {
         impl<$($T),*> TupleWatch for ($($T,)*) {
-            type Output<'a, const WD: usize> = ($(Tracert<'a, $T, WD>,)*);
+            type Output<'a, A: UsizeArray> = ($(Tracert<'a, $T, A>,)*);
 
-            fn trace_all<'a, const WD: usize>(self, _tb: TracertBase<'a, WD>) -> Self::Output<'a, WD> {
+            fn trace_all<'a, A: UsizeArray>(self, _tb: TracertBase<'a, A>) -> Self::Output<'a, A> {
                 let ($($var,)*) = self;
                 ($(_tb.into_tracert($var),)*)
             }

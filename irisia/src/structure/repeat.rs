@@ -6,16 +6,19 @@ use std::{
 
 use smallvec::SmallVec;
 
-use crate::{Result, __private::dep_stack::Bitset};
+use crate::{
+    dep_watch::{bitset::UsizeArray, Bitset},
+    Result,
+};
 
 use super::{tracert::TracertBase, StructureUpdateTo, Updating, VisitBy, VisitOn};
 
 const MAX_TIME_TO_LIVE: u8 = 3;
 
-pub struct Repeat<K, T, const WD: usize> {
+pub struct Repeat<K, T, A: UsizeArray> {
     map: HashMap<K, Item<T>>,
     order: SmallVec<[K; 5]>,
-    dependents: Cell<Bitset<WD>>,
+    dependents: Cell<Bitset<A>>,
 }
 
 struct Item<T> {
@@ -28,7 +31,7 @@ pub struct RepeatUpdater<Fi, Fm> {
     map: Fm,
 }
 
-impl<K, T, const WD: usize> VisitBy for Repeat<K, T, WD>
+impl<K, T, A: UsizeArray> VisitBy for Repeat<K, T, A>
 where
     K: Hash + Eq,
     T: VisitBy,
@@ -48,23 +51,24 @@ where
     }
 }
 
-impl<K, T, Fi, I, Fm, Tu, const WD: usize> StructureUpdateTo<WD> for RepeatUpdater<Fi, Fm>
+impl<K, T, Fi, I, Fm, Tu, A: UsizeArray> StructureUpdateTo<A> for RepeatUpdater<Fi, Fm>
 where
     Self: VisitBy,
-    K: Hash + Eq + Clone,
+    K: Hash + Eq + Clone + 'static,
+    T: VisitBy + 'static,
     Fi: FnOnce() -> I,
     I: Iterator,
-    Fm: for<'a> FnMut(I::Item, TracertBase<'a, WD>) -> (K, Tu),
-    Tu: StructureUpdateTo<WD, Target = T>,
+    Fm: for<'a> FnMut(I::Item, TracertBase<'a, A>) -> (K, Tu),
+    Tu: StructureUpdateTo<A, Target = T>,
 {
-    type Target = Repeat<K, T, WD>;
+    type Target = Repeat<K, T, A>;
     // 1 for the iterator expression
     const UPDATE_POINTS: u32 = 1 + Tu::UPDATE_POINTS;
 
-    fn create(mut self, mut info: Updating<WD>) -> Self::Target {
+    fn create(mut self, mut info: Updating<A>) -> Self::Target {
         let mut map = HashMap::new();
         let mut order = SmallVec::new();
-        let dependents: Cell<Bitset<WD>> = Default::default();
+        let dependents: Cell<Bitset<A>> = Default::default();
 
         let mut new_info = info.inherit(1, true);
 
@@ -91,7 +95,7 @@ where
         }
     }
 
-    fn update(mut self, target: &mut Self::Target, mut info: Updating<WD>) {
+    fn update(mut self, target: &mut Self::Target, mut info: Updating<A>) {
         if info.no_update::<Self>() {
             return;
         }
@@ -139,8 +143,7 @@ where
                 None => false,
             });
 
-        info.points.skip_range(
-            info.update_point_offset + 1..info.update_point_offset + Self::UPDATE_POINTS,
-        );
+        info.points
+            .skip_range(info.update_point_offset..info.update_point_offset + Self::UPDATE_POINTS);
     }
 }

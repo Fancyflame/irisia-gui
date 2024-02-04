@@ -10,11 +10,12 @@ use crate::{
     event::EventDispatcher,
     primitive::Region,
     structure::Slot,
+    Element,
 };
 
 use super::{child_nodes::ChildBox, layer::SharedLayerCompositer};
 
-pub struct ElementModel<El, Sty, Slt> {
+pub struct ElementModel<El: Element, Sty, Slt> {
     pub(super) this: Weak<Self>,
     pub(super) standalone_render: Weak<dyn StandaloneRender>,
     pub(super) el: RefCell<Option<El>>,
@@ -24,11 +25,11 @@ pub struct ElementModel<El, Sty, Slt> {
     pub(super) acquire_independent_layer: Cell<bool>,
     pub(super) flag_dirty_setted: Cell<bool>,
     pub(super) slot: Slot<Slt>,
-    pub(super) in_cell: RefCell<InsideRefCell<Sty>>,
+    pub(super) in_cell: RefCell<InsideRefCell<El, Sty>>,
 }
 
-pub(super) struct InsideRefCell<Sty> {
-    pub children: ChildBox,
+pub(super) struct InsideRefCell<El: Element, Sty> {
+    pub children: ChildBox<El::Array>,
     pub styles: Sty,
     pub event_mgr: NodeEventMgr,
     pub context: Context,

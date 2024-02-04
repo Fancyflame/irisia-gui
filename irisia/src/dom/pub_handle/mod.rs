@@ -8,9 +8,10 @@ use tokio::{sync::TryLockError, task::JoinHandle};
 
 use crate::{
     application::content::GlobalContent,
+    dep_watch::DependentStack,
     event::{standard::ElementAbandoned, EdProvider, EventDispatcher, Listen},
     primitive::Region,
-    Result, StyleGroup, StyleReader,
+    Element, Result, StyleGroup, StyleReader,
 };
 
 use super::{
@@ -22,7 +23,7 @@ mod write_guard;
 
 pub type TryLockResult<T> = std::result::Result<T, TryLockError>;
 
-impl<El, Sty, Slt> ElementModel<El, Sty, Slt> {
+impl<El: Element, Sty, Slt> ElementModel<El, Sty, Slt> {
     /// Get a write guard of this element and setting dirty.
     /// Panics if this element is no longer used.
     pub fn el_mut(&self) -> RefMut<El> {
@@ -176,11 +177,16 @@ impl<El, Sty, Slt> ElementModel<El, Sty, Slt> {
             }
         })
     }
+
+    pub fn dep_stack(&self) -> DependentStack<El::Array> {
+        self.in_cell.borrow().children.dep_stack().share()
+    }
 }
 
 impl<El, Sty, Slt> EdProvider for RcElementModel<El, Sty, Slt>
 where
     Self: 'static,
+    El: Element,
 {
     fn event_dispatcher(&self) -> &EventDispatcher {
         ElementModel::event_dispatcher(self)

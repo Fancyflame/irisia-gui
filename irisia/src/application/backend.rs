@@ -9,7 +9,7 @@ use irisia_backend::{
 
 use crate::{
     dom::{DropProtection, ElementModel},
-    element::{Element, ElementCreate},
+    element::Element,
     event::{standard::WindowDestroyed, EventDispatcher},
     primitive::{Pixel, Point, Region},
     Result,
@@ -74,7 +74,7 @@ fn window_size_to_draw_region(size: PhysicalSize<u32>) -> Region {
 
 pub(super) async fn new_window<El, F>(window_builder: F) -> Result<Window>
 where
-    El: Element + ElementCreate<()>,
+    El: Element + From<()>,
     F: FnOnce(WindowBuilder) -> WindowBuilder + Send + 'static,
 {
     let ev_disp = EventDispatcher::new();

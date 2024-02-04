@@ -1,9 +1,13 @@
 use crate::{
-    application::event_comp::NodeEventMgr, element::ElementCreate, event::EventDispatcher,
-    structure::Slot, style::StyleGroup, Element,
+    application::event_comp::NodeEventMgr,
+    event::EventDispatcher,
+    structure::{Slot, SlotUpdater},
+    style::StyleGroup,
+    Element,
 };
 
 use super::{
+    child_nodes::ChildBox,
     data_structure::{Context, InsideRefCell},
     ChildNodes, ElementModel, RcElementModel,
 };
@@ -22,11 +26,12 @@ where
 {
     pub fn new<Pr>(props: Pr, styles: Sty, slot: Slt) -> DropProtection<El, Sty, Slt>
     where
-        El: ElementCreate<Pr>,
+        El: From<Pr>,
     {
         let ed = EventDispatcher::new();
         let slot = Slot::new(slot);
-        let (el, cb) = El::el_create(props, slot.private_clone());
+        let el = El::from(props);
+        let children = ChildBox::new(el.children(SlotUpdater(&slot)));
 
         let this = Rc::new_cyclic(|weak: &Weak<_>| ElementModel {
             this: weak.clone(),
@@ -34,7 +39,7 @@ where
             el: RefCell::new(Some(el)),
             ed: ed.clone(),
             in_cell: RefCell::new(InsideRefCell {
-                children: cb,
+                children,
                 styles,
                 event_mgr: NodeEventMgr::new(ed),
                 indep_layer: None,
@@ -47,7 +52,7 @@ where
             acquire_independent_layer: Cell::new(false),
         });
 
-        El::on_created(&this);
+        El::on_created(&mut this.el_mut(), &this);
         this.set_dirty();
         DropProtection(this)
     }
@@ -55,16 +60,17 @@ where
 
 pub struct DropProtection<El, Sty, Slt>(pub(crate) RcElementModel<El, Sty, Slt>)
 where
+    El: Element,
     RcElementModel<El, Sty, Slt>: 'static;
 
-impl<El, Sty, Slt> Deref for DropProtection<El, Sty, Slt> {
+impl<El: Element, Sty, Slt> Deref for DropProtection<El, Sty, Slt> {
     type Target = RcElementModel<El, Sty, Slt>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<El, Sty, Slt> Drop for DropProtection<El, Sty, Slt> {
+impl<El: Element, Sty, Slt> Drop for DropProtection<El, Sty, Slt> {
     fn drop(&mut self) {
         self.0.set_abandoned();
     }

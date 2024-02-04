@@ -1,17 +1,17 @@
 use std::cell::Cell;
 
-use crate::__private::dep_stack::Bitset;
+use crate::dep_watch::{bitset::UsizeArray, Bitset};
 
 use super::{tracert::TracertBase, StructureUpdateTo, Updating, VisitBy};
 
-pub struct Bind<T, const WD: usize> {
+pub struct Bind<T, A: UsizeArray> {
     data: T,
-    dependents: Cell<Bitset<WD>>,
+    dependents: Cell<Bitset<A>>,
 }
 
 pub struct BindUpdater<F>(pub F);
 
-impl<T, const WD: usize> VisitBy for Bind<T, WD>
+impl<T, A: UsizeArray> VisitBy for Bind<T, A>
 where
     T: VisitBy,
 {
@@ -31,16 +31,17 @@ where
     }
 }
 
-impl<T, F, Tu, const WD: usize> StructureUpdateTo<WD> for BindUpdater<F>
+impl<T, F, Tu, A: UsizeArray> StructureUpdateTo<A> for BindUpdater<F>
 where
     Self: VisitBy,
-    F: for<'a> FnOnce(TracertBase<'a, WD>) -> Tu,
-    Tu: StructureUpdateTo<WD, Target = T>,
+    T: VisitBy + 'static,
+    F: for<'a> FnOnce(TracertBase<'a, A>) -> Tu,
+    Tu: StructureUpdateTo<A, Target = T>,
 {
-    type Target = Bind<T, WD>;
+    type Target = Bind<T, A>;
     const UPDATE_POINTS: u32 = 1 + Tu::UPDATE_POINTS;
 
-    fn create(self, mut info: Updating<WD>) -> Self::Target {
+    fn create(self, mut info: Updating<A>) -> Self::Target {
         let dependents = Cell::new(Bitset::new());
         let child_updater = info.scoped(0, || (self.0)(TracertBase::new(info.stack, &dependents)));
 
@@ -50,7 +51,7 @@ where
         }
     }
 
-    fn update(self, target: &mut Self::Target, mut info: Updating<WD>) {
+    fn update(self, target: &mut Self::Target, mut info: Updating<A>) {
         if info.no_update::<Self>() {
             return;
         }

@@ -8,7 +8,7 @@
             "program": "${workspaceRoot}/target/debug/examples/simple_window.exe",
             "args": [],
             "stopAtEntry": false,
-            "cwd": "${workspaceRoot}",
+            "cA": "${workspaceRoot}",
             "environment": [],
             "externalConsole": true
         },
@@ -18,7 +18,7 @@
             "request": "launch",
             "program": "${workspaceRoot}/target/debug/foo",
             "args": [],
-            "cwd": "${workspaceRoot}",
+            "cA": "${workspaceRoot}",
         }
     ]
 }

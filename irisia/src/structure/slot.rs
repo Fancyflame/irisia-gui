@@ -1,9 +1,11 @@
 use std::{cell::RefCell, rc::Rc};
 
+use crate::dep_watch::bitset::UsizeArray;
+
 use super::{StructureUpdateTo, VisitBy, VisitOn};
 
 pub struct Slot<T>(Rc<RefCell<T>>);
-pub struct SlotUpdater<'a, T>(&'a Slot<T>);
+pub struct SlotUpdater<'a, T>(pub(crate) &'a Slot<T>);
 
 impl<T> Slot<T> {
     pub(crate) fn new(v: T) -> Self {
@@ -42,15 +44,18 @@ where
     }
 }
 
-impl<T, const WD: usize> StructureUpdateTo<WD> for SlotUpdater<'_, T> {
+impl<T, A: UsizeArray> StructureUpdateTo<A> for SlotUpdater<'_, T>
+where
+    T: VisitBy + 'static,
+{
     type Target = Slot<T>;
     const UPDATE_POINTS: u32 = 0;
 
-    fn create(self, _: super::Updating<WD>) -> Self::Target {
+    fn create(self, _: super::Updating<A>) -> Self::Target {
         self.0.private_clone()
     }
 
-    fn update(self, target: &mut Self::Target, _: super::Updating<WD>) {
+    fn update(self, target: &mut Self::Target, _: super::Updating<A>) {
         if !Rc::ptr_eq(&self.0 .0, &target.0) {
             *target = self.0.private_clone();
         }

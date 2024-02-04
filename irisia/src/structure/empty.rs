@@ -1,5 +1,5 @@
 use super::{StructureUpdateTo, VisitBy};
-use crate::Result;
+use crate::{dep_watch::bitset::UsizeArray, Result};
 
 impl VisitBy for () {
     fn visit_by<V>(&self, _: &mut V) -> Result<()>
@@ -18,10 +18,10 @@ impl VisitBy for () {
     }
 }
 
-impl<const WD: usize> StructureUpdateTo<WD> for () {
+impl<A: UsizeArray> StructureUpdateTo<A> for () {
     type Target = ();
     const UPDATE_POINTS: u32 = 0;
 
-    fn create(self, _: super::Updating<WD>) -> Self::Target {}
-    fn update(self, _: &mut Self::Target, _: super::Updating<WD>) {}
+    fn create(self, _: super::Updating<A>) -> Self::Target {}
+    fn update(self, _: &mut Self::Target, _: super::Updating<A>) {}
 }

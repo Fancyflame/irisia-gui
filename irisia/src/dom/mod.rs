@@ -8,7 +8,7 @@ use irisia_backend::skia_safe::Canvas;
 
 use crate::{
     application::{event_comp::IncomingPointerEvent, redraw_scheduler::StandaloneRender},
-    element::Element,
+    element::{Element, RenderChildren},
     event::standard::DrawRegionChanged,
     primitive::Region,
     Result, StyleGroup,
@@ -31,7 +31,7 @@ pub mod pub_handle;
 
 pub type RcElementModel<El, Sty, Slt> = Rc<data_structure::ElementModel<El, Sty, Slt>>;
 
-impl<El, Sty, Slt> ElementModel<El, Sty, Slt> {
+impl<El: Element, Sty, Slt> ElementModel<El, Sty, Slt> {
     pub(crate) fn build_layers(
         self: &Rc<Self>,
         lr: &mut LayerRebuilder,
@@ -53,7 +53,12 @@ impl<El, Sty, Slt> ElementModel<El, Sty, Slt> {
         }
 
         match &in_cell.indep_layer {
-            None => El::render(self, RenderElement::new(lr, interval)),
+            None => El::render(
+                &mut self.el_mut(),
+                self,
+                RenderElement::new(lr, interval),
+                RenderChildren(&in_cell.children),
+            ),
             Some(il) => lr.new_layer(il.clone()),
         }
     }
@@ -98,7 +103,7 @@ impl<El, Sty, Slt> ElementModel<El, Sty, Slt> {
         self.in_cell.borrow_mut().styles = styles;
     }
 
-    fn get_children_layer(&self, in_cell: &InsideRefCell<Sty>) -> Weak<dyn StandaloneRender> {
+    fn get_children_layer(&self, in_cell: &InsideRefCell<El, Sty>) -> Weak<dyn StandaloneRender> {
         match in_cell.indep_layer {
             Some(_) => self.standalone_render.clone(),
             None => match &in_cell.parent_layer() {
@@ -112,6 +117,7 @@ impl<El, Sty, Slt> ElementModel<El, Sty, Slt> {
 impl<El, Sty, Slt> ElementModel<El, Sty, Slt>
 where
     Self: 'static,
+    El: Element,
 {
     fn set_abandoned(self: &Rc<Self>) {
         let this = self.clone();
@@ -120,7 +126,10 @@ where
     }
 }
 
-impl<Sty> InsideRefCell<Sty> {
+impl<El, Sty> InsideRefCell<El, Sty>
+where
+    El: Element,
+{
     fn ctx(&self) -> Result<&AttachedCtx> {
         match &self.context {
             Context::None => Err(anyhow!("element have not attached to window yet")),
@@ -160,9 +169,14 @@ where
         };
 
         let mut rebuilder = il.rebuild(canvas);
-        El::render(
-            &self.this.upgrade().unwrap(),
+        let rc = self.this.upgrade().unwrap();
+
+        let ret = El::render(
+            &mut rc.el_mut(),
+            &rc,
             RenderElement::new(&mut rebuilder, interval),
-        )
+            RenderChildren(&in_cell.children),
+        );
+        ret
     }
 }

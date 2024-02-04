@@ -1,8 +1,8 @@
 use std::ops::{Deref, DerefMut};
 
 use crate::{
+    dep_watch::{bitset::UsizeArray, DependencyIndexes, DependentStack},
     ElModel, Result,
-    __private::dep_stack::{DependencyIndexes, DependentStack},
 };
 
 pub use self::{
@@ -38,37 +38,37 @@ pub trait VisitOn {
     fn visit_on(&mut self, data: &ElModel!(_)) -> Result<()>;
 }
 
-pub trait StructureUpdateTo<const WD: usize> {
-    type Target;
+pub trait StructureUpdateTo<A: UsizeArray> {
+    type Target: VisitBy + 'static;
     const UPDATE_POINTS: u32;
 
-    fn create(self, info: Updating<WD>) -> Self::Target;
-    fn update(self, target: &mut Self::Target, info: Updating<WD>);
+    fn create(self, info: Updating<A>) -> Self::Target;
+    fn update(self, target: &mut Self::Target, info: Updating<A>);
 }
 
-pub struct Updating<'a, const WD: usize> {
-    stack: &'a DependentStack<WD>,
+pub struct Updating<'a, A: UsizeArray> {
+    stack: &'a DependentStack<A>,
     update_point_offset: u32,
-    points: MaybeBorrowed<'a, WD>,
+    points: MaybeBorrowed<'a, A>,
 }
 
-enum MaybeBorrowed<'a, const WD: usize> {
-    Owned(DependencyIndexes<WD>),
-    Borrowed(&'a mut DependencyIndexes<WD>),
+enum MaybeBorrowed<'a, A: UsizeArray> {
+    Owned(DependencyIndexes<A>),
+    Borrowed(&'a mut DependencyIndexes<A>),
 }
 
-impl<'a, const WD: usize> Updating<'a, WD> {
-    pub fn new(stack: &'a DependentStack<WD>, dep_idx: DependencyIndexes<WD>) -> Self {
+impl<'a, A: UsizeArray> Updating<'a, A> {
+    pub fn new(stack: &'a DependentStack<A>) -> Self {
         Self {
+            points: MaybeBorrowed::Owned(stack.get_update_list(true)),
             stack,
             update_point_offset: 0,
-            points: MaybeBorrowed::Owned(dep_idx),
         }
     }
 
     pub fn no_update<T>(&self) -> bool
     where
-        T: StructureUpdateTo<WD>,
+        T: StructureUpdateTo<A>,
     {
         match self.points.peek() {
             Some(p) if p < self.update_point_offset + T::UPDATE_POINTS => {
@@ -92,7 +92,7 @@ impl<'a, const WD: usize> Updating<'a, WD> {
             .step_if(self.update_point_offset + relative_position)
     }
 
-    pub(crate) fn inherit(&mut self, relative_position: u32, clone: bool) -> Updating<WD> {
+    pub(crate) fn inherit(&mut self, relative_position: u32, clone: bool) -> Updating<A> {
         Updating {
             stack: self.stack,
             update_point_offset: self.update_point_offset + relative_position,
@@ -105,8 +105,8 @@ impl<'a, const WD: usize> Updating<'a, WD> {
     }
 }
 
-impl<const WD: usize> Deref for MaybeBorrowed<'_, WD> {
-    type Target = DependencyIndexes<WD>;
+impl<A: UsizeArray> Deref for MaybeBorrowed<'_, A> {
+    type Target = DependencyIndexes<A>;
     fn deref(&self) -> &Self::Target {
         match self {
             Self::Borrowed(x) => x,
@@ -115,7 +115,7 @@ impl<const WD: usize> Deref for MaybeBorrowed<'_, WD> {
     }
 }
 
-impl<const WD: usize> DerefMut for MaybeBorrowed<'_, WD> {
+impl<A: UsizeArray> DerefMut for MaybeBorrowed<'_, A> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         match self {
             Self::Borrowed(x) => x,

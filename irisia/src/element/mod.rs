@@ -1,10 +1,12 @@
 use crate::{
+    dep_watch::bitset::UsizeArray,
     dom::{
         child_nodes::{ChildBox, RenderElement},
         ChildNodes,
     },
-    structure::Slot,
-    Result,
+    primitive::Region,
+    structure::{SlotUpdater, StructureUpdateTo},
+    Result, StyleReader,
 };
 
 pub use self::props::PropsUpdateWith;
@@ -41,20 +43,42 @@ where
     Self: Sized + 'static,
 {
     type BlankProps: Default;
+    type Array: UsizeArray;
 
-    fn render(this: &ElModel!(), content: RenderElement) -> Result<()>;
-    fn on_created(this: &ElModel!());
+    fn render(
+        &mut self,
+        this: &ElModel!(),
+        content: RenderElement,
+        children: RenderChildren<Self::Array>,
+    ) -> Result<()>;
+    fn on_created(&mut self, this: &ElModel!());
+    fn children(&self, slot: SlotUpdater<impl ChildNodes>) -> impl StructureUpdateTo<Self::Array>;
 }
 
-pub trait ElementCreate<Pr>: Element + Sized {
-    fn el_create<Slt>(props: Pr, slot: Slot<Slt>) -> (Self, ChildBox)
+pub struct RenderChildren<'a, A: UsizeArray>(pub(crate) &'a ChildBox<A>);
+
+impl<A: UsizeArray> RenderChildren<'_, A> {
+    pub fn render(self, re: &mut RenderElement) -> Result<()> {
+        self.0.render(re)
+    }
+
+    pub fn peek_styles<F, Sr>(&self, f: F)
     where
-        Slt: ChildNodes;
-}
+        F: FnMut(Sr),
+        Sr: StyleReader,
+    {
+        self.0.peek_styles(f)
+    }
 
-pub trait ElementPropsUpdate<Pr>: Element + Sized {
-    fn el_update(&mut self, props: Pr);
-}
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
 
-pub trait AsChildren: ChildNodes {}
-impl<T: ChildNodes> AsChildren for T {}
+    pub fn layout<F, Sr>(&self, f: F) -> Result<()>
+    where
+        F: FnMut(Sr, usize) -> Option<Region>,
+        Sr: StyleReader,
+    {
+        self.0.layout(f)
+    }
+}

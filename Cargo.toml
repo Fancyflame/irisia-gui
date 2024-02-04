@@ -1,5 +1,6 @@
 [workspace]
 resolver = "2"
+package.rust-version = "1.75"
 members = [
     "irisia-widgets",
     "irisia",
