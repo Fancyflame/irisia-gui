@@ -26,12 +26,12 @@ impl LayerCompositer {
         }))
     }
 
-    pub fn rebuild<'a>(&'a mut self, canvas: &'a mut Canvas) -> LayerRebuilder<'a> {
+    pub fn rebuild<'a>(&'a mut self, canvas: &'a Canvas) -> LayerRebuilder<'a> {
         self.layers.clear();
         LayerRebuilder::new(self, canvas)
     }
 
-    pub fn composite(&self, canvas: &mut Canvas) -> Result<()> {
+    pub fn composite(&self, canvas: &Canvas) -> Result<()> {
         let mut paint = Paint::default();
         paint.set_blend_mode(BlendMode::DstOver);
         let rec = SaveLayerRec::default()

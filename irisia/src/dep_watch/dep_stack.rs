@@ -33,6 +33,12 @@ impl<A: UsizeArray> DependentStack<A> {
         DependentStack(self.0.clone())
     }
 
+    pub(crate) fn add_dirty(&self, bitset: &Bitset<A>) {
+        let mut new = self.0.dirty_set.get();
+        new.union(&bitset);
+        self.0.dirty_set.set(new);
+    }
+
     pub(crate) fn collect_dep(&self, mut bitset: Bitset<A>) -> Bitset<A> {
         if let Some(caller_id) = self.0.stack.borrow().last().copied() {
             bitset.set(caller_id);

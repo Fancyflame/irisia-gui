@@ -6,12 +6,12 @@ use crate::Result;
 
 pub struct LayerRebuilder<'a> {
     pub(super) lc: &'a mut LayerCompositer,
-    pub(super) canvas: &'a mut Canvas,
+    pub(super) canvas: &'a Canvas,
     dirty: bool,
 }
 
 impl<'a> LayerRebuilder<'a> {
-    pub(super) fn new(lc: &'a mut LayerCompositer, canvas: &'a mut Canvas) -> Self {
+    pub(super) fn new(lc: &'a mut LayerCompositer, canvas: &'a Canvas) -> Self {
         canvas.save();
         canvas.reset_matrix();
         Self {
@@ -21,7 +21,7 @@ impl<'a> LayerRebuilder<'a> {
         }
     }
 
-    pub(crate) fn draw_in_place(&mut self) -> &mut Canvas {
+    pub(crate) fn draw_in_place(&mut self) -> &Canvas {
         if self.dirty {
             self.canvas.restore();
         }

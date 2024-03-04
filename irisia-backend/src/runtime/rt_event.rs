@@ -23,5 +23,5 @@ pub(crate) enum WindowReg {
 
     WindowDestroyed(WindowId),
 
-    Exit(i32),
+    Exit,
 }

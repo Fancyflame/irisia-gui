@@ -68,7 +68,7 @@ impl StyleBorder {
 }
 
 // returns stroke width
-pub(super) fn draw_border(canvas: &mut Canvas, mut rrect: RRect, border: &StyleBorder) -> f32 {
+pub(super) fn draw_border(canvas: &Canvas, mut rrect: RRect, border: &StyleBorder) -> f32 {
     let stroke_width = border.width.to_physical();
 
     let size_reduction = stroke_width / 2.0;

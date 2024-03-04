@@ -1,7 +1,4 @@
-use irisia_backend::{
-    winit::event::{ElementState, MouseButton, Touch, TouchPhase},
-    StaticWindowEvent,
-};
+use irisia_backend::winit::event::{ElementState, MouseButton, Touch, TouchPhase, WindowEvent};
 
 use crate::{
     application::content::GlobalContent,
@@ -42,7 +39,7 @@ impl GlobalEventMgr {
     #[must_use]
     pub fn emit_event<'a>(
         &'a mut self,
-        event: StaticWindowEvent,
+        event: WindowEvent,
         gc: &'a GlobalContent,
     ) -> Option<IncomingPointerEvent<'a>> {
         match cursor_behavior(&event, self.pointer_state, self.last_cursor_position) {
@@ -59,7 +56,7 @@ impl GlobalEventMgr {
             }
             None => {
                 match &event {
-                    StaticWindowEvent::CloseRequested => {
+                    WindowEvent::CloseRequested => {
                         gc.global_ed.emit_trusted(CloseRequested(gc.close_handle))
                     }
                     _ => {}
@@ -101,56 +98,56 @@ fn emit_physical_pointer_event(
 }
 
 fn cursor_behavior(
-    event: &StaticWindowEvent,
+    event: &WindowEvent,
     old_state: PointerState,
     old_position: Option<Point>,
 ) -> Option<(Option<Point>, PointerState)> {
     let mut new_pointer_state = old_state;
 
     let mut new_position: Option<Point> = match &event {
-        StaticWindowEvent::Touch(touch) => Some(touch.location.into()),
+        WindowEvent::Touch(touch) => Some(touch.location.into()),
         _ => old_position,
     };
 
     match event {
-        StaticWindowEvent::MouseInput {
+        WindowEvent::MouseInput {
             state: ElementState::Pressed,
             button: MouseButton::Left,
             ..
         }
-        | StaticWindowEvent::Touch(Touch {
+        | WindowEvent::Touch(Touch {
             phase: TouchPhase::Started,
             ..
         }) => {
             new_pointer_state = PointerState::Pressing;
         }
 
-        StaticWindowEvent::CursorMoved { position, .. } => {
+        WindowEvent::CursorMoved { position, .. } => {
             if let PointerState::OutOfViewport = new_pointer_state {
                 new_pointer_state = PointerState::Release;
             }
             new_position = Some(Point::from(*position))
         }
 
-        StaticWindowEvent::Touch(Touch {
+        WindowEvent::Touch(Touch {
             phase: TouchPhase::Moved,
             ..
         }) => {}
 
-        StaticWindowEvent::MouseInput {
+        WindowEvent::MouseInput {
             state: ElementState::Released,
             button: MouseButton::Left,
             ..
         }
-        | StaticWindowEvent::Touch(Touch {
+        | WindowEvent::Touch(Touch {
             phase: TouchPhase::Ended,
             ..
         }) => {
             new_pointer_state = PointerState::Release;
         }
 
-        StaticWindowEvent::CursorLeft { .. }
-        | StaticWindowEvent::Touch(Touch {
+        WindowEvent::CursorLeft { .. }
+        | WindowEvent::Touch(Touch {
             phase: TouchPhase::Cancelled,
             ..
         }) => {

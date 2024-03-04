@@ -71,7 +71,7 @@ impl<El: Element, Sty, Slt> ElementModel<El, Sty, Slt> {
         self.ed.emit_trusted(DrawRegionChanged { region });
     }
 
-    pub(crate) fn composite_as_root(&self, canvas: &mut Canvas) -> Result<()> {
+    pub(crate) fn composite_as_root(&self, canvas: &Canvas) -> Result<()> {
         let in_cell = self.in_cell.borrow();
         match &in_cell.indep_layer {
             Some(il) => {
@@ -157,7 +157,7 @@ where
     Sty: StyleGroup,
     Slt: ChildNodes,
 {
-    fn standalone_render(&self, canvas: &mut Canvas, interval: Duration) -> Result<()> {
+    fn standalone_render(&self, canvas: &Canvas, interval: Duration) -> Result<()> {
         let mut in_cell_ref = self.in_cell.borrow_mut();
         let in_cell = &mut *in_cell_ref;
 

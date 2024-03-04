@@ -2,8 +2,9 @@ use std::sync::{Arc, Condvar, Mutex as StdMutex};
 
 use anyhow::{anyhow, Result};
 use tokio::{sync::mpsc, task::LocalSet};
+use winit::event::WindowEvent;
 
-use crate::{runtime::rt_event::AppBuildFn, StaticWindowEvent, WinitWindow};
+use crate::{runtime::rt_event::AppBuildFn, WinitWindow};
 
 use self::window::RenderWindow;
 
@@ -12,7 +13,7 @@ mod window;
 
 enum Command {
     Redraw,
-    HandleEvent(StaticWindowEvent),
+    HandleEvent(WindowEvent),
 }
 
 pub struct RenderWindowController {
@@ -38,8 +39,7 @@ impl RenderWindowController {
                 local.block_on(&async_runtime, async move {
                     let mut rw = RenderWindow::new(app, window).expect("cannot launch renderer");
                     loop {
-                        let Some(cmd) = rx.recv().await
-                        else {
+                        let Some(cmd) = rx.recv().await else {
                             break;
                         };
 
@@ -75,7 +75,7 @@ impl RenderWindowController {
         Ok(())
     }
 
-    pub fn handle_event(&self, event: StaticWindowEvent) -> Result<()> {
+    pub fn handle_event(&self, event: WindowEvent) -> Result<()> {
         self.chan
             .send(Command::HandleEvent(event))
             .map_err(|_| recv_shut_down_error())

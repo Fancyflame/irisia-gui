@@ -3,8 +3,8 @@ use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
 use irisia_backend::{
     skia_safe::{colors::WHITE, Canvas},
     window_handle::{RawWindowHandle, WindowBuilder},
-    winit::dpi::PhysicalSize,
-    AppWindow, StaticWindowEvent, WinitWindow,
+    winit::{dpi::PhysicalSize, event::WindowEvent},
+    AppWindow, WinitWindow,
 };
 
 use crate::{
@@ -32,7 +32,7 @@ impl<El> AppWindow for BackendRuntime<El>
 where
     El: Element,
 {
-    fn on_redraw(&mut self, canvas: &mut Canvas, interval: Duration) -> Result<()> {
+    fn on_redraw(&mut self, canvas: &Canvas, interval: Duration) -> Result<()> {
         self.gc
             .redraw_scheduler
             .borrow_mut()
@@ -44,8 +44,8 @@ where
         self.root_element.composite_as_root(canvas)
     }
 
-    fn on_window_event(&mut self, event: StaticWindowEvent) {
-        if let StaticWindowEvent::Resized(size) = &event {
+    fn on_window_event(&mut self, event: WindowEvent) {
+        if let WindowEvent::Resized(size) = &event {
             self.root_element
                 .set_draw_region(window_size_to_draw_region(*size));
         }

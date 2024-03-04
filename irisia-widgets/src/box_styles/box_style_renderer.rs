@@ -26,7 +26,7 @@ struct BoundReduction {
 impl BoxStyleRenderer {
     pub fn draw_border_limited(
         styles: &impl StyleGroup,
-        canvas: &mut Canvas,
+        canvas: &Canvas,
         maximum_region: Region,
     ) -> Region {
         let BoundReduction {
@@ -43,7 +43,7 @@ impl BoxStyleRenderer {
 
     pub fn draw_border_unlimited(
         styles: &impl StyleGroup,
-        canvas: &mut Canvas,
+        canvas: &Canvas,
         content_region: Region,
     ) -> Region {
         let BoundReduction {
@@ -58,7 +58,7 @@ impl BoxStyleRenderer {
         )
     }
 
-    fn render(styles: &impl StyleGroup, canvas: &mut Canvas, region: Region) -> BoundReduction {
+    fn render(styles: &impl StyleGroup, canvas: &Canvas, region: Region) -> BoundReduction {
         read_style!(styles in styles => {
             border: Option<StyleBorder>,
             radius: StyleBorderRadius,

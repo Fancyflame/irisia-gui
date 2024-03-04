@@ -18,7 +18,7 @@ impl<'a, 'lr> RenderElement<'a, 'lr> {
         self.interval
     }
 
-    pub fn canvas(&mut self) -> &mut Canvas {
+    pub fn canvas(&mut self) -> &Canvas {
         self.lr.draw_in_place()
     }
 }

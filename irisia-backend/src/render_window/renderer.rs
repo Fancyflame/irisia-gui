@@ -81,7 +81,7 @@ impl Renderer {
 
     pub fn render<F>(&mut self, f: F) -> Result<()>
     where
-        F: FnOnce(&mut Canvas) -> Result<()>,
+        F: FnOnce(&Canvas) -> Result<()>,
     {
         let canvas = self.surface.canvas();
         canvas.clear(Color::WHITE);

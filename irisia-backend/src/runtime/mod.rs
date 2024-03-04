@@ -1,9 +1,10 @@
 use std::{collections::HashMap, future::Future};
 
+use anyhow::Result;
 use tokio::task::LocalSet;
 use winit::{
-    event::{Event, StartCause},
-    event_loop::{EventLoop, EventLoopBuilder},
+    event::{Event, StartCause, WindowEvent},
+    event_loop::{ControlFlow, EventLoop, EventLoopBuilder},
     window::{WindowBuilder, WindowId},
 };
 
@@ -14,17 +15,17 @@ use self::{global_event::WindowRegiterMutex, rt_event::WindowReg};
 pub(crate) mod global_event;
 pub(crate) mod rt_event;
 
-pub async fn exit_app(code: i32) {
-    WindowRegiterMutex::lock().await.send(WindowReg::Exit(code));
+pub async fn exit_app() {
+    WindowRegiterMutex::lock().await.send(WindowReg::Exit);
 }
 
-pub fn start_runtime<F>(f: F) -> !
+pub fn start_runtime<F>(f: F) -> Result<()>
 where
     F: Future<Output = ()> + Send + 'static,
 {
     let mut future_option = Some(async move {
         f.await;
-        exit_app(0).await;
+        exit_app().await;
     });
 
     let tokio_runtime = tokio::runtime::Builder::new_multi_thread()
@@ -35,12 +36,12 @@ where
 
     let _guards = (tokio_runtime.enter(), local_set.enter());
 
-    let event_loop: EventLoop<WindowReg> = EventLoopBuilder::with_user_event().build();
+    let event_loop: EventLoop<WindowReg> = EventLoopBuilder::with_user_event().build()?;
     let mut window_map: HashMap<WindowId, RenderWindowController> = HashMap::new();
     WindowRegiterMutex::init(event_loop.create_proxy());
 
-    event_loop.run(move |event, event_loop, flow| {
-        flow.set_wait();
+    event_loop.run(move |event, window_target| {
+        window_target.set_control_flow(ControlFlow::Wait);
 
         match event {
             Event::NewEvents(StartCause::Init) => {
@@ -52,16 +53,12 @@ where
 
             Event::WindowEvent { window_id, event } => {
                 if let Some(w) = window_map.get_mut(&window_id) {
-                    if let Err(err) = w.handle_event(event.to_static().unwrap()) {
-                        println!("{err}");
-                        window_map.remove(&window_id);
-                    }
-                }
-            }
+                    let result = match event {
+                        WindowEvent::RedrawRequested => w.redraw(),
+                        _ => w.handle_event(event),
+                    };
 
-            Event::RedrawRequested(window_id) => {
-                if let Some(w) = window_map.get_mut(&window_id) {
-                    if let Err(err) = w.redraw() {
+                    if let Err(err) = result {
                         println!("{err}");
                         window_map.remove(&window_id);
                     }
@@ -73,7 +70,7 @@ where
                     builder,
                     window_giver,
                 } => {
-                    let window = builder(WindowBuilder::new()).build(event_loop);
+                    let window = builder(WindowBuilder::new()).build(window_target);
                     let _ = window_giver.send(window);
                 }
 
@@ -93,8 +90,8 @@ where
                     window_map.remove(&wid);
                 }
 
-                WindowReg::Exit(code) => {
-                    flow.set_exit_with_code(code);
+                WindowReg::Exit => {
+                    window_target.exit();
                 }
             },
 
@@ -114,5 +111,7 @@ where
                         _ => unreachable!(),
                     },*/
         }
-    });
+    })?;
+
+    Ok(())
 }

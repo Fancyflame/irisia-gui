@@ -1,6 +1,6 @@
 use std::cell::Cell;
 
-use irisia_backend::StaticWindowEvent;
+use irisia_backend::winit::event::WindowEvent;
 
 use crate::{
     application::content::GlobalContent,
@@ -11,7 +11,7 @@ use crate::{
 use super::{GlobalEventMgr, PointerState};
 
 pub struct IncomingPointerEvent<'a> {
-    pub(crate) event: StaticWindowEvent,
+    pub(crate) event: WindowEvent,
     pub(crate) gem: &'a mut GlobalEventMgr,
     pub(crate) global_content: &'a GlobalContent,
     pub(crate) new_position: Option<Point>,
@@ -38,7 +38,7 @@ pub(crate) enum PointerStateChange {
 
 impl<'a> IncomingPointerEvent<'a> {
     pub(super) fn new(
-        event: StaticWindowEvent,
+        event: WindowEvent,
         gem: &'a mut GlobalEventMgr,
         gc: &'a GlobalContent,
         new_position: Option<Point>,

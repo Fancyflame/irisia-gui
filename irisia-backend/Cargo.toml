@@ -6,9 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-winit = { version = "0.28", features = ["android-native-activity"] }
-pixels = "0.12"
-skia-safe = { version = "0.66", features = ["textlayout", "binary-cache"] }
+winit = { version = "0.29", features = ["android-native-activity", "rwh_05"] }
+pixels = "0.13"
+skia-safe = { version = "0.70", features = ["textlayout", "binary-cache"] }
 tokio = { version = "1.28", features = ["rt-multi-thread"] }
 anyhow = "1"
 lazy_static = "1"

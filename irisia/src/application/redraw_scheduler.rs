@@ -31,7 +31,7 @@ impl RedrawScheduler {
         self.list.insert(Rc::as_ptr(&ro), ro);
     }
 
-    pub fn redraw(&mut self, canvas: &mut Canvas, interval: Duration) -> Result<()> {
+    pub fn redraw(&mut self, canvas: &Canvas, interval: Duration) -> Result<()> {
         let mut errors = Vec::new();
         self.redraw_req_sent = false;
 
@@ -69,5 +69,5 @@ fn fmt_errors(errors: &[anyhow::Error]) -> Result<()> {
 }
 
 pub(crate) trait StandaloneRender {
-    fn standalone_render(&self, canvas: &mut Canvas, interval: Duration) -> Result<()>;
+    fn standalone_render(&self, canvas: &Canvas, interval: Duration) -> Result<()>;
 }
