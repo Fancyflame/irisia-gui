@@ -7,7 +7,7 @@ use std::{
 use smallvec::SmallVec;
 
 use crate::{
-    dep_watch::{bitset::UsizeArray, Bitset},
+    dep_watch::{bitset::U32Array, inferer::BitsetInc, Bitset},
     Result,
 };
 
@@ -15,7 +15,7 @@ use super::{tracert::TracertBase, StructureUpdateTo, Updating, VisitBy, VisitOn}
 
 const MAX_TIME_TO_LIVE: u8 = 3;
 
-pub struct Repeat<K, T, A: UsizeArray> {
+pub struct Repeat<K, T, A: U32Array> {
     map: HashMap<K, Item<T>>,
     order: SmallVec<[K; 5]>,
     dependents: Cell<Bitset<A>>,
@@ -31,11 +31,15 @@ pub struct RepeatUpdater<Fi, Fm> {
     map: Fm,
 }
 
-impl<K, T, A: UsizeArray> VisitBy for Repeat<K, T, A>
+impl<K, T, A: U32Array> VisitBy for Repeat<K, T, A>
 where
     K: Hash + Eq,
     T: VisitBy,
 {
+    // 1 for the iterator expression
+    type AddUpdatePoints<Base: BitsetInc> = T::AddUpdatePoints<bitset_inc!(Base)>;
+    const UPDATE_POINTS: u32 = 1 + T::UPDATE_POINTS;
+
     fn visit_by<V>(&self, visitor: &mut V) -> Result<()>
     where
         V: VisitOn,
@@ -51,7 +55,7 @@ where
     }
 }
 
-impl<K, T, Fi, I, Fm, Tu, A: UsizeArray> StructureUpdateTo<A> for RepeatUpdater<Fi, Fm>
+impl<K, T, Fi, I, Fm, Tu, A: U32Array> StructureUpdateTo<A> for RepeatUpdater<Fi, Fm>
 where
     Self: VisitBy,
     K: Hash + Eq + Clone + 'static,
@@ -62,8 +66,6 @@ where
     Tu: StructureUpdateTo<A, Target = T>,
 {
     type Target = Repeat<K, T, A>;
-    // 1 for the iterator expression
-    const UPDATE_POINTS: u32 = 1 + Tu::UPDATE_POINTS;
 
     fn create(mut self, mut info: Updating<A>) -> Self::Target {
         let mut map = HashMap::new();
@@ -72,7 +74,7 @@ where
 
         let mut new_info = info.inherit(1, true);
 
-        let tracert_base = TracertBase::new(new_info.stack, &dependents);
+        let tracert_base = TracertBase::new(new_info.call_stack, &dependents);
         let iterator = new_info.scoped(0, || {
             (self.get_iter)().map(|item| (self.map)(item, tracert_base))
         });
@@ -105,7 +107,7 @@ where
         let mut new_info = info.inherit(1, true);
         new_info.points.union(&target.dependents.take());
 
-        let tracert_base = TracertBase::new(new_info.stack, &target.dependents);
+        let tracert_base = TracertBase::new(new_info.call_stack, &target.dependents);
         let iterator = new_info.scoped(0, || {
             (self.get_iter)().map(|item| (self.map)(item, tracert_base))
         });

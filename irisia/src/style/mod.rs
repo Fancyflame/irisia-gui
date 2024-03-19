@@ -24,55 +24,158 @@
 //!   以`.`开头有参数，`style.blur(Pixel(20))`，至多只允许一个参数
 //!
 
-pub mod branch;
-pub mod chain;
-pub mod once;
-pub mod reader;
-pub(crate) mod style_box;
+pub mod anima;
 
-use self::style_box::RawStyleGroup;
-pub use self::{branch::Branch, chain::Chain, once::Once};
-
-use crate::{self as irisia, primitive::Pixel, Style as DeriveStyle};
-use irisia_backend::skia_safe::Color;
-
-pub use reader::StyleReader;
-
-pub trait Style: Clone + 'static {}
-
-#[derive(Debug, DeriveStyle, Clone, Copy, PartialEq)]
-#[style(from)]
-pub struct StyleColor(pub Color);
-
-#[derive(Debug, DeriveStyle, Clone, Copy, PartialEq)]
-pub enum XAxisBound {
-    #[style(option)]
-    Left(#[style(default)] Pixel),
-
-    #[style(option)]
-    Right(#[style(default)] Pixel),
+#[derive(Clone, Copy)]
+pub enum StyleValue {
+    Delimiter,
+    Float(f32),
+    Ident(&'static str),
+    Color([u8; 4]),
 }
 
-pub trait StyleGroup: RawStyleGroup {
-    fn get_style<T: Style>(&self) -> Option<T>;
+pub trait StyleSource {
+    fn get_style<'a>(&'a self, name: &str, prog: f32) -> Option<&'a [StyleValue]>;
+}
 
-    fn read<S>(&self) -> S
+pub trait TupleStyleGroup: StyleSource {
+    type Chained<T: StyleSource>: TupleStyleGroup;
+
+    fn chain<T>(self, other: T) -> Self::Chained<T>
     where
-        S: StyleReader,
-    {
-        S::read_style(self)
+        Self: Sized,
+        T: StyleSource;
+}
+
+type Pair<T> = (&'static str, T);
+
+impl<T> StyleSource for Pair<T>
+where
+    T: AsRef<[StyleValue]>,
+{
+    fn get_style<'a>(&'a self, name: &str, _: f32) -> Option<&'a [StyleValue]> {
+        if name == self.0 {
+            Some(self.1)
+        } else {
+            None
+        }
     }
 }
 
-pub trait AnimaStyleGroup {
-    fn read0<Sr>(&self) -> Sr
-    where
-        Sr: StyleReader,
-    {
-        self.read(0.)
-    }
+macro_rules! impl_tsg {
+    () => {};
+    (# $($T:ident)*)=>{
+        impl<$($T,)*> TupleStyleGroup for ($($T,)*)
+        where
+            $($T: StyleSource,)*
+        {
+            type Chained<T_: StyleSource> = ((T_,), $($T,)*);
 
-    fn read<Sr>(&self, position: f32) -> Sr
-    where
-        Sr: StyleReader;
+            fn chain<T>(self, other: T) -> Self::Chained<T>
+            where
+                Self: Sized,
+                T: StyleSource
+            {
+                #[allow(non_snake_case)]
+                let ($($T,)*) = self;
+                (other, $($T,)*)
+            }
+        }
+
+        impl<$($T,)*> StyleSource for ($($T,)*)
+        where
+            $($T: StyleSource,)*
+        {
+            fn get_style<'a>(&'a self, name: &str, prog: f32) -> Option<&'a [StyleValue]> {
+                #[allow(non_snake_case)]
+                let ($($T,)*) = self;
+
+                $(if let arr @ Some(_) = $T.get_style(name, prog) {
+                    arr
+                } else)* {
+                    None
+                }
+            }
+        }
+
+        impl<First, $($T,)*> TupleStyleGroup for (First, $($T,)*)
+        where
+            $($T: StyleSource,)*
+            First: TupleStyleGroup,
+        {
+            type Chained<T_: StyleSource> = (First::Chained<T_>, $($T,)*);
+
+            fn chain<T>(self, other: T) -> Self::Chained<T>
+            where
+                Self: Sized,
+                T: StyleSource,
+            {
+                #[allow(non_snake_case)]
+                let (first, $($T,)*) = self;
+                (first.chain(other), $($T,)*)
+            }
+        }
+
+        impl<First, $($T,)*> StyleSource for (First, $($T,)*)
+        where
+            $($T: StyleSource,)*
+            First: StyleSource,
+        {
+            fn get_style<'a>(&'a self, name: &str, prog: f32) -> Option<&'a [StyleValue]> {
+                #[allow(non_snake_case)]
+                let (first, $($T,)*) = self;
+
+                if let arr @ Some(_) = first.get_style(name, prog) {
+                    arr
+                }$(else if let arr @ Some(_) = $T.get_style(name, prog) {
+                    arr
+                })* else {
+                    None
+                }
+            }
+        }
+
+        impl_tsg!($($T)*);
+    };
+    ($T1:ident $($T:ident)*) => {
+        impl<$($T,)*> TupleStyleGroup for ($($T,)*)
+        where
+            $($T: StyleSource,)*
+        {
+            type Chained<T_: StyleSource> = (T_, $($T,)*);
+
+            fn chain<T>(self, other: T) -> Self::Chained<T>
+            where
+                Self: Sized,
+                T: StyleSource
+            {
+                #[allow(non_snake_case)]
+                let ($($T,)*) = self;
+                (other, $($T,)*)
+            }
+        }
+
+        impl<$($T,)*> StyleSource for ($($T,)*)
+        where
+            $($T: StyleSource,)*
+        {
+            fn get_style<'a>(&'a self, name: &str, prog: f32) -> Option<&'a [StyleValue]> {
+                #[allow(non_snake_case)]
+                let ($($T,)*) = self;
+
+                $(if let arr @ Some(_) = $T.get_style(name, prog) {
+                    arr
+                } else)* {
+                    None
+                }
+            }
+        }
+
+        impl_tsg!($($T)*);
+    };
 }
+
+impl_tsg!(
+    # A B C D E F G H I J K L M N O
+    A1 B1 C1 D1 E1 F1 G1 H1 I1 J1 K1 L1 M1 N1 O1
+);

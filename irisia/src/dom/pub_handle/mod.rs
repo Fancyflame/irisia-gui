@@ -1,51 +1,18 @@
-use anyhow::anyhow;
-use std::{
-    cell::{Ref, RefMut},
-    future::Future,
-    rc::Rc,
-};
+use std::{future::Future, rc::Rc};
 use tokio::{sync::TryLockError, task::JoinHandle};
 
 use crate::{
     application::content::GlobalContent,
-    dep_watch::DependentStack,
     event::{standard::ElementAbandoned, EdProvider, EventDispatcher, Listen},
     primitive::Region,
-    Element, Result, StyleGroup, StyleReader,
+    Element, Result, StyleReader,
 };
 
-use super::{
-    data_structure::{Context, ElementModel},
-    RcElementModel,
-};
-
-mod write_guard;
+use super::{element_model::ElementModel, RcElementModel};
 
 pub type TryLockResult<T> = std::result::Result<T, TryLockError>;
 
-impl<El: Element, Sty, Slt> ElementModel<El, Sty, Slt> {
-    /// Get a write guard of this element and setting dirty.
-    /// Panics if this element is no longer used.
-    pub fn el_mut(&self) -> RefMut<El> {
-        self.try_el_mut().unwrap()
-    }
-
-    pub fn try_el_mut(&self) -> Result<RefMut<El>> {
-        RefMut::filter_map(self.el.borrow_mut(), Option::as_mut)
-            .map_err(|_| anyhow!("this element is no longer used"))
-    }
-
-    /// Get a read guard of this element and dirty flag is not affected.
-    /// Panics if this element is no longer used.
-    pub fn el(&self) -> Ref<El> {
-        self.try_el().unwrap()
-    }
-
-    pub fn try_el(&self) -> Result<Ref<El>> {
-        Ref::filter_map(self.el.borrow(), Option::as_ref)
-            .map_err(|_| anyhow!("this element is no longer used"))
-    }
-
+impl<Sty, Slt> ElementModel<Sty, Slt> {
     pub fn update_slot<F>(&self, update: F)
     where
         F: for<'a> FnOnce(&'a mut Slt),
@@ -55,7 +22,7 @@ impl<El: Element, Sty, Slt> ElementModel<El, Sty, Slt> {
     }
 
     pub fn attached(&self) -> bool {
-        matches!(self.in_cell.borrow().context, Context::Attached(_))
+        self.in_cell.borrow().context.is_some()
     }
 
     /// Listen event with options
@@ -119,8 +86,7 @@ impl<El: Element, Sty, Slt> ElementModel<El, Sty, Slt> {
         self.in_cell.borrow().styles.read()
     }
 
-    /// Set dirty flag to `true`.
-    pub fn set_dirty(&self) {
+    pub fn request_redraw(&self) {
         if self.flag_dirty_setted.take() {
             return;
         }
@@ -158,7 +124,7 @@ impl<El: Element, Sty, Slt> ElementModel<El, Sty, Slt> {
             return;
         }
         self.acquire_independent_layer.set(acquire);
-        self.set_dirty();
+        self.request_redraw();
     }
 
     /// Spwan a daemon task on `fut`.
@@ -176,10 +142,6 @@ impl<El: Element, Sty, Slt> ElementModel<El, Sty, Slt> {
                 _ = fut => {}
             }
         })
-    }
-
-    pub fn dep_stack(&self) -> DependentStack<El::Array> {
-        self.in_cell.borrow().children.dep_stack().share()
     }
 }
 

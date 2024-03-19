@@ -5,28 +5,28 @@ pub use self::dependency_indexes::DependencyIndexes;
 mod dependency_indexes;
 
 #[derive(Clone, Copy)]
-pub struct Bitset<A: UsizeArray>(A);
+pub struct Bitset<A>(A);
 
-impl<A: UsizeArray> Default for Bitset<A> {
+impl<A: U32Array> Default for Bitset<A> {
     fn default() -> Self {
         Bitset(A::zeroed())
     }
 }
 
-impl<A: UsizeArray> Deref for Bitset<A> {
+impl<A: U32Array> Deref for Bitset<A> {
     type Target = [usize];
     fn deref(&self) -> &Self::Target {
-        self.0.as_slice()
+        self.0.as_ref()
     }
 }
 
-impl<A: UsizeArray> DerefMut for Bitset<A> {
+impl<A: U32Array> DerefMut for Bitset<A> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.0.as_mut_slice()
     }
 }
 
-impl<A: UsizeArray> Bitset<A> {
+impl<A: U32Array> Bitset<A> {
     pub fn new() -> Self {
         Self::default()
     }
@@ -69,25 +69,14 @@ impl<A: UsizeArray> Bitset<A> {
     }
 }
 
-pub trait UsizeArray: Sized + Copy + 'static {
-    fn as_slice(&self) -> &[usize];
-    fn as_mut_slice(&mut self) -> &mut [usize];
-    fn zeroed() -> Self;
-}
-
-impl<const N: usize> UsizeArray for [usize; N] {
-    fn as_slice(&self) -> &[usize] {
-        self
-    }
-
-    fn as_mut_slice(&mut self) -> &mut [usize] {
-        self
-    }
-
+pub trait U32Array: Sized + AsRef<[u32]> + AsMut<[u32]> + Copy + 'static {
     fn zeroed() -> Self
     where
-        Self: Sized,
-    {
+        Self: Sized;
+}
+
+impl<const N: usize> U32Array for [u32; N] {
+    fn zeroed() -> Self {
         [0; N]
     }
 }

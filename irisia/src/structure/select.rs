@@ -1,13 +1,13 @@
 use std::cell::Cell;
 
 use crate::{
-    dep_watch::{bitset::UsizeArray, Bitset},
+    dep_watch::{bitset::U32Array, inferer::BitsetInc, Bitset},
     Result,
 };
 
 use super::{StructureUpdateTo, Updating, VisitBy, VisitOn};
 
-pub struct Select<T, C, A: UsizeArray> {
+pub struct Select<T, C, A: U32Array> {
     selected: bool,
     data: Option<T>,
     child: Option<C>,
@@ -20,11 +20,16 @@ pub enum SelectUpdateBranch<Tu, Cu> {
     NotSelected(Cu),
 }
 
-impl<T, C, A: UsizeArray> VisitBy for Select<T, C, A>
+impl<T, C, A: U32Array> VisitBy for Select<T, C, A>
 where
     T: VisitBy,
     C: VisitBy,
 {
+    // 1 for condition expression
+    type AddUpdatePoints<Base: BitsetInc> =
+        C::AddUpdatePoints<T::AddUpdatePoints<bitset_inc!(Base)>>;
+    const UPDATE_POINTS: u32 = 1 + T::UPDATE_POINTS + C::UPDATE_POINTS;
+
     fn visit_by<V>(&self, visitor: &mut V) -> Result<()>
     where
         V: VisitOn,
@@ -45,7 +50,7 @@ where
     }
 }
 
-impl<T, C, F, Tu, Cu, A: UsizeArray> StructureUpdateTo<A> for SelectUpdater<F>
+impl<T, C, F, Tu, Cu, A: U32Array> StructureUpdateTo<A> for SelectUpdater<F>
 where
     T: VisitBy + 'static,
     C: VisitBy + 'static,
@@ -54,8 +59,6 @@ where
     Cu: StructureUpdateTo<A, Target = C>,
 {
     type Target = Select<T, C, A>;
-    // 1 for condition expression
-    const UPDATE_POINTS: u32 = 1 + Tu::UPDATE_POINTS + Cu::UPDATE_POINTS;
 
     fn create(self, mut info: Updating<A>) -> Self::Target {
         match info.scoped(0, self.0) {

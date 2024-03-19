@@ -1,14 +1,14 @@
 use std::cell::Cell;
 
-use super::{bitset::UsizeArray, Bitset, DependentStack};
+use super::{bitset::U32Array, Bitset, DependentStack};
 
-pub struct DataSource<T, A: UsizeArray> {
+pub struct DataSource<T, A: U32Array> {
     data: T,
     bitset: Cell<Bitset<A>>,
     dep_stack: DependentStack<A>,
 }
 
-impl<T, A: UsizeArray> DataSource<T, A> {
+impl<T, A: U32Array> DataSource<T, A> {
     pub fn new(data: T, dep_stack: &DependentStack<A>) -> Self {
         Self {
             data,
@@ -35,7 +35,7 @@ pub trait CreateBuilder {
 
 pub trait CreateByBuilder<A, B>
 where
-    A: UsizeArray,
+    A: U32Array,
 {
     fn create_by_builder(builder: B, dep_stack: &DependentStack<A>) -> Self;
 }

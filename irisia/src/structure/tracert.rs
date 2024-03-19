@@ -1,24 +1,33 @@
 use std::{cell::Cell, ops::Deref};
 
-use crate::dep_watch::{bitset::UsizeArray, Bitset, DependentStack};
+use crate::dep_watch::{bitset::U32Array, Bitset, DependentStack};
 
-pub struct Tracert<'a, T, A: UsizeArray> {
+pub fn map_trace<A, T, Tup, F>(tracert: Tracert<T, A>, f: F)
+where
+    A: U32Array,
+    F: FnOnce(T) -> Tup,
+    Tup: TupleWatch,
+{
+    f(tracert.data).trace_all(tracert.base)
+}
+
+pub struct Tracert<'a, T, A: U32Array> {
     data: T,
     base: TracertBase<'a, A>,
 }
 
 #[derive(Clone, Copy)]
-pub struct TracertBase<'a, A: UsizeArray> {
+pub struct TracertBase<'a, A: U32Array> {
     pub(crate) dep_stack: &'a DependentStack<A>,
     pub(crate) bitset: &'a Cell<Bitset<A>>,
 }
 
 pub trait TupleWatch {
-    type Output<'a, A: UsizeArray>;
-    fn trace_all<'a, A: UsizeArray>(self, tb: TracertBase<'a, A>) -> Self::Output<'a, A>;
+    type Output<'a, A: U32Array>;
+    fn trace_all<'a, A: U32Array>(self, tb: TracertBase<'a, A>) -> Self::Output<'a, A>;
 }
 
-impl<T, A: UsizeArray> Deref for Tracert<'_, T, A> {
+impl<T, A: U32Array> Deref for Tracert<'_, T, A> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
         self.base
@@ -28,17 +37,9 @@ impl<T, A: UsizeArray> Deref for Tracert<'_, T, A> {
     }
 }
 
-impl<'a, A: UsizeArray> TracertBase<'a, A> {
+impl<'a, A: U32Array> TracertBase<'a, A> {
     pub(crate) fn new(dep_stack: &'a DependentStack<A>, bitset: &'a Cell<Bitset<A>>) -> Self {
         Self { dep_stack, bitset }
-    }
-
-    pub fn tuple_into_tracert<T: TupleWatch>(self, tuple: T) -> T::Output<'a, A> {
-        tuple.trace_all(self)
-    }
-
-    pub fn into_tracert<T>(self, data: T) -> Tracert<'a, T, A> {
-        Tracert { data, base: self }
     }
 }
 
@@ -46,9 +47,9 @@ macro_rules! trace_tuple {
     ()=>{};
     ($T0:ident $var0:ident $($T:ident $var:ident)*) => {
         impl<$($T),*> TupleWatch for ($($T,)*) {
-            type Output<'a, A: UsizeArray> = ($(Tracert<'a, $T, A>,)*);
+            type Output<'a, A: U32Array> = ($(Tracert<'a, $T, A>,)*);
 
-            fn trace_all<'a, A: UsizeArray>(self, _tb: TracertBase<'a, A>) -> Self::Output<'a, A> {
+            fn trace_all<'a, A: U32Array>(self, _tb: TracertBase<'a, A>) -> Self::Output<'a, A> {
                 let ($($var,)*) = self;
                 ($(_tb.into_tracert($var),)*)
             }

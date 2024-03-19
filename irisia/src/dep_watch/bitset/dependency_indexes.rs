@@ -1,13 +1,13 @@
 use std::ops::Range;
 
-use super::{Bitset, UsizeArray};
+use super::{Bitset, U32Array};
 
 #[derive(Clone)]
-pub struct DependencyIndexes<A: UsizeArray> {
-    pub(super) bitset: Bitset<A>,
+pub struct DependencyIndexes<A: U32Array> {
+    pub bitset: Bitset<A>,
 }
 
-impl<A: UsizeArray> DependencyIndexes<A> {
+impl<A: U32Array> DependencyIndexes<A> {
     pub fn step_if(&mut self, expected: u32) -> bool {
         for (index, bits) in self.bitset.iter_mut().enumerate() {
             if *bits == 0 {

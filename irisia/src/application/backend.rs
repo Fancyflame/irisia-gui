@@ -8,7 +8,7 @@ use irisia_backend::{
 };
 
 use crate::{
-    dom::{DropProtection, ElementModel},
+    dom::ElementModel,
     element::Element,
     event::{standard::WindowDestroyed, EventDispatcher},
     primitive::{Pixel, Point, Region},

@@ -1,101 +1,17 @@
-use std::{any::Any, rc::Rc, time::Duration};
+use std::{any::Any, time::Duration};
 
 use anyhow::anyhow;
 
 use crate::{
-    application::{event_comp::IncomingPointerEvent, redraw_scheduler::StandaloneRender},
-    dep_watch::{bitset::UsizeArray, DependentStack},
-    dom::{data_structure::Context, layer::LayerRebuilder},
-    element::GlobalContent,
+    application::event_comp::IncomingPointerEvent,
+    dom::layer::LayerRebuilder,
     primitive::Region,
-    structure::{StructureUpdateTo, Updating, VisitBy, VisitOn},
-    style::style_box::RawStyleGroup,
-    ElModel, Result, StyleReader,
+    structure::{VisitBy, VisitOn},
+    Result, StyleReader,
 };
 
-pub use self::render_element::RenderElement;
-use super::data_structure::AttachedCtx;
-
-mod render_element;
-
-type TypeElimatedSrGroup<'a> = &'a mut dyn FnMut(&dyn RawStyleGroup);
-type TypeElimatedLayouter<'a> = &'a mut dyn FnMut(&dyn RawStyleGroup) -> Option<Region>;
-
-pub struct ChildBox<A: UsizeArray> {
-    child: Box<dyn ChildNodes>,
-    dep_stack: DependentStack<A>,
-}
-
-impl<A: UsizeArray> ChildBox<A> {
-    pub(crate) fn new<T>(children: T) -> Self
-    where
-        T: StructureUpdateTo<A>,
-    {
-        let dep_stack = DependentStack::new();
-        ChildBox {
-            child: Box::new(children.create(Updating::new(&dep_stack))),
-            dep_stack,
-        }
-    }
-
-    pub fn render(&self, re: &mut RenderElement) -> Result<()> {
-        self.child.render_raw(re)
-    }
-
-    pub fn peek_styles<F, Sr>(&self, mut f: F)
-    where
-        F: FnMut(Sr),
-        Sr: StyleReader,
-    {
-        self.child
-            .peek_styles_raw(&mut |rsg| f(Sr::read_style(&rsg)))
-    }
-
-    pub fn len(&self) -> usize {
-        self.child.len_raw()
-    }
-
-    pub fn layout<F, Sr>(&self, mut f: F) -> Result<()>
-    where
-        F: FnMut(Sr, usize) -> Option<Region>,
-        Sr: StyleReader,
-    {
-        let mut nth = 0;
-        self.child.layout_raw(&mut |rsg| {
-            let option = f(Sr::read_style(rsg), nth);
-            nth += 1;
-            option
-        })
-    }
-
-    pub(crate) fn emit_event(&self, ipe: &IncomingPointerEvent) -> bool {
-        self.child.emit_event_raw(ipe)
-    }
-
-    pub(crate) fn update<T>(&mut self, updater: T)
-    where
-        T: StructureUpdateTo<A>,
-    {
-        if self.dep_stack.get_update_list(false).peek().is_none() {
-            return;
-        }
-
-        updater.update(
-            self.child
-                .as_any_mut()
-                .downcast_mut::<T::Target>()
-                .expect("the updater doesn't match the child"),
-            Updating::new(&self.dep_stack),
-        );
-    }
-
-    pub(crate) fn dep_stack(&self) -> &DependentStack<A> {
-        &self.dep_stack
-    }
-}
-
 pub trait ChildNodes: 'static {
-    fn render_raw<'a, 'lr>(&self, re: &'a mut RenderElement<'_, 'lr>) -> Result<()>;
+    fn render_raw(&self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()>;
     fn peek_styles_raw(&self, f: TypeElimatedSrGroup);
     fn len_raw(&self) -> usize;
     fn layout_raw(&self, iter: TypeElimatedLayouter) -> Result<()>;
@@ -107,11 +23,8 @@ impl<T> ChildNodes for T
 where
     T: VisitBy + 'static,
 {
-    fn render_raw<'a, 'lr>(&self, re: &'a mut RenderElement<'_, 'lr>) -> Result<()> {
-        self.visit_by(&mut RenderHelper {
-            lr: re.lr,
-            interval: re.interval,
-        })
+    fn render_raw<'a, 'lr>(&self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()> {
+        self.visit_by(&mut RenderHelper { lr, interval })
     }
 
     fn peek_styles_raw(&self, f: TypeElimatedSrGroup) {
@@ -188,39 +101,5 @@ impl VisitOn for EmitEventHelper<'_, '_> {
     fn visit_on(&mut self, data: &ElModel!(_)) -> Result<()> {
         self.children_entered |= data.emit_event(self.ipe);
         Ok(())
-    }
-}
-
-struct AttachHelper<'a> {
-    parent_layer: Option<&'a Rc<dyn StandaloneRender>>,
-    global_content: Rc<GlobalContent>,
-}
-
-impl VisitOn for AttachHelper<'_> {
-    fn visit_on(&mut self, data: &ElModel!(_)) -> Result<()> {
-        match &mut data.in_cell.borrow_mut().context {
-            ctx @ Context::None => {
-                *ctx = Context::Attached(AttachedCtx {
-                    global_content: self.global_content.clone(),
-                    parent_layer: self.parent_layer.map(Rc::downgrade),
-                });
-                Ok(())
-            }
-
-            Context::Attached(AttachedCtx {
-                global_content,
-                parent_layer,
-            }) => {
-                if !Rc::ptr_eq(global_content, &self.global_content) {
-                    return Err(anyhow!(
-                        "cannot attach element node in another context to this"
-                    ));
-                }
-                *parent_layer = self.parent_layer.map(Rc::downgrade);
-                Ok(())
-            }
-
-            Context::Destroyed => Err(anyhow!("cannot update context to an abondoned element")),
-        }
     }
 }

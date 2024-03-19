@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::dep_watch::bitset::UsizeArray;
+use crate::dep_watch::{bitset::U32Array, inferer::BitsetInc};
 
 use super::{StructureUpdateTo, VisitBy, VisitOn};
 
@@ -28,6 +28,9 @@ impl<T> VisitBy for Slot<T>
 where
     T: VisitBy,
 {
+    type AddUpdatePoints<Base: BitsetInc> = Base;
+    const UPDATE_POINTS: u32 = 0;
+
     fn visit_by<V>(&self, visitor: &mut V) -> crate::Result<()>
     where
         V: VisitOn,
@@ -44,12 +47,11 @@ where
     }
 }
 
-impl<T, A: UsizeArray> StructureUpdateTo<A> for SlotUpdater<'_, T>
+impl<T, A: U32Array> StructureUpdateTo<A> for SlotUpdater<'_, T>
 where
     T: VisitBy + 'static,
 {
     type Target = Slot<T>;
-    const UPDATE_POINTS: u32 = 0;
 
     fn create(self, _: super::Updating<A>) -> Self::Target {
         self.0.private_clone()

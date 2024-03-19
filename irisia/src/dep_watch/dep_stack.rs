@@ -5,16 +5,16 @@ use std::{
 
 use smallvec::SmallVec;
 
-use super::{bitset::UsizeArray, Bitset, DependencyIndexes};
+use super::{bitset::U32Array, Bitset, DependencyIndexes};
 
-pub struct DependentStack<A: UsizeArray>(Rc<Inner<A>>);
+pub struct DependentStack<A: U32Array>(Rc<Inner<A>>);
 
-struct Inner<A: UsizeArray> {
+struct Inner<A: U32Array> {
     stack: RefCell<SmallVec<[u32; 2]>>,
     dirty_set: Cell<Bitset<A>>,
 }
 
-impl<A: UsizeArray> DependentStack<A> {
+impl<A: U32Array> DependentStack<A> {
     pub fn new() -> Self {
         Self::default()
     }
@@ -56,7 +56,7 @@ impl<A: UsizeArray> DependentStack<A> {
     }
 }
 
-impl<A: UsizeArray> Default for DependentStack<A> {
+impl<A: U32Array> Default for DependentStack<A> {
     fn default() -> Self {
         Self(Rc::new(Inner {
             stack: Default::default(),

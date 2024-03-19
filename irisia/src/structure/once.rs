@@ -2,8 +2,8 @@ use std::marker::PhantomData;
 
 use super::{StructureUpdateTo, Updating, VisitBy, VisitOn};
 use crate::{
-    dep_watch::bitset::UsizeArray,
-    dom::{DropProtection, ElementModel},
+    dep_watch::{bitset::U32Array, inferer::BitsetInc},
+    dom::ElementModel,
     element::RcElementModel,
     ChildNodes, Element, Result, StyleGroup,
 };
@@ -26,6 +26,10 @@ where
     Sty: StyleGroup,
     Slt: ChildNodes + VisitBy,
 {
+    // 1 for style update
+    //type AddUpdatePoints<Base: BitsetInc> = ;
+    const UPDATE_POINTS: u32 = P + Su::UPDATE_POINTS + 1;
+
     fn visit_by<V>(&self, visitor: &mut V) -> Result<()>
     where
         V: VisitOn,
@@ -42,7 +46,7 @@ where
     }
 }
 
-impl<El, Sty, Slt, const P: u32, Fe, Pr, Su, Fs, Oc, A: UsizeArray> StructureUpdateTo<A>
+impl<El, Sty, Slt, const P: u32, Fe, Pr, Su, Fs, Oc, A: U32Array> StructureUpdateTo<A>
     for OnceUpdater<El, P, Fe, Fs, Su, Oc>
 where
     Self: VisitBy,
@@ -55,8 +59,6 @@ where
     Oc: FnOnce(&RcElementModel<El, Sty, Slt>),
 {
     type Target = Once<DropProtection<El, Sty, Slt>, P>;
-    // 1 for style update
-    const UPDATE_POINTS: u32 = P + Su::UPDATE_POINTS + 1;
 
     fn create(self, mut info: Updating<A>) -> Self::Target {
         let Some(props) = (self.update_el)(None, info.inherit(0, false)) else {

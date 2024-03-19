@@ -16,20 +16,19 @@ use crate::{
 
 use self::{
     child_nodes::RenderElement,
-    data_structure::{AttachedCtx, Context, InsideRefCell},
+    element_model::InsideRefCell,
     layer::{LayerCompositer, LayerRebuilder},
 };
 
 pub use self::child_nodes::ChildNodes;
-pub use self::{data_structure::ElementModel, drop_protection::DropProtection};
+pub use self::element_model::ElementModel;
 
 pub(crate) mod child_nodes;
-mod data_structure;
-mod drop_protection;
+mod element_model;
 pub(crate) mod layer;
 pub mod pub_handle;
 
-pub type RcElementModel<El, Sty, Slt> = Rc<data_structure::ElementModel<El, Sty, Slt>>;
+pub type RcElementModel<El, Sty, Slt> = Rc<element_model::ElementModel<El, Sty, Slt>>;
 
 impl<El: Element, Sty, Slt> ElementModel<El, Sty, Slt> {
     pub(crate) fn build_layers(
@@ -111,35 +110,6 @@ impl<El: Element, Sty, Slt> ElementModel<El, Sty, Slt> {
                 None => unreachable!("root element did not initialize independent layer"),
             },
         }
-    }
-}
-
-impl<El, Sty, Slt> ElementModel<El, Sty, Slt>
-where
-    Self: 'static,
-    El: Element,
-{
-    fn set_abandoned(self: &Rc<Self>) {
-        let this = self.clone();
-        this.el.take();
-        this.in_cell.borrow_mut().context = Context::Destroyed;
-    }
-}
-
-impl<El, Sty> InsideRefCell<El, Sty>
-where
-    El: Element,
-{
-    fn ctx(&self) -> Result<&AttachedCtx> {
-        match &self.context {
-            Context::None => Err(anyhow!("element have not attached to window yet")),
-            Context::Attached(attached) => Ok(attached),
-            Context::Destroyed => Err(anyhow!("element has been abandoned")),
-        }
-    }
-
-    fn parent_layer(&self) -> &Option<Weak<dyn StandaloneRender>> {
-        &self.ctx().unwrap().parent_layer
     }
 }
 

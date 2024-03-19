@@ -7,6 +7,7 @@ pub use self::{
 pub mod bitset;
 pub mod data_source;
 pub mod dep_stack;
+pub mod inferer;
 
 // Utils
 
