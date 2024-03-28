@@ -12,18 +12,17 @@ use winit::window::WindowBuilder;
 use super::{close_handle::CloseHandle, RawWindowHandle};
 
 impl RawWindowHandle {
-    pub async fn create<A, F1, F2>(create_app: F1, wb: F2) -> Result<Self>
+    pub async fn create<A, F>(create_app: F, wb: WindowBuilder) -> Result<Self>
     where
         A: AppWindow,
-        F1: FnOnce(Arc<WinitWindow>, CloseHandle) -> A + Send + 'static,
-        F2: FnOnce(WindowBuilder) -> WindowBuilder + Send + 'static,
+        F: FnOnce(Arc<WinitWindow>, CloseHandle) -> A + Send + 'static,
     {
         let (window_giver, window_receiver) = oneshot::channel();
 
         WindowRegiterMutex::lock()
             .await
             .send(WindowReg::RawWindowRequest {
-                builder: Box::new(wb),
+                builder: wb,
                 window_giver,
             });
 

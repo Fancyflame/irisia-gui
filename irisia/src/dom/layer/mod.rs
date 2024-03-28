@@ -26,9 +26,8 @@ impl LayerCompositer {
         }))
     }
 
-    pub fn rebuild<'a>(&'a mut self, canvas: &'a Canvas) -> LayerRebuilder<'a> {
-        self.layers.clear();
-        LayerRebuilder::new(self, canvas)
+    pub fn rebuild<'a>(this: &'a SharedLayerCompositer, canvas: &'a Canvas) -> LayerRebuilder<'a> {
+        LayerRebuilder::new(this, canvas)
     }
 
     pub fn composite(&self, canvas: &Canvas) -> Result<()> {

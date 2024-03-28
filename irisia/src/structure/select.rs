@@ -1,43 +1,53 @@
-use std::cell::Cell;
+use super::{StructureUpdater, VisitBy};
+use crate::{dom::EMCreateCtx, Element};
 
-use crate::{
-    dep_watch::{bitset::U32Array, inferer::BitsetInc, Bitset},
-    Result,
-};
-
-use super::{StructureUpdateTo, Updating, VisitBy, VisitOn};
-
-pub struct Select<T, C, A: U32Array> {
+pub struct Select<T, C> {
     selected: bool,
     data: Option<T>,
     child: Option<C>,
-    update_delay: Cell<Bitset<A>>,
 }
 
-pub struct SelectUpdater<F>(F);
-pub enum SelectUpdateBranch<Tu, Cu> {
-    Selected(Tu),
-    NotSelected(Cu),
+pub enum SelectState<T, C> {
+    Selected(T),
+    NotSelected(C),
 }
 
-impl<T, C, A: U32Array> VisitBy for Select<T, C, A>
+impl<T, C, Item> Iterator for SelectState<T, C>
+where
+    T: Iterator<Item = Item>,
+    C: Iterator<Item = Item>,
+{
+    type Item = Item;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Selected(s) => s.next(),
+            SelectState::NotSelected(s) => s.next(),
+        }
+    }
+}
+
+impl<T, C> VisitBy for Select<T, C>
 where
     T: VisitBy,
     C: VisitBy,
 {
-    // 1 for condition expression
-    type AddUpdatePoints<Base: BitsetInc> =
-        C::AddUpdatePoints<T::AddUpdatePoints<bitset_inc!(Base)>>;
-    const UPDATE_POINTS: u32 = 1 + T::UPDATE_POINTS + C::UPDATE_POINTS;
-
-    fn visit_by<V>(&self, visitor: &mut V) -> Result<()>
-    where
-        V: VisitOn,
-    {
+    fn iter(&self) -> impl Iterator<Item = &dyn Element> {
         if self.selected {
-            self.data.as_ref().unwrap().visit_by(visitor)
+            SelectState::Selected(self.data.as_ref().unwrap().iter())
         } else {
-            self.child.as_ref().unwrap().visit_by(visitor)
+            SelectState::NotSelected(self.child.as_ref().unwrap().iter())
+        }
+    }
+
+    fn visit_mut(
+        &mut self,
+        f: impl FnMut(&mut dyn Element) -> crate::Result<()>,
+    ) -> crate::Result<()> {
+        if self.selected {
+            self.data.as_mut().unwrap().visit_mut(f)
+        } else {
+            self.child.as_mut().unwrap().visit_mut(f)
         }
     }
 
@@ -50,86 +60,44 @@ where
     }
 }
 
-impl<T, C, F, Tu, Cu, A: U32Array> StructureUpdateTo<A> for SelectUpdater<F>
+impl<Tu, Cu> StructureUpdater for SelectState<Tu, Cu>
 where
-    T: VisitBy + 'static,
-    C: VisitBy + 'static,
-    F: FnOnce() -> SelectUpdateBranch<Tu, Cu>,
-    Tu: StructureUpdateTo<A, Target = T>,
-    Cu: StructureUpdateTo<A, Target = C>,
+    Tu: StructureUpdater,
+    Cu: StructureUpdater,
+    Tu::Target: VisitBy,
+    Cu::Target: VisitBy,
 {
-    type Target = Select<T, C, A>;
+    type Target = Select<Tu::Target, Cu::Target>;
 
-    fn create(self, mut info: Updating<A>) -> Self::Target {
-        match info.scoped(0, self.0) {
-            SelectUpdateBranch::Selected(upd) => Select {
+    fn create(self, ctx: &EMCreateCtx) -> Self::Target {
+        match self {
+            SelectState::Selected(upd) => Select {
                 selected: true,
-                data: Some(upd.create(info.inherit(1, false))),
+                data: Some(upd.create(ctx)),
                 child: None,
-                update_delay: Default::default(),
             },
-            SelectUpdateBranch::NotSelected(upd) => Select {
+            SelectState::NotSelected(upd) => Select {
                 selected: false,
                 data: None,
-                child: Some(upd.create(info.inherit(Tu::UPDATE_POINTS, false))),
-                update_delay: Default::default(),
+                child: Some(upd.create(ctx)),
             },
         }
     }
 
-    fn update(self, target: &mut Self::Target, mut info: Updating<A>) {
-        if info.no_update::<Self>() {
-            return;
-        }
-
-        info.step_if(0);
-
-        match info.scoped(0, self.0) {
-            SelectUpdateBranch::Selected(upd) => {
-                if !target.selected {
-                    info.points.union(&target.update_delay.take());
-                    target.selected = true;
-                }
-
+    fn update(self, target: &mut Self::Target, ctx: &EMCreateCtx) {
+        match self {
+            SelectState::Selected(upd) => {
+                target.selected = true;
                 match &mut target.data {
-                    Some(data) => upd.update(data, info.inherit(1, false)),
-                    None => target.data = Some(upd.create(info.inherit(1, false))),
+                    Some(data) => upd.update(data, ctx),
+                    place @ None => *place = Some(upd.create(ctx)),
                 }
-
-                let mut delay_list = target.update_delay.get();
-                while let Some(next) = info.points.peek() {
-                    if next >= info.update_point_offset + Self::UPDATE_POINTS {
-                        break;
-                    }
-
-                    info.points.step_if(next);
-                    delay_list.set(next);
-                }
-                target.update_delay.set(delay_list);
             }
-
-            SelectUpdateBranch::NotSelected(upd) => {
-                if target.selected {
-                    info.points.union(&target.update_delay.take());
-                    target.selected = false;
-                }
-
-                let mut delay_list = target.update_delay.get();
-                while let Some(next) = info.points.peek() {
-                    if next >= info.update_point_offset + Tu::UPDATE_POINTS {
-                        break;
-                    }
-
-                    info.points.step_if(next);
-                    delay_list.set(next);
-                }
-                target.update_delay.set(delay_list);
-
-                let new_info = info.inherit(Tu::UPDATE_POINTS + 1, false);
-
+            SelectState::NotSelected(upd) => {
+                target.selected = false;
                 match &mut target.child {
-                    Some(child) => upd.update(child, new_info),
-                    None => target.child = Some(upd.create(new_info)),
+                    Some(child) => upd.update(child, ctx),
+                    place @ None => *place = Some(upd.create(ctx)),
                 }
             }
         }

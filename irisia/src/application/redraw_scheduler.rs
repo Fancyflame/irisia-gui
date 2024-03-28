@@ -5,6 +5,7 @@ use irisia_backend::{
     skia_safe::{colors::TRANSPARENT, Canvas},
     WinitWindow,
 };
+use smallvec::SmallVec;
 
 use crate::Result;
 
@@ -32,7 +33,7 @@ impl RedrawScheduler {
     }
 
     pub fn redraw(&mut self, canvas: &Canvas, interval: Duration) -> Result<()> {
-        let mut errors = Vec::new();
+        let mut errors: SmallVec<[_; 2]> = SmallVec::new();
         self.redraw_req_sent = false;
 
         for (_, ro) in self.list.drain() {
@@ -62,8 +63,9 @@ fn fmt_errors(errors: &[anyhow::Error]) -> Result<()> {
     }
 
     Err(anyhow!(
-        "{} error(s) occurred on redraw: {}",
+        "{} error{} occurred on redraw: {}",
         errors.len(),
+        if errors.len() > 1 { "s" } else { "" },
         msg
     ))
 }

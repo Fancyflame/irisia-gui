@@ -5,7 +5,7 @@ use tokio::task::LocalSet;
 use winit::{
     event::{Event, StartCause, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopBuilder},
-    window::{WindowBuilder, WindowId},
+    window::WindowId,
 };
 
 use crate::render_window::RenderWindowController;
@@ -70,7 +70,7 @@ where
                     builder,
                     window_giver,
                 } => {
-                    let window = builder(WindowBuilder::new()).build(window_target);
+                    let window = builder.build(window_target);
                     let _ = window_giver.send(window);
                 }
 

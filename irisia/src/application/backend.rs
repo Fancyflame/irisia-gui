@@ -8,8 +8,8 @@ use irisia_backend::{
 };
 
 use crate::{
-    dom::ElementModel,
-    element::Element,
+    dom::{EMCreateCtx, ElementModel},
+    element::{Element, ElementUpdate, NewState},
     event::{standard::WindowDestroyed, EventDispatcher},
     primitive::{Pixel, Point, Region},
     Result,
@@ -19,13 +19,14 @@ use super::{
     content::GlobalContent,
     event_comp::{global::focusing::Focusing, GlobalEventMgr},
     redraw_scheduler::RedrawScheduler,
+    root::Root,
     Window,
 };
 
 pub(super) struct BackendRuntime<El: Element> {
     gem: GlobalEventMgr,
     gc: Rc<GlobalContent>,
-    root_element: DropProtection<El, (), ()>,
+    root: Rc<Root<El>>,
 }
 
 impl<El> AppWindow for BackendRuntime<El>
@@ -41,17 +42,19 @@ where
         // composite
         canvas.reset_matrix();
         canvas.clear(WHITE);
-        self.root_element.composite_as_root(canvas)
+        self.root.composite(canvas)
     }
 
     fn on_window_event(&mut self, event: WindowEvent) {
         if let WindowEvent::Resized(size) = &event {
-            self.root_element
+            self.root
+                .el()
                 .set_draw_region(window_size_to_draw_region(*size));
+            self.gc.request_redraw(self.root.clone());
         }
 
         if let Some(ipe) = self.gem.emit_event(event, &self.gc) {
-            if !self.root_element.emit_event(&ipe) {
+            if !self.root.el().on_pointer_event(&ipe) {
                 ipe.focus_on(None);
             }
         }
@@ -72,10 +75,9 @@ fn window_size_to_draw_region(size: PhysicalSize<u32>) -> Region {
     )
 }
 
-pub(super) async fn new_window<El, F>(window_builder: F) -> Result<Window>
+pub(super) async fn new_window<El>(window_builder: WindowBuilder) -> Result<Window>
 where
-    El: Element + From<()>,
-    F: FnOnce(WindowBuilder) -> WindowBuilder + Send + 'static,
+    El: Element + ElementUpdate<El::BlankProps, (), ()> + From<()>,
 {
     let ev_disp = EventDispatcher::new();
 
@@ -93,15 +95,27 @@ where
                 close_handle,
             });
 
-            let root_element = ElementModel::new((), (), ());
+            let root = Root::new(|weak| {
+                El::create(
+                    ElementModel::new(&EMCreateCtx {
+                        global_content: gc.clone(),
+                        parent_layer: weak,
+                    }),
+                    NewState {
+                        props: <El::BlankProps as Default>::default(),
+                        styles: (),
+                        slot: (),
+                    },
+                )
+            });
 
-            root_element.set_draw_region(window_size_to_draw_region(gc.window().inner_size()));
-            gc.request_redraw(root_element.0.clone());
+            root.el()
+                .set_draw_region(window_size_to_draw_region(gc.window().inner_size()));
 
             BackendRuntime::<El> {
-                root_element,
                 gem: GlobalEventMgr::new(),
                 gc,
+                root,
             }
         }
     };

@@ -1,17 +1,15 @@
-use super::{StructureUpdateTo, VisitBy};
-use crate::{
-    dep_watch::{bitset::U32Array, inferer::BitsetInc},
-    Result,
-};
+use super::{StructureUpdater, VisitBy};
+use crate::{dom::EMCreateCtx, Element};
 
 impl VisitBy for () {
-    type AddUpdatePoints<Base: BitsetInc> = Base;
-    const UPDATE_POINTS: u32 = 0;
+    fn iter(&self) -> impl Iterator<Item = &dyn Element> {
+        std::iter::empty()
+    }
 
-    fn visit_by<V>(&self, _: &mut V) -> Result<()>
-    where
-        V: super::VisitOn,
-    {
+    fn visit_mut(
+        &mut self,
+        _: impl FnMut(&mut dyn crate::Element) -> crate::Result<()>,
+    ) -> crate::Result<()> {
         Ok(())
     }
 
@@ -24,9 +22,9 @@ impl VisitBy for () {
     }
 }
 
-impl<A: U32Array> StructureUpdateTo<A> for () {
+impl StructureUpdater for () {
     type Target = ();
 
-    fn create(self, _: super::Updating<A>) -> Self::Target {}
-    fn update(self, _: &mut Self::Target, _: super::Updating<A>) {}
+    fn create(self, _: &EMCreateCtx) -> Self::Target {}
+    fn update(self, _: &mut Self::Target, _: &EMCreateCtx) {}
 }

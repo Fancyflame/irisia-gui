@@ -3,7 +3,7 @@ use std::sync::Weak;
 use irisia_backend::{window_handle::WindowBuilder, WinitWindow};
 
 use crate::{
-    element::Element,
+    element::{Element, ElementUpdate},
     event::{standard::WindowDestroyed, EventDispatcher},
     Result,
 };
@@ -12,6 +12,7 @@ mod backend;
 pub(crate) mod content;
 pub(crate) mod event_comp;
 pub(crate) mod redraw_scheduler;
+mod root;
 
 use backend::new_window;
 
@@ -27,18 +28,16 @@ pub struct Window {
 impl Window {
     pub async fn new<El>(title: impl Into<String>) -> Result<Self>
     where
-        El: Element + From<()>,
+        El: ElementUpdate<El::BlankProps, (), ()> + Element + From<()>,
     {
-        let title = title.into();
-        new_window::<El, _>(move |wb| wb.with_title(title)).await
+        new_window::<El>(WindowBuilder::new().with_title(title)).await
     }
 
-    pub async fn with_builder<El, F>(f: F) -> Result<Self>
+    pub async fn with_builder<El>(wb: WindowBuilder) -> Result<Self>
     where
-        El: Element + From<()>,
-        F: FnOnce(WindowBuilder) -> WindowBuilder + Send + 'static,
+        El: ElementUpdate<El::BlankProps, (), ()> + Element + From<()>,
     {
-        new_window::<El, _>(f).await
+        new_window::<El>(wb).await
     }
 
     pub fn winit_window(&self) -> &Weak<WinitWindow> {

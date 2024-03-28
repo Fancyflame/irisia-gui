@@ -1,24 +1,19 @@
 use std::{
-    cell::Cell,
     collections::{hash_map::Entry, HashMap},
     hash::Hash,
 };
 
 use smallvec::SmallVec;
 
-use crate::{
-    dep_watch::{bitset::U32Array, inferer::BitsetInc, Bitset},
-    Result,
-};
+use crate::{dom::EMCreateCtx, Element};
 
-use super::{tracert::TracertBase, StructureUpdateTo, Updating, VisitBy, VisitOn};
+use super::{StructureUpdater, VisitBy};
 
 const MAX_TIME_TO_LIVE: u8 = 3;
 
-pub struct Repeat<K, T, A: U32Array> {
+pub struct Repeat<K, T> {
     map: HashMap<K, Item<T>>,
     order: SmallVec<[K; 5]>,
-    dependents: Cell<Bitset<A>>,
 }
 
 struct Item<T> {
@@ -26,27 +21,35 @@ struct Item<T> {
     time_to_live: u8,
 }
 
-pub struct RepeatUpdater<Fi, Fm> {
-    get_iter: Fi,
+pub struct RepeatUpdater<I, Fm> {
+    iter: I,
     map: Fm,
 }
 
-impl<K, T, A: U32Array> VisitBy for Repeat<K, T, A>
+impl<K, T> VisitBy for Repeat<K, T>
 where
     K: Hash + Eq,
     T: VisitBy,
 {
-    // 1 for the iterator expression
-    type AddUpdatePoints<Base: BitsetInc> = T::AddUpdatePoints<bitset_inc!(Base)>;
-    const UPDATE_POINTS: u32 = 1 + T::UPDATE_POINTS;
+    fn iter(&self) -> impl Iterator<Item = &dyn Element> {
+        self.order
+            .iter()
+            .map(|k| self.map[k].value.iter())
+            .flatten()
+    }
 
-    fn visit_by<V>(&self, visitor: &mut V) -> Result<()>
-    where
-        V: VisitOn,
-    {
-        for k in self.order.iter() {
-            self.map[k].value.visit_by(visitor)?;
+    fn visit_mut(
+        &mut self,
+        mut f: impl FnMut(&mut dyn Element) -> crate::Result<()>,
+    ) -> crate::Result<()> {
+        for key in self.order.iter() {
+            self.map
+                .get_mut(key)
+                .unwrap_or_else(|| unreachable!())
+                .value
+                .visit_mut(&mut f)?;
         }
+
         Ok(())
     }
 
@@ -55,65 +58,37 @@ where
     }
 }
 
-impl<K, T, Fi, I, Fm, Tu, A: U32Array> StructureUpdateTo<A> for RepeatUpdater<Fi, Fm>
+impl<K, T, I, Fm, Tu> StructureUpdater for RepeatUpdater<I, Fm>
 where
-    Self: VisitBy,
     K: Hash + Eq + Clone + 'static,
     T: VisitBy + 'static,
-    Fi: FnOnce() -> I,
     I: Iterator,
-    Fm: for<'a> FnMut(I::Item, TracertBase<'a, A>) -> (K, Tu),
-    Tu: StructureUpdateTo<A, Target = T>,
+    Fm: for<'a> FnMut(I::Item) -> (K, Tu),
+    Tu: StructureUpdater<Target = T>,
 {
-    type Target = Repeat<K, T, A>;
+    type Target = Repeat<K, T>;
 
-    fn create(mut self, mut info: Updating<A>) -> Self::Target {
+    fn create(self, ctx: &EMCreateCtx) -> Self::Target {
         let mut map = HashMap::new();
         let mut order = SmallVec::new();
-        let dependents: Cell<Bitset<A>> = Default::default();
 
-        let mut new_info = info.inherit(1, true);
-
-        let tracert_base = TracertBase::new(new_info.call_stack, &dependents);
-        let iterator = new_info.scoped(0, || {
-            (self.get_iter)().map(|item| (self.map)(item, tracert_base))
-        });
-
-        for (key, upd) in iterator {
+        for (key, upd) in self.iter.map(self.map) {
             order.push(key.clone());
             map.insert(
                 key,
                 Item {
-                    value: upd.create(new_info.inherit(0, true)),
+                    value: upd.create(ctx),
                     time_to_live: MAX_TIME_TO_LIVE,
                 },
             );
         }
 
-        Repeat {
-            map,
-            order,
-            dependents,
-        }
+        Repeat { map, order }
     }
 
-    fn update(mut self, target: &mut Self::Target, mut info: Updating<A>) {
-        if info.no_update::<Self>() {
-            return;
-        }
-
-        info.step_if(0);
-
-        let mut new_info = info.inherit(1, true);
-        new_info.points.union(&target.dependents.take());
-
-        let tracert_base = TracertBase::new(new_info.call_stack, &target.dependents);
-        let iterator = new_info.scoped(0, || {
-            (self.get_iter)().map(|item| (self.map)(item, tracert_base))
-        });
-
+    fn update(self, target: &mut Self::Target, ctx: &EMCreateCtx) {
         target.order.clear();
-        for (key, upd) in iterator {
+        for (key, upd) in self.iter.map(self.map) {
             target.order.push(key.clone());
 
             match target.map.entry(key) {
@@ -124,11 +99,11 @@ where
                         "some keys in the iterator is duplicated"
                     );
                     item.time_to_live = MAX_TIME_TO_LIVE;
-                    upd.update(&mut item.value, new_info.inherit(0, true));
+                    upd.update(&mut item.value, ctx);
                 }
                 Entry::Vacant(vac) => {
                     vac.insert(Item {
-                        value: upd.create(new_info.inherit(0, true)),
+                        value: upd.create(ctx),
                         time_to_live: MAX_TIME_TO_LIVE,
                     });
                 }
@@ -144,8 +119,5 @@ where
                 }
                 None => false,
             });
-
-        info.points
-            .skip_range(info.update_point_offset..info.update_point_offset + Self::UPDATE_POINTS);
     }
 }

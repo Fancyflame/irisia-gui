@@ -1,3 +1,5 @@
+use std::cell::RefMut;
+
 use anyhow::anyhow;
 use irisia_backend::skia_safe::{colors::TRANSPARENT, Canvas};
 
@@ -5,15 +7,20 @@ use super::{LayerCompositer, SharedLayerCompositer};
 use crate::Result;
 
 pub struct LayerRebuilder<'a> {
-    pub(super) lc: &'a mut LayerCompositer,
-    pub(super) canvas: &'a Canvas,
+    lc: RefMut<'a, LayerCompositer>,
+    canvas: &'a Canvas,
     dirty: bool,
 }
 
 impl<'a> LayerRebuilder<'a> {
-    pub(super) fn new(lc: &'a mut LayerCompositer, canvas: &'a Canvas) -> Self {
+    pub(super) fn new(lc: &'a SharedLayerCompositer, canvas: &'a Canvas) -> Self {
         canvas.save();
+        canvas.clear(TRANSPARENT);
         canvas.reset_matrix();
+
+        let mut lc = lc.borrow_mut();
+        lc.layers.clear();
+
         Self {
             lc,
             canvas,
@@ -21,21 +28,19 @@ impl<'a> LayerRebuilder<'a> {
         }
     }
 
-    pub(crate) fn draw_in_place(&mut self) -> &Canvas {
-        if self.dirty {
-            self.canvas.restore();
-        }
+    pub fn canvas(&mut self) -> &Canvas {
         self.dirty = true;
-        self.canvas.save();
         self.canvas
     }
 
-    pub(crate) fn new_layer(&mut self, custom_layer: SharedLayerCompositer) -> Result<()> {
+    pub(crate) fn new_layer<'b>(
+        &'b mut self,
+        custom_layer: &'b SharedLayerCompositer,
+    ) -> Result<LayerRebuilder<'b>> {
         self.flush()?;
         let matrix = self.canvas.local_to_device();
-        self.lc.layers.add_layer(custom_layer, matrix);
-        self.canvas.clear(TRANSPARENT);
-        Ok(())
+        self.lc.layers.add_layer(custom_layer.clone(), matrix);
+        Ok(LayerRebuilder::new(custom_layer, self.canvas))
     }
 
     fn flush(&mut self) -> Result<()> {
@@ -49,7 +54,6 @@ impl<'a> LayerRebuilder<'a> {
             self.lc.layers.pop();
             return Err(anyhow!("cannot flush canvas content"));
         }
-        self.canvas.restore();
         self.dirty = false;
 
         Ok(())

@@ -7,7 +7,6 @@ pub use self::{
 };
 
 use self::event_dispatcher::lock::EventDispatcherLock;
-pub(crate) use listen::EdProvider;
 
 pub mod event_dispatcher;
 mod listen;

@@ -16,7 +16,7 @@ where
             self.first.get_style(name, prog / self.split_at)
         } else {
             self.second
-                .get_style(name, (prog - self.split_at) / (1 - self.split_at))
+                .get_style(name, (prog - self.split_at) / (1.0 - self.split_at))
         }
     }
 }

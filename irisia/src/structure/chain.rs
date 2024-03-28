@@ -1,8 +1,6 @@
-use super::{StructureUpdateTo, VisitBy, VisitOn};
-use crate::{
-    dep_watch::{bitset::U32Array, inferer::BitsetInc},
-    Result,
-};
+use crate::Element;
+
+use super::{StructureUpdater, VisitBy};
 
 pub struct Chain<A, B>(pub A, pub B);
 
@@ -11,12 +9,16 @@ where
     A: VisitBy,
     B: VisitBy,
 {
-    const UPDATE_POINTS: u32 = A::UPDATE_POINTS + B::UPDATE_POINTS;
-    type AddUpdatePoints<Base: BitsetInc> = B::AddUpdatePoints<A::AddUpdatePoints<Base>>;
+    fn iter(&self) -> impl Iterator<Item = &dyn Element> {
+        self.0.iter().chain(self.1.iter())
+    }
 
-    fn visit_by<V: VisitOn>(&self, visitor: &mut V) -> Result<()> {
-        self.0.visit_by(visitor)?;
-        self.1.visit_by(visitor)
+    fn visit_mut(
+        &mut self,
+        mut f: impl FnMut(&mut dyn Element) -> crate::Result<()>,
+    ) -> crate::Result<()> {
+        self.0.visit_mut(&mut f)?;
+        self.1.visit_mut(f)
     }
 
     fn len(&self) -> usize {
@@ -24,27 +26,19 @@ where
     }
 }
 
-impl<A, B> StructureUpdateTo for Chain<A, B>
+impl<A, B> StructureUpdater for Chain<A, B>
 where
-    A: StructureUpdateTo,
-    B: StructureUpdateTo,
+    A: StructureUpdater,
+    B: StructureUpdater,
 {
     type Target = Chain<A::Target, B::Target>;
 
-    fn create(self, mut info: super::Updating<impl U32Array>) -> Self::Target {
-        Chain(
-            self.0.create(info.inherit(0, false)),
-            self.1.create(info.inherit(A::UPDATE_POINTS, false)),
-        )
+    fn create(self, ctx: &crate::dom::EMCreateCtx) -> Self::Target {
+        Chain(self.0.create(ctx), self.1.create(ctx))
     }
 
-    fn update(self, target: &mut Self::Target, mut info: super::Updating<impl U32Array>) {
-        if info.no_update::<Self>() {
-            return;
-        }
-
-        self.0.update(&mut target.0, info.inherit(0, false));
-        self.1
-            .update(&mut target.1, info.inherit(A::UPDATE_POINTS, false))
+    fn update(self, target: &mut Self::Target, ctx: &crate::dom::EMCreateCtx) {
+        self.0.update(&mut target.0, ctx);
+        self.1.update(&mut target.1, ctx);
     }
 }

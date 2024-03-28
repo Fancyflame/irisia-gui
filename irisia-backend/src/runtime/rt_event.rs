@@ -12,7 +12,7 @@ pub(crate) type AppBuildFn = Box<dyn FnOnce() -> Box<dyn AppWindow> + Send>;
 
 pub(crate) enum WindowReg {
     RawWindowRequest {
-        builder: Box<dyn FnOnce(WindowBuilder) -> WindowBuilder + Send>,
+        builder: WindowBuilder,
         window_giver: oneshot::Sender<Result<WinitWindow, OsError>>,
     },
 
