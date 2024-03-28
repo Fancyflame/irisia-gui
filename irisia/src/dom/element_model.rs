@@ -1,15 +1,17 @@
 use std::{
     cell::Cell,
+    future::Future,
     rc::{Rc, Weak},
 };
 
 use anyhow::anyhow;
+use tokio::task::JoinHandle;
 
 use crate::{
     application::{
         content::GlobalContent, event_comp::NodeEventMgr, redraw_scheduler::StandaloneRender,
     },
-    event::{EventDispatcher, Listen},
+    event::{standard::ElementAbandoned, EventDispatcher, Listen},
     primitive::Region,
     Result,
 };
@@ -95,5 +97,28 @@ impl ElementModel {
 
         self.flag_dirty_setted.set(true);
         Ok(())
+    }
+
+    /// Spwan a daemon task on `fut`.
+    ///
+    /// The spawned task will be cancelled when element dropped,
+    /// or can be cancelled manually.
+    pub fn daemon<F>(&self, fut: F) -> JoinHandle<()>
+    where
+        F: Future + 'static,
+    {
+        let ed = self.ed.clone();
+        tokio::task::spawn_local(async move {
+            tokio::select! {
+                _ = ed.recv_trusted::<ElementAbandoned>() => {},
+                _ = fut => {}
+            }
+        })
+    }
+}
+
+impl Drop for ElementModel {
+    fn drop(&mut self) {
+        self.ed.emit_trusted(ElementAbandoned)
     }
 }

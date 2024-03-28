@@ -9,7 +9,6 @@ pub use self::element_model::ElementModel;
 
 mod element_model;
 pub(crate) mod layer;
-//pub mod pub_handle;
 
 impl ElementModel {
     pub(crate) fn get_or_init_indep_layer(&mut self) -> &SharedLayerCompositer {
