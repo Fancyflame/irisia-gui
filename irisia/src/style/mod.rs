@@ -1,113 +1,49 @@
-use impl_variadics::impl_variadics;
+pub use self::read_style::{ReadStyle, StyleBuffer};
 
-pub mod anima;
+mod read_style;
 
-#[derive(Clone, Copy)]
-pub enum StyleValue {
-    Delimiter,
-    Float(f32),
-    Ident(&'static str),
-    Color([u8; 4]),
-}
+pub trait Style: Clone + 'static {}
 
-pub trait StyleSource {
-    fn get_style<'a>(&'a self, name: &str, prog: f32) -> Option<&'a [StyleValue]>;
-}
-
-pub trait TupleStyleGroup: StyleSource {
-    type Chained<T: StyleSource>: TupleStyleGroup;
-
-    fn chain<T>(self, other: T) -> Self::Chained<T>
+pub trait WriteStyle {
+    fn write_style<R>(&mut self, read: &R)
     where
-        Self: Sized,
-        T: StyleSource;
-}
+        R: ReadStyle + ?Sized;
 
-type Pair<T> = (&'static str, T);
-
-impl<T> StyleSource for Pair<T>
-where
-    T: AsRef<[StyleValue]>,
-{
-    fn get_style<'a>(&'a self, name: &str, _: f32) -> Option<&'a [StyleValue]> {
-        if name == self.0 {
-            Some(self.1.as_ref())
-        } else {
-            None
-        }
+    fn from_style<R>(read: &R) -> Self
+    where
+        Self: Default,
+        R: ReadStyle + ?Sized,
+    {
+        let mut this = Self::default();
+        this.write_style(read);
+        this
     }
 }
 
-impl_variadics! {
-    ..30 "Sty*" => {
-        impl<#(#Sty0,)*> TupleStyleGroup for (#(#Sty0,)*)
-        where
-            #(#Sty0: StyleSource,)*
-        {
-            type Chained<T: StyleSource> = (T, #(#Sty0,)*);
+impl<T> WriteStyle for Option<T>
+where
+    T: Style,
+{
+    fn write_style<R>(&mut self, read: &R)
+    where
+        R: ReadStyle + ?Sized,
+    {
+        read.read_style_into(&mut StyleBuffer(self));
+    }
+}
 
-            fn chain<T>(self, other: T) -> Self::Chained<T>
-            where
-                Self: Sized,
-                T: StyleSource
-            {
-                (
-                    other,
-                    #(self.#index,)*
-                )
-            }
-        }
-    };
-
-    30..31 "Sty*" "style*" => {
-        impl<#(#Sty0,)*> TupleStyleGroup for (#(#Sty0,)*)
-        where
-            #(#Sty0: StyleSource,)*
-        {
-            type Chained<T: StyleSource> = ((T,), #(#Sty0,)*);
-
-            fn chain<T>(self, other: T) -> Self::Chained<T>
-            where
-                Self: Sized,
-                T: StyleSource
-            {
-                (
-                    (other,),
-                    #(self.#index,)*
-                )
-            }
-        }
-
-        impl<Fst, #(#Sty0,)*> TupleStyleGroup for (Fst, #(#Sty0,)*)
-        where
-            Fst: TupleStyleGroup,
-            #(#Sty0: StyleSource,)*
-        {
-            type Chained<T: StyleSource> = (Fst::Chained<T>, #(#Sty0,)*);
-
-            fn chain<T>(self, other: T) -> Self::Chained<T>
-            where
-                Self: Sized,
-                T: StyleSource
-            {
-                let (first, #(#style0,)*) = self;
-                (first.chain(other), #(#style0,)*)
-            }
-        }
-    };
-
-    ..32 "Sty*" => {
-        impl<#(#Sty0,)*> StyleSource for (#(#Sty0,)*)
-        where
-            #(#Sty0: StyleSource,)*
-        {
-            fn get_style<'a>(&'a self, _name: &str, _prog: f32) -> Option<&'a [StyleValue]> {
-                #(if let arr @ Some(_) = self.#index.get_style(_name, _prog) {
-                    arr
-                } else)* {
-                    None
-                }
-            }
+impl<T> WriteStyle for T
+where
+    T: Style,
+{
+    fn write_style<R>(&mut self, read: &R)
+    where
+        R: ReadStyle + ?Sized,
+    {
+        let mut option = None;
+        read.read_style_into(&mut StyleBuffer(&mut option));
+        if let Some(value) = option {
+            *self = value;
         }
     }
 }

@@ -4,70 +4,165 @@ use anyhow::anyhow;
 
 use crate::{
     application::event_comp::IncomingPointerEvent,
-    dom::{layer::LayerRebuilder, EMCreateCtx},
+    el_model::{layer::LayerRebuilder, EMCreateCtx, RenderOn, SharedEM},
     primitive::Region,
-    style::StyleSource,
-    Element, Result,
+    style::ReadStyle,
+    ElementInterfaces, Result,
 };
 
-pub use self::{
-    chain::Chain,
-    once::{Once, OnceUpdater},
-    repeat::{Repeat, RepeatUpdater},
-    select::{Select, SelectState},
-};
+pub use self::{child_box::ChildBox, repeat::repeat, select::branch, single::single};
 
 mod chain;
-mod empty;
-mod once;
+mod child_box;
 mod repeat;
 mod select;
+mod single;
 
-pub trait VisitBy {
-    fn iter(&self) -> impl Iterator<Item = &dyn Element>;
-
-    fn visit_mut(&mut self, f: impl FnMut(&mut dyn Element) -> Result<()>) -> Result<()>;
+pub trait VisitBy: 'static {
+    fn visit<V>(&self, v: &mut V) -> Result<()>
+    where
+        V: Visitor;
 
     fn len(&self) -> usize;
+}
 
-    fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
+pub trait RenderMultiple: 'static {
+    fn render(&self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()>;
 
-    fn render(&mut self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()> {
-        self.visit_mut(|el| el.render(lr, interval))
-    }
+    fn peek_styles(&self, f: &mut dyn FnMut(&dyn ReadStyle));
 
-    fn peek_styles(&self) -> impl Iterator<Item = &dyn StyleSource> {
-        self.iter().map(Element::get_style)
-    }
+    fn layout(&self, f: &mut dyn FnMut(&dyn ReadStyle) -> Option<Region>) -> Result<()>;
 
-    fn layout(&mut self, mut f: impl FnMut(&dyn StyleSource) -> Option<Region>) -> Result<()> {
-        self.visit_mut(|el| {
-            let region = f(el.get_style());
-            match region {
-                Some(r) => {
-                    el.set_draw_region(r);
-                    Ok(())
+    fn emit_event(&self, ipe: &IncomingPointerEvent) -> bool;
+
+    fn len(&self) -> usize;
+}
+
+pub trait Visitor {
+    fn visit<El>(&mut self, em: &SharedEM<El>) -> Result<()>
+    where
+        El: ElementInterfaces;
+}
+
+impl<T> RenderMultiple for T
+where
+    T: VisitBy,
+{
+    fn render(&self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()> {
+        struct Render<'a, 'b> {
+            lr: &'a mut LayerRebuilder<'b>,
+            interval: Duration,
+        }
+
+        impl Visitor for Render<'_, '_> {
+            fn visit<El>(&mut self, em: &SharedEM<El>) -> Result<()>
+            where
+                El: ElementInterfaces,
+            {
+                em.shared.redraw_signal_sent.set(false);
+                match &em.shared.render_on {
+                    RenderOn::NewLayer { layer, .. } => self.lr.append_layer(layer),
+                    RenderOn::ParentLayer(_) => em.el.borrow_mut().render(self.lr, self.interval),
                 }
-                None => Err(anyhow!("layouter is exhausted")),
             }
-        })
+        }
+
+        self.visit(&mut Render { lr, interval })
     }
 
-    fn emit_event(&mut self, ipe: &IncomingPointerEvent) -> bool {
-        let mut children_entered = false;
-        let _ = self.visit_mut(|el| {
-            children_entered |= el.on_pointer_event(ipe);
-            Ok(())
-        });
-        children_entered
+    fn peek_styles(&self, f: &mut dyn FnMut(&dyn ReadStyle)) {
+        struct PeekStyles<F>(F);
+
+        impl<F> Visitor for PeekStyles<F>
+        where
+            F: FnMut(&dyn ReadStyle),
+        {
+            fn visit<El>(&mut self, em: &SharedEM<El>) -> Result<()>
+            where
+                El: ElementInterfaces,
+            {
+                (self.0)(&em.shared.styles);
+                Ok(())
+            }
+        }
+
+        self.visit(&mut PeekStyles(f)).unwrap()
+    }
+
+    fn layout(&self, f: &mut dyn FnMut(&dyn ReadStyle) -> Option<Region>) -> Result<()> {
+        struct Layout<F>(F);
+
+        impl<F> Visitor for Layout<F>
+        where
+            F: FnMut(&dyn ReadStyle) -> Option<Region>,
+        {
+            fn visit<El>(&mut self, em: &SharedEM<El>) -> Result<()>
+            where
+                El: ElementInterfaces,
+            {
+                let option = (self.0)(&em.shared.styles);
+                match option {
+                    Some(region) => {
+                        let old_region = em.shared.draw_region.get();
+
+                        if region != old_region {
+                            em.set_draw_region(region);
+                            em.request_redraw();
+                        }
+
+                        Ok(())
+                    }
+                    None => Err(anyhow!("layouter is exhausted")),
+                }
+            }
+        }
+
+        self.visit(&mut Layout(f))
+    }
+
+    fn emit_event(&self, ipe: &IncomingPointerEvent) -> bool {
+        struct EmitEvent<'a> {
+            children_entered: bool,
+            ipe: &'a IncomingPointerEvent<'a>,
+        }
+
+        impl Visitor for EmitEvent<'_> {
+            fn visit<El>(&mut self, em: &SharedEM<El>) -> Result<()>
+            where
+                El: ElementInterfaces,
+            {
+                self.children_entered |= em.on_pointer_event(self.ipe);
+                Ok(())
+            }
+        }
+
+        let mut ee = EmitEvent {
+            children_entered: false,
+            ipe,
+        };
+
+        self.visit(&mut ee).unwrap();
+        ee.children_entered
+    }
+
+    fn len(&self) -> usize {
+        VisitBy::len(self)
     }
 }
 
-pub trait StructureUpdater {
+pub trait StructureCreate {
     type Target: VisitBy;
 
-    fn update(self, this: &mut Self::Target, ctx: &EMCreateCtx);
     fn create(self, ctx: &EMCreateCtx) -> Self::Target;
+}
+
+impl<F, R> StructureCreate for F
+where
+    F: FnOnce(&EMCreateCtx) -> R,
+    R: VisitBy,
+{
+    type Target = R;
+    fn create(self, ctx: &EMCreateCtx) -> Self::Target {
+        self(ctx)
+    }
 }

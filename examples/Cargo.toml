@@ -19,4 +19,4 @@ path = "simple_window.rs"
 [dev-dependencies]
 tokio = { version = "1.27", features = ["sync", "rt-multi-thread", "macros"] }
 irisia = { path = "../irisia" }
-irisia_widgets = { path = "../irisia-widgets" }
+#irisia_widgets = { path = "../irisia-widgets" }

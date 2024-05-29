@@ -1,35 +1,104 @@
+use std::rc::Rc;
+
 use irisia::{
     application::Window,
-    build,
-    element::{Element, ElementUpdate},
+    data_flow::{
+        register::{register, Register},
+        wire, Readable,
+    },
+    element::{Component, ComponentTemplate, ElementInterfaces},
     event::standard::{CloseRequested, PointerDown},
     skia_safe::Color,
-    style,
-    style::StyleColor,
-    ElModel,
+    structure::{branch, repeat, single},
+    winit::window::WindowBuilder,
+    Result,
 };
-use irisia_widgets::textbox::{
-    styles::{StyleFontSize, StyleFontWeight},
-    TextBox,
-};
-use window_backend::{Flex, Rectangle, StyleHeight, StyleWidth};
+
+use window_backend::{Flex, RectProps, Rectangle, StyleHeight, StyleWidth};
 
 mod window_backend;
 
 #[irisia::main]
-async fn main() {
-    Window::new::<App>("hello irisia")
-        .await
-        .unwrap()
-        .join()
-        .await;
+async fn main() -> Result<()> {
+    Window::new(
+        WindowBuilder::new().with_title("hello irisia"),
+        single::<Component<App>, _>((), (), (), |_| {}),
+    )
+    .await
+    .unwrap()
+    .join()
+    .await;
 }
 
 struct App {
-    rects: Vec<Option<Color>>,
+    rects: Rc<Register<Vec<Rc<Register<Option<Color>>>>>>,
 }
 
-impl Element for App {
+impl ComponentTemplate for App {
+    type Props<'a> = ();
+
+    fn create<Slt>(
+        _: Self::Props<'_>,
+        _: Slt,
+        _: irisia::el_model::ElementAccess,
+        _: irisia::element::CompInputWatcher<Self>,
+    ) -> (
+        Self,
+        impl irisia::structure::StructureCreate<
+            Target = irisia::el_model::SharedEM<impl ElementInterfaces>,
+        >,
+    )
+    where
+        Slt: irisia::structure::StructureCreate,
+    {
+        let vec = register(
+            [
+                Color::RED,
+                Color::YELLOW,
+                Color::BLUE,
+                Color::GREEN,
+                Color::BLACK,
+            ]
+            .into_iter()
+            .map(|c| register(Some(c)))
+            .collect::<Vec<_>>(),
+        );
+
+        let children = single::<Flex, _>(
+            (),
+            (),
+            repeat(
+                vec.clone(),
+                |index, _| index,
+                |color| {
+                    branch(
+                        wire({
+                            let color = color.clone();
+                            move || color.read().is_some()
+                        }),
+                        single::<Rectangle, _>(
+                            {
+                                let color = color.clone();
+                                RectProps {
+                                    force_color: wire(move || color.read().unwrap_or(Color::BLACK)),
+                                }
+                            },
+                            (),
+                            (),
+                            |_| {},
+                        ),
+                        (),
+                    )
+                },
+            ),
+            |_| {},
+        );
+
+        (App { rects: vec }, children)
+    }
+}
+
+/*impl ElementInterfaces for App {
     type BlankProps = ();
 
     fn set_children(&self, this: &RcElementModel<Self>) {
@@ -69,7 +138,7 @@ impl Element for App {
     }
 }
 
-impl ElementUpdate<()> for App {
+impl ElementUpdateRaw<()> for App {
     fn el_create(this: &RcElementModel<Self>, _: ()) -> Self {
         this.global()
             .event_dispatcher()
@@ -108,4 +177,4 @@ fn rect_rt(this: &ElModel!(App), rect: &ElModel!(Rectangle), index: usize) {
             println!("rectangle {} deleted", index);
             this.el_mut().await.unwrap().rects[index].take();
         });
-}
+}*/

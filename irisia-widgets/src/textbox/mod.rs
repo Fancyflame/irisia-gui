@@ -1,7 +1,7 @@
 use std::ops::Range;
 
 use irisia::{
-    element::{props::PropsUpdateWith, Element, ElementUpdate, RenderElement},
+    element::{props::PropsUpdateWith, ElementInterfaces, ElementUpdateRaw, RenderElement},
     skia_safe::{
         font_style::Width,
         textlayout::{FontCollection, Paragraph, ParagraphBuilder, ParagraphStyle, TextStyle},
@@ -49,7 +49,7 @@ pub struct OwnedProps {
     style: TextBoxStyles,
 }
 
-impl Element for TextBox {
+impl ElementInterfaces for TextBox {
     type BlankProps = TextBoxProps;
 
     fn render(
@@ -80,9 +80,8 @@ impl Element for TextBox {
         Ok(())
     }
 
-    fn draw_region_changed(&mut self, _: &RcElementModel<Self>, draw_region: Region) {
-        let Some(p) = &mut self.paragraph
-        else {
+    fn set_draw_region(&mut self, _: &RcElementModel<Self>, draw_region: Region) {
+        let Some(p) = &mut self.paragraph else {
             return;
         };
 
@@ -111,7 +110,7 @@ fn get_text_style(style: &TextBoxStyles) -> TextStyle {
     text_style
 }
 
-impl<Pr> ElementUpdate<Pr> for TextBox
+impl<Pr> ElementUpdateRaw<Pr> for TextBox
 where
     OwnedProps: PropsUpdateWith<Pr>,
 {

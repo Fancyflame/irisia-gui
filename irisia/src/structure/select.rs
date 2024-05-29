@@ -1,105 +1,45 @@
-use super::{StructureUpdater, VisitBy};
-use crate::{dom::EMCreateCtx, Element};
+use super::{StructureCreate, VisitBy};
+use crate::{data_flow::ReadWire, el_model::EMCreateCtx};
 
-pub struct Select<T, C> {
-    selected: bool,
-    data: Option<T>,
-    child: Option<C>,
+pub struct Select<T, U> {
+    cond: ReadWire<bool>,
+    if_selected: T,
+    or_else: U,
 }
 
-pub enum SelectState<T, C> {
-    Selected(T),
-    NotSelected(C),
-}
-
-impl<T, C, Item> Iterator for SelectState<T, C>
-where
-    T: Iterator<Item = Item>,
-    C: Iterator<Item = Item>,
-{
-    type Item = Item;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self {
-            Self::Selected(s) => s.next(),
-            SelectState::NotSelected(s) => s.next(),
-        }
-    }
-}
-
-impl<T, C> VisitBy for Select<T, C>
+impl<T, U> VisitBy for Select<T, U>
 where
     T: VisitBy,
-    C: VisitBy,
+    U: VisitBy,
 {
-    fn iter(&self) -> impl Iterator<Item = &dyn Element> {
-        if self.selected {
-            SelectState::Selected(self.data.as_ref().unwrap().iter())
+    fn visit<V>(&self, v: &mut V) -> crate::Result<()>
+    where
+        V: super::Visitor,
+    {
+        if *self.cond.read() {
+            self.if_selected.visit(v)
         } else {
-            SelectState::NotSelected(self.child.as_ref().unwrap().iter())
-        }
-    }
-
-    fn visit_mut(
-        &mut self,
-        f: impl FnMut(&mut dyn Element) -> crate::Result<()>,
-    ) -> crate::Result<()> {
-        if self.selected {
-            self.data.as_mut().unwrap().visit_mut(f)
-        } else {
-            self.child.as_mut().unwrap().visit_mut(f)
+            self.or_else.visit(v)
         }
     }
 
     fn len(&self) -> usize {
-        if self.selected {
-            self.data.as_ref().unwrap().len()
+        if *self.cond.read() {
+            self.if_selected.len()
         } else {
-            self.child.as_ref().unwrap().len()
+            self.or_else.len()
         }
     }
 }
 
-impl<Tu, Cu> StructureUpdater for SelectState<Tu, Cu>
+pub fn branch<F1, F2>(cond: ReadWire<bool>, if_selected: F1, or_else: F2) -> impl StructureCreate
 where
-    Tu: StructureUpdater,
-    Cu: StructureUpdater,
-    Tu::Target: VisitBy,
-    Cu::Target: VisitBy,
+    F1: StructureCreate,
+    F2: StructureCreate,
 {
-    type Target = Select<Tu::Target, Cu::Target>;
-
-    fn create(self, ctx: &EMCreateCtx) -> Self::Target {
-        match self {
-            SelectState::Selected(upd) => Select {
-                selected: true,
-                data: Some(upd.create(ctx)),
-                child: None,
-            },
-            SelectState::NotSelected(upd) => Select {
-                selected: false,
-                data: None,
-                child: Some(upd.create(ctx)),
-            },
-        }
-    }
-
-    fn update(self, target: &mut Self::Target, ctx: &EMCreateCtx) {
-        match self {
-            SelectState::Selected(upd) => {
-                target.selected = true;
-                match &mut target.data {
-                    Some(data) => upd.update(data, ctx),
-                    place @ None => *place = Some(upd.create(ctx)),
-                }
-            }
-            SelectState::NotSelected(upd) => {
-                target.selected = false;
-                match &mut target.child {
-                    Some(child) => upd.update(child, ctx),
-                    place @ None => *place = Some(upd.create(ctx)),
-                }
-            }
-        }
+    move |ctx: &EMCreateCtx| Select {
+        cond,
+        if_selected: if_selected.create(ctx),
+        or_else: or_else.create(ctx),
     }
 }

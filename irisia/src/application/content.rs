@@ -1,8 +1,8 @@
-use std::{cell::RefCell, rc::Rc, sync::Arc};
+use std::{rc::Rc, sync::Arc};
 
 use irisia_backend::{window_handle::CloseHandle, WinitWindow};
 
-use crate::{element::SelfRender, event::EventDispatcher};
+use crate::event::EventDispatcher;
 
 use super::{
     event_comp::global::focusing::Focusing,
@@ -14,7 +14,7 @@ pub struct GlobalContent {
     pub(super) global_ed: EventDispatcher,
     pub(super) window: Arc<WinitWindow>,
     pub(super) close_handle: CloseHandle,
-    pub(super) redraw_scheduler: RefCell<RedrawScheduler>,
+    pub(super) redraw_scheduler: RedrawScheduler,
 }
 
 impl GlobalContent {
@@ -27,7 +27,7 @@ impl GlobalContent {
     }
 
     pub(crate) fn request_redraw(&self, ro: Rc<dyn StandaloneRender>) {
-        self.redraw_scheduler.borrow_mut().request_redraw(ro)
+        self.redraw_scheduler.request_redraw(ro)
     }
 
     /// Returns a reference to the global event dispatcher
@@ -48,14 +48,5 @@ impl GlobalContent {
     /// Returns a reference to the window
     pub fn window(&self) -> &WinitWindow {
         &self.window
-    }
-
-    pub fn request_redraw_on<T>(&self, sr: &Rc<T>)
-    where
-        T: SelfRender,
-    {
-        self.redraw_scheduler
-            .borrow_mut()
-            .request_redraw(sr.clone() as _)
     }
 }

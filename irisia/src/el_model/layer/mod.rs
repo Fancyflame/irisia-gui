@@ -8,7 +8,7 @@ use irisia_backend::skia_safe::{
 
 use self::queue::{Layer, Queue};
 use crate::Result;
-pub(crate) use rebuild::LayerRebuilder;
+pub use rebuild::LayerRebuilder;
 
 mod queue;
 pub(crate) mod rebuild;

@@ -15,18 +15,18 @@ macro_rules! inner_error {
 }
 
 pub mod application;
-pub mod dom;
+pub mod data_flow;
+pub mod el_model;
 pub mod element;
 pub mod event;
 pub mod log;
 pub mod primitive;
 pub mod structure;
 pub mod style;
-pub mod update_with;
 
 pub use application::Window;
-pub use element::Element;
+pub use element::ElementInterfaces;
 pub use event::Event;
 pub use irisia_backend::{runtime::exit_app, skia_safe, start_runtime, winit, WinitWindow};
-pub use irisia_macros::{main, props, style, Event, Style, StyleReader};
-pub use update_with::UpdateWith;
+pub use irisia_macros::{main, style, Event, Style, StyleReader, WriteStyle};
+pub use style::Style;

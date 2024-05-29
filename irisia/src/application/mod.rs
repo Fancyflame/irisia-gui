@@ -3,8 +3,10 @@ use std::sync::Weak;
 use irisia_backend::{window_handle::WindowBuilder, WinitWindow};
 
 use crate::{
-    element::{Element, ElementUpdate},
+    el_model::SharedEM,
+    element::ElementInterfaces,
     event::{standard::WindowDestroyed, EventDispatcher},
+    structure::StructureCreate,
     Result,
 };
 
@@ -12,10 +14,10 @@ mod backend;
 pub(crate) mod content;
 pub(crate) mod event_comp;
 pub(crate) mod redraw_scheduler;
-mod root;
 
 use backend::new_window;
 
+pub use event_comp::IncomingPointerEvent;
 pub use irisia_backend::window_handle::CloseHandle;
 
 #[derive(Clone)]
@@ -26,18 +28,12 @@ pub struct Window {
 }
 
 impl Window {
-    pub async fn new<El>(title: impl Into<String>) -> Result<Self>
+    pub async fn new<T, El>(wb: WindowBuilder, dom: T) -> Result<Self>
     where
-        El: ElementUpdate<El::BlankProps, (), ()> + Element + From<()>,
+        T: StructureCreate<Target = SharedEM<El>> + Send + 'static,
+        El: ElementInterfaces,
     {
-        new_window::<El>(WindowBuilder::new().with_title(title)).await
-    }
-
-    pub async fn with_builder<El>(wb: WindowBuilder) -> Result<Self>
-    where
-        El: ElementUpdate<El::BlankProps, (), ()> + Element + From<()>,
-    {
-        new_window::<El>(wb).await
+        new_window(wb, dom).await
     }
 
     pub fn winit_window(&self) -> &Weak<WinitWindow> {

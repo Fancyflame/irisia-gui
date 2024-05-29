@@ -1,15 +1,22 @@
+use std::{rc::Rc, time::Duration};
+
 use irisia::{
-    element::{Element, ElementUpdate, LayoutElements, PropsUpdateWith},
+    application::IncomingPointerEvent,
+    data_flow::{register::Register, wire, ReadWire},
+    el_model::{EMCreateCtx, ElInputWatcher, ElementAccess, LayerRebuilder},
+    element::ElementInterfaces,
     event::standard::{ElementAbandoned, PointerDown, PointerEntered, PointerLeft, PointerOut},
     exit_app,
     primitive::{Pixel, Point},
-    read_style,
     skia_safe::{Color, Color4f, Paint, Rect},
-    style,
-    style::StyleColor,
-    ElModel, Event, Result, StaticWindowEvent, Style, StyleReader,
+    structure::ChildBox,
+    style::WriteStyle,
+    Event, Result, Style, StyleReader, WriteStyle,
 };
 use tokio::select;
+
+#[derive(Style, Clone, Copy, PartialEq)]
+pub struct StyleColor(Color);
 
 #[derive(Style, Clone, Copy, PartialEq)]
 #[style(from)]
@@ -19,41 +26,88 @@ pub struct StyleWidth(Pixel);
 #[style(from)]
 pub struct StyleHeight(Pixel);
 
-#[irisia::props(updater = "RectProps", watch)]
 pub struct Rectangle {
-    #[props(default = "false")]
     is_force: bool,
-
-    #[props(default = "Color::CYAN")]
-    force_color: Color,
-
-    #[props(read_style(stdin))]
-    style: RectStyles,
+    force_color: ReadWire<Color>,
+    styles: ReadWire<RectStyles>,
+    access: ElementAccess,
 }
 
-#[derive(StyleReader, PartialEq)]
+pub struct RectProps {
+    pub force_color: ReadWire<Color>,
+}
+
+#[derive(Default, WriteStyle)]
 struct RectStyles {
     width: Option<StyleWidth>,
     height: Option<StyleHeight>,
     color: Option<StyleColor>,
 }
 
-impl Element for Rectangle {
-    type BlankProps = RectProps;
+impl ElementInterfaces for Rectangle {
+    type Props<'a> = RectProps;
 
-    fn render(
-        &mut self,
-        this: &RcElementModel<Self>,
-        mut content: irisia::element::RenderElement,
-    ) -> irisia::Result<()> {
-        let region = this.draw_region();
+    fn create<Slt>(
+        props: Self::Props<'_>,
+        _: Slt,
+        access: ElementAccess,
+        watch_input: ElInputWatcher<Self>,
+        _: &EMCreateCtx,
+    ) -> Self
+    where
+        Slt: irisia::structure::StructureCreate,
+    {
+        let styles = {
+            let access = access.clone();
+            wire(move || RectStyles::from_style(access.styles()))
+        };
+
+        watch_input.redraw_when(&[&props.force_color, &styles]);
+
+        let wi = watch_input.clone();
+        let access_cloned = access.clone();
+        access.listen().trusted().spawn(move |_: PointerEntered| {
+            println!("entered");
+            wi.invoke_mut(|el| el.is_force = true);
+            access_cloned.request_redraw();
+        });
+
+        let wi = watch_input.clone();
+        let access_cloned = access.clone();
+        access.listen().trusted().spawn(move |_: PointerOut| {
+            wi.invoke_mut(|el| el.is_force = false);
+            access_cloned.request_redraw();
+        });
+
+        access.set_interact_region(Some((
+            Default::default(),
+            (Point(Pixel(50.0), Pixel(50.0))),
+        )));
+
+        Self {
+            is_force: false,
+            force_color: props.force_color,
+            styles,
+            access,
+        }
+    }
+
+    fn children_emit_event(&mut self, ipe: &IncomingPointerEvent) -> bool {
+        false
+    }
+
+    fn set_draw_region(&mut self, _: irisia::primitive::Region) {}
+
+    fn render(&mut self, lr: &mut LayerRebuilder, interval: std::time::Duration) -> Result<()> {
+        let region = self.access.draw_region();
+        let styles = self.styles.read();
 
         let end_point = Point(
-            region.0 .0 + self.style.width.map(|x| x.0).unwrap_or(Pixel(50.0)),
-            region.0 .1 + self.style.height.map(|h| h.0).unwrap_or(Pixel(50.0)),
+            region.0 .0 + styles.width.map(|x| x.0).unwrap_or(Pixel(50.0)),
+            region.0 .1 + styles.height.map(|h| h.0).unwrap_or(Pixel(50.0)),
         );
 
-        this.set_interact_region(Some((region.0, end_point)));
+        self.access.set_interact_region(Some((region.0, end_point)));
 
         let rect = Rect::new(
             region.0 .0.to_physical(),
@@ -63,93 +117,79 @@ impl Element for Rectangle {
         );
 
         let color = if self.is_force {
-            self.force_color
+            *self.force_color.read()
         } else {
-            self.style.color.unwrap_or(StyleColor(Color::GREEN)).0
+            self.styles
+                .read()
+                .color
+                .unwrap_or(StyleColor(Color::GREEN))
+                .0
         };
 
         let paint = Paint::new(Color4f::from(color), None);
-        content.canvas().draw_rect(rect, &paint);
+        lr.canvas().draw_rect(rect, &paint);
         Ok(())
-    }
-}
-
-impl<Pr> ElementUpdate<Pr> for Rectangle
-where
-    Self: PropsUpdateWith<Pr>,
-{
-    fn el_create(this: &RcElementModel<Self>, props: Pr) -> Self {
-        this.listen()
-            .trusted()
-            .asyn()
-            .spawn(|_: PointerEntered, this| async move {
-                this.el_write().await.unwrap().is_force = true;
-            });
-
-        this.listen()
-            .trusted()
-            .asyn()
-            .spawn(|_: PointerOut, this| async move {
-                this.el_write().await.unwrap().is_force = false;
-            });
-
-        Self::props_create_with(props)
-    }
-
-    fn el_update(&mut self, this: &RcElementModel<Self>, props: Pr, _: bool) -> bool {
-        self.props_update_with(props).unchanged
     }
 }
 
 #[derive(Event, Clone)]
 pub struct MyRequestClose;
 
-pub struct Flex;
-
-impl Element for Flex {
-    type BlankProps = ();
-
-    fn draw_region_changed(&mut self, this: &RcElementModel<Self>, _: irisia::primitive::Region) {
-        flex_layout(this, this.layout_children().unwrap()).unwrap();
-    }
-
-    fn set_children(&self, this: &RcElementModel<Self>) {
-        flex_layout(this, this.set_children(this.slot_read())).unwrap();
-    }
+pub struct Flex {
+    children: ChildBox,
+    access: ElementAccess,
 }
 
-impl ElementUpdate<()> for Flex {
-    fn el_create(this: &RcElementModel<Self>, props: ()) -> Self {
-        Flex
-    }
+impl ElementInterfaces for Flex {
+    type Props<'a> = ();
 
-    fn el_update(
-        &mut self,
-        this: &RcElementModel<Self>,
-        props: (),
-        equality_matters: bool,
-    ) -> bool {
-        true
-    }
-}
-
-fn flex_layout(this: &ElModel!(Flex), layouter: LayoutElements) -> Result<()> {
-    let (start, end) = this.draw_region();
-    let abs = end - start;
-    let len = layouter.len();
-    let width = abs.0 / len as f32;
-
-    let mut index = 0;
-    layouter.layout(|()| {
-        if index >= len {
-            return None;
+    fn create<Slt>(
+        _: Self::Props<'_>,
+        slot: Slt,
+        access: ElementAccess,
+        _: ElInputWatcher<Self>,
+        ctx: &EMCreateCtx,
+    ) -> Self
+    where
+        Slt: irisia::structure::StructureCreate,
+    {
+        Self {
+            children: ChildBox::new(slot, ctx),
+            access,
         }
+    }
 
-        let region = (
-            Point(width * index as f32, start.1),
-            Point(width * (index + 1) as f32, end.1),
-        );
-        index += 1;
-        Some(region)
-    })
+    fn children_emit_event(&mut self, ipe: &IncomingPointerEvent) -> bool {
+        self.children.emit_event(ipe)
+    }
+
+    fn set_draw_region(&mut self, _: irisia::primitive::Region) {}
+
+    fn render(&mut self, lr: &mut LayerRebuilder, interval: std::time::Duration) -> Result<()> {
+        self.flex_layout()?;
+        self.children.render(lr, interval)
+    }
+}
+
+impl Flex {
+    fn flex_layout(&mut self) -> Result<()> {
+        let (start, end) = self.access.draw_region();
+        let abs = end - start;
+        let len = self.children.len();
+        let width = abs.0 / len as f32;
+
+        let mut index = 0;
+        self.children.layout(|_| {
+            if index >= len {
+                return None;
+            }
+
+            let region = (
+                Point(width * index as f32, start.1),
+                Point(width * (index + 1) as f32, end.1),
+            );
+            index += 1;
+            Some(region)
+        })
+    }
 }

@@ -1,44 +1,36 @@
-use crate::Element;
+use impl_variadics::impl_variadics;
 
-use super::{StructureUpdater, VisitBy};
+use super::{StructureCreate, VisitBy};
+use crate::structure::EMCreateCtx;
 
-pub struct Chain<A, B>(pub A, pub B);
+impl_variadics! {
+    ..=25 "T*" => {
+        impl<#(#T0),*> StructureCreate for (#(#T0,)*)
+        where
+            #(#T0: StructureCreate,)*
+        {
+            type Target = (#(#T0::Target,)*);
 
-impl<A, B> VisitBy for Chain<A, B>
-where
-    A: VisitBy,
-    B: VisitBy,
-{
-    fn iter(&self) -> impl Iterator<Item = &dyn Element> {
-        self.0.iter().chain(self.1.iter())
-    }
+            fn create(self, _ctx: &EMCreateCtx) -> Self::Target {
+                (#(self.#index.create(_ctx),)*)
+            }
+        }
 
-    fn visit_mut(
-        &mut self,
-        mut f: impl FnMut(&mut dyn Element) -> crate::Result<()>,
-    ) -> crate::Result<()> {
-        self.0.visit_mut(&mut f)?;
-        self.1.visit_mut(f)
-    }
+        impl<#(#T0),*> VisitBy for (#(#T0,)*)
+        where
+            #(#T0: VisitBy,)*
+        {
+            fn visit<V>(&self, _v: &mut V) -> crate::Result<()>
+            where
+                V: super::Visitor
+            {
+                #(self.#index.visit(_v)?;)*
+                Ok(())
+            }
 
-    fn len(&self) -> usize {
-        self.0.len() + self.1.len()
-    }
-}
-
-impl<A, B> StructureUpdater for Chain<A, B>
-where
-    A: StructureUpdater,
-    B: StructureUpdater,
-{
-    type Target = Chain<A::Target, B::Target>;
-
-    fn create(self, ctx: &crate::dom::EMCreateCtx) -> Self::Target {
-        Chain(self.0.create(ctx), self.1.create(ctx))
-    }
-
-    fn update(self, target: &mut Self::Target, ctx: &crate::dom::EMCreateCtx) {
-        self.0.update(&mut target.0, ctx);
-        self.1.update(&mut target.1, ctx);
+            fn len(&self) -> usize {
+                0 #(+ self.#index.len())*
+            }
+        }
     }
 }

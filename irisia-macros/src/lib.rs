@@ -1,7 +1,9 @@
+use derive_style::derive_style;
 use expr::state_block::stmts_to_tokens;
 use proc_macro::TokenStream;
+use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use syn::{parse::Parser, parse_macro_input, DeriveInput, ItemFn, ItemStruct};
+use syn::{parse::Parser, parse_macro_input, DeriveInput, ItemFn, Result};
 
 mod app;
 mod derive_props;
@@ -11,6 +13,7 @@ pub(crate) mod expr;
 mod inner_impl_listen;
 mod main_macro;
 mod style;
+mod write_style;
 
 /// To build a element tree visually. This macro will returns
 /// a type implements `StructureBuilder`. Call `into_rendering`
@@ -68,21 +71,13 @@ mod style;
 
 #[proc_macro]
 pub fn style(input: TokenStream) -> TokenStream {
-    let stmts = match style::style.parse(input) {
-        Ok(stmts) => stmts,
-        Err(e) => return e.to_compile_error().into(),
-    };
-
-    stmts_to_tokens(&stmts).into()
+    result_into_stream(style::style.parse(input).map(|x| stmts_to_tokens(&x)))
 }
 
 #[proc_macro_attribute]
 pub fn main(_: TokenStream, input: TokenStream) -> TokenStream {
     let item_fn = parse_macro_input!(input as ItemFn);
-    match main_macro::main_macro(item_fn) {
-        Ok(t) => t.into(),
-        Err(e) => e.to_compile_error().into(),
-    }
+    result_into_stream(main_macro::main_macro(item_fn))
 }
 
 #[proc_macro_derive(Event)]
@@ -102,24 +97,35 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_derive(Style, attributes(style))]
-pub fn derive_style(input: TokenStream) -> TokenStream {
-    match derive_style::derive_style(parse_macro_input!(input as DeriveInput)) {
-        Ok(t) => t.into(),
-        Err(e) => e.to_compile_error().into(),
-    }
+pub fn derive_style_trait(input: TokenStream) -> TokenStream {
+    result_into_stream(derive_style::derive_style(parse_macro_input!(
+        input as DeriveInput
+    )))
+}
+
+#[proc_macro_derive(WriteStyle, attributes(style))]
+pub fn derive_write_style(input: TokenStream) -> TokenStream {
+    result_into_stream(write_style::derive(parse_macro_input!(
+        input as DeriveInput
+    )))
 }
 
 #[proc_macro_derive(StyleReader)]
 pub fn derive_style_reader(input: TokenStream) -> TokenStream {
-    match derive_style_reader::derive_style_reader(parse_macro_input!(input as DeriveInput)) {
-        Ok(t) => t.into(),
-        Err(e) => e.to_compile_error().into(),
-    }
+    result_into_stream(derive_style_reader::derive_style_reader(
+        parse_macro_input!(input as DeriveInput),
+    ))
 }
 
-#[proc_macro_attribute]
-pub fn props(attr: TokenStream, input: TokenStream) -> TokenStream {
-    match derive_props::props(attr.into(), parse_macro_input!(input as ItemStruct)) {
+#[proc_macro_derive(ConvertFrom)]
+pub fn props(input: TokenStream) -> TokenStream {
+    result_into_stream(derive_props::derive(parse_macro_input!(
+        input as DeriveInput
+    )))
+}
+
+fn result_into_stream(result: Result<TokenStream2>) -> TokenStream {
+    match result {
         Ok(t) => t.into(),
         Err(e) => e.to_compile_error().into(),
     }

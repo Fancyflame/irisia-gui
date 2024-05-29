@@ -3,17 +3,20 @@ use std::{
     hash::Hash,
 };
 
-use smallvec::SmallVec;
+use crate::{
+    data_flow::{wire3, ReadWire},
+    el_model::EMCreateCtx,
+};
 
-use crate::{dom::EMCreateCtx, Element};
-
-use super::{StructureUpdater, VisitBy};
+use super::{StructureCreate, VisitBy};
 
 const MAX_TIME_TO_LIVE: u8 = 3;
 
-pub struct Repeat<K, T> {
+struct Repeat<K, T>(ReadWire<RepeatInner<K, T>>);
+
+struct RepeatInner<K, T> {
     map: HashMap<K, Item<T>>,
-    order: SmallVec<[K; 5]>,
+    order: Vec<K>,
 }
 
 struct Item<T> {
@@ -21,77 +24,95 @@ struct Item<T> {
     time_to_live: u8,
 }
 
-pub struct RepeatUpdater<I, Fm> {
-    iter: I,
-    map: Fm,
-}
-
 impl<K, T> VisitBy for Repeat<K, T>
 where
-    K: Hash + Eq,
+    K: Hash + Eq + 'static,
     T: VisitBy,
 {
-    fn iter(&self) -> impl Iterator<Item = &dyn Element> {
-        self.order
-            .iter()
-            .map(|k| self.map[k].value.iter())
-            .flatten()
-    }
+    fn visit<V>(&self, v: &mut V) -> crate::Result<()>
+    where
+        V: super::Visitor,
+    {
+        let this = self.0.read();
 
-    fn visit_mut(
-        &mut self,
-        mut f: impl FnMut(&mut dyn Element) -> crate::Result<()>,
-    ) -> crate::Result<()> {
-        for key in self.order.iter() {
-            self.map
-                .get_mut(key)
-                .unwrap_or_else(|| unreachable!())
-                .value
-                .visit_mut(&mut f)?;
+        for key in &this.order {
+            this.map[key].value.visit(v)?;
         }
 
         Ok(())
     }
 
     fn len(&self) -> usize {
-        self.order.iter().map(|key| self.map[key].value.len()).sum()
+        let this = self.0.read();
+
+        let len = this.order.iter().map(|key| this.map[key].value.len()).sum();
+
+        len
     }
 }
 
-impl<K, T, I, Fm, Tu> StructureUpdater for RepeatUpdater<I, Fm>
+pub fn repeat<K, T, F, Fk, Upd>(
+    data_vec: ReadWire<Vec<T>>,
+    map_key: Fk,
+    content_fn: F,
+) -> impl StructureCreate
 where
+    T: 'static,
     K: Hash + Eq + Clone + 'static,
-    T: VisitBy + 'static,
-    I: Iterator,
-    Fm: for<'a> FnMut(I::Item) -> (K, Tu),
-    Tu: StructureUpdater<Target = T>,
+    Fk: Fn(usize, &T) -> K + 'static,
+    F: Fn(&T) -> Upd + 'static,
+    Upd: StructureCreate,
 {
-    type Target = Repeat<K, T>;
+    move |ctx: &EMCreateCtx| {
+        let ctx = ctx.clone();
 
-    fn create(self, ctx: &EMCreateCtx) -> Self::Target {
-        let mut map = HashMap::new();
-        let mut order = SmallVec::new();
+        let w = wire3(move || {
+            let mut map = HashMap::with_capacity(data_vec.read().len());
+            let mut order = Vec::with_capacity(data_vec.read().len());
 
-        for (key, upd) in self.iter.map(self.map) {
-            order.push(key.clone());
-            map.insert(
-                key,
-                Item {
-                    value: upd.create(ctx),
-                    time_to_live: MAX_TIME_TO_LIVE,
-                },
-            );
-        }
+            for (index, data) in data_vec.read().iter().enumerate() {
+                let key = map_key(index, data);
 
-        Repeat { map, order }
+                map.insert(
+                    key.clone(),
+                    Item {
+                        value: content_fn(data).create(&ctx),
+                        time_to_live: MAX_TIME_TO_LIVE,
+                    },
+                );
+
+                order.push(key);
+            }
+
+            (RepeatInner { map, order }, move |r| {
+                r.update_map(
+                    &map_key,
+                    |key| content_fn(key).create(&ctx),
+                    &data_vec.read(),
+                )
+            })
+        });
+
+        Repeat(w)
     }
+}
 
-    fn update(self, target: &mut Self::Target, ctx: &EMCreateCtx) {
-        target.order.clear();
-        for (key, upd) in self.iter.map(self.map) {
-            target.order.push(key.clone());
+impl<K, Tree> RepeatInner<K, Tree>
+where
+    K: Hash + Eq + Clone,
+{
+    fn update_map<T, Fk, F>(&mut self, key_fn: Fk, content_fn: F, data_vec: &Vec<T>)
+    where
+        Fk: Fn(usize, &T) -> K,
+        F: Fn(&T) -> Tree,
+    {
+        let RepeatInner { map, order } = self;
+        order.clear();
 
-            match target.map.entry(key) {
+        for (index, data) in data_vec.iter().enumerate() {
+            let key = key_fn(index, data);
+
+            match map.entry(key.clone()) {
                 Entry::Occupied(mut occ) => {
                     let item = occ.get_mut();
                     assert_ne!(
@@ -99,25 +120,24 @@ where
                         "some keys in the iterator is duplicated"
                     );
                     item.time_to_live = MAX_TIME_TO_LIVE;
-                    upd.update(&mut item.value, ctx);
                 }
                 Entry::Vacant(vac) => {
                     vac.insert(Item {
-                        value: upd.create(ctx),
+                        value: content_fn(data),
                         time_to_live: MAX_TIME_TO_LIVE,
                     });
                 }
             }
+
+            order.push(key);
         }
 
-        target
-            .map
-            .retain(|_, item| match item.time_to_live.checked_sub(1) {
-                Some(ttl) => {
-                    item.time_to_live = ttl;
-                    true
-                }
-                None => false,
-            });
+        map.retain(|_, item| match item.time_to_live.checked_sub(1) {
+            Some(ttl) => {
+                item.time_to_live = ttl;
+                true
+            }
+            None => false,
+        });
     }
 }

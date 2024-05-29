@@ -1,4 +1,10 @@
-use std::{collections::HashMap, rc::Rc, sync::Arc, time::Duration};
+use std::{
+    cell::{Cell, RefCell},
+    collections::HashMap,
+    rc::Rc,
+    sync::Arc,
+    time::Duration,
+};
 
 use anyhow::anyhow;
 use irisia_backend::{
@@ -11,32 +17,41 @@ use crate::Result;
 
 pub(super) struct RedrawScheduler {
     window: Arc<WinitWindow>,
-    list: HashMap<*const dyn StandaloneRender, Rc<dyn StandaloneRender>>,
-    redraw_req_sent: bool,
+    list: RefCell<HashMap<*const dyn StandaloneRender, Rc<dyn StandaloneRender>>>,
+    redraw_req_sent: Cell<bool>,
 }
 
 impl RedrawScheduler {
     pub fn new(window: Arc<WinitWindow>) -> Self {
         Self {
             window,
-            list: HashMap::new(),
-            redraw_req_sent: false,
+            list: Default::default(),
+            redraw_req_sent: Cell::new(false),
         }
     }
 
-    pub fn request_redraw(&mut self, ro: Rc<dyn StandaloneRender>) {
-        if !self.redraw_req_sent {
-            self.redraw_req_sent = true;
+    pub fn request_redraw(&self, ro: Rc<dyn StandaloneRender>) {
+        if !self.redraw_req_sent.get() {
+            self.redraw_req_sent.set(true);
             self.window.request_redraw();
         }
-        self.list.insert(Rc::as_ptr(&ro), ro);
+        self.list.borrow_mut().insert(Rc::as_ptr(&ro), ro);
     }
 
-    pub fn redraw(&mut self, canvas: &Canvas, interval: Duration) -> Result<()> {
+    pub fn redraw(&self, canvas: &Canvas, interval: Duration) -> Result<()> {
         let mut errors: SmallVec<[_; 2]> = SmallVec::new();
-        self.redraw_req_sent = false;
 
-        for (_, ro) in self.list.drain() {
+        loop {
+            let mut list = self.list.borrow_mut();
+            let ro = match list.keys().next() {
+                Some(key) => {
+                    let key = *key;
+                    list.remove(&key).unwrap()
+                }
+                None => break,
+            };
+            drop(list);
+
             canvas.clear(TRANSPARENT);
             canvas.reset_matrix();
 
@@ -45,6 +60,7 @@ impl RedrawScheduler {
             }
         }
 
+        self.redraw_req_sent.set(false);
         fmt_errors(&errors)
     }
 }

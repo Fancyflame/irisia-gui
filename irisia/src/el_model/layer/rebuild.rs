@@ -33,14 +33,11 @@ impl<'a> LayerRebuilder<'a> {
         self.canvas
     }
 
-    pub(crate) fn new_layer<'b>(
-        &'b mut self,
-        custom_layer: &'b SharedLayerCompositer,
-    ) -> Result<LayerRebuilder<'b>> {
+    pub(crate) fn append_layer(&mut self, custom_layer: &SharedLayerCompositer) -> Result<()> {
         self.flush()?;
         let matrix = self.canvas.local_to_device();
         self.lc.layers.add_layer(custom_layer.clone(), matrix);
-        Ok(LayerRebuilder::new(custom_layer, self.canvas))
+        Ok(())
     }
 
     fn flush(&mut self) -> Result<()> {

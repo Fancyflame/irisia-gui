@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
+use std::{rc::Rc, sync::Arc, time::Duration};
 
 use irisia_backend::{
     skia_safe::{colors::WHITE, Canvas},
@@ -8,10 +8,11 @@ use irisia_backend::{
 };
 
 use crate::{
-    dom::{EMCreateCtx, ElementModel},
-    element::{Element, ElementUpdate, NewState},
+    el_model::{EMCreateCtx, SharedEM},
+    element::ElementInterfaces,
     event::{standard::WindowDestroyed, EventDispatcher},
     primitive::{Pixel, Point, Region},
+    structure::StructureCreate,
     Result,
 };
 
@@ -19,42 +20,42 @@ use super::{
     content::GlobalContent,
     event_comp::{global::focusing::Focusing, GlobalEventMgr},
     redraw_scheduler::RedrawScheduler,
-    root::Root,
     Window,
 };
 
-pub(super) struct BackendRuntime<El: Element> {
+pub(super) struct BackendRuntime<El> {
     gem: GlobalEventMgr,
     gc: Rc<GlobalContent>,
-    root: Rc<Root<El>>,
+    root: SharedEM<El>,
 }
 
 impl<El> AppWindow for BackendRuntime<El>
 where
-    El: Element,
+    El: ElementInterfaces,
 {
     fn on_redraw(&mut self, canvas: &Canvas, interval: Duration) -> Result<()> {
-        self.gc
-            .redraw_scheduler
-            .borrow_mut()
-            .redraw(canvas, interval)?;
+        self.gc.redraw_scheduler.redraw(canvas, interval)?;
 
         // composite
         canvas.reset_matrix();
         canvas.clear(WHITE);
-        self.root.composite(canvas)
+
+        self.root
+            .shared
+            .render_on
+            .expect_independent()
+            .borrow_mut()
+            .composite(canvas)
     }
 
     fn on_window_event(&mut self, event: WindowEvent) {
         if let WindowEvent::Resized(size) = &event {
-            self.root
-                .el()
-                .set_draw_region(window_size_to_draw_region(*size));
+            self.root.set_draw_region(window_size_to_draw_region(*size));
             self.gc.request_redraw(self.root.clone());
         }
 
         if let Some(ipe) = self.gem.emit_event(event, &self.gc) {
-            if !self.root.el().on_pointer_event(&ipe) {
+            if !self.root.on_pointer_event(&ipe) {
                 ipe.focus_on(None);
             }
         }
@@ -75,9 +76,13 @@ fn window_size_to_draw_region(size: PhysicalSize<u32>) -> Region {
     )
 }
 
-pub(super) async fn new_window<El>(window_builder: WindowBuilder) -> Result<Window>
+pub(super) async fn new_window<El, F>(
+    window_builder: WindowBuilder,
+    root_creator: F,
+) -> Result<Window>
 where
-    El: Element + ElementUpdate<El::BlankProps, (), ()> + From<()>,
+    F: StructureCreate<Target = SharedEM<El>> + Send + 'static,
+    El: ElementInterfaces,
 {
     let ev_disp = EventDispatcher::new();
 
@@ -91,28 +96,18 @@ where
                 global_ed: ev_disp,
                 focusing: Focusing::new(),
                 window,
-                redraw_scheduler: RefCell::new(redraw_scheduler),
+                redraw_scheduler,
                 close_handle,
             });
 
-            let root = Root::new(|weak| {
-                El::create(
-                    ElementModel::new(&EMCreateCtx {
-                        global_content: gc.clone(),
-                        parent_layer: weak,
-                    }),
-                    NewState {
-                        props: <El::BlankProps as Default>::default(),
-                        styles: (),
-                        slot: (),
-                    },
-                )
+            let root = root_creator.create(&EMCreateCtx {
+                global_content: gc.clone(),
+                parent_layer: None,
             });
 
-            root.el()
-                .set_draw_region(window_size_to_draw_region(gc.window().inner_size()));
+            root.set_draw_region(window_size_to_draw_region(gc.window().inner_size()));
 
-            BackendRuntime::<El> {
+            BackendRuntime {
                 gem: GlobalEventMgr::new(),
                 gc,
                 root,
