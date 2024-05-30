@@ -22,7 +22,7 @@ pub enum Listener {
 }
 
 pub trait Readable {
-    type Data;
+    type Data: ?Sized;
     fn read(&self) -> Ref<Self::Data>;
     fn pipe(&self, listen_end: Listener);
 }

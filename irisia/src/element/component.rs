@@ -73,6 +73,12 @@ where
 
 pub struct CompInputWatcher<El>(ElInputWatcher<Component<El>>);
 
+impl<El> Clone for CompInputWatcher<El> {
+    fn clone(&self) -> Self {
+        CompInputWatcher(self.0.clone())
+    }
+}
+
 impl<El: ComponentTemplate> CompInputWatcher<El> {
     pub fn watch<U, F>(&self, watch: ReadWire<U>, mut func: F)
     where

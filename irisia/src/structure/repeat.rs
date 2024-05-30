@@ -77,7 +77,7 @@ where
                     key.clone(),
                     Item {
                         value: content_fn(data).create(&ctx),
-                        time_to_live: MAX_TIME_TO_LIVE,
+                        time_to_live: MAX_TIME_TO_LIVE - 1,
                     },
                 );
 
