@@ -52,7 +52,7 @@ where
     F: FnMut(&mut T) + 'static,
 {
     let mut rc = Rc::new_cyclic(|weak: &Weak<Wire<F, T>>| {
-        ListenerList::push_global_stack(Listener::Once(weak.clone()));
+        ListenerList::push_global_stack(Listener::Weak(weak.clone()));
         let (data, update_fn) = f();
         ListenerList::pop_global_stack();
 
@@ -88,7 +88,7 @@ where
     F: FnMut(&mut T) + 'static,
 {
     fn update(self: Rc<Self>) -> bool {
-        ListenerList::push_global_stack(Listener::Once(Rc::downgrade(&self) as _));
+        ListenerList::push_global_stack(Listener::Weak(Rc::downgrade(&self) as _));
 
         let mut computes_ref = self.computes.try_borrow_mut().expect(BORROW_ERROR);
         let computes = &mut *computes_ref;

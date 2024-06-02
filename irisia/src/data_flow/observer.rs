@@ -1,22 +1,45 @@
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
-use super::{listener_list::ListenerList, Listener};
+use super::{listener_list::ListenerList, Listener, Wakeable};
 
-pub struct Observer {
-    listeners: ListenerList,
+pub type RcObserver = Rc<Observer<dyn Fn()>>;
+
+pub struct Observer<F: ?Sized> {
+    this: Weak<dyn Wakeable>,
+    trigger_fn: F,
 }
 
-impl Observer {
-    pub fn new() -> Rc<Self> {
-        Self {
-            listeners: ListenerList::new(),
-        }
+impl<F> Observer<F>
+where
+    F: Fn() + ?Sized + 'static,
+{
+    pub fn new(trigger_fn: F) -> RcObserver
+    where
+        F: Sized,
+    {
+        Rc::new_cyclic(|this| Self {
+            trigger_fn,
+            this: this.clone() as _,
+        })
     }
 
-    pub fn invoke<F, R>(self: &Rc<Self>, f: F) -> R
+    pub fn invoke<F2, R>(self: &Rc<Self>, f: F2) -> R
     where
-        F: FnOnce() -> R,
+        F2: FnOnce() -> R,
     {
-        ListenerList::push_global_stack(Listener::Once())
+        ListenerList::push_global_stack(Listener::Weak(self.this.clone()));
+        let r = f();
+        ListenerList::pop_global_stack();
+        r
+    }
+}
+
+impl<F> Wakeable for Observer<F>
+where
+    F: Fn() + ?Sized,
+{
+    fn update(self: Rc<Self>) -> bool {
+        (self.trigger_fn)();
+        false
     }
 }

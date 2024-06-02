@@ -38,8 +38,8 @@ impl ListenerList {
     pub fn watch(&self, le: &Listener) {
         self.current.borrow_mut().insert(
             match le {
-                Listener::Once(wire) => wire.as_ptr() as _,
-                Listener::LongLived(watcher) => Rc::as_ptr(watcher) as _,
+                Listener::Weak(wire) => wire.as_ptr() as _,
+                Listener::Rc(watcher) => Rc::as_ptr(watcher) as _,
             },
             le.clone(),
         );
@@ -56,14 +56,14 @@ impl ListenerList {
         std::mem::swap(&mut *self.current.borrow_mut(), &mut *previous);
 
         previous.retain(|_, listener| match listener {
-            Listener::Once(weak) => {
+            Listener::Weak(weak) => {
                 if let Some(wire) = weak.upgrade() {
                     wire.update();
                 }
                 false
             }
 
-            Listener::LongLived(watcher) => watcher.clone().update(),
+            Listener::Rc(watcher) => watcher.clone().update(),
         });
 
         self.current.borrow_mut().extend(previous.drain());

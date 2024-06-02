@@ -59,7 +59,7 @@ where
     });
 
     let handle = rc.handle.clone();
-    (Listener::LongLived(rc), handle)
+    (Listener::Rc(rc), handle)
 }
 
 #[derive(Clone)]

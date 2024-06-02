@@ -9,6 +9,7 @@ use watcher::{watcher, Handle};
 
 pub mod convert_from;
 mod listener_list;
+pub mod observer;
 pub mod register;
 pub mod watcher;
 mod wire;
@@ -17,8 +18,8 @@ pub type ReadWire<T> = Rc<dyn Readable<Data = T>>;
 
 #[derive(Clone)]
 pub enum Listener {
-    Once(Weak<dyn Wakeable>),
-    LongLived(Rc<dyn Wakeable>),
+    Weak(Weak<dyn Wakeable>),
+    Rc(Rc<dyn Wakeable>),
 }
 
 pub trait Readable {

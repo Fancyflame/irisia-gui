@@ -64,37 +64,4 @@ impl<El: ElementInterfaces> ElInputWatcher<El> {
             false,
         );
     }
-
-    pub fn redraw_when(&self, array: &[&dyn Pipeable]) {
-        let em = self.0.clone();
-        let (listener, _) = watcher(
-            move |handle| {
-                let Some(em) = em.upgrade() else {
-                    handle.discard();
-                    return;
-                };
-
-                em.request_redraw();
-            },
-            false,
-        );
-
-        for item in array {
-            item._pipe(listener.clone());
-        }
-    }
-}
-
-#[doc(hidden)]
-pub trait Pipeable {
-    fn _pipe(&self, l: Listener);
-}
-
-impl<T> Pipeable for Rc<T>
-where
-    T: Readable + ?Sized,
-{
-    fn _pipe(&self, l: Listener) {
-        self.pipe(l)
-    }
 }

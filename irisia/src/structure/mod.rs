@@ -62,7 +62,7 @@ where
                 em.shared.redraw_signal_sent.set(false);
                 match &em.shared.render_on {
                     RenderOn::NewLayer { layer, .. } => self.lr.append_layer(layer),
-                    RenderOn::ParentLayer(_) => em.el.borrow_mut().render(self.lr, self.interval),
+                    RenderOn::ParentLayer(_) => em.monitoring_render(self.lr, self.interval),
                 }
             }
         }

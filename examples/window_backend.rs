@@ -62,8 +62,6 @@ impl ElementInterfaces for Rectangle {
             wire(move || RectStyles::from_style(access.styles()))
         };
 
-        watch_input.redraw_when(&[&props.force_color, &styles]);
-
         let wi = watch_input.clone();
         let access_cloned = access.clone();
         access.listen().trusted().spawn(move |_: PointerEntered| {

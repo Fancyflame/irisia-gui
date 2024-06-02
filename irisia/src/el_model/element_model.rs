@@ -4,6 +4,7 @@ use std::{
     future::Future,
     ops::{Deref, DerefMut},
     rc::{Rc, Weak},
+    time::Duration,
 };
 
 use tokio::task::JoinHandle;
@@ -14,6 +15,7 @@ use crate::{
         event_comp::{IncomingPointerEvent, NodeEventMgr},
         redraw_scheduler::StandaloneRender,
     },
+    data_flow::observer::{Observer, RcObserver},
     event::{standard::ElementAbandoned, EventDispatcher, Listen},
     primitive::Region,
     structure::StructureCreate,
@@ -23,7 +25,7 @@ use crate::{
 
 use super::{
     layer::{LayerCompositer, SharedLayerCompositer},
-    ElInputWatcher, SharedEM,
+    ElInputWatcher, LayerRebuilder, SharedEM,
 };
 
 #[derive(Clone)]
@@ -33,6 +35,7 @@ pub struct ElementModel<El> {
     pub(crate) el: RefCell<InitLater<El>>,
     pub(crate) event_mgr: RefCell<NodeEventMgr>,
     pub(crate) shared: Rc<Shared<dyn ReadStyle>>, // TODO: 双Rc优化
+    pub(crate) redraw_hook: RcObserver,
 }
 
 pub(crate) struct Shared<Sty: ?Sized> {
@@ -174,6 +177,10 @@ impl<El> ElementModel<El> {
             ElementModel {
                 el: RefCell::new(InitLater(None)),
                 event_mgr: NodeEventMgr::new(ed.clone()).into(),
+                redraw_hook: {
+                    let shared = shared.clone();
+                    Observer::new(move || shared.request_redraw())
+                },
                 shared,
             }
         });
@@ -275,6 +282,18 @@ impl<El> ElementModel<El> {
             children_logically_entered,
         )
     }
+
+    pub(crate) fn monitoring_render(
+        &self,
+        lr: &mut LayerRebuilder,
+        interval: Duration,
+    ) -> Result<()>
+    where
+        El: ElementInterfaces,
+    {
+        self.redraw_hook
+            .invoke(|| self.el.borrow_mut().render(lr, interval))
+    }
 }
 
 impl<El> Drop for ElementModel<El> {
@@ -295,12 +314,7 @@ where
         self.shared.redraw_signal_sent.set(false);
         let layer = self.shared.render_on.expect_independent();
 
-        let result = self
-            .el
-            .borrow_mut()
-            .render(&mut LayerCompositer::rebuild(layer, canvas), interval);
-
-        result
+        self.monitoring_render(&mut LayerCompositer::rebuild(layer, canvas), interval)
     }
 }
 
