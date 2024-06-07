@@ -5,10 +5,12 @@ use std::{
 
 pub use self::wire::{wire, wire2, wire3};
 use listener_list::ListenerList;
+use map::Map;
 use watcher::{watcher, Handle};
 
 pub mod convert_from;
 mod listener_list;
+mod map;
 pub mod observer;
 pub mod register;
 pub mod watcher;
@@ -24,6 +26,7 @@ pub enum Listener {
 
 pub trait Readable {
     type Data: ?Sized;
+
     fn read(&self) -> Ref<Self::Data>;
     fn pipe(&self, listen_end: Listener);
 }
@@ -37,6 +40,13 @@ pub trait ReadableExt: Readable + 'static {
         let (watcher, handle) = watcher(move |handle| watch_fn(&this, handle), call_immediately);
         self.pipe(watcher);
         handle
+    }
+
+    fn map<F, R>(self: &Rc<Self>, f: F) -> ReadWire<R>
+    where
+        F: Fn(&Self::Data) -> &R + 'static,
+    {
+        Map::new(self.clone(), f)
     }
 }
 

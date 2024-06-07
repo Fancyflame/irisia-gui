@@ -82,33 +82,31 @@ impl ComponentTemplate for App {
                 {
                     let vec = vec.clone();
                     move |(index, color)| {
+                        let index = *index;
                         branch(
-                            wire({
-                                let color = color.clone();
-                                move || color.read().is_some()
-                            }),
-                            single::<Rectangle, _>(
-                                {
-                                    let color = color.clone();
-                                    RectProps {
-                                        force_color: wire(move || {
-                                            color.read().unwrap_or(Color::BLACK)
-                                        }),
-                                    }
-                                },
-                                (),
-                                (),
-                                {
-                                    let index = *index;
-                                    let vec = vec.clone();
-                                    move |access| {
-                                        let vec = vec.clone();
-                                        access.listen().spawn(move |_: PointerDown| {
-                                            vec.borrow_mut().remove(index);
-                                        });
-                                    }
-                                },
-                            ),
+                            color.clone(),
+                            {
+                                let vec = vec.clone();
+                                move |color| {
+                                    single::<Rectangle, _>(
+                                        {
+                                            let color = color.clone();
+                                            RectProps { force_color: color }
+                                        },
+                                        (),
+                                        (),
+                                        {
+                                            let vec = vec.clone();
+                                            move |access| {
+                                                let vec = vec.clone();
+                                                access.listen().spawn(move |_: PointerDown| {
+                                                    vec.borrow_mut().remove(index);
+                                                });
+                                            }
+                                        },
+                                    )
+                                }
+                            },
                             (),
                         )
                     }

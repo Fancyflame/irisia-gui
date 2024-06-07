@@ -1,7 +1,7 @@
-use std::rc::{Rc, Weak};
+use std::rc::Weak;
 
 use crate::{
-    data_flow::{watcher::watcher, Listener, ReadWire, Readable, ReadableExt},
+    data_flow::{ReadWire, ReadableExt},
     ElementInterfaces,
 };
 

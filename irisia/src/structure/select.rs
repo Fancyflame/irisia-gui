@@ -1,45 +1,94 @@
-use super::{StructureCreate, VisitBy};
-use crate::{data_flow::ReadWire, el_model::EMCreateCtx};
+use std::cell::RefCell;
 
-pub struct Select<T, U> {
-    cond: ReadWire<bool>,
-    if_selected: T,
-    or_else: U,
+use super::{StructureCreate, VisitBy};
+use crate::{
+    data_flow::{register::register, ReadWire, ReadableExt},
+    el_model::EMCreateCtx,
+};
+
+enum IfSelected<T, F> {
+    Initialized(T),
+    Uninitialized(F),
+    Intermediate,
 }
 
-impl<T, U> VisitBy for Select<T, U>
+pub struct Select<T, S1, F1, S2> {
+    cond: ReadWire<Option<T>>,
+    if_selected: RefCell<IfSelected<S1, F1>>,
+    or_else: S2,
+}
+
+impl<T, S1, F1, S2> VisitBy for Select<T, S1, F1, S2>
 where
-    T: VisitBy,
-    U: VisitBy,
+    T: Clone + 'static,
+    F1: FnOnce(ReadWire<T>) -> S1 + 'static,
+    S1: VisitBy,
+    S2: VisitBy,
 {
     fn visit<V>(&self, v: &mut V) -> crate::Result<()>
     where
         V: super::Visitor,
     {
-        if *self.cond.read() {
-            self.if_selected.visit(v)
+        if let Some(data) = &*self.cond.read() {
+            let borrowed = self.if_selected.borrow();
+            match &*borrowed {
+                IfSelected::Initialized(branch) => branch.visit(v),
+                IfSelected::Uninitialized(_) => {
+                    drop(borrowed);
+                    let mut borrow_mut = self.if_selected.borrow_mut();
+
+                    let IfSelected::Uninitialized(creator) =
+                        std::mem::replace(&mut *borrow_mut, IfSelected::Intermediate)
+                    else {
+                        unreachable!()
+                    };
+
+                    let cache_register = register(data.clone());
+                    let write_half = cache_register.clone();
+
+                    self.cond.watch(
+                        move |cond, _| {
+                            if let Some(data) = &*cond.read() {
+                                write_half.set(data.clone());
+                            }
+                        },
+                        false,
+                    );
+
+                    let tree = creator(cache_register);
+                    let result = tree.visit(v);
+                    *borrow_mut = IfSelected::Initialized(tree);
+                    result
+                }
+                IfSelected::Intermediate => {
+                    panic!(
+                        "thread was panicked during last updating, this structure should not be used anymore"
+                    )
+                }
+            }
         } else {
             self.or_else.visit(v)
         }
     }
-
-    fn len(&self) -> usize {
-        if *self.cond.read() {
-            self.if_selected.len()
-        } else {
-            self.or_else.len()
-        }
-    }
 }
 
-pub fn branch<F1, F2>(cond: ReadWire<bool>, if_selected: F1, or_else: F2) -> impl StructureCreate
+pub fn branch<T, F1, R1, F2>(
+    cond: ReadWire<Option<T>>,
+    if_selected: F1,
+    or_else: F2,
+) -> impl StructureCreate
 where
-    F1: StructureCreate,
+    T: Clone + 'static,
+    F1: FnOnce(ReadWire<T>) -> R1 + 'static,
+    R1: StructureCreate,
     F2: StructureCreate,
 {
     move |ctx: &EMCreateCtx| Select {
         cond,
-        if_selected: if_selected.create(ctx),
+        if_selected: {
+            let ctx = ctx.clone();
+            IfSelected::Uninitialized(move |w| if_selected(w).create(&ctx)).into()
+        },
         or_else: or_else.create(ctx),
     }
 }

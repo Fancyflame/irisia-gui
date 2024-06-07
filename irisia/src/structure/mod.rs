@@ -22,16 +22,14 @@ pub trait VisitBy: 'static {
     fn visit<V>(&self, v: &mut V) -> Result<()>
     where
         V: Visitor;
-
-    fn len(&self) -> usize;
 }
 
 pub trait RenderMultiple: 'static {
-    fn render(&self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()>;
+    fn render(&mut self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()>;
 
     fn peek_styles(&self, f: &mut dyn FnMut(&dyn ReadStyle));
 
-    fn layout(&self, f: &mut dyn FnMut(&dyn ReadStyle) -> Option<Region>) -> Result<()>;
+    fn layout(&mut self, f: &mut dyn FnMut(&dyn ReadStyle) -> Option<Region>) -> Result<()>;
 
     fn emit_event(&self, ipe: &IncomingPointerEvent) -> bool;
 
@@ -48,7 +46,7 @@ impl<T> RenderMultiple for T
 where
     T: VisitBy,
 {
-    fn render(&self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()> {
+    fn render(&mut self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()> {
         struct Render<'a, 'b> {
             lr: &'a mut LayerRebuilder<'b>,
             interval: Duration,
@@ -89,7 +87,7 @@ where
         self.visit(&mut PeekStyles(f)).unwrap()
     }
 
-    fn layout(&self, f: &mut dyn FnMut(&dyn ReadStyle) -> Option<Region>) -> Result<()> {
+    fn layout(&mut self, f: &mut dyn FnMut(&dyn ReadStyle) -> Option<Region>) -> Result<()> {
         struct Layout<F>(F);
 
         impl<F> Visitor for Layout<F>
@@ -146,7 +144,21 @@ where
     }
 
     fn len(&self) -> usize {
-        VisitBy::len(self)
+        struct VisitLength(usize);
+
+        impl Visitor for VisitLength {
+            fn visit<El>(&mut self, _: &SharedEM<El>) -> Result<()>
+            where
+                El: ElementInterfaces,
+            {
+                self.0 += 1;
+                Ok(())
+            }
+        }
+
+        let mut visitor = VisitLength(0);
+        self.visit(&mut visitor).unwrap();
+        visitor.0
     }
 }
 

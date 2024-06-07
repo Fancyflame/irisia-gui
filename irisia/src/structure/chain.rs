@@ -27,10 +27,6 @@ impl_variadics! {
                 #(self.#index.visit(_v)?;)*
                 Ok(())
             }
-
-            fn len(&self) -> usize {
-                0 #(+ self.#index.len())*
-            }
         }
     }
 }

@@ -8,9 +8,9 @@ use super::{
     Listener, ListenerList, ReadWire, Readable, Wakeable,
 };
 
-const BORROW_ERROR: &str = "cannot update data inside the wire, because the last update \
-    operation has not completed. if you see this message it's probably because a wire loop \
-    was detected, which means invoking the update function of this wire needs to read the \
+const BORROW_ERROR: &str = "cannot update data inside the wire, because at least one reader still exists \
+    or the last update operation has not completed. if it's because of the latter, it declares a wire \
+    loop was detected, which means invoking the update function of this wire needs to read the \
     old data of this wire itself, which bound to cause infinite updating. to address this problem, \
     you should remove the loop manually";
 

@@ -16,7 +16,7 @@ impl ChildBox {
         ChildBox(Box::new(updater.create(ctx)))
     }
 
-    pub fn render(&self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()> {
+    pub fn render(&mut self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()> {
         self.0.render(lr, interval)
     }
 
@@ -27,7 +27,7 @@ impl ChildBox {
         self.0.peek_styles(&mut f)
     }
 
-    pub fn layout<F>(&self, mut f: F) -> Result<()>
+    pub fn layout<F>(&mut self, mut f: F) -> Result<()>
     where
         F: FnMut(&dyn ReadStyle) -> Option<Region>,
     {

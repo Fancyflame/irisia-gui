@@ -41,14 +41,6 @@ where
 
         Ok(())
     }
-
-    fn len(&self) -> usize {
-        let this = self.0.read();
-
-        let len = this.order.iter().map(|key| this.map[key].value.len()).sum();
-
-        len
-    }
 }
 
 pub fn repeat<K, T, F, Fk, Upd>(

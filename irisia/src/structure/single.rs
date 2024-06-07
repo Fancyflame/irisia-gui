@@ -32,8 +32,4 @@ where
     {
         v.visit(self)
     }
-
-    fn len(&self) -> usize {
-        1
-    }
 }
