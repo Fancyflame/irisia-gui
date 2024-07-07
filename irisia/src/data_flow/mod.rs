@@ -6,6 +6,7 @@ use std::{
 pub use self::wire::{wire, wire2, wire3};
 use listener_list::ListenerList;
 use map::Map;
+use trace_cell::TraceRef;
 use watcher::{watcher, Handle};
 
 pub mod convert_from;
@@ -13,10 +14,12 @@ mod listener_list;
 mod map;
 pub mod observer;
 pub mod register;
+pub mod trace_cell;
 pub mod watcher;
 mod wire;
 
 pub type ReadWire<T> = Rc<dyn Readable<Data = T>>;
+pub type ReadRef<'a, T> = TraceRef<'a, Ref<'a, T>>;
 
 #[derive(Clone)]
 pub enum Listener {
@@ -27,7 +30,7 @@ pub enum Listener {
 pub trait Readable {
     type Data: ?Sized;
 
-    fn read(&self) -> Ref<Self::Data>;
+    fn read(&self) -> ReadRef<Self::Data>;
     fn pipe(&self, listen_end: Listener);
 }
 
@@ -42,9 +45,9 @@ pub trait ReadableExt: Readable + 'static {
         handle
     }
 
-    fn map<F, R>(self: &Rc<Self>, f: F) -> ReadWire<R>
+    fn map<F, R>(self: &Rc<Self>, f: F) -> Map<Self, F>
     where
-        F: Fn(&Self::Data) -> &R + 'static,
+        F: Fn(&Self::Data) -> &R,
     {
         Map::new(self.clone(), f)
     }

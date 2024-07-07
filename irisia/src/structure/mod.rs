@@ -10,12 +10,19 @@ use crate::{
     ElementInterfaces, Result,
 };
 
-pub use self::{child_box::ChildBox, repeat::repeat, select::branch, single::single};
+pub use self::{
+    child_box::ChildBox,
+    cond::conditional,
+    pat_match::pat_match,
+    repeat::{repeat, RepeatMutator},
+    single::single,
+};
 
 mod chain;
 mod child_box;
+mod cond;
+mod pat_match;
 mod repeat;
-mod select;
 mod single;
 
 pub trait VisitBy: 'static {

@@ -1,10 +1,14 @@
 use std::{
-    cell::{Ref, RefCell, RefMut},
+    backtrace::Backtrace,
+    cell::{Ref, RefMut},
     ops::{Deref, DerefMut},
     rc::Rc,
 };
 
-use super::{Listener, ListenerList, Readable};
+use super::{
+    trace_cell::{TraceCell, TraceRef},
+    Listener, ListenerList, Readable,
+};
 
 const BORROW_ERROR: &str = "cannot mutate data inside the register, \
     because the write guard is still held somewhere. please note that \
@@ -12,25 +16,30 @@ const BORROW_ERROR: &str = "cannot mutate data inside the register, \
     not use it";
 
 pub struct Register<T> {
-    data: RefCell<T>,
+    data: TraceCell<T>,
     listeners: ListenerList,
 }
 
 pub struct WriteGuard<'a, T> {
     listeners: &'a ListenerList,
-    r: Option<RefMut<'a, T>>,
+    r: Option<TraceRef<'a, RefMut<'a, T>>>,
 }
 
 impl<T> Register<T> {
     pub fn borrow_mut(&self) -> WriteGuard<T> {
         WriteGuard {
             listeners: &self.listeners,
-            r: Some(self.data.try_borrow_mut().expect(BORROW_ERROR)),
+            r: Some(
+                self.data
+                    .borrow_mut(Backtrace::force_capture())
+                    .expect(BORROW_ERROR),
+            ),
         }
     }
 
     pub fn set(&self, value: T) {
-        *self.data.try_borrow_mut().expect(BORROW_ERROR) = value;
+        let bt = Backtrace::force_capture();
+        *self.data.borrow_mut(bt).expect(BORROW_ERROR) = value;
         self.listeners.wake_all();
     }
 }
@@ -38,9 +47,10 @@ impl<T> Register<T> {
 impl<T> Readable for Register<T> {
     type Data = T;
 
-    fn read(&self) -> Ref<Self::Data> {
+    fn read(&self) -> TraceRef<Ref<Self::Data>> {
+        let bt = Backtrace::force_capture();
         self.listeners.capture_caller();
-        self.data.borrow()
+        self.data.borrow(bt).unwrap()
     }
 
     fn pipe(&self, listen_end: Listener) {
@@ -53,7 +63,7 @@ where
     T: 'static,
 {
     Rc::new(Register {
-        data: RefCell::new(data),
+        data: TraceCell::new(data),
         listeners: ListenerList::new(),
     })
 }

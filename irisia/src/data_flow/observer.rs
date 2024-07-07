@@ -27,6 +27,7 @@ where
     where
         F2: FnOnce() -> R,
     {
+        // `F` is unsized, so `Rc<Self>` couldn't be downgraded
         ListenerList::push_global_stack(Listener::Weak(self.this.clone()));
         let r = f();
         ListenerList::pop_global_stack();

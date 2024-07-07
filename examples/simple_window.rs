@@ -1,15 +1,15 @@
-use std::rc::Rc;
+use std::{rc::Rc, time::Duration};
 
 use irisia::{
     application::Window,
     data_flow::{
         register::{register, Register},
-        wire, Readable,
+        wire, Readable, ReadableExt,
     },
     element::{Component, ComponentTemplate, ElementInterfaces},
-    event::standard::{CloseRequested, PointerDown},
+    event::standard::PointerDown,
     skia_safe::Color,
-    structure::{branch, repeat, single},
+    structure::{pat_match, repeat, single, RepeatMutator},
     winit::window::WindowBuilder,
     Result,
 };
@@ -22,7 +22,7 @@ mod window_backend;
 async fn main() -> Result<()> {
     Window::new(
         WindowBuilder::new().with_title("hello irisia"),
-        single::<Component<App>, _>((), (), (), |_| {}),
+        single::<Component<App>>((), (), (), |_| {}),
     )
     .await
     .unwrap()
@@ -64,54 +64,50 @@ impl ComponentTemplate for App {
             .collect::<Vec<_>>(),
         );
 
-        let children = single::<Flex, _>(
+        let children = single::<Flex>(
             (),
             (),
-            repeat(
-                {
-                    let vec = vec.clone();
-                    wire(move || {
-                        vec.read()
-                            .iter()
-                            .enumerate()
-                            .map(|(index, x)| (index, x.clone()))
-                            .collect()
-                    })
-                },
-                |index, _| index,
-                {
-                    let vec = vec.clone();
-                    move |(index, color)| {
-                        let index = *index;
-                        branch(
-                            color.clone(),
-                            {
-                                let vec = vec.clone();
-                                move |color| {
-                                    single::<Rectangle, _>(
-                                        {
-                                            let color = color.clone();
-                                            RectProps { force_color: color }
-                                        },
-                                        (),
-                                        (),
-                                        {
-                                            let vec = vec.clone();
-                                            move |access| {
+            repeat({
+                let vec = vec.clone();
+                move |mutator| {
+                    mutator.update(
+                        vec.read().iter().cloned().enumerate(),
+                        |&(index, _)| index,
+                        |item| {
+                            pat_match(
+                                {
+                                    let item = item.clone();
+                                    wire(move || *item.read().1.read())
+                                },
+                                {
+                                    let vec = vec.clone();
+                                    let item = item.clone();
+                                    move |color| {
+                                        single::<Rectangle>(
+                                            RectProps {
+                                                force_color: color.clone(),
+                                            },
+                                            (),
+                                            (),
+                                            {
                                                 let vec = vec.clone();
-                                                access.listen().spawn(move |_: PointerDown| {
-                                                    vec.borrow_mut().remove(index);
-                                                });
-                                            }
-                                        },
-                                    )
-                                }
-                            },
-                            (),
-                        )
-                    }
-                },
-            ),
+                                                let item = item.clone();
+                                                move |access| {
+                                                    access.listen().spawn(move |_: PointerDown| {
+                                                        let value = item.read().0;
+                                                        vec.borrow_mut().remove(value);
+                                                    });
+                                                }
+                                            },
+                                        )
+                                    }
+                                },
+                                (),
+                            )
+                        },
+                    )
+                }
+            }),
             |_| {},
         );
 

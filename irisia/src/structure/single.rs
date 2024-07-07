@@ -5,15 +5,14 @@ use crate::{
     ElementInterfaces,
 };
 
-pub fn single<'a, El, Sty>(
+pub fn single<'a, El>(
     props: El::Props<'a>,
-    styles: Sty,
+    styles: impl ReadStyle + 'static,
     slot: impl StructureCreate + 'a,
-    on_create: impl Fn(ElementAccess) + 'a,
+    on_create: impl FnOnce(ElementAccess) + 'a,
 ) -> impl StructureCreate<Target = SharedEM<El>> + 'a
 where
     El: ElementInterfaces,
-    Sty: ReadStyle + 'static,
 {
     move |context: &EMCreateCtx| {
         let em = ElementModel::new(context, props, styles, slot);

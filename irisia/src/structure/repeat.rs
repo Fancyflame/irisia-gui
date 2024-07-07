@@ -1,10 +1,14 @@
 use std::{
     collections::{hash_map::Entry, HashMap},
     hash::Hash,
+    rc::Rc,
 };
 
 use crate::{
-    data_flow::{wire3, ReadWire},
+    data_flow::{
+        register::{register, Register},
+        wire3, ReadWire,
+    },
     el_model::EMCreateCtx,
 };
 
@@ -12,22 +16,25 @@ use super::{StructureCreate, VisitBy};
 
 const MAX_TIME_TO_LIVE: u8 = 3;
 
-struct Repeat<K, T>(ReadWire<RepeatInner<K, T>>);
+struct Repeat<K, T, Tree>(ReadWire<RepeatInner<K, T, Tree>>);
 
-struct RepeatInner<K, T> {
-    map: HashMap<K, Item<T>>,
+struct RepeatInner<K, T, Tree> {
+    map: HashMap<K, Item<T, Tree>>,
+    ctx: EMCreateCtx,
     order: Vec<K>,
 }
 
-struct Item<T> {
-    value: T,
+struct Item<T, Tree> {
+    iter_item: Rc<Register<T>>,
+    tree: Tree,
     time_to_live: u8,
 }
 
-impl<K, T> VisitBy for Repeat<K, T>
+impl<K, T, Tree> VisitBy for Repeat<K, T, Tree>
 where
     K: Hash + Eq + 'static,
-    T: VisitBy,
+    T: 'static,
+    Tree: VisitBy,
 {
     fn visit<V>(&self, v: &mut V) -> crate::Result<()>
     where
@@ -36,74 +43,70 @@ where
         let this = self.0.read();
 
         for key in &this.order {
-            this.map[key].value.visit(v)?;
+            this.map[key].tree.visit(v)?;
         }
 
         Ok(())
     }
 }
 
-pub fn repeat<K, T, F, Fk, Upd>(
-    data_vec: ReadWire<Vec<T>>,
-    map_key: Fk,
-    content_fn: F,
-) -> impl StructureCreate
+pub struct RepeatMutator<'a, K, T, Tree>(&'a mut RepeatInner<K, T, Tree>);
+
+impl<'a, K, T, Tree> RepeatMutator<'a, K, T, Tree> {
+    pub fn update<I, Upd, Fk, F>(self, iter: I, key_fn: Fk, content_fn: F)
+    where
+        K: Hash + Eq + Clone,
+        T: 'static,
+        I: Iterator<Item = T>,
+        Fk: Fn(&T) -> K,
+        F: Fn(ReadWire<T>) -> Upd,
+        Upd: StructureCreate<Target = Tree>,
+    {
+        self.0
+            .update(iter.map(|data| (key_fn(&data), data)), content_fn);
+    }
+}
+
+pub fn repeat<K, T, Tree, F>(content_fn: F) -> impl StructureCreate
 where
-    T: 'static,
     K: Hash + Eq + Clone + 'static,
-    Fk: Fn(usize, &T) -> K + 'static,
-    F: Fn(&T) -> Upd + 'static,
-    Upd: StructureCreate,
+    T: 'static,
+    Tree: VisitBy,
+    F: Fn(RepeatMutator<K, T, Tree>) + 'static,
 {
     move |ctx: &EMCreateCtx| {
         let ctx = ctx.clone();
 
-        let w = wire3(move || {
-            let mut map = HashMap::with_capacity(data_vec.read().len());
-            let mut order = Vec::with_capacity(data_vec.read().len());
+        let w = wire3(
+            move || {
+                let rep = RepeatInner {
+                    map: HashMap::new(),
+                    ctx,
+                    order: Vec::new(),
+                };
 
-            for (index, data) in data_vec.read().iter().enumerate() {
-                let key = map_key(index, data);
-
-                map.insert(
-                    key.clone(),
-                    Item {
-                        value: content_fn(data).create(&ctx),
-                        time_to_live: MAX_TIME_TO_LIVE - 1,
-                    },
-                );
-
-                order.push(key);
-            }
-
-            (RepeatInner { map, order }, move |r| {
-                r.update_map(
-                    &map_key,
-                    |key| content_fn(key).create(&ctx),
-                    &data_vec.read(),
-                )
-            })
-        });
+                (rep, move |mut r| content_fn(RepeatMutator(&mut r)))
+            },
+            true,
+        );
 
         Repeat(w)
     }
 }
 
-impl<K, Tree> RepeatInner<K, Tree>
-where
-    K: Hash + Eq + Clone,
-{
-    fn update_map<T, Fk, F>(&mut self, key_fn: Fk, content_fn: F, data_vec: &Vec<T>)
+impl<K, T, Tree> RepeatInner<K, T, Tree> {
+    fn update<I, Upd, F>(&mut self, iter: I, content_fn: F)
     where
-        Fk: Fn(usize, &T) -> K,
-        F: Fn(&T) -> Tree,
+        K: Hash + Eq + Clone,
+        T: 'static,
+        I: Iterator<Item = (K, T)>,
+        F: Fn(ReadWire<T>) -> Upd,
+        Upd: StructureCreate<Target = Tree>,
     {
-        let RepeatInner { map, order } = self;
+        let RepeatInner { map, order, ctx } = self;
+
         order.clear();
-
-        for (index, data) in data_vec.iter().enumerate() {
-            let key = key_fn(index, data);
-
+        for (key, data) in iter {
             match map.entry(key.clone()) {
                 Entry::Occupied(mut occ) => {
                     let item = occ.get_mut();
@@ -112,10 +115,13 @@ where
                         "some keys in the iterator is duplicated"
                     );
                     item.time_to_live = MAX_TIME_TO_LIVE;
+                    item.iter_item.set(data);
                 }
                 Entry::Vacant(vac) => {
+                    let reg = register(data);
                     vac.insert(Item {
-                        value: content_fn(data),
+                        tree: content_fn(reg.clone()).create(ctx),
+                        iter_item: reg,
                         time_to_live: MAX_TIME_TO_LIVE,
                     });
                 }
