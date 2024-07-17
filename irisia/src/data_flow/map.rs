@@ -3,7 +3,7 @@ use std::rc::Rc;
 use super::{ReadRef, ReadWire, Readable};
 
 pub struct Map<T: ?Sized, F> {
-    src: Rc<T>,
+    src: T,
     map: F,
 }
 

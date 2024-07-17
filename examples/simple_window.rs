@@ -6,7 +6,7 @@ use irisia::{
         register::{register, Register},
         wire, Readable, ReadableExt,
     },
-    element::{Component, ComponentTemplate, ElementInterfaces},
+    element::{Component, ComponentTemplate, ElementInterfaces, SingleChildStructure},
     event::standard::PointerDown,
     skia_safe::Color,
     structure::{pat_match, repeat, single, RepeatMutator},
@@ -42,12 +42,7 @@ impl ComponentTemplate for App {
         _: Slt,
         _: irisia::el_model::ElementAccess,
         _: irisia::element::CompInputWatcher<Self>,
-    ) -> (
-        Self,
-        impl irisia::structure::StructureCreate<
-            Target = irisia::el_model::SharedEM<impl ElementInterfaces>,
-        >,
-    )
+    ) -> (Self, impl SingleChildStructure)
     where
         Slt: irisia::structure::StructureCreate,
     {

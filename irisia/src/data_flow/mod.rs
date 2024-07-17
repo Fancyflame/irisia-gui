@@ -45,11 +45,26 @@ pub trait ReadableExt: Readable + 'static {
         handle
     }
 
-    fn map<F, R>(self: &Rc<Self>, f: F) -> Map<Self, F>
+    fn map<F, R>(&self, f: F) -> Map<Self, F>
     where
         F: Fn(&Self::Data) -> &R,
     {
         Map::new(self.clone(), f)
+    }
+}
+
+impl<T> Readable for Rc<T>
+where
+    T: Readable + ?Sized,
+{
+    type Data = T::Data;
+
+    fn read(&self) -> ReadRef<Self::Data> {
+        (**self).read()
+    }
+
+    fn pipe(&self, listen_end: Listener) {
+        (**self).pipe(listen_end)
     }
 }
 

@@ -8,7 +8,7 @@ use crate::{
     Result,
 };
 
-pub use component::{CompInputWatcher, Component, ComponentTemplate};
+pub use component::{CompInputWatcher, Component, ComponentTemplate, SingleChildStructure};
 
 mod component;
 

@@ -17,10 +17,7 @@ pub trait ComponentTemplate: Sized + 'static {
         slot: Slt,
         access: ElementAccess,
         watch_input: CompInputWatcher<Self>,
-    ) -> (
-        Self,
-        impl StructureCreate<Target = SharedEM<impl ElementInterfaces>>,
-    )
+    ) -> (Self, impl SingleChildStructure)
     where
         Slt: StructureCreate;
 }
@@ -103,4 +100,16 @@ impl<El: ComponentTemplate> CompInputWatcher<El> {
     {
         self.0.invoke_mut(|comp| f(&mut comp.inner))
     }
+}
+
+pub trait SingleChildStructure: StructureCreate<Target = SharedEM<Self::Element>> {
+    type Element: ElementInterfaces;
+}
+
+impl<T, El> SingleChildStructure for T
+where
+    T: StructureCreate<Target = SharedEM<El>>,
+    El: ElementInterfaces,
+{
+    type Element = El;
 }
