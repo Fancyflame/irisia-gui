@@ -10,7 +10,7 @@ use crate::{
 };
 
 pub trait ComponentTemplate: Sized + 'static {
-    type Props<'a>;
+    type Props<'a>: Default;
 
     fn create<Slt>(
         props: Self::Props<'_>,

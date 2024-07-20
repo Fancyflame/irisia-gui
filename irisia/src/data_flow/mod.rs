@@ -11,7 +11,7 @@ use watcher::{watcher, Handle};
 
 pub mod convert_from;
 mod listener_list;
-mod map;
+pub mod map;
 pub mod observer;
 pub mod register;
 pub mod trace_cell;
@@ -45,11 +45,12 @@ pub trait ReadableExt: Readable + 'static {
         handle
     }
 
-    fn map<F, R>(&self, f: F) -> Map<Self, F>
+    fn map<F, R>(self, f: F) -> Map<Self, F>
     where
+        Self: Sized,
         F: Fn(&Self::Data) -> &R,
     {
-        Map::new(self.clone(), f)
+        Map::new(self, f)
     }
 }
 

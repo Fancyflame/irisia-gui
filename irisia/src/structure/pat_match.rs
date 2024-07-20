@@ -14,7 +14,6 @@ enum IfSelected<T, F> {
 
 pub struct PatMatch<T, S1, F1, S2> {
     cond: ReadWire<Option<T>>,
-    if_guard: fn(&T) -> bool,
     if_selected: RefCell<IfSelected<S1, F1>>,
     or_else: S2,
 }
@@ -30,13 +29,12 @@ where
     where
         V: super::Visitor,
     {
-        let data = match &*self.cond.read() {
-            Some(data) if (self.if_guard)(data) => data,
-            _ => return self.or_else.visit(v),
-        };
+        if self.cond.read().is_none() {
+            return self.or_else.visit(v);
+        }
 
         let borrowed = self.if_selected.borrow();
-        match &borrowed {
+        match &*borrowed {
             IfSelected::Initialized(branch) => return branch.visit(v),
             IfSelected::Intermediate => panic!(
                 "thread was panicked during last updating, this structure should not be used anymore"
@@ -44,7 +42,6 @@ where
             IfSelected::Uninitialized(_) => {}
         }
 
-        let data = data.clone();
         drop(borrowed);
         let mut borrow_mut = self.if_selected.borrow_mut();
 
@@ -58,6 +55,7 @@ where
             let cond = self.cond.clone();
             wire3(
                 || {
+                    let data = cond.read().clone().unwrap();
                     (data, move |mut r| {
                         if let Some(new_data) = &*cond.read() {
                             *r = new_data.clone();
@@ -77,7 +75,6 @@ where
 
 pub fn pat_match<T, F1, R1, R2>(
     cond: ReadWire<Option<T>>,
-    if_guard: Option<fn(&T) -> bool>,
     if_selected: F1,
     or_else: R2,
 ) -> impl StructureCreate
@@ -89,7 +86,6 @@ where
 {
     move |ctx: &EMCreateCtx| PatMatch {
         cond,
-        if_guard: if_guard.unwrap_or(|_| true),
         if_selected: {
             let ctx = ctx.clone();
             IfSelected::Uninitialized(move |w| if_selected(w).create(&ctx)).into()

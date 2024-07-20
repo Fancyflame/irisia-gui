@@ -3,9 +3,13 @@ use expr::state_block::stmts_to_tokens;
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use syn::{parse::Parser, parse_macro_input, DeriveInput, ItemFn, Result};
+use syn::{
+    parse::{ParseStream, Parser},
+    parse_macro_input, DeriveInput, ItemFn, Result,
+};
 
 mod app;
+mod build_macro;
 mod derive_props;
 mod derive_style;
 mod derive_style_reader;
@@ -122,6 +126,13 @@ pub fn props(input: TokenStream) -> TokenStream {
     result_into_stream(derive_props::derive(parse_macro_input!(
         input as DeriveInput
     )))
+}
+
+#[proc_macro]
+pub fn build(input: TokenStream) -> TokenStream {
+    let mut env = build_macro::Environment::new();
+    let parser = |input: ParseStream| env.parse_statements(input);
+    result_into_stream(parser.parse(input))
 }
 
 fn result_into_stream(result: Result<TokenStream2>) -> TokenStream {

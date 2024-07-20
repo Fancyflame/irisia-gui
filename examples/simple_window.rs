@@ -2,11 +2,14 @@ use std::{rc::Rc, time::Duration};
 
 use irisia::{
     application::Window,
+    build,
     data_flow::{
-        register::{register, Register},
-        wire, Readable, ReadableExt,
+        register::{register, RcReg},
+        Readable,
     },
-    element::{Component, ComponentTemplate, ElementInterfaces, SingleChildStructure},
+    element::{
+        Component, ComponentTemplate, ElementInterfaces, ElementPropsAlias, SingleChildStructure,
+    },
     event::standard::PointerDown,
     skia_safe::Color,
     structure::{pat_match, repeat, single, RepeatMutator},
@@ -31,7 +34,7 @@ async fn main() -> Result<()> {
 }
 
 struct App {
-    rects: Rc<Register<Vec<Rc<Register<Option<Color>>>>>>,
+    rects: RcReg<Vec<Option<Color>>>,
 }
 
 impl ComponentTemplate for App {
@@ -55,56 +58,30 @@ impl ComponentTemplate for App {
                 Color::BLACK,
             ]
             .into_iter()
-            .map(|c| register(Some(c)))
+            .map(|c| Some(c))
             .collect::<Vec<_>>(),
         );
 
-        let children = single::<Flex>(
-            (),
-            (),
-            repeat({
-                let vec = vec.clone();
-                move |mutator| {
-                    mutator.update(
-                        vec.read().iter().cloned().enumerate(),
-                        |&(index, _)| index,
-                        |item| {
-                            pat_match(
-                                {
-                                    let item = item.clone();
-                                    wire(move || *item.read().1.read())
-                                },
-                                {
-                                    let vec = vec.clone();
-                                    let item = item.clone();
-                                    move |color| {
-                                        single::<Rectangle>(
-                                            RectProps {
-                                                force_color: color.clone(),
-                                            },
-                                            (),
-                                            (),
-                                            {
-                                                let vec = vec.clone();
-                                                let item = item.clone();
-                                                move |access| {
-                                                    access.listen().spawn(move |_: PointerDown| {
-                                                        let value = item.read().0;
-                                                        vec.borrow_mut().remove(value);
-                                                    });
-                                                }
-                                            },
-                                        )
-                                    }
-                                },
-                                (),
-                            )
-                        },
-                    )
+        let children = build! {
+            input vec;
+
+            Flex {
+                for (index, item) in vec.read().iter().cloned().enumerate(),
+                key = *index
+                {
+                    if let Some(color) = *item.read() {
+                        Rectangle {
+                            force_color: *color.read(),
+                            @on_create: move |access| {
+                                access.listen().spawn(move |_: PointerDown| {
+                                    vec.borrow_mut().remove(*index.read());
+                                });
+                            },
+                        }
+                    }
                 }
-            }),
-            |_| {},
-        );
+            }
+        };
 
         (App { rects: vec }, children)
     }

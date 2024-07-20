@@ -24,13 +24,12 @@ where
     }
 }
 
-pub fn conditional<T, F1, F2>(
+pub fn conditional<F1, F2>(
     cond: ReadWire<bool>,
     if_selected: F1,
     or_else: F2,
 ) -> impl StructureCreate
 where
-    T: Clone + 'static,
     F1: StructureCreate,
     F2: StructureCreate,
 {

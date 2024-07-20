@@ -28,5 +28,5 @@ pub use application::Window;
 pub use element::ElementInterfaces;
 pub use event::Event;
 pub use irisia_backend::{runtime::exit_app, skia_safe, start_runtime, winit, WinitWindow};
-pub use irisia_macros::{main, style, Event, Style, StyleReader, WriteStyle};
+pub use irisia_macros::{build, main, style, Event, Style, StyleReader, WriteStyle};
 pub use style::Style;

@@ -2,19 +2,20 @@ use std::rc::Rc;
 
 use super::{ReadRef, ReadWire, Readable};
 
-pub struct Map<T: ?Sized, F> {
+#[derive(Clone)]
+pub struct Map<T, F> {
     src: T,
     map: F,
 }
 
 impl<T, F, Data1, Data2> Map<T, F>
 where
-    T: Readable<Data = Data1> + ?Sized,
+    T: Readable<Data = Data1>,
     Data1: ?Sized,
     Data2: ?Sized,
     F: Fn(&Data1) -> &Data2,
 {
-    pub fn new(src: Rc<T>, map: F) -> Self {
+    pub fn new(src: T, map: F) -> Self {
         Self { src, map }
     }
 
@@ -40,7 +41,7 @@ where
 
 impl<T, F, U> Readable for Map<T, F>
 where
-    T: Readable + ?Sized,
+    T: Readable,
     F: MapFn<T::Data, Output = U>,
     U: ?Sized,
 {
@@ -55,7 +56,7 @@ where
     }
 }
 
-pub trait MapFn<T: ?Sized> {
+trait MapFn<T: ?Sized> {
     type Output: ?Sized;
     fn map<'a>(&self, data: &'a T) -> &'a Self::Output;
 }

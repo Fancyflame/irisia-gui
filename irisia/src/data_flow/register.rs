@@ -10,6 +10,8 @@ use super::{
     Listener, ListenerList, Readable,
 };
 
+pub type RcReg<T> = Rc<Register<T>>;
+
 const BORROW_ERROR: &str = "cannot mutate data inside the register, \
     because the write guard is still held somewhere. please note that \
     you should drop the write guard immediately as long as you do \

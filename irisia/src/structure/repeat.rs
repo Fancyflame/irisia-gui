@@ -52,18 +52,20 @@ where
 
 pub struct RepeatMutator<'a, K, T, Tree>(&'a mut RepeatInner<K, T, Tree>);
 
-impl<'a, K, T, Tree> RepeatMutator<'a, K, T, Tree> {
-    pub fn update<I, Upd, Fk, F>(self, iter: I, key_fn: Fk, content_fn: F)
+impl<'a, K, Item, Tree> RepeatMutator<'a, K, Item, Tree> {
+    pub fn update<Iter, Fk, F, Upd>(self, iter: Iter, key_fn: Fk, content_fn: F)
     where
         K: Hash + Eq + Clone,
-        T: 'static,
-        I: Iterator<Item = T>,
-        Fk: Fn(&T) -> K,
-        F: Fn(ReadWire<T>) -> Upd,
+        Item: 'static,
+        Iter: IntoIterator<Item = Item>,
+        Fk: Fn(&Item) -> K,
+        F: Fn(ReadWire<Item>) -> Upd,
         Upd: StructureCreate<Target = Tree>,
     {
-        self.0
-            .update(iter.map(|data| (key_fn(&data), data)), content_fn);
+        self.0.update(
+            iter.into_iter().map(|data| (key_fn(&data), data)),
+            content_fn,
+        );
     }
 }
 

@@ -4,7 +4,7 @@ use irisia::{
     application::IncomingPointerEvent,
     data_flow::{register::Register, wire, ReadWire},
     el_model::{EMCreateCtx, ElInputWatcher, ElementAccess, LayerRebuilder},
-    element::ElementInterfaces,
+    element::{ElementInterfaces, EmptyProps, FieldMustInit},
     event::standard::{ElementAbandoned, PointerDown, PointerEntered, PointerLeft, PointerOut},
     exit_app,
     primitive::{Pixel, Point},
@@ -34,7 +34,15 @@ pub struct Rectangle {
 }
 
 pub struct RectProps {
-    pub force_color: ReadWire<Color>,
+    pub force_color: FieldMustInit<ReadWire<Color>>,
+}
+
+impl Default for RectProps {
+    fn default() -> Self {
+        Self {
+            force_color: FieldMustInit::new_uninit("force_color"),
+        }
+    }
 }
 
 #[derive(Default, WriteStyle)]
@@ -84,19 +92,19 @@ impl ElementInterfaces for Rectangle {
 
         Self {
             is_force: false,
-            force_color: props.force_color,
+            force_color: props.force_color.take(),
             styles,
             access,
         }
     }
 
-    fn children_emit_event(&mut self, ipe: &IncomingPointerEvent) -> bool {
+    fn children_emit_event(&mut self, _: &IncomingPointerEvent) -> bool {
         false
     }
 
     fn set_draw_region(&mut self, _: irisia::primitive::Region) {}
 
-    fn render(&mut self, lr: &mut LayerRebuilder, interval: std::time::Duration) -> Result<()> {
+    fn render(&mut self, lr: &mut LayerRebuilder, _: std::time::Duration) -> Result<()> {
         let region = self.access.draw_region();
         let styles = self.styles.read();
 
@@ -139,7 +147,7 @@ pub struct Flex {
 }
 
 impl ElementInterfaces for Flex {
-    type Props<'a> = ();
+    type Props<'a> = EmptyProps;
 
     fn create<Slt>(
         _: Self::Props<'_>,
