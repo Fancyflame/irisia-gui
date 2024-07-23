@@ -8,9 +8,9 @@ edition = "2021"
 # name = "window"
 # path = "window.rs"
 
-[[example]]
-name = "props_macro"
-path = "props_macro.rs"
+# [[example]]
+# name = "props_macro"
+# path = "props_macro.rs"
 
 [[example]]
 name = "simple_window"

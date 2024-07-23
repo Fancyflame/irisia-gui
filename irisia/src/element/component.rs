@@ -17,7 +17,7 @@ pub trait ComponentTemplate: Sized + 'static {
         slot: Slt,
         access: ElementAccess,
         watch_input: CompInputWatcher<Self>,
-    ) -> (Self, impl SingleChildStructure)
+    ) -> (Self, impl OneStructureCreate)
     where
         Slt: StructureCreate;
 }
@@ -102,11 +102,11 @@ impl<El: ComponentTemplate> CompInputWatcher<El> {
     }
 }
 
-pub trait SingleChildStructure: StructureCreate<Target = SharedEM<Self::Element>> {
+pub trait OneStructureCreate: StructureCreate<Target = SharedEM<Self::Element>> {
     type Element: ElementInterfaces;
 }
 
-impl<T, El> SingleChildStructure for T
+impl<T, El> OneStructureCreate for T
 where
     T: StructureCreate<Target = SharedEM<El>>,
     El: ElementInterfaces,

@@ -2,7 +2,7 @@ use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{parse_quote, Expr};
 
-use super::{pat_bind::PatBinds, ElementDeclaration, Environment};
+use super::{pat_bind::PatBinds, Environment};
 
 impl Environment {
     pub(super) fn cond_to_tokens(
@@ -92,40 +92,6 @@ impl Environment {
                     }
                 )
             })
-        }
-    }
-
-    pub(super) fn element_to_tokens(
-        &self,
-        ElementDeclaration {
-            el_type,
-            wired_props,
-            styles,
-            slot,
-            on_create,
-        }: &ElementDeclaration,
-    ) -> TokenStream {
-        let props = wired_props.iter().map(|(key, value)| {
-            quote! {
-                #key: ::std::convert::From::from(#value),
-            }
-        });
-
-        let env = self.env_to_tokens();
-
-        quote! {
-            ::irisia::structure::single::<#el_type>(
-                ::irisia::element::ElementPropsAlias::<#el_type> {
-                    #(#props)*
-                    ..::std::default::Default::default()
-                },
-                #styles,
-                #slot,
-                {
-                    #env
-                    #on_create
-                },
-            )
         }
     }
 }

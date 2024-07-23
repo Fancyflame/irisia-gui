@@ -3,11 +3,13 @@ use std::collections::{hash_map::Entry, HashMap};
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
-    braced, custom_keyword, parse::ParseStream, parse_quote, Error, Expr, ExprLet, Ident, Pat,
-    Result, Token, TypePath,
+    braced, custom_keyword, parse::ParseStream, parse_quote, token::Brace, Error, Expr, ExprLet,
+    Ident, Pat, Result, Token, TypePath,
 };
 
-use super::{kw, pat_bind::PatBinds, ElementDeclaration, Environment};
+use crate::parse_incomplete::parse_maybe_incomplete_expr;
+
+use super::{env_to_tokens_raw, kw, pat_bind::PatBinds, Environment};
 
 const MAX_CHAIN_TUPLE_LENGTH: usize = 25;
 
@@ -21,6 +23,8 @@ impl Environment {
             self.parse_if(input)
         } else if input.peek(Token![for]) {
             self.parse_for(input)
+        } else if input.peek(Brace) {
+            self.parse_extern(input)
         } else {
             ElDecBuilder::parse(self, input)
         }
@@ -73,7 +77,12 @@ impl Environment {
             }
 
             input.parse::<Token![;]>()?;
-            self.parse_statements(input)
+            let body = self.parse_statements(input)?;
+            let env = env_to_tokens_raw(&self.vars[self.vars.len() - count..], false);
+            Ok(quote! {{
+                #env
+                #body
+            }})
         })();
 
         self.pop_env(count);
@@ -198,14 +207,30 @@ impl Environment {
 
         Ok(self.repeat_to_tokens(&iter, &key_expr, &pat, body))
     }
+
+    fn parse_extern(&mut self, input: ParseStream) -> Result<TokenStream> {
+        let content;
+        braced!(content in input);
+
+        // we don't care about the content, maybe it is an incomplete expression
+        let tokens = content.parse::<TokenStream>()?;
+
+        let env = self.env_to_tokens();
+        Ok(quote! {
+            {
+                #env
+                #tokens
+            }
+        })
+    }
 }
 
-struct ElDecBuilder<'a> {
+pub struct ElDecBuilder<'a> {
     env: &'a mut Environment,
     el_type: TypePath,
     props: HashMap<Ident, Expr>,
     styles: Option<Expr>,
-    slot: Option<TokenStream>,
+    slot: TokenStream,
     on_create: Option<Expr>,
 }
 
@@ -216,11 +241,12 @@ impl ElDecBuilder<'_> {
             el_type: input.parse()?,
             props: HashMap::new(),
             styles: None,
-            slot: None,
+            slot: quote! {()},
             on_create: None,
         };
 
         if input.peek(Token![;]) {
+            input.parse::<Token![;]>()?;
             return Ok(this.to_tokens());
         }
 
@@ -241,18 +267,18 @@ impl ElDecBuilder<'_> {
             }
         }
 
-        this.slot = Some(this.env.parse_statements(&content)?);
+        this.slot = this.env.parse_statements(&content)?;
         Ok(this.to_tokens())
     }
 
-    fn check_and_set_cmd<T>(cmd: &mut Option<T>, id: &Ident, data: T) -> Result<()> {
+    fn check_and_set_cmd(cmd: &mut Option<Expr>, id: &Ident, input: ParseStream) -> Result<()> {
         if cmd.is_some() {
             Err(Error::new_spanned(
                 id,
                 format!("duplicated command declaration found `{id}`"),
             ))
         } else {
-            *cmd = Some(data);
+            *cmd = Some(parse_maybe_incomplete_expr(input, Token![,]));
             Ok(())
         }
     }
@@ -263,8 +289,8 @@ impl ElDecBuilder<'_> {
         input.parse::<Token![:]>()?;
 
         match &*id.to_string() {
-            "styles" => Self::check_and_set_cmd(&mut self.styles, &id, input.parse()?),
-            "on_create" => Self::check_and_set_cmd(&mut self.on_create, &id, input.parse()?),
+            "styles" => Self::check_and_set_cmd(&mut self.styles, &id, input),
+            "on_create" => Self::check_and_set_cmd(&mut self.on_create, &id, input),
             other => Err(Error::new_spanned(
                 &id,
                 format!("unrecognized command `{other}`"),
@@ -283,10 +309,11 @@ impl ElDecBuilder<'_> {
             true
         };
 
-        let mut value: Expr = input.parse()?;
+        let mut value: Expr = parse_maybe_incomplete_expr(input, Token![,]); //input.parse()?;
 
         if !assign_mode {
-            value = syn::parse2(self.env.create_wire(&value)).unwrap();
+            let raw = self.env.create_wire(&value);
+            value = syn::parse2(raw.clone()).unwrap_or(Expr::Verbatim(raw));
         }
 
         match self.props.entry(id) {
@@ -302,12 +329,56 @@ impl ElDecBuilder<'_> {
     }
 
     fn to_tokens(self) -> TokenStream {
-        self.env.element_to_tokens(&ElementDeclaration {
-            el_type: self.el_type,
-            wired_props: self.props,
-            styles: self.styles.unwrap_or_else(|| parse_quote!(())),
-            on_create: self.on_create.unwrap_or_else(|| parse_quote!(|_| {})),
-            slot: self.slot.unwrap_or_else(|| parse_quote!(())),
-        })
+        let Self {
+            env,
+            el_type,
+            props,
+            styles,
+            slot,
+            on_create,
+        } = self;
+
+        // TODO: 等rust-analyzer把bug修了才能取消注释<https://github.com/rust-lang/rust-analyzer/issues/17651>
+        /*let el_type = quote! {
+            <#el_type as ::irisia::element::macro_helper::ElementTypeHelper<_>>::Target
+        };*/
+
+        let props = props.iter().map(|(key, value)| {
+            quote! {
+                #key: ::std::convert::From::from(#value),
+            }
+        });
+
+        let env_vars = env.env_to_tokens();
+
+        let styles = match styles {
+            Some(styles) => quote! {{
+                #env_vars
+                #styles
+            }},
+            None => quote! {()},
+        };
+
+        let on_create = match on_create {
+            Some(on_create) => quote! {{
+                #env_vars
+                #on_create
+            }},
+            None => quote! {
+                |_| {}
+            },
+        };
+
+        quote! {
+            ::irisia::structure::single::<#el_type>(
+                ::irisia::element::macro_helper::ElementPropsAlias::<#el_type> {
+                    #(#props)*
+                    ..::std::default::Default::default()
+                },
+                #styles,
+                #slot,
+                #on_create,
+            )
+        }
     }
 }

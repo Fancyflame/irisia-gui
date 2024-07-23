@@ -28,7 +28,7 @@ pub struct WriteGuard<'a, T> {
 }
 
 impl<T> Register<T> {
-    pub fn borrow_mut(&self) -> WriteGuard<T> {
+    pub fn write(&self) -> WriteGuard<T> {
         WriteGuard {
             listeners: &self.listeners,
             r: Some(

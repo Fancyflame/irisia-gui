@@ -1,9 +1,7 @@
-use std::collections::HashMap;
-
 use pat_bind::PatBinds;
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{Expr, Ident, TypePath};
+use syn::{Expr, Ident, Token};
 
 mod pat_bind;
 mod kw {
@@ -40,13 +38,7 @@ impl Environment {
     }
 
     fn env_to_tokens(&self) -> TokenStream {
-        let vars = &self.vars;
-        quote! {
-            #[allow(unused_variables)]
-            let (#(#vars,)*) = (
-                #(::std::clone::Clone::clone(&#vars),)*
-            );
-        }
+        env_to_tokens_raw(&self.vars, true)
     }
 
     fn create_wire(&self, expr: &Expr) -> TokenStream {
@@ -62,10 +54,12 @@ impl Environment {
     }
 }
 
-struct ElementDeclaration {
-    el_type: TypePath,
-    wired_props: HashMap<Ident, Expr>,
-    styles: Expr,
-    on_create: Expr,
-    slot: TokenStream,
+fn env_to_tokens_raw(vars: &[Ident], borrow: bool) -> TokenStream {
+    let and = borrow.then(<Token![&]>::default);
+    quote! {
+        #[allow(unused_variables)]
+        let (#(#vars,)*) = (
+            #(::std::clone::Clone::clone(#and #vars),)*
+        );
+    }
 }

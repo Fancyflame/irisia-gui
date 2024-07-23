@@ -45,10 +45,9 @@ pub trait ReadableExt: Readable + 'static {
         handle
     }
 
-    fn map<F, R>(self, f: F) -> Map<Self, F>
+    fn map<R>(self, f: fn(&Self::Data) -> &R) -> Map<Self, Self::Data, R>
     where
         Self: Sized,
-        F: Fn(&Self::Data) -> &R,
     {
         Map::new(self, f)
     }

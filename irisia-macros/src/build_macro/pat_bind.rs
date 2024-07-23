@@ -33,15 +33,15 @@ impl PatBinds {
         let Self { binds, .. } = self;
 
         quote! {
-            #(
-                #[allow(unused_variables)]
-                let #binds = ::irisia::data_flow::ReadableExt::map(
+            #[allow(unused_variables)]
+            let (#(#binds,)*) = (
+                #(::irisia::data_flow::ReadableExt::map(
                     ::std::clone::Clone::clone(&#from_ident),
                     |#[allow(unused_variables)] #pattern| {
                         #binds
                     }
-                );
-            )*
+                ),)*
+            );
         }
     }
 }

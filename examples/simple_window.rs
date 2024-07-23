@@ -1,5 +1,3 @@
-use std::{rc::Rc, time::Duration};
-
 use irisia::{
     application::Window,
     build,
@@ -7,17 +5,14 @@ use irisia::{
         register::{register, RcReg},
         Readable,
     },
-    element::{
-        Component, ComponentTemplate, ElementInterfaces, ElementPropsAlias, SingleChildStructure,
-    },
+    element::{Component, ComponentTemplate, EmptyProps, OneStructureCreate},
     event::standard::PointerDown,
     skia_safe::Color,
-    structure::{pat_match, repeat, single, RepeatMutator},
     winit::window::WindowBuilder,
     Result,
 };
 
-use window_backend::{Flex, RectProps, Rectangle, StyleHeight, StyleWidth};
+use window_backend::{Flex, Rectangle};
 
 mod window_backend;
 
@@ -25,7 +20,7 @@ mod window_backend;
 async fn main() -> Result<()> {
     Window::new(
         WindowBuilder::new().with_title("hello irisia"),
-        single::<Component<App>>((), (), (), |_| {}),
+        build!(Component<App>;),
     )
     .await
     .unwrap()
@@ -34,18 +29,18 @@ async fn main() -> Result<()> {
 }
 
 struct App {
-    rects: RcReg<Vec<Option<Color>>>,
+    rects: RcReg<Vec<RcReg<Option<Color>>>>,
 }
 
 impl ComponentTemplate for App {
-    type Props<'a> = ();
+    type Props<'a> = EmptyProps;
 
     fn create<Slt>(
         _: Self::Props<'_>,
         _: Slt,
         _: irisia::el_model::ElementAccess,
         _: irisia::element::CompInputWatcher<Self>,
-    ) -> (Self, impl SingleChildStructure)
+    ) -> (Self, impl OneStructureCreate)
     where
         Slt: irisia::structure::StructureCreate,
     {
@@ -58,32 +53,40 @@ impl ComponentTemplate for App {
                 Color::BLACK,
             ]
             .into_iter()
-            .map(|c| Some(c))
+            .map(|c| register(Some(c)))
             .collect::<Vec<_>>(),
         );
 
-        let children = build! {
-            input vec;
+        let app = App { rects: vec };
+        let children = app.structure();
+
+        (app, children)
+    }
+}
+
+impl App {
+    fn structure(&self) -> impl OneStructureCreate {
+        let rects = &self.rects;
+        build! {
+            input rects;
 
             Flex {
-                for (index, item) in vec.read().iter().cloned().enumerate(),
+                for (index, item) in rects.read().iter().cloned().enumerate(),
                 key = *index
                 {
-                    if let Some(color) = *item.read() {
+                    if let Some(color) = *item.read().read() {
                         Rectangle {
                             force_color: *color.read(),
                             @on_create: move |access| {
                                 access.listen().spawn(move |_: PointerDown| {
-                                    vec.borrow_mut().remove(*index.read());
+                                    rects.write()[*index.read()].set(None);
                                 });
                             },
                         }
                     }
                 }
             }
-        };
-
-        (App { rects: vec }, children)
+        }
     }
 }
 

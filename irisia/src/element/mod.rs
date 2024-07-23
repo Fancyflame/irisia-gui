@@ -8,11 +8,12 @@ use crate::{
     Result,
 };
 
-pub use component::{CompInputWatcher, Component, ComponentTemplate, SingleChildStructure};
+pub use component::{CompInputWatcher, Component, ComponentTemplate, OneStructureCreate};
 
 mod component;
 
-pub type ElementPropsAlias<'a, T> = <T as ElementInterfaces>::Props<'a>;
+#[doc(hidden)]
+pub mod macro_helper;
 
 #[derive(Clone, Copy, Default)]
 pub struct EmptyProps {}
