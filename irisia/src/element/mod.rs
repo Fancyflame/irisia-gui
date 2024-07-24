@@ -42,6 +42,11 @@ pub trait ElementInterfaces: Sized + 'static {
     fn children_emit_event(&mut self, ipe: &IncomingPointerEvent) -> bool;
 }
 
+pub trait UserProps {
+    type Props;
+    fn take(props: Self::Props) -> Self;
+}
+
 pub enum FieldMustInit<T> {
     NotInit { field_name: &'static str },
     Init { value: T },

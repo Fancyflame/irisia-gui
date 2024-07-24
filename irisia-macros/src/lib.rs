@@ -67,11 +67,11 @@ pub fn derive_style_reader(input: TokenStream) -> TokenStream {
     ))
 }
 
-#[proc_macro_derive(ConvertFrom)]
+#[proc_macro_derive(UserProps, attributes(props))]
 pub fn props(input: TokenStream) -> TokenStream {
-    result_into_stream(derive_props::derive(parse_macro_input!(
-        input as DeriveInput
-    )))
+    parse_macro_input!(input as derive_props::DeriveProps)
+        .compile()
+        .into()
 }
 
 #[proc_macro]

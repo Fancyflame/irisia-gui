@@ -11,9 +11,8 @@ use irisia::{
     skia_safe::{Color, Color4f, Paint, Rect},
     structure::ChildBox,
     style::WriteStyle,
-    Event, Result, Style, StyleReader, WriteStyle,
+    Event, Result, Style, StyleReader, UserProps, WriteStyle,
 };
-use tokio::select;
 
 #[derive(Style, Clone, Copy, PartialEq)]
 pub struct StyleColor(Color);
@@ -33,16 +32,10 @@ pub struct Rectangle {
     access: ElementAccess,
 }
 
+#[derive(UserProps)]
 pub struct RectProps {
-    pub force_color: FieldMustInit<ReadWire<Color>>,
-}
-
-impl Default for RectProps {
-    fn default() -> Self {
-        Self {
-            force_color: FieldMustInit::new_uninit("force_color"),
-        }
-    }
+    #[props(required)]
+    pub force_color: ReadWire<Color>,
 }
 
 #[derive(Default, WriteStyle)]
@@ -53,7 +46,7 @@ struct RectStyles {
 }
 
 impl ElementInterfaces for Rectangle {
-    type Props<'a> = RectProps;
+    type Props<'a> = <RectProps as UserProps>::Props;
 
     fn create<Slt>(
         props: Self::Props<'_>,
@@ -92,7 +85,7 @@ impl ElementInterfaces for Rectangle {
 
         Self {
             is_force: false,
-            force_color: props.force_color.take(),
+            force_color: RectProps::from(props).force_color,
             styles,
             access,
         }
