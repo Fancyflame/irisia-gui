@@ -10,6 +10,7 @@ mod kw {
     custom_keyword!(input);
     custom_keyword!(key);
 }
+mod el_dec;
 mod parse;
 mod to_tokens;
 

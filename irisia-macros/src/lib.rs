@@ -1,4 +1,3 @@
-use expr::state_block::stmts_to_tokens;
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
@@ -7,21 +6,21 @@ use syn::{
     parse_macro_input, DeriveInput, ItemFn, Result,
 };
 
-mod app;
 mod build_macro;
 mod derive_props;
+mod derive_read_style;
 mod derive_style;
-mod derive_style_reader;
-pub(crate) mod expr;
+mod derive_write_style;
 mod inner_impl_listen;
 mod main_macro;
 mod parse_incomplete;
 mod style;
-mod write_style;
 
 #[proc_macro]
 pub fn style(input: TokenStream) -> TokenStream {
-    result_into_stream(style::style.parse(input).map(|x| stmts_to_tokens(&x)))
+    parse_macro_input!(input as style::StyleMacro)
+        .to_token_stream()
+        .into()
 }
 
 #[proc_macro_attribute]
@@ -55,16 +54,16 @@ pub fn derive_style_trait(input: TokenStream) -> TokenStream {
 
 #[proc_macro_derive(WriteStyle, attributes(style))]
 pub fn derive_write_style(input: TokenStream) -> TokenStream {
-    result_into_stream(write_style::derive(parse_macro_input!(
+    result_into_stream(derive_write_style::derive(parse_macro_input!(
         input as DeriveInput
     )))
 }
 
 #[proc_macro_derive(StyleReader)]
 pub fn derive_style_reader(input: TokenStream) -> TokenStream {
-    result_into_stream(derive_style_reader::derive_style_reader(
-        parse_macro_input!(input as DeriveInput),
-    ))
+    result_into_stream(derive_read_style::derive_style_reader(parse_macro_input!(
+        input as DeriveInput
+    )))
 }
 
 #[proc_macro_derive(UserProps, attributes(props))]

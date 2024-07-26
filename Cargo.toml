@@ -8,4 +8,5 @@ members = [
     "irisia-macros",
     "irisia-utils",
     "examples",
+    "tests",
 ]

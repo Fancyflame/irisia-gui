@@ -8,6 +8,7 @@ use irisia::{
     element::{Component, ComponentTemplate, EmptyProps, OneStructureCreate},
     event::standard::PointerDown,
     skia_safe::Color,
+    style,
     winit::window::WindowBuilder,
     Result,
 };
@@ -77,6 +78,10 @@ impl App {
                     if let Some(color) = *item.read().read() {
                         Rectangle {
                             force_color: *color.read(),
+                            @style: style! {
+                                width: 100px;
+                                height: 100px + 40px * index as f32;
+                            },
                             @on_create: move |access| {
                                 access.listen().spawn(move |_: PointerDown| {
                                     rects.write()[*index.read()].set(None);

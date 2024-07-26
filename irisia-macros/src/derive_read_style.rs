@@ -32,14 +32,17 @@ pub fn derive_style_reader(
         Fields::Unit => quote! {},
     };
 
-    let (impl_gen, type_gen, where_clause) = generics.split_for_impl();
+    let mut generics = generics;
+    add_trait_bounds(&mut generics);
+
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     let output = quote! {
-        impl #impl_gen irisia::StyleReader for #ident #type_gen
+        impl #impl_generics irisia::style::ReadStyle for #ident #ty_generics
         #where_clause
         {
-            fn read_style(_container: impl irisia::style::StyleContainer) -> Self {
-                #ident #inner
+            fn read_style_into(&self, buf: &mut irisia::style::StyleBuffer) {
+                #inner
             }
         }
     };
@@ -47,24 +50,26 @@ pub fn derive_style_reader(
     Ok(output)
 }
 
+fn add_trait_bounds(generics: &mut syn::Generics) {
+    for param in &mut generics.params {
+        if let syn::GenericParam::Type(type_param) = param {
+            type_param
+                .bounds
+                .push(syn::parse_quote!(irisia::style::ReadStyle));
+        }
+    }
+}
+
 fn fields_iter(fields: Punctuated<Field, Token![,]>) -> TokenStream {
     let mut tokens = TokenStream::new();
     for pair in fields.pairs() {
-        let (
-            Field {
-                ident,
-                colon_token,
-                ty,
-                ..
-            },
-            comma,
-        ) = match pair {
+        let (Field { ident, .. }, comma) = match pair {
             Pair::Punctuated(t, p) => (t, Some(p)),
             Pair::End(t) => (t, None),
         };
 
         quote! {
-            #ident #colon_token <#ty as irisia::StyleReader>::read_style(&_container) #comma
+            irisia::style::ReadStyle::read_style_into(&self.#ident, buf) #comma
         }
         .to_tokens(&mut tokens);
     }

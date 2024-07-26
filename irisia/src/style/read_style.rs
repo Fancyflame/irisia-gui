@@ -6,12 +6,9 @@ pub struct StyleBuffer<'a>(pub(super) &'a mut dyn Any);
 
 impl StyleBuffer<'_> {
     #[inline(always)]
-    pub fn write<T: Style>(&mut self, style: &T) -> bool {
+    pub fn write<T: Style>(&mut self, style: &T) {
         if let Some(opt) = self.0.downcast_mut::<Option<T>>() {
             *opt = Some(style.clone());
-            true
-        } else {
-            false
         }
     }
 }

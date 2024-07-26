@@ -9,6 +9,7 @@ pub trait WriteStyle {
     where
         R: ReadStyle + ?Sized;
 
+    #[inline]
     fn from_style<R>(read: &R) -> Self
     where
         Self: Default,
@@ -24,6 +25,7 @@ impl<T> WriteStyle for Option<T>
 where
     T: Style,
 {
+    #[inline]
     fn write_style<R>(&mut self, read: &R)
     where
         R: ReadStyle + ?Sized,
@@ -36,6 +38,7 @@ impl<T> WriteStyle for T
 where
     T: Style,
 {
+    #[inline]
     fn write_style<R>(&mut self, read: &R)
     where
         R: ReadStyle + ?Sized,
