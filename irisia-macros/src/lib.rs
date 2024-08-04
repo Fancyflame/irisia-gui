@@ -59,9 +59,9 @@ pub fn derive_write_style(input: TokenStream) -> TokenStream {
     )))
 }
 
-#[proc_macro_derive(StyleReader)]
-pub fn derive_style_reader(input: TokenStream) -> TokenStream {
-    result_into_stream(derive_read_style::derive_style_reader(parse_macro_input!(
+#[proc_macro_derive(ReadStyle)]
+pub fn derive_read_style(input: TokenStream) -> TokenStream {
+    result_into_stream(derive_read_style::derive(parse_macro_input!(
         input as DeriveInput
     )))
 }

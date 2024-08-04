@@ -1,93 +1,50 @@
-#![allow(unused)]
+#![allow(dead_code)]
 
-use irisia_core::primitive::Pixel;
-use irisia_core::style::AddStyle;
-use irisia_core::style::NoStyle;
-use irisia_core::style::Style;
-use irisia_core::style::StyleContainer;
-use irisia_macros::style;
+use irisia::{skia_safe::Color, style, Style};
+
+#[derive(Style, Clone)]
+#[style("size [color [padding]] [rounded]")]
+struct StructStyle {
+    size: f32,
+
+    #[style(default)]
+    padding: f32,
+
+    #[style(default = Color::RED)]
+    color: Color,
+
+    #[style(default)]
+    rounded: bool,
+}
+
+#[derive(Style, Clone)]
+enum EnumStyle {
+    #[style("top_left top_right bottom_left bottom_right")]
+    FourCorners {
+        top_left: f32,
+        top_right: f32,
+        bottom_left: f32,
+        bottom_right: f32,
+    },
+
+    #[style("x y [absolute]")]
+    XY {
+        x: f32,
+        y: f32,
+
+        #[style(default)]
+        absolute: bool,
+    },
+}
 
 fn main() {
-    type ExtStyle = irisia_core::style::Chain<
-        irisia_core::style::Chain<NoStyle, AddStyle<StyleStyle2>>,
-        AddStyle<StyleStyle1>,
-    >;
-
-    let ext_style = style! {
-        style2: false;
-        style1: "looo";
+    // all of them are valid
+    let _ = style! {
+        StructStyle: 20.0, Color::RED, 5.0, true;
+        StructStyle: 20.0, false;
+        StructStyle: 20.0, Color::BLUE;
+        EnumStyle: 1.0, 2.0, 3.0, 4.0;
+        EnumStyle: 1.0, 2.0;
+        EnumStyle: 1.0, 2.0, true;
     };
-
-    let my_str = Some("hello world");
-    style! {
-        style1: 10, 10;
-
-        if 1 + 1 == 2 {
-            style2: true;
-        }
-
-        match my_str {
-            None => {
-                style1: 10, 20;
-                @extend ext_style;
-            }
-
-            Some("ddd")=>{},
-
-            Some(other) => {
-                style1: &other[..5];
-                pixel_test: 2px, 6.2px, .scale 10.2, .empty;
-            }
-        }
-    };
-}
-
-#[derive(Clone)]
-struct StyleStyle1;
-
-impl Style for StyleStyle1 {}
-
-impl From<(u32, u32)> for StyleStyle1 {
-    fn from(_: (u32, u32)) -> Self {
-        Self
-    }
-}
-
-impl From<(&'static str,)> for StyleStyle1 {
-    fn from(_: (&'static str,)) -> Self {
-        Self
-    }
-}
-
-#[derive(Clone)]
-struct StyleStyle2;
-
-impl Style for StyleStyle2 {}
-
-impl From<(bool,)> for StyleStyle2 {
-    fn from(_: (bool,)) -> Self {
-        Self
-    }
-}
-
-#[derive(Clone)]
-struct StylePixelTest;
-
-impl Style for StylePixelTest {}
-
-impl From<(Pixel,)> for StylePixelTest {
-    fn from(_value: (Pixel,)) -> Self {
-        Self
-    }
-}
-
-impl From<(Pixel, Pixel)> for StylePixelTest {
-    fn from(_value: (Pixel, Pixel)) -> Self {
-        Self
-    }
-}
-
-impl StylePixelTest {
-    fn empty(&mut self) {}
-    fn scale(&mut self, _mul: f32) {}
 }

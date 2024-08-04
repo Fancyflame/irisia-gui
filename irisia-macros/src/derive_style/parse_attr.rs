@@ -15,7 +15,7 @@ use syn::{
 use super::style_path;
 
 pub enum FieldInit {
-    AlwaysRequires,
+    AlwaysRequired,
     Optional,
     OptionalWith(Expr),
 }
@@ -36,8 +36,19 @@ pub struct StyleDefinition<'a> {
     paths: Vec<PathDef>,
 }
 
+pub fn derive_for(
+    top_attrs: &[Attribute],
+    ident: &Ident,
+    variant_name: Option<&Ident>,
+    generics: &Generics,
+    fields: &Fields,
+) -> Result<TokenStream> {
+    let def = StyleDefinition::parse_fields(top_attrs, fields)?;
+    Ok(def.compile(ident, variant_name, generics))
+}
+
 impl<'a> StyleDefinition<'a> {
-    pub fn parse_fields(top_attrs: &[Attribute], fields: &'a Fields) -> Result<Self> {
+    fn parse_fields(top_attrs: &[Attribute], fields: &'a Fields) -> Result<Self> {
         let mut this = Self {
             all_fields: HashMap::with_capacity(fields.len()),
             paths: Vec::new(),
@@ -49,29 +60,29 @@ impl<'a> StyleDefinition<'a> {
         };
 
         for (i, field) in fields.iter().enumerate() {
-            this.extract_field_init(field, i as u32)?;
+            this.extract_field_init(field, i.try_into().expect("field index out of range"))?;
         }
 
-        this.extract_paths(top_attrs)?;
+        this.load_paths(top_attrs)?;
         Ok(this)
     }
 
     fn extract_field_init(&mut self, field: &'a Field, nth: u32) -> Result<()> {
-        let Some(attr) = find_attr::only(&field.attrs, "style")? else {
-            return Ok(());
+        let default = if let Some(attr) = find_attr::only(&field.attrs, "style")? {
+            ParseArgs::new()
+                .meta(
+                    conflicts((
+                        ("default", path_only()).map(|_| FieldInit::Optional),
+                        ("default", key_value::<Expr>()).map(FieldInit::OptionalWith),
+                    ))
+                    .optional(),
+                )
+                .parse_attrs(attr)?
+                .meta
+                .unwrap_or(FieldInit::AlwaysRequired)
+        } else {
+            FieldInit::AlwaysRequired
         };
-
-        let default = ParseArgs::new()
-            .meta(
-                conflicts((
-                    ("default", path_only()).map(|_| FieldInit::Optional),
-                    ("default", key_value::<Expr>()).map(FieldInit::OptionalWith),
-                ))
-                .optional(),
-            )
-            .parse_attrs(attr)?
-            .meta
-            .unwrap_or(FieldInit::AlwaysRequires);
 
         let member = match &field.ident {
             Some(ident) => Member::Named(ident.clone()),
@@ -92,7 +103,7 @@ impl<'a> StyleDefinition<'a> {
         Ok(())
     }
 
-    fn extract_paths(&mut self, attrs: &[Attribute]) -> Result<()> {
+    fn load_paths(&mut self, attrs: &[Attribute]) -> Result<()> {
         let path_exprs = ParseArgs::new()
             .rest_args::<Vec<LitStr>>()
             .parse_concat_attrs(find_attr::all(attrs, "style"))?
@@ -128,7 +139,7 @@ impl<'a> StyleDefinition<'a> {
                 let defined_len = from_tuple_order.len();
 
                 for (unused, fi) in unused_fields.drain() {
-                    if let FieldInit::AlwaysRequires = &fi.init {
+                    if let FieldInit::AlwaysRequired = &fi.init {
                         return Err(Error::new_spanned(
                             unused,
                             format!(
@@ -187,7 +198,7 @@ impl<'a> StyleDefinition<'a> {
             };
 
             quote! {
-                impl #impl_generics ::std::convert::From<tuple_type>
+                impl #impl_generics ::std::convert::From<#tuple_type>
                     for #ident #ty_generics
                 #where_clause
                 {
@@ -244,8 +255,10 @@ impl<'a> StyleDefinition<'a> {
             Member::Named(_) => unreachable!(),
         });
 
-        // cannot swap iterators as the former will attempt to advance first
-        for (input_index, (target_index, _)) in (0..defined_len).zip(&mut input_tuple) {
+        // cannot swap iterators as the former will attempt to be advanced first
+        for (input_index, (target_index, _)) in
+            (0..defined_len).map(Index::from).zip(&mut input_tuple)
+        {
             sort_buffer[target_index] = Some(quote! {
                 __irisia_from.#input_index
             });
@@ -273,7 +286,7 @@ fn display_member(member: &Member) -> &dyn Display {
 impl FieldInit {
     fn compile(&self) -> TokenStream {
         match self {
-            Self::AlwaysRequires => unreachable!(),
+            Self::AlwaysRequired => unreachable!(),
             Self::Optional => quote! {
                 ::std::default::Default::default()
             },

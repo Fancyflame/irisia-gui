@@ -5,7 +5,7 @@ use syn::{
     Data, DeriveInput, Error, Field, Fields, Result, Token,
 };
 
-pub fn derive_style_reader(
+pub fn derive(
     DeriveInput {
         ident,
         generics,
