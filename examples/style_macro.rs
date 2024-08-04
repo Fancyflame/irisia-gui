@@ -19,7 +19,7 @@ struct StructStyle {
 
 #[derive(Style, Clone)]
 enum EnumStyle {
-    #[style("top_left top_right bottom_left bottom_right")]
+    #[style(all)]
     FourCorners {
         top_left: f32,
         top_right: f32,

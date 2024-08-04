@@ -10,19 +10,18 @@ use irisia::{
     primitive::{Pixel, Point},
     skia_safe::{Color, Color4f, Paint, Rect},
     structure::ChildBox,
-    style::WriteStyle,
-    Event, Result, Style, StyleReader, UserProps, WriteStyle,
+    Event, ReadStyle, Result, Style, UserProps, WriteStyle,
 };
 
 #[derive(Style, Clone, Copy, PartialEq)]
 pub struct StyleColor(Color);
 
 #[derive(Style, Clone, Copy, PartialEq)]
-#[style(from)]
+#[style(all)]
 pub struct StyleWidth(Pixel);
 
 #[derive(Style, Clone, Copy, PartialEq)]
-#[style(from)]
+#[style(all)]
 pub struct StyleHeight(Pixel);
 
 pub struct Rectangle {

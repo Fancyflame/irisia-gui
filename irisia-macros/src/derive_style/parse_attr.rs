@@ -59,15 +59,18 @@ impl<'a> StyleDefinition<'a> {
             },
         };
 
+        let mut path_all = Vec::with_capacity(fields.len());
         for (i, field) in fields.iter().enumerate() {
-            this.extract_field_init(field, i.try_into().expect("field index out of range"))?;
+            let member =
+                this.extract_field_init(field, i.try_into().expect("field index out of range"))?;
+            path_all.push(member);
         }
 
-        this.load_paths(top_attrs)?;
+        this.load_paths(top_attrs, path_all)?;
         Ok(this)
     }
 
-    fn extract_field_init(&mut self, field: &'a Field, nth: u32) -> Result<()> {
+    fn extract_field_init(&mut self, field: &'a Field, nth: u32) -> Result<Member> {
         let default = if let Some(attr) = find_attr::only(&field.attrs, "style")? {
             ParseArgs::new()
                 .meta(
@@ -93,74 +96,95 @@ impl<'a> StyleDefinition<'a> {
         };
 
         self.all_fields.insert(
-            member,
+            member.clone(),
             FieldInfo {
                 origin: field,
                 init: default,
             },
         );
 
-        Ok(())
+        Ok(member)
     }
 
-    fn load_paths(&mut self, attrs: &[Attribute]) -> Result<()> {
-        let path_exprs = ParseArgs::new()
+    fn load_paths(&mut self, attrs: &[Attribute], path_all: Vec<Member>) -> Result<()> {
+        let parse_result = ParseArgs::new()
             .rest_args::<Vec<LitStr>>()
-            .parse_concat_attrs(find_attr::all(attrs, "style"))?
-            .rest_args;
+            .meta(("all", path_only()))
+            .parse_concat_attrs(find_attr::all(attrs, "style"))?;
+
+        let path_exprs = parse_result.rest_args;
 
         let mut unused_fields = HashMap::new();
 
+        // `all` specified
+        if parse_result.meta {
+            Self::load_one_path(
+                &self.all_fields,
+                path_all,
+                &mut self.paths,
+                &mut unused_fields,
+            )?;
+        }
+
         for path_expr in path_exprs {
             let raw_paths = path_expr.parse_with(style_path::parse)?;
-
             for path in raw_paths {
-                debug_assert!(unused_fields.is_empty());
-                unused_fields.extend(self.all_fields.iter());
-
-                for member in &path {
-                    if unused_fields.remove(member).is_none() {
-                        return Err(Error::new_spanned(
-                            member,
-                            format!(
-                                "field `{}` {}",
-                                display_member(member),
-                                if self.all_fields.contains_key(member) {
-                                    "already used"
-                                } else {
-                                    "not found"
-                                }
-                            ),
-                        ));
-                    }
-                }
-
-                let mut from_tuple_order = path;
-                let defined_len = from_tuple_order.len();
-
-                for (unused, fi) in unused_fields.drain() {
-                    if let FieldInit::AlwaysRequired = &fi.init {
-                        return Err(Error::new_spanned(
-                            unused,
-                            format!(
-                                "field `{}` should always be initialized, \
-                                but is not initialized in at least one style path. \
-                                if it is explicitly not required, \
-                                use `#[style(default = \"...\")]` to specify a default value",
-                                display_member(unused)
-                            ),
-                        ));
-                    }
-                    from_tuple_order.push(unused.clone());
-                }
-
-                self.paths.push(PathDef {
-                    from_tuple_order,
-                    defined_len,
-                });
+                Self::load_one_path(&self.all_fields, path, &mut self.paths, &mut unused_fields)?;
             }
         }
 
+        Ok(())
+    }
+
+    fn load_one_path<'b>(
+        all_fields: &'b HashMap<Member, FieldInfo<'a>>,
+        path: Vec<Member>,
+        path_vec: &mut Vec<PathDef>,
+        unused_fields: &mut HashMap<&'b Member, &'b FieldInfo<'a>>,
+    ) -> Result<()> {
+        debug_assert!(unused_fields.is_empty());
+        unused_fields.extend(all_fields.iter());
+
+        for member in &path {
+            if unused_fields.remove(member).is_none() {
+                return Err(Error::new_spanned(
+                    member,
+                    format!(
+                        "field `{}` {}",
+                        display_member(member),
+                        if all_fields.contains_key(member) {
+                            "already used"
+                        } else {
+                            "not found"
+                        }
+                    ),
+                ));
+            }
+        }
+
+        let mut from_tuple_order = path;
+        let defined_len = from_tuple_order.len();
+
+        for (unused, fi) in unused_fields.drain() {
+            if let FieldInit::AlwaysRequired = &fi.init {
+                return Err(Error::new_spanned(
+                    unused,
+                    format!(
+                        "field `{}` should always be initialized, \
+                                but is not initialized in at least one style path. \
+                                if it is explicitly not required, \
+                                use `#[style(default = \"...\")]` to specify a default value",
+                        display_member(unused)
+                    ),
+                ));
+            }
+            from_tuple_order.push(unused.clone());
+        }
+
+        path_vec.push(PathDef {
+            from_tuple_order,
+            defined_len,
+        });
         Ok(())
     }
 
