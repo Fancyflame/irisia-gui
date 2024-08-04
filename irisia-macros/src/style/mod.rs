@@ -71,22 +71,6 @@ impl Parse for StyleExpr {
 }
 
 impl StyleExpr {
-    fn parse_single_rule(input: ParseStream) -> Result<Self> {
-        let ty: Type = input.parse()?;
-        input.parse::<Token![:]>()?;
-
-        let mut args = Vec::new();
-        while !input.peek(Token![;]) {
-            args.push(input.parse()?);
-            if !input.peek(Token![;]) {
-                input.parse::<Token![,]>()?;
-            }
-        }
-        input.parse::<Token![;]>()?;
-
-        Ok(Self::Rule { ty, args })
-    }
-
     fn parse_full(input: ParseStream, in_block: bool) -> Result<Self> {
         if input.peek(Token![in]) {
             Self::parse_path_block(input)
@@ -105,6 +89,25 @@ impl StyleExpr {
         } else {
             Err(input.error("unexpect token, expect `in`, `if`, `match`, `let`, `use` or `{`"))
         }
+    }
+
+    fn parse_single_rule(input: ParseStream) -> Result<Self> {
+        let ty: Type = input.parse()?;
+        let mut args = Vec::new();
+
+        if input.peek(Token![:]) {
+            input.parse::<Token![:]>()?;
+            loop {
+                args.push(input.parse()?);
+                if input.peek(Token![;]) {
+                    break;
+                }
+                input.parse::<Token![,]>()?;
+            }
+        }
+
+        input.parse::<Token![;]>()?;
+        Ok(Self::Rule { ty, args })
     }
 
     fn parse_block_content(input: ParseStream, brace: bool) -> Result<Vec<StyleExpr>> {
