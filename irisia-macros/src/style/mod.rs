@@ -231,7 +231,7 @@ impl StyleExpr {
 
                 quote! {
                     __irisia_style_buffer.write(
-                        &<#ty as ::core::convert::From<_>>::from(
+                        &<#ty as ::irisia::style::StyleFn<_>>::from(
                             (#(#args,)*)
                         )
                     );

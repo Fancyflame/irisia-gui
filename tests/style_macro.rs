@@ -1,49 +1,28 @@
-use irisia::style::{ReadStyle, Style, WriteStyle};
+use irisia::{
+    style::{ReadStyle, WriteStyle},
+    Style,
+};
 use irisia_macros::style;
 
 mod container {
     use irisia::Style;
 
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Clone, PartialEq, Style)]
+    #[style(all)]
     pub struct Padding(pub u32);
-
-    impl From<(u32,)> for Padding {
-        fn from((size,): (u32,)) -> Self {
-            Padding(size)
-        }
-    }
-
-    impl Style for Padding {}
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Style)]
+#[style(all)]
 struct Color(u8, u8, u8);
-#[derive(Debug, Clone, PartialEq)]
+
+#[derive(Debug, Clone, PartialEq, Style)]
+#[style(all)]
 struct FontSize(u32);
-#[derive(Debug, Clone, PartialEq)]
+
+#[derive(Debug, Clone, PartialEq, Style)]
+#[style(all)]
 struct Margin(u32);
-
-impl Style for Color {}
-impl Style for FontSize {}
-impl Style for Margin {}
-
-impl From<(u8, u8, u8)> for Color {
-    fn from(rgb: (u8, u8, u8)) -> Self {
-        Color(rgb.0, rgb.1, rgb.2)
-    }
-}
-
-impl From<(u32,)> for FontSize {
-    fn from((size,): (u32,)) -> Self {
-        FontSize(size)
-    }
-}
-
-impl From<(u32,)> for Margin {
-    fn from((size,): (u32,)) -> Self {
-        Margin(size)
-    }
-}
 
 #[derive(Default, Debug)]
 struct TestStyle {

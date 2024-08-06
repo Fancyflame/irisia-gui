@@ -49,7 +49,7 @@ impl<T> Register<T> {
 impl<T> Readable for Register<T> {
     type Data = T;
 
-    fn read(&self) -> TraceRef<Ref<Self::Data>> {
+    fn r(&self) -> TraceRef<Ref<Self::Data>> {
         let bt = Backtrace::force_capture();
         self.listeners.capture_caller();
         self.data.borrow(bt).unwrap()

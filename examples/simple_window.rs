@@ -72,19 +72,19 @@ impl App {
             input rects;
 
             Flex {
-                for (index, item) in rects.read().iter().cloned().enumerate(),
+                for (index, item) in rects.r().iter().cloned().enumerate(),
                 key = *index
                 {
-                    if let Some(color) = *item.read().read() {
+                    if let Some(color) = *item.r().r() {
                         Rectangle {
-                            force_color: *color.read(),
+                            force_color: *color.r(),
                             @style: style! {
                                 width: 100px;
                                 height: 100px + 40px * index as f32;
                             },
                             @on_create: move |access| {
                                 access.listen().spawn(move |_: PointerDown| {
-                                    rects.write()[*index.read()].set(None);
+                                    rects.write()[*index.r()].set(None);
                                 });
                             },
                         }

@@ -2,14 +2,14 @@ use std::{collections::HashMap, fmt::Display};
 
 use attr_parser_fn::{
     find_attr,
-    meta::{conflicts, key_value, path_only, ParseMetaExt},
+    meta::{conflicts, key_value, list, path_only, ParseMetaExt},
     ParseArgs, ParseAttrTrait,
 };
-use proc_macro2::{Delimiter, TokenStream};
+use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{
     spanned::Spanned, Attribute, Error, Expr, Field, Fields, Generics, Ident, Index, LitStr,
-    Member, Result,
+    Member, Path, Result, Type,
 };
 
 use super::style_path;
@@ -23,6 +23,7 @@ pub enum FieldInit {
 struct FieldInfo<'a> {
     origin: &'a Field,
     init: FieldInit,
+    map: Option<(Type, Path)>,
 }
 
 struct PathDef {
@@ -32,8 +33,16 @@ struct PathDef {
 
 pub struct StyleDefinition<'a> {
     all_fields: HashMap<Member, FieldInfo<'a>>,
-    init_delimeter: Delimiter,
+    empty_path: PathDef,
+    init_delimeter: BodyDelimiter,
     paths: Vec<PathDef>,
+    derive_default: bool,
+}
+
+enum BodyDelimiter {
+    Named,
+    Unnamed,
+    Unit,
 }
 
 pub fn derive_for(
@@ -51,40 +60,46 @@ impl<'a> StyleDefinition<'a> {
     fn parse_fields(top_attrs: &[Attribute], fields: &'a Fields) -> Result<Self> {
         let mut this = Self {
             all_fields: HashMap::with_capacity(fields.len()),
+            empty_path: PathDef {
+                from_tuple_order: Vec::new(),
+                defined_len: 0,
+            },
             paths: Vec::new(),
             init_delimeter: match fields {
-                Fields::Named(_) => Delimiter::Brace,
-                Fields::Unnamed(_) => Delimiter::Parenthesis,
-                Fields::Unit => Delimiter::None,
+                Fields::Named(_) => BodyDelimiter::Named,
+                Fields::Unnamed(_) => BodyDelimiter::Unnamed,
+                Fields::Unit => BodyDelimiter::Unit,
             },
+            derive_default: false,
         };
 
-        let mut path_all = Vec::with_capacity(fields.len());
         for (i, field) in fields.iter().enumerate() {
-            let member =
-                this.extract_field_init(field, i.try_into().expect("field index out of range"))?;
-            path_all.push(member);
+            this.extract_field_init(field, i.try_into().expect("field index out of range"))?;
         }
 
-        this.load_paths(top_attrs, path_all)?;
+        this.load_paths(top_attrs)?;
         Ok(this)
     }
 
-    fn extract_field_init(&mut self, field: &'a Field, nth: u32) -> Result<Member> {
-        let default = if let Some(attr) = find_attr::only(&field.attrs, "style")? {
-            ParseArgs::new()
-                .meta(
+    fn extract_field_init(&mut self, field: &'a Field, nth: u32) -> Result<()> {
+        let (default, map_args) = if let Some(attr) = find_attr::only(&field.attrs, "style")? {
+            let (default, map_args) = ParseArgs::new()
+                .meta((
                     conflicts((
                         ("default", path_only()).map(|_| FieldInit::Optional),
                         ("default", key_value::<Expr>()).map(FieldInit::OptionalWith),
                     ))
                     .optional(),
-                )
-                .parse_attrs(attr)?
-                .meta
-                .unwrap_or(FieldInit::AlwaysRequired)
+                    ("map", list(ParseArgs::new().args::<(Type, Path)>())).optional(),
+                ))
+                .parse_attr(attr)?
+                .meta;
+            (
+                default.unwrap_or(FieldInit::AlwaysRequired),
+                map_args.map(|a| a.args),
+            )
         } else {
-            FieldInit::AlwaysRequired
+            (FieldInit::AlwaysRequired, None)
         };
 
         let member = match &field.ident {
@@ -100,27 +115,41 @@ impl<'a> StyleDefinition<'a> {
             FieldInfo {
                 origin: field,
                 init: default,
+                map: map_args,
             },
         );
-
-        Ok(member)
+        self.empty_path.from_tuple_order.push(member);
+        Ok(())
     }
 
-    fn load_paths(&mut self, attrs: &[Attribute], path_all: Vec<Member>) -> Result<()> {
-        let parse_result = ParseArgs::new()
+    fn load_paths(&mut self, attrs: &[Attribute]) -> Result<()> {
+        let ParseArgs {
+            rest_args: path_exprs,
+            meta: (add_path_all, derive_default),
+            ..
+        } = ParseArgs::new()
             .rest_args::<Vec<LitStr>>()
-            .meta(("all", path_only()))
+            .meta((("all", path_only()), ("derive_default", path_only())))
             .parse_concat_attrs(find_attr::all(attrs, "style"))?;
 
-        let path_exprs = parse_result.rest_args;
+        if derive_default {
+            self.derive_default = true;
+            for (ident, field) in &self.all_fields {
+                if let FieldInit::AlwaysRequired = &field.init {
+                    return Err(Error::new_spanned(
+                        ident,
+                        "all fields should have default value if `derive_default` is specified",
+                    ));
+                }
+            }
+        }
 
         let mut unused_fields = HashMap::new();
 
-        // `all` specified
-        if parse_result.meta {
+        if add_path_all {
             Self::load_one_path(
                 &self.all_fields,
-                path_all,
+                self.empty_path.from_tuple_order.clone(),
                 &mut self.paths,
                 &mut unused_fields,
             )?;
@@ -173,7 +202,7 @@ impl<'a> StyleDefinition<'a> {
                         "field `{}` should always be initialized, \
                                 but is not initialized in at least one style path. \
                                 if it is explicitly not required, \
-                                use `#[style(default = \"...\")]` to specify a default value",
+                                use `#[style(default = ...)]` to specify a default value",
                         display_member(unused)
                     ),
                 ));
@@ -208,25 +237,35 @@ impl<'a> StyleDefinition<'a> {
             defined_len,
         } in &self.paths
         {
-            let tuple_type = from_tuple_order
-                .iter()
-                .take(defined_len)
-                .map(|member| &self.all_fields[member].origin.ty);
+            let tuple_type = from_tuple_order.iter().take(defined_len).map(|member| {
+                let field = &self.all_fields[member];
+                match &field.map {
+                    Some((ty, _)) => ty,
+                    None => &field.origin.ty,
+                }
+            });
             let tuple_type = quote! { (#(#tuple_type,)*) };
 
-            let body = match self.init_delimeter {
-                Delimiter::Brace => self.compile_named_body(path_def),
-                Delimiter::Parenthesis => self.compile_unnamed_body(&mut sort_buffer, path_def),
-                Delimiter::None => quote! {},
-                Delimiter::Bracket => unreachable!(),
-            };
-
+            let body = self.compile_body(&mut sort_buffer, path_def);
             quote! {
-                impl #impl_generics ::std::convert::From<#tuple_type>
-                    for #ident #ty_generics
-                #where_clause
+                impl #impl_generics ::irisia::style::StyleFn<#tuple_type>
+                    for #ident #ty_generics #where_clause
                 {
                     fn from(__irisia_from: #tuple_type) -> Self {
+                        #init_path #body
+                    }
+                }
+            }
+            .to_tokens(&mut tokens);
+        }
+
+        if self.derive_default {
+            let body = self.compile_body(&mut sort_buffer, &self.empty_path);
+            quote! {
+                impl #impl_generics ::std::default::Default
+                    for #ident #ty_generics #where_clause
+                {
+                    fn default() -> Self {
                         #init_path #body
                     }
                 }
@@ -237,6 +276,18 @@ impl<'a> StyleDefinition<'a> {
         tokens
     }
 
+    fn compile_body(
+        &self,
+        sort_buffer: &mut Vec<Option<TokenStream>>,
+        path_def: &PathDef,
+    ) -> TokenStream {
+        match self.init_delimeter {
+            BodyDelimiter::Named => self.compile_named_body(path_def),
+            BodyDelimiter::Unnamed => self.compile_unnamed_body(sort_buffer, path_def),
+            BodyDelimiter::Unit => quote! {},
+        }
+    }
+
     fn compile_named_body(
         &self,
         &PathDef {
@@ -244,10 +295,14 @@ impl<'a> StyleDefinition<'a> {
             defined_len,
         }: &PathDef,
     ) -> TokenStream {
-        let defined_fields = (0..defined_len).map(|index| {
-            let index = Index::from(index);
-            quote! { __irisia_from.#index }
-        });
+        let defined_fields =
+            (0..defined_len)
+                .zip(from_tuple_order.iter())
+                .map(|(index, member)| {
+                    let index = Index::from(index);
+                    let value = quote! { __irisia_from.#index };
+                    self.compile_mapped_field(member, value)
+                });
 
         let undefined_fields = from_tuple_order
             .iter()
@@ -280,12 +335,13 @@ impl<'a> StyleDefinition<'a> {
         });
 
         // cannot swap iterators as the former will attempt to be advanced first
-        for (input_index, (target_index, _)) in
+        for (input_index, (target_index, init_member)) in
             (0..defined_len).map(Index::from).zip(&mut input_tuple)
         {
-            sort_buffer[target_index] = Some(quote! {
+            let value = quote! {
                 __irisia_from.#input_index
-            });
+            };
+            sort_buffer[target_index] = Some(self.compile_mapped_field(init_member, value));
         }
 
         for (target_index, uninit_member) in input_tuple {
@@ -296,6 +352,17 @@ impl<'a> StyleDefinition<'a> {
         let args = sort_buffer.drain(..).map(Option::unwrap);
         quote! {
             (#(#args,)*)
+        }
+    }
+
+    fn compile_mapped_field(&self, field: &Member, value: TokenStream) -> TokenStream {
+        match &self.all_fields[field].map {
+            Some((_, path)) => {
+                quote! {
+                    (#path)(#value)
+                }
+            }
+            None => value,
         }
     }
 }

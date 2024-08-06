@@ -76,7 +76,7 @@ fn parse_struct_attr(attrs: &[Attribute]) -> Result<StructAttr> {
             ("name", key_str::<Ident>()).optional(),
             ("impl_from", key_value::<LitBool>()).optional(),
         ))
-        .parse_attrs(attr)?
+        .parse_attr(attr)?
         .meta;
 
     Ok(StructAttr {

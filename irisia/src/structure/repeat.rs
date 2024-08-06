@@ -40,7 +40,7 @@ where
     where
         V: super::Visitor,
     {
-        let this = self.0.read();
+        let this = self.0.r();
 
         for key in &this.order {
             this.map[key].tree.visit(v)?;

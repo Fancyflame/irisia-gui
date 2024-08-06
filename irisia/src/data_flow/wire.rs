@@ -84,7 +84,7 @@ where
 impl<F, T> Readable for Wire<F, T> {
     type Data = T;
 
-    fn read(&self) -> TraceRef<Ref<Self::Data>> {
+    fn r(&self) -> TraceRef<Ref<Self::Data>> {
         let bt = Backtrace::force_capture();
         self.listeners.as_ref().map(ListenerList::capture_caller);
         TraceRef::map(self.computes.borrow(bt).unwrap(), |(_, cache)| cache)

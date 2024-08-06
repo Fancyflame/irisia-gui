@@ -33,7 +33,7 @@ pub struct TextBox {
 struct TextBoxStyles {
     font_size: StyleFontSize,
     slant: StyleFontSlant,
-    weight: StyleFontWeight,
+    weight: FontWeight,
     color: Option<StyleColor>,
 }
 

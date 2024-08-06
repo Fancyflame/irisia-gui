@@ -1,59 +1,47 @@
 use irisia::{
-    primitive::Pixel,
-    skia_safe::font_style::{Slant, Weight},
+    skia_safe::{
+        font_style::{Slant, Weight},
+        Color,
+    },
     Style,
 };
 
+pub struct FontColor(#[style(default = Color::BLACK)] pub Color);
+
 #[derive(Style, Clone, Copy, PartialEq)]
-#[style(from, impl_default)]
-pub struct StyleFontSize(#[style(default = "Pixel(40.0)")] pub Pixel);
+#[style(all, derive_default)]
+pub struct FontSize(#[style(default = 40.0)] pub f32);
 
 #[derive(Style, Clone, PartialEq)]
-#[style(from = "", impl_default)]
-pub struct StyleFontSlant(#[style(default = "Slant::Upright")] pub Slant);
+#[style(derive_default)]
+pub struct FontSlant(#[style(default = Slant::Upright)] pub Slant);
 
-impl StyleFontSlant {
-    pub fn normal(&mut self) {
-        self.0 = Slant::Upright
-    }
-
-    pub fn italic(&mut self) {
-        self.0 = Slant::Italic
-    }
-
-    pub fn oblique(&mut self) {
-        self.0 = Slant::Oblique
-    }
+impl FontSlant {
+    pub const NORMAL: Self = Self(Slant::Upright);
+    pub const ITALIC: Self = Self(Slant::Italic);
+    pub const OBLIQUE: Self = Self(Slant::Oblique);
 }
 
 #[derive(Style, Clone, Copy, PartialEq)]
-#[style(from = "[0]", impl_default)]
-pub struct StyleFontWeight(#[style(default = "Weight::NORMAL")] pub Weight);
+#[style(all, derive_default)]
+pub struct FontWeight(
+    #[style(
+        default = Weight::NORMAL,
+        map(u32, Self::from_u32),
+    )]
+    pub Weight,
+);
 
-impl StyleFontWeight {
-    pub fn exlight(&mut self) {
-        self.0 = Weight::EXTRA_LIGHT;
-    }
+impl FontWeight {
+    pub const EXLIGHT: Self = Self(Weight::EXTRA_LIGHT);
+    pub const LIGHT: Self = Self(Weight::LIGHT);
+    pub const NORMAL: Self = Self(Weight::NORMAL);
+    pub const BOLD: Self = Self(Weight::BOLD);
+    pub const EXBOLD: Self = Self(Weight::EXTRA_BOLD);
 
-    pub fn light(&mut self) {
-        self.0 = Weight::LIGHT;
-    }
-
-    pub fn normal(&mut self) {
-        self.0 = Weight::NORMAL;
-    }
-
-    pub fn bold(&mut self) {
-        self.0 = Weight::BOLD;
-    }
-
-    pub fn exbold(&mut self) {
-        self.0 = Weight::EXTRA_BOLD;
-    }
-}
-
-impl From<u32> for StyleFontWeight {
-    fn from(value: u32) -> Self {
-        StyleFontWeight(Weight::from(value as i32))
+    fn from_u32(value: u32) -> Self {
+        Self(Weight::from(
+            value.try_into().expect("invalid weight value"),
+        ))
     }
 }

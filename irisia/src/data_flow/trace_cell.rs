@@ -37,8 +37,29 @@ impl<T> TraceCell<T> {
         anyhow::Error::msg(msg)
     }
 
-    fn record(&self, bt: Backtrace) -> DropTrace {
-        let mut borrowed_r = self.borrow_traces.borrow_mut();
+    pub fn borrow(&self, bt: Backtrace) -> Result<TraceRef<Ref<T>>> {
+        Ok(TraceRef {
+            inner_ref: self.value.try_borrow().map_err(|_| self.get_error())?,
+            trace: DropTrace::record(&self.borrow_traces, bt),
+        })
+    }
+
+    pub fn borrow_mut(&self, bt: Backtrace) -> Result<TraceRef<RefMut<T>>> {
+        Ok(TraceRef {
+            inner_ref: self.value.try_borrow_mut().map_err(|_| self.get_error())?,
+            trace: DropTrace::record(&self.borrow_traces, bt),
+        })
+    }
+}
+
+struct DropTrace<'a> {
+    trace_table: &'a RefCell<BorrowTraces>,
+    id: usize,
+}
+
+impl<'a> DropTrace<'a> {
+    fn record(borrow_traces: &'a RefCell<BorrowTraces>, bt: Backtrace) -> Self {
+        let mut borrowed_r = borrow_traces.borrow_mut();
         let borrowed = &mut *borrowed_r;
 
         let id = loop {
@@ -50,30 +71,11 @@ impl<T> TraceCell<T> {
             }
         };
 
-        DropTrace {
-            trace: &self.borrow_traces,
+        Self {
+            trace_table: &borrow_traces,
             id,
         }
     }
-
-    pub fn borrow(&self, bt: Backtrace) -> Result<TraceRef<Ref<T>>> {
-        Ok(TraceRef {
-            inner_ref: self.value.try_borrow().map_err(|_| self.get_error())?,
-            trace: self.record(bt),
-        })
-    }
-
-    pub fn borrow_mut(&self, bt: Backtrace) -> Result<TraceRef<RefMut<T>>> {
-        Ok(TraceRef {
-            inner_ref: self.value.try_borrow_mut().map_err(|_| self.get_error())?,
-            trace: self.record(bt),
-        })
-    }
-}
-
-struct DropTrace<'a> {
-    trace: &'a RefCell<BorrowTraces>,
-    id: usize,
 }
 
 pub struct TraceRef<'a, R> {
@@ -82,6 +84,14 @@ pub struct TraceRef<'a, R> {
 }
 
 impl<'a, T: ?Sized> TraceRef<'a, Ref<'a, T>> {
+    pub fn clone(this: &Self) -> Self {
+        let bt = Backtrace::force_capture();
+        Self {
+            inner_ref: Ref::clone(&this.inner_ref),
+            trace: DropTrace::record(&this.trace.trace_table, bt),
+        }
+    }
+
     pub fn map<U, F>(orig: Self, f: F) -> TraceRef<'a, Ref<'a, U>>
     where
         F: FnOnce(&T) -> &U,
@@ -129,6 +139,11 @@ where
 
 impl Drop for DropTrace<'_> {
     fn drop(&mut self) {
-        let _ = self.trace.borrow_mut().table.remove(&self.id).unwrap();
+        let _ = self
+            .trace_table
+            .borrow_mut()
+            .table
+            .remove(&self.id)
+            .unwrap();
     }
 }

@@ -46,7 +46,7 @@ impl FieldProps {
                 ))
                 .optional(),
             ))
-            .parse_attrs(attr)?
+            .parse_attr(attr)?
             .meta;
 
         Ok(FieldProps {

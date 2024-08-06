@@ -50,3 +50,13 @@ where
         }
     }
 }
+
+pub trait StyleFn<Tuple>: Style {
+    fn from(tuple: Tuple) -> Self;
+}
+
+impl<T: Style> StyleFn<(Self,)> for T {
+    fn from(tuple: (Self,)) -> Self {
+        tuple.0
+    }
+}

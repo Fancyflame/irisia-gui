@@ -39,8 +39,8 @@ where
 {
     type Data = Data2;
 
-    fn read(&self) -> ReadRef<Self::Data> {
-        ReadRef::map(self.src.read(), &self.map)
+    fn r(&self) -> ReadRef<Self::Data> {
+        ReadRef::map(self.src.r(), &self.map)
     }
 
     fn pipe(&self, listen_end: super::Listener) {

@@ -5,8 +5,7 @@ use irisia::{
     data_flow::{register::Register, wire, ReadWire},
     el_model::{EMCreateCtx, ElInputWatcher, ElementAccess, LayerRebuilder},
     element::{ElementInterfaces, EmptyProps, FieldMustInit},
-    event::standard::{ElementAbandoned, PointerDown, PointerEntered, PointerLeft, PointerOut},
-    exit_app,
+    event::standard::{PointerEntered, PointerOut},
     primitive::{Pixel, Point},
     skia_safe::{Color, Color4f, Paint, Rect},
     structure::ChildBox,
@@ -98,7 +97,7 @@ impl ElementInterfaces for Rectangle {
 
     fn render(&mut self, lr: &mut LayerRebuilder, _: std::time::Duration) -> Result<()> {
         let region = self.access.draw_region();
-        let styles = self.styles.read();
+        let styles = self.styles.r();
 
         let end_point = Point(
             region.0 .0 + styles.width.map(|x| x.0).unwrap_or(Pixel(50.0)),
@@ -115,10 +114,10 @@ impl ElementInterfaces for Rectangle {
         );
 
         let color = if self.is_force {
-            *self.force_color.read()
+            *self.force_color.r()
         } else {
             self.styles
-                .read()
+                .r()
                 .color
                 .unwrap_or(StyleColor(Color::GREEN))
                 .0

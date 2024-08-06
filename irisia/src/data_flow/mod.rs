@@ -30,7 +30,7 @@ pub enum Listener {
 pub trait Readable {
     type Data: ?Sized;
 
-    fn read(&self) -> ReadRef<Self::Data>;
+    fn r(&self) -> ReadRef<Self::Data>;
     fn pipe(&self, listen_end: Listener);
 }
 
@@ -59,8 +59,8 @@ where
 {
     type Data = T::Data;
 
-    fn read(&self) -> ReadRef<Self::Data> {
-        (**self).read()
+    fn r(&self) -> ReadRef<Self::Data> {
+        (**self).r()
     }
 
     fn pipe(&self, listen_end: Listener) {
