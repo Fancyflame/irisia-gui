@@ -5,8 +5,10 @@ use irisia::{
         register::{register, RcReg},
         Readable,
     },
-    element::{Component, ComponentTemplate, EmptyProps, OneStructureCreate},
+    el_model::ElementAccess,
+    element::{CompInputWatcher, Component, ComponentTemplate, EmptyProps, OneStructureCreate},
     event::standard::PointerDown,
+    primitive::Length,
     skia_safe::Color,
     style,
     winit::window::WindowBuilder,
@@ -39,8 +41,8 @@ impl ComponentTemplate for App {
     fn create<Slt>(
         _: Self::Props<'_>,
         _: Slt,
-        _: irisia::el_model::ElementAccess,
-        _: irisia::element::CompInputWatcher<Self>,
+        _: ElementAccess,
+        _: CompInputWatcher<Self>,
     ) -> (Self, impl OneStructureCreate)
     where
         Slt: irisia::structure::StructureCreate,
@@ -77,7 +79,7 @@ impl App {
                 {
                     if let Some(color) = *item.r().r() {
                         Rectangle {
-                            force_color: *color.r(),
+                            force_color <= color.to_wire(),
                             @style: style! {
                                 width: 100px;
                                 height: 100px + 40px * index as f32;

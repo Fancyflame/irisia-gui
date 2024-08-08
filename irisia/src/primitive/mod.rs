@@ -1,5 +1,6 @@
-pub use self::{pixel::Pixel, point::Point};
+pub use self::{length::Length, pixel::Pixel, point::Point};
 
+pub mod length;
 pub mod pixel;
 pub mod point;
 

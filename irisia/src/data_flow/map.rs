@@ -21,6 +21,15 @@ where
         Self { src, map }
     }
 
+    pub fn to_wire(&self) -> ReadWire<Data2>
+    where
+        Data1: 'static,
+        Data2: 'static,
+        T: Clone + 'static,
+    {
+        self.clone().into_wire()
+    }
+
     pub fn into_wire(self) -> ReadWire<Data2>
     where
         Data1: 'static,

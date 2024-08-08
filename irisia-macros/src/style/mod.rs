@@ -6,6 +6,10 @@ use syn::{
     Expr, Ident, Pat, Path, Result, Token, Type,
 };
 
+use self::number_suffix::{handle_expr, HandledExpr};
+
+mod number_suffix;
+
 #[derive(Clone)]
 pub enum BlockPath {
     Path(Path),
@@ -43,24 +47,24 @@ impl Content {
 pub enum StyleExpr {
     Rule {
         ty: Type,
-        args: Vec<Expr>,
+        args: Vec<HandledExpr>,
     },
     Content(Content),
     If {
-        cond: Expr,
+        cond: HandledExpr,
         then: Content,
         else_branch: Box<StyleExpr>,
     },
     Match {
-        expr: Expr,
-        arms: Vec<(Pat, Option<Expr>, StyleExpr)>,
+        expr: HandledExpr,
+        arms: Vec<(Pat, Option<HandledExpr>, StyleExpr)>,
     },
     Let {
         name: Ident,
         expr: Box<StyleExpr>,
     },
     UseVar {
-        value: Expr,
+        value: HandledExpr,
     },
 }
 
@@ -93,12 +97,12 @@ impl StyleExpr {
 
     fn parse_single_rule(input: ParseStream) -> Result<Self> {
         let ty: Type = input.parse()?;
-        let mut args = Vec::new();
+        let mut args: Vec<HandledExpr> = Vec::new();
 
         if input.peek(Token![:]) {
             input.parse::<Token![:]>()?;
             loop {
-                args.push(input.parse()?);
+                args.push(handle_expr(input.parse()?));
                 if input.peek(Token![;]) {
                     break;
                 }
@@ -142,7 +146,7 @@ impl StyleExpr {
 
     fn parse_use_var(input: ParseStream, in_block: bool) -> Result<Self> {
         input.parse::<Token![use]>()?;
-        let value: Expr = input.parse()?;
+        let value = handle_expr(input.parse()?);
         if in_block {
             input.parse::<Token![;]>()?;
         }
@@ -169,7 +173,7 @@ impl StyleExpr {
 
     fn parse_if_else(input: ParseStream) -> Result<Self> {
         input.parse::<Token![if]>()?;
-        let cond: Expr = Expr::parse_without_eager_brace(input)?;
+        let cond = handle_expr(Expr::parse_without_eager_brace(input)?);
         let then_branch = Self::parse_block(input)?;
 
         let else_branch = if input.peek(Token![else]) {
@@ -192,7 +196,7 @@ impl StyleExpr {
 
     fn parse_match(input: ParseStream) -> Result<Self> {
         input.parse::<Token![match]>()?;
-        let expr = Expr::parse_without_eager_brace(input)?;
+        let expr = handle_expr(Expr::parse_without_eager_brace(input)?);
 
         let content;
         syn::braced!(content in input);
@@ -204,7 +208,7 @@ impl StyleExpr {
 
             let guard = if content.peek(Token![if]) {
                 content.parse::<Token![if]>()?;
-                Some(content.parse::<Expr>()?)
+                Some(handle_expr(content.parse::<Expr>()?))
             } else {
                 None
             };
