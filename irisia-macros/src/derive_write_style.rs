@@ -29,13 +29,13 @@ pub fn derive(
         impl #impl_gen ::irisia::style::WriteStyle for #struct_name #type_gen
         #where_clause
         {
-            fn write_style<__ReadStyle>(&mut self, __read: &__ReadStyle)
+            fn write_style<T>(&mut self, _read: &T)
             where
-                __ReadStyle: ::irisia::style::ReadStyle + ?::std::marker::Sized,
+                T: ::irisia::style::ReadStyle + ?::std::marker::Sized,
             {
-                #(::irisia::style::WriteStyle::write_style::<__ReadStyle>(
+                #(::irisia::style::WriteStyle::write_style(
                     &mut self.#members,
-                    __read
+                    _read
                 );)*
             }
         }

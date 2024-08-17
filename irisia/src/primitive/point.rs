@@ -2,10 +2,8 @@ use std::ops::{Add, AddAssign, Sub, SubAssign};
 
 use irisia_backend::{skia_safe::Point as SkiaPoint, winit::dpi::PhysicalPosition};
 
-use super::Pixel;
-
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
-pub struct Point(pub Pixel, pub Pixel);
+pub struct Point(pub f32, pub f32);
 
 impl Add for Point {
     type Output = Self;
@@ -16,6 +14,7 @@ impl Add for Point {
 }
 
 impl AddAssign for Point {
+    #[inline]
     fn add_assign(&mut self, rhs: Self) {
         *self = *self + rhs;
     }
@@ -30,14 +29,15 @@ impl Sub for Point {
 }
 
 impl SubAssign for Point {
+    #[inline]
     fn sub_assign(&mut self, rhs: Self) {
         *self = *self - rhs;
     }
 }
 
 impl Point {
-    pub fn abs_diff(self, other: Self) -> Pixel {
-        Pixel(((self.0 - other.0).0.powi(2) + (self.1 - other.1).0.powi(2)).sqrt())
+    pub fn abs_diff(self, other: Self) -> f32 {
+        ((self.0 - other.0).powi(2) + (self.1 - other.1).powi(2)).sqrt()
     }
 
     /// Absolutely greater than or equals
@@ -51,14 +51,15 @@ impl Point {
     }
 }
 
-impl From<(Pixel, Pixel)> for Point {
+impl From<(f32, f32)> for Point {
     #[inline]
-    fn from(f: (Pixel, Pixel)) -> Self {
+    fn from(f: (f32, f32)) -> Self {
         Point(f.0, f.1)
     }
 }
 
-impl From<Point> for (Pixel, Pixel) {
+impl From<Point> for (f32, f32) {
+    #[inline]
     fn from(v: Point) -> Self {
         (v.0, v.1)
     }
@@ -66,18 +67,17 @@ impl From<Point> for (Pixel, Pixel) {
 
 impl From<PhysicalPosition<f64>> for Point {
     fn from(value: PhysicalPosition<f64>) -> Self {
-        Point(
-            Pixel::from_physical(value.x as _),
-            Pixel::from_physical(value.y as _),
-        )
+        assert!(value.x < f32::MAX as f64);
+        assert!(value.y < f32::MAX as f64);
+        Point(value.x as f32, value.y as f32)
     }
 }
 
 impl From<Point> for SkiaPoint {
     fn from(value: Point) -> Self {
         SkiaPoint {
-            x: value.0.to_physical(),
-            y: value.1.to_physical(),
+            x: value.0,
+            y: value.1,
         }
     }
 }

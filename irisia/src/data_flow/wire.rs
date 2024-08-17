@@ -1,6 +1,5 @@
 use std::{
     backtrace::Backtrace,
-    cell::Ref,
     ops::{Deref, DerefMut},
     rc::{Rc, Weak},
 };
@@ -8,7 +7,7 @@ use std::{
 use super::{
     convert_from::{Updater, UpdaterInner},
     trace_cell::{TraceCell, TraceRef},
-    Listener, ListenerList, ReadWire, Readable, Wakeable,
+    Listener, ListenerList, ReadRef, ReadWire, Readable, Wakeable,
 };
 
 const BORROW_ERROR: &str = "cannot update data inside the wire, because at least one reader still exists \
@@ -17,11 +16,12 @@ const BORROW_ERROR: &str = "cannot update data inside the wire, because at least
     old data of this wire itself, which bound to cause infinite updating. to address this problem, \
     you should remove the loop manually";
 
-struct Wire<F, T> {
-    computes: TraceCell<(F, T)>,
-
-    // if value never changes, then we don't need a listener list
-    listeners: Option<ListenerList>,
+enum Wire<F, T> {
+    Watching {
+        computes: TraceCell<(F, T)>,
+        listeners: ListenerList,
+    },
+    Constant(T),
 }
 
 pub fn wire<F, R>(mut f: F) -> ReadWire<F::Output>
@@ -68,30 +68,60 @@ where
         }
         ListenerList::pop_global_stack();
 
-        Wire {
+        Wire::Watching {
             computes: TraceCell::new((update_fn, data)),
-            listeners: Some(ListenerList::new()),
+            listeners: ListenerList::new(),
         }
     });
 
+    // We assume that if the rc was not taken, the wire will never be waked.
     if let Some(wire) = Rc::get_mut(&mut rc) {
-        wire.listeners = None;
+        take_mut::take(wire, |wire| {
+            let Wire::Watching {
+                listeners: _,
+                computes,
+            } = wire
+            else {
+                unreachable!()
+            };
+            let (_, value) = computes.into_inner();
+            Wire::Constant(value)
+        });
     }
 
     rc
 }
 
+pub fn const_wire<T>(data: T) -> ReadWire<T>
+where
+    T: 'static,
+{
+    Rc::new(Wire::Constant::<fn(WireMutator<T>), T>(data))
+}
+
 impl<F, T> Readable for Wire<F, T> {
     type Data = T;
 
-    fn r(&self) -> TraceRef<Ref<Self::Data>> {
-        let bt = Backtrace::force_capture();
-        self.listeners.as_ref().map(ListenerList::capture_caller);
-        TraceRef::map(self.computes.borrow(bt).unwrap(), |(_, cache)| cache)
+    fn read(&self) -> ReadRef<Self::Data> {
+        match self {
+            Wire::Watching {
+                computes,
+                listeners,
+            } => {
+                let bt = Backtrace::force_capture();
+                listeners.capture_caller();
+                ReadRef::CellRef(TraceRef::map(computes.borrow(bt).unwrap(), |(_, cache)| {
+                    cache
+                }))
+            }
+            Wire::Constant(data) => ReadRef::Ref(data),
+        }
     }
 
     fn pipe(&self, listen_end: Listener) {
-        self.listeners.as_ref().map(|ll| ll.watch(&listen_end));
+        if let Wire::Watching { listeners, .. } = self {
+            listeners.watch(&listen_end);
+        }
     }
 }
 
@@ -101,10 +131,17 @@ where
     F: FnMut(WireMutator<T>) + 'static,
 {
     fn update(self: Rc<Self>) -> bool {
+        let Self::Watching {
+            listeners,
+            computes,
+        } = &*self
+        else {
+            return false;
+        };
+
         ListenerList::push_global_stack(Listener::Weak(Rc::downgrade(&self) as _));
 
-        let mut computes_ref = self
-            .computes
+        let mut computes_ref = computes
             .borrow_mut(Backtrace::force_capture())
             .expect(BORROW_ERROR);
         let computes = &mut *computes_ref;
@@ -119,7 +156,7 @@ where
         ListenerList::pop_global_stack();
 
         if mutated {
-            self.listeners.as_ref().map(ListenerList::wake_all);
+            listeners.wake_all();
         }
 
         true

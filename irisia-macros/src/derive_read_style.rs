@@ -1,8 +1,7 @@
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
 use syn::{
-    punctuated::{Pair, Punctuated},
-    Data, DeriveInput, Error, Field, Fields, Result, Token,
+    punctuated::Punctuated, Data, DeriveInput, Error, Field, Fields, Index, Member, Result, Token,
 };
 
 pub fn derive(
@@ -62,14 +61,14 @@ fn add_trait_bounds(generics: &mut syn::Generics) {
 
 fn fields_iter(fields: Punctuated<Field, Token![,]>) -> TokenStream {
     let mut tokens = TokenStream::new();
-    for pair in fields.pairs() {
-        let (Field { ident, .. }, comma) = match pair {
-            Pair::Punctuated(t, p) => (t, Some(p)),
-            Pair::End(t) => (t, None),
+    for (i, Field { ident, .. }) in fields.iter().enumerate() {
+        let member = match ident {
+            Some(ident) => Member::Named(ident.clone()),
+            None => Member::Unnamed(Index::from(i)),
         };
 
         quote! {
-            irisia::style::ReadStyle::read_style_into(&self.#ident, buf) #comma
+            irisia::style::ReadStyle::read_style_into(&self.#member, buf);
         }
         .to_tokens(&mut tokens);
     }

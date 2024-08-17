@@ -2,11 +2,7 @@ use std::cell::Cell;
 
 use irisia_backend::winit::event::WindowEvent;
 
-use crate::{
-    application::content::GlobalContent,
-    event::EventDispatcher,
-    primitive::{Pixel, Point},
-};
+use crate::{application::content::GlobalContent, event::EventDispatcher, primitive::Point};
 
 use super::{GlobalEventMgr, PointerState};
 
@@ -15,7 +11,7 @@ pub struct IncomingPointerEvent<'a> {
     pub(crate) gem: &'a mut GlobalEventMgr,
     pub(crate) global_content: &'a GlobalContent,
     pub(crate) new_position: Option<Point>,
-    pub(crate) cursor_delta: Option<(Pixel, Pixel)>,
+    pub(crate) cursor_delta: Option<(f32, f32)>,
     new_focused: Cell<NewFocused>,
     pub(crate) new_pointer_state: PointerState,
     pub(crate) pointer_state_change: PointerStateChange,

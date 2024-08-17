@@ -2,7 +2,7 @@ use irisia_backend::window_handle::CloseHandle;
 use irisia_backend::winit::event::WindowEvent;
 
 use crate as irisia;
-use crate::primitive::{Pixel, Point, Region};
+use crate::primitive::{Point, Region};
 use crate::Event;
 
 //pub mod window_event;
@@ -37,7 +37,7 @@ pub struct PointerUp {
 #[derive(Event, Clone, Copy)]
 pub struct PointerMove {
     pub is_current: bool,
-    pub delta: (Pixel, Pixel),
+    pub delta: (f32, f32),
     pub position: Point,
 }
 

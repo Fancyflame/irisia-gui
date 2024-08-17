@@ -29,6 +29,10 @@ impl<T> TraceCell<T> {
         }
     }
 
+    pub fn into_inner(self) -> T {
+        self.value.into_inner()
+    }
+
     fn get_error(&self) -> anyhow::Error {
         let mut msg = "this cell has been occupied by: \n".to_string();
         for (index, bt) in self.borrow_traces.borrow().table.values().enumerate() {

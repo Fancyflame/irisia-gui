@@ -8,7 +8,7 @@ use crate::{
         },
         EventDispatcher,
     },
-    primitive::{Pixel, Point},
+    primitive::Point,
 };
 
 use self::new_event::{IncomingPointerEvent, PointerStateChange};
@@ -72,7 +72,7 @@ impl GlobalEventMgr {
 fn emit_physical_pointer_event(
     ed: &EventDispatcher,
     position: Option<Point>,
-    delta: Option<(Pixel, Pixel)>,
+    delta: Option<(f32, f32)>,
     new_pointer_state: PointerStateChange,
 ) {
     match (new_pointer_state, position) {

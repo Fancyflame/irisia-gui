@@ -16,7 +16,7 @@ where
     where
         V: super::Visitor,
     {
-        if *self.cond.r() {
+        if *self.cond.read() {
             self.if_selected.visit(v)
         } else {
             self.or_else.visit(v)

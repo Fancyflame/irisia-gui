@@ -11,7 +11,7 @@ use crate::{
     el_model::{EMCreateCtx, SharedEM},
     element::ElementInterfaces,
     event::{standard::WindowDestroyed, EventDispatcher},
-    primitive::{Pixel, Point, Region},
+    primitive::{Point, Region},
     structure::StructureCreate,
     Result,
 };
@@ -68,11 +68,8 @@ where
 
 fn window_size_to_draw_region(size: PhysicalSize<u32>) -> Region {
     (
-        Point(Pixel(0.0), Pixel(0.0)),
-        Point(
-            Pixel::from_physical(size.width as _),
-            Pixel::from_physical(size.height as _),
-        ),
+        Point(0.0, 0.0),
+        Point(size.width as f32, size.height as f32),
     )
 }
 

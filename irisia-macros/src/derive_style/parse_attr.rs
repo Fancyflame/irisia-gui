@@ -8,8 +8,8 @@ use attr_parser_fn::{
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{
-    spanned::Spanned, Attribute, Error, Expr, Field, Fields, Generics, Ident, Index, LitStr,
-    Member, Path, Result, Type,
+    Attribute, Error, Expr, Field, Fields, Generics, Ident, Index, LitStr, Member, Path, Result,
+    Type,
 };
 
 use super::style_path;
@@ -33,16 +33,9 @@ struct PathDef {
 
 pub struct StyleDefinition<'a> {
     all_fields: HashMap<Member, FieldInfo<'a>>,
-    empty_path: PathDef,
-    init_delimeter: BodyDelimiter,
     paths: Vec<PathDef>,
+    empty_path: PathDef,
     derive_default: bool,
-}
-
-enum BodyDelimiter {
-    Named,
-    Unnamed,
-    Unit,
 }
 
 pub fn derive_for(
@@ -60,28 +53,30 @@ impl<'a> StyleDefinition<'a> {
     fn parse_fields(top_attrs: &[Attribute], fields: &'a Fields) -> Result<Self> {
         let mut this = Self {
             all_fields: HashMap::with_capacity(fields.len()),
+            paths: Vec::new(),
             empty_path: PathDef {
                 from_tuple_order: Vec::new(),
                 defined_len: 0,
             },
-            paths: Vec::new(),
-            init_delimeter: match fields {
-                Fields::Named(_) => BodyDelimiter::Named,
-                Fields::Unnamed(_) => BodyDelimiter::Unnamed,
-                Fields::Unit => BodyDelimiter::Unit,
-            },
             derive_default: false,
         };
 
-        for (i, field) in fields.iter().enumerate() {
-            this.extract_field_init(field, i.try_into().expect("field index out of range"))?;
+        for (member, field) in fields.members().zip(fields.iter()) {
+            if let Some(info) = this
+                .all_fields
+                .insert(member.clone(), Self::extract_field_init(field)?)
+            {
+                return Err(Error::new_spanned(info.origin, "duplicate field"));
+            }
+
+            this.empty_path.from_tuple_order.push(member.clone());
         }
 
         this.load_paths(top_attrs)?;
         Ok(this)
     }
 
-    fn extract_field_init(&mut self, field: &'a Field, nth: u32) -> Result<()> {
+    fn extract_field_init(field: &'a Field) -> Result<FieldInfo> {
         let (default, map_args) = if let Some(attr) = find_attr::only(&field.attrs, "style")? {
             let (default, map_args) = ParseArgs::new()
                 .meta((
@@ -102,24 +97,11 @@ impl<'a> StyleDefinition<'a> {
             (FieldInit::AlwaysRequired, None)
         };
 
-        let member = match &field.ident {
-            Some(ident) => Member::Named(ident.clone()),
-            None => Member::Unnamed(Index {
-                index: nth,
-                span: field.span(),
-            }),
-        };
-
-        self.all_fields.insert(
-            member.clone(),
-            FieldInfo {
-                origin: field,
-                init: default,
-                map: map_args,
-            },
-        );
-        self.empty_path.from_tuple_order.push(member);
-        Ok(())
+        Ok(FieldInfo {
+            origin: field,
+            init: default,
+            map: map_args,
+        })
     }
 
     fn load_paths(&mut self, attrs: &[Attribute]) -> Result<()> {
@@ -167,7 +149,7 @@ impl<'a> StyleDefinition<'a> {
 
     fn load_one_path<'b>(
         all_fields: &'b HashMap<Member, FieldInfo<'a>>,
-        path: Vec<Member>,
+        mut path: Vec<Member>,
         path_vec: &mut Vec<PathDef>,
         unused_fields: &mut HashMap<&'b Member, &'b FieldInfo<'a>>,
     ) -> Result<()> {
@@ -191,8 +173,8 @@ impl<'a> StyleDefinition<'a> {
             }
         }
 
-        let mut from_tuple_order = path;
-        let defined_len = from_tuple_order.len();
+        let defined_len = path.len();
+        path.reserve(unused_fields.len());
 
         for (unused, fi) in unused_fields.drain() {
             if let FieldInit::AlwaysRequired = &fi.init {
@@ -207,11 +189,11 @@ impl<'a> StyleDefinition<'a> {
                     ),
                 ));
             }
-            from_tuple_order.push(unused.clone());
+            path.push(unused.clone());
         }
 
         path_vec.push(PathDef {
-            from_tuple_order,
+            from_tuple_order: path,
             defined_len,
         });
         Ok(())
@@ -230,7 +212,6 @@ impl<'a> StyleDefinition<'a> {
         } else {
             quote! { Self }
         };
-        let mut sort_buffer: Vec<Option<TokenStream>> = Vec::new();
 
         for path_def @ &PathDef {
             ref from_tuple_order,
@@ -246,7 +227,7 @@ impl<'a> StyleDefinition<'a> {
             });
             let tuple_type = quote! { (#(#tuple_type,)*) };
 
-            let body = self.compile_body(&mut sort_buffer, path_def);
+            let body = self.compile_body(path_def);
             quote! {
                 impl #impl_generics ::irisia::style::StyleFn<#tuple_type>
                     for #ident #ty_generics #where_clause
@@ -260,7 +241,7 @@ impl<'a> StyleDefinition<'a> {
         }
 
         if self.derive_default {
-            let body = self.compile_body(&mut sort_buffer, &self.empty_path);
+            let body = self.compile_body(&self.empty_path);
             quote! {
                 impl #impl_generics ::std::default::Default
                     for #ident #ty_generics #where_clause
@@ -277,18 +258,6 @@ impl<'a> StyleDefinition<'a> {
     }
 
     fn compile_body(
-        &self,
-        sort_buffer: &mut Vec<Option<TokenStream>>,
-        path_def: &PathDef,
-    ) -> TokenStream {
-        match self.init_delimeter {
-            BodyDelimiter::Named => self.compile_named_body(path_def),
-            BodyDelimiter::Unnamed => self.compile_unnamed_body(sort_buffer, path_def),
-            BodyDelimiter::Unit => quote! {},
-        }
-    }
-
-    fn compile_named_body(
         &self,
         &PathDef {
             ref from_tuple_order,
@@ -315,43 +284,6 @@ impl<'a> StyleDefinition<'a> {
             {
                 #(#field_idents: #field_values,)*
             }
-        }
-    }
-
-    fn compile_unnamed_body(
-        &self,
-        sort_buffer: &mut Vec<Option<TokenStream>>,
-        &PathDef {
-            ref from_tuple_order,
-            defined_len,
-        }: &PathDef,
-    ) -> TokenStream {
-        debug_assert!(sort_buffer.is_empty());
-        sort_buffer.resize(self.all_fields.len(), None);
-
-        let mut input_tuple = from_tuple_order.iter().map(|member| match member {
-            Member::Unnamed(index) => (index.index as usize, member),
-            Member::Named(_) => unreachable!(),
-        });
-
-        // cannot swap iterators as the former will attempt to be advanced first
-        for (input_index, (target_index, init_member)) in
-            (0..defined_len).map(Index::from).zip(&mut input_tuple)
-        {
-            let value = quote! {
-                __irisia_from.#input_index
-            };
-            sort_buffer[target_index] = Some(self.compile_mapped_field(init_member, value));
-        }
-
-        for (target_index, uninit_member) in input_tuple {
-            let default_behavior = self.all_fields[uninit_member].init.compile();
-            sort_buffer[target_index] = Some(default_behavior);
-        }
-
-        let args = sort_buffer.drain(..).map(Option::unwrap);
-        quote! {
-            (#(#args,)*)
         }
     }
 

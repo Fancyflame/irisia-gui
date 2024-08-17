@@ -1,13 +1,13 @@
 use std::{
     backtrace::Backtrace,
-    cell::{Ref, RefMut},
+    cell::RefMut,
     ops::{Deref, DerefMut},
     rc::Rc,
 };
 
 use super::{
     trace_cell::{TraceCell, TraceRef},
-    Listener, ListenerList, Readable,
+    Listener, ListenerList, ReadRef, Readable,
 };
 
 pub type RcReg<T> = Rc<Register<T>>;
@@ -49,10 +49,10 @@ impl<T> Register<T> {
 impl<T> Readable for Register<T> {
     type Data = T;
 
-    fn r(&self) -> TraceRef<Ref<Self::Data>> {
+    fn read(&self) -> ReadRef<Self::Data> {
         let bt = Backtrace::force_capture();
         self.listeners.capture_caller();
-        self.data.borrow(bt).unwrap()
+        ReadRef::CellRef(self.data.borrow(bt).unwrap())
     }
 
     fn pipe(&self, listen_end: Listener) {

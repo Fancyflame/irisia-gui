@@ -6,6 +6,8 @@ use irisia::{
     Style,
 };
 
+#[derive(Style, Clone, PartialEq)]
+#[style(derive_default)]
 pub struct FontColor(#[style(default = Color::BLACK)] pub Color);
 
 #[derive(Style, Clone, Copy, PartialEq)]

@@ -58,7 +58,7 @@ impl<El: ElementInterfaces> ElInputWatcher<El> {
                 };
 
                 if let Some(el) = &mut em.el.borrow_mut().0 {
-                    func(el, &wire.r());
+                    func(el, &wire.read());
                 };
             },
             false,

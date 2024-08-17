@@ -29,7 +29,7 @@ where
     where
         V: super::Visitor,
     {
-        if self.cond.r().is_none() {
+        if self.cond.read().is_none() {
             return self.or_else.visit(v);
         }
 
@@ -55,9 +55,9 @@ where
             let cond = self.cond.clone();
             wire3(
                 || {
-                    let data = cond.r().clone().unwrap();
+                    let data = cond.read().clone().unwrap();
                     (data, move |mut r| {
-                        if let Some(new_data) = &*cond.r() {
+                        if let Some(new_data) = &*cond.read() {
                             *r = new_data.clone();
                         }
                     })

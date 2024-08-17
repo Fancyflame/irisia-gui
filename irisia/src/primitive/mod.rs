@@ -1,7 +1,6 @@
-pub use self::{length::Length, pixel::Pixel, point::Point};
+pub use self::{length::Length, point::Point};
 
 pub mod length;
-pub mod pixel;
 pub mod point;
 
 pub type Result<T> = anyhow::Result<T>;

@@ -1,14 +1,11 @@
 use std::ops::Range;
 
 use irisia::{
-    element::{props::PropsUpdateWith, ElementInterfaces, ElementUpdateRaw, RenderElement},
-    skia_safe::{
+    data_flow::ReadWire, element::ElementInterfaces, skia_safe::{
         font_style::Width,
         textlayout::{FontCollection, Paragraph, ParagraphBuilder, ParagraphStyle, TextStyle},
         Color, FontMgr, FontStyle, Point as SkiaPoint,
-    },
-    style::{StyleColor, StyleGroup},
-    ElModel, StyleReader,
+    }, ReadStyle, UserProps, WriteStyle
 };
 use irisia::{
     primitive::Region,
@@ -29,24 +26,21 @@ pub struct TextBox {
     //selection_rt_mgr: SelectionRtMgr,
 }
 
-#[derive(StyleReader, PartialEq)]
+#[derive(WriteStyle, PartialEq)]
 struct TextBoxStyles {
-    font_size: StyleFontSize,
-    slant: StyleFontSlant,
+    font_size: FontSize,
+    slant: FontSlant,
     weight: FontWeight,
-    color: Option<StyleColor>,
+    color: FontColor,
 }
 
-#[irisia::props(updater = "TextBoxProps", watch(exclude = "user_select"))]
+#[derive(UserProps)]
 pub struct OwnedProps {
-    #[props(updated, must_init)]
-    text: String,
+    #[props(required)]
+    text: ReadWire<String>,
 
-    #[props(default = "false")]
-    user_select: bool,
-
-    #[props(read_style(stdin))]
-    style: TextBoxStyles,
+    #[props(default = false)]
+    user_select: ReadWire<bool>,
 }
 
 impl ElementInterfaces for TextBox {

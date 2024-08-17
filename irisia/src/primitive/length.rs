@@ -23,11 +23,9 @@ pub struct Length {
 }
 
 macro_rules! create_length {
-    {$($name:ident: $short:ident,)*} => {
+    {$($name:ident $short:ident,)*} => {
         $(
-            #[doc = concat!(
-                "create a length with given value in unit `", stringify!($short), "`"
-            )]
+            #[doc = concat!("create a length with given value in unit `", stringify!($short), "`")]
             pub const fn $short(value: f32) -> Self {
                 let mut this = Self::zero();
                 this.value.$name = value;
@@ -80,11 +78,11 @@ impl Length {
     }
 
     create_length! {
-        pixel: px,
-        viewport_width: vw,
-        viewport_height: vh,
-        viewport_min: vmin,
-        viewport_max: vmax,
+        pixel           px,
+        viewport_width  vw,
+        viewport_height vh,
+        viewport_min    vmin,
+        viewport_max    vmax,
     }
 
     /// Equivalent to

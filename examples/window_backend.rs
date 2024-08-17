@@ -97,7 +97,7 @@ impl ElementInterfaces for Rectangle {
 
     fn render(&mut self, lr: &mut LayerRebuilder, _: std::time::Duration) -> Result<()> {
         let region = self.access.draw_region();
-        let styles = self.styles.r();
+        let styles = self.styles.read();
 
         let end_point = Point(
             region.0 .0 + styles.width.map(|x| x.0).unwrap_or(Pixel(50.0)),
@@ -114,10 +114,10 @@ impl ElementInterfaces for Rectangle {
         );
 
         let color = if self.is_force {
-            *self.force_color.r()
+            *self.force_color.read()
         } else {
             self.styles
-                .r()
+                .read()
                 .color
                 .unwrap_or(StyleColor(Color::GREEN))
                 .0

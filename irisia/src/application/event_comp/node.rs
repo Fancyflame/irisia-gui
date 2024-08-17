@@ -6,7 +6,7 @@ use crate::{
         },
         EventDispatcher,
     },
-    primitive::{Pixel, Point, Region},
+    primitive::{Point, Region},
 };
 
 use super::{global::new_event::PointerStateChange, IncomingPointerEvent};
@@ -107,7 +107,7 @@ impl NodeEventMgr {
         &self,
         psc: PointerStateChange,
         position: Point,
-        delta: Option<(Pixel, Pixel)>,
+        delta: Option<(f32, f32)>,
         logically_entered: bool,
     ) {
         match psc {
