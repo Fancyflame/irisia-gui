@@ -6,7 +6,7 @@ use irisia::{
     el_model::{EMCreateCtx, ElInputWatcher, ElementAccess, LayerRebuilder},
     element::{ElementInterfaces, EmptyProps, FieldMustInit},
     event::standard::{PointerEntered, PointerOut},
-    primitive::{Pixel, Point},
+    primitive::{Length, Point},
     skia_safe::{Color, Color4f, Paint, Rect},
     structure::ChildBox,
     Event, ReadStyle, Result, Style, UserProps, WriteStyle,
@@ -17,11 +17,11 @@ pub struct StyleColor(Color);
 
 #[derive(Style, Clone, Copy, PartialEq)]
 #[style(all)]
-pub struct StyleWidth(Pixel);
+pub struct StyleWidth(Length);
 
 #[derive(Style, Clone, Copy, PartialEq)]
 #[style(all)]
-pub struct StyleHeight(Pixel);
+pub struct StyleHeight(Length);
 
 pub struct Rectangle {
     is_force: bool,
@@ -76,10 +76,7 @@ impl ElementInterfaces for Rectangle {
             access_cloned.request_redraw();
         });
 
-        access.set_interact_region(Some((
-            Default::default(),
-            (Point(Pixel(50.0), Pixel(50.0))),
-        )));
+        access.set_interact_region(Some((Default::default(), (Point(50.0, 50.0)))));
 
         Self {
             is_force: false,
@@ -100,18 +97,21 @@ impl ElementInterfaces for Rectangle {
         let styles = self.styles.read();
 
         let end_point = Point(
-            region.0 .0 + styles.width.map(|x| x.0).unwrap_or(Pixel(50.0)),
-            region.0 .1 + styles.height.map(|h| h.0).unwrap_or(Pixel(50.0)),
+            region.0 .0
+                + styles
+                    .width
+                    .map(|x| x.0.to_resolved(&self.access))
+                    .unwrap_or(50.0),
+            region.0 .1
+                + styles
+                    .height
+                    .map(|h| h.0.to_resolved(&self.access))
+                    .unwrap_or(50.0),
         );
 
         self.access.set_interact_region(Some((region.0, end_point)));
 
-        let rect = Rect::new(
-            region.0 .0.to_physical(),
-            region.0 .1.to_physical(),
-            end_point.0.to_physical(),
-            end_point.1.to_physical(),
-        );
+        let rect = Rect::new(region.0 .0, region.0 .1, end_point.0, end_point.1);
 
         let color = if self.is_force {
             *self.force_color.read()

@@ -121,10 +121,9 @@ impl ElDecBuilder<'_> {
             on_create,
         } = self;
 
-        // TODO: 等rust-analyzer把bug修了才能取消注释<https://github.com/rust-lang/rust-analyzer/issues/17651>
-        /*let el_type = quote! {
-            <#el_type as ::irisia::element::macro_helper::ElementTypeHelper<_>>::Target
-        };*/
+        let el_type = quote! {
+            <#el_type as ::irisia::__macro_helper::ElementTypeHelper<_>>::Target
+        };
 
         let props = props.iter().map(|(key, value)| {
             quote! {
@@ -132,7 +131,7 @@ impl ElDecBuilder<'_> {
             }
         });
 
-        let env_vars = env.env_to_tokens();
+        let env_vars = env.clone_env_wires();
 
         let styles = match styles {
             Some(styles) => quote! {{
@@ -154,7 +153,7 @@ impl ElDecBuilder<'_> {
 
         quote! {
             ::irisia::structure::single::<#el_type>(
-                ::irisia::element::macro_helper::ElementPropsAlias::<#el_type> {
+                ::irisia::__macro_helper::ElementPropsAlias::<#el_type> {
                     #(#props)*
                     ..::std::default::Default::default()
                 },

@@ -1,4 +1,6 @@
-use super::*;
+use crate::element::{Component, ComponentTemplate};
+
+use crate::{data_flow::Readable, ElementInterfaces};
 
 pub type ElementPropsAlias<'a, T> = <T as ElementInterfaces>::Props<'a>;
 
@@ -22,4 +24,18 @@ where
     T: ComponentTemplate,
 {
     type Target = Component<T>;
+}
+
+/// To prevent `&T` from being cloned
+pub trait CloneHelper {
+    fn __irisia_clone_wire(&self) -> Self;
+}
+
+impl<T> CloneHelper for T
+where
+    T: Readable + Clone,
+{
+    fn __irisia_clone_wire(&self) -> Self {
+        self.clone()
+    }
 }

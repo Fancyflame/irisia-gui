@@ -7,7 +7,7 @@ where
     R: Readable + ?Sized,
 {
     readable: &'a R,
-    r: OnceCell<ReadRef<'a, R::Data>>,
+    borrow: OnceCell<ReadRef<'a, R::Data>>,
 }
 
 impl<'a, R> WatchOnDeref<'a, R>
@@ -17,7 +17,7 @@ where
     pub fn new(readable: &'a R) -> Self {
         Self {
             readable,
-            r: OnceCell::new(),
+            borrow: OnceCell::new(),
         }
     }
 
@@ -43,6 +43,6 @@ where
         // we must call `read()` on each access,
         // because `read()` may trigger watching
         let r = self.readable.read();
-        self.r.get_or_init(|| r)
+        self.borrow.get_or_init(|| r)
     }
 }

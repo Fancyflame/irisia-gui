@@ -1,3 +1,5 @@
+use std::iter;
+
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
@@ -5,7 +7,7 @@ use syn::{
     Result, Token,
 };
 
-use super::{el_dec::ElDecBuilder, env_to_tokens_raw, kw, pat_bind::PatBinds, Environment};
+use super::{clone_env_raw, el_dec::ElDecBuilder, kw, pat_bind::PatBinds, Environment};
 
 const MAX_CHAIN_TUPLE_LENGTH: usize = 25;
 
@@ -56,14 +58,14 @@ impl Environment {
         let result = (|| {
             while !input.peek(Token![;]) {
                 let ident: Ident = input.parse()?;
-                if self.vars.contains(&ident) {
+                if self.accessable.contains_key(&ident) {
                     return Err(Error::new_spanned(
                         &ident,
                         format!("variable `{ident}` is already captured or newly defined"),
                     ));
                 }
 
-                self.vars.push(ident);
+                self.push_env(iter::once(ident));
                 count += 1;
                 if !input.peek(Token![;]) {
                     input.parse::<Token![,]>()?;
@@ -72,9 +74,9 @@ impl Environment {
 
             input.parse::<Token![;]>()?;
             let body = self.parse_statements(input)?;
-            let env = env_to_tokens_raw(&self.vars[self.vars.len() - count..], false);
+            let new_envs = clone_env_raw(self.vars[self.vars.len() - count..].iter());
             Ok(quote! {{
-                #env
+                #new_envs
                 #body
             }})
         })();
@@ -209,7 +211,7 @@ impl Environment {
         // we don't care about the content, maybe it is an incomplete expression
         let tokens = content.parse::<TokenStream>()?;
 
-        let env = self.env_to_tokens();
+        let env = self.clone_env_wires();
         Ok(quote! {
             {
                 #env

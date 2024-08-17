@@ -1,7 +1,9 @@
+use std::collections::{hash_map::Entry, HashMap};
+
 use pat_bind::PatBinds;
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{Expr, Ident, Token};
+use syn::{Expr, Ident};
 
 mod pat_bind;
 mod kw {
@@ -16,51 +18,110 @@ mod to_tokens;
 
 pub struct Environment {
     vars: Vec<Ident>,
+    accessable: HashMap<Ident, usize>,
 }
 
 impl Environment {
     pub fn new() -> Self {
-        Self { vars: Vec::new() }
+        Self {
+            vars: Vec::new(),
+            accessable: HashMap::new(),
+        }
     }
 
     fn pop_env(&mut self, count: usize) {
-        self.vars.truncate(self.vars.len() - count);
+        let discard_vars = self.vars.drain(self.vars.len() - count..);
+        for v in discard_vars {
+            match self.accessable.entry(v) {
+                Entry::Occupied(mut occ) => {
+                    let rest = occ.get_mut();
+                    if *rest > 1 {
+                        *rest -= 1;
+                    } else {
+                        occ.remove();
+                    }
+                }
+                _ => unreachable!("environment variable not present"),
+            }
+        }
+    }
+
+    fn push_env(&mut self, envs: impl Iterator<Item = Ident>) -> usize {
+        self.vars.reserve(envs.size_hint().0);
+        let before_len = self.vars.len();
+        for env in envs {
+            self.vars.push(env.clone());
+            self.accessable
+                .entry(env)
+                .and_modify(|x| *x += 1)
+                .or_insert(1);
+        }
+        self.vars.len() - before_len
     }
 
     fn bind_env<F, R>(&mut self, pat: &PatBinds, f: F) -> R
     where
         F: FnOnce(&mut Environment) -> R,
     {
-        self.vars.extend(pat.binds.iter().cloned());
-        let stack_size = pat.binds.len();
+        let stack_size = self.push_env(pat.binds.iter().cloned());
         let ret = f(self);
         self.pop_env(stack_size);
         ret
     }
 
-    fn env_to_tokens(&self) -> TokenStream {
-        env_to_tokens_raw(&self.vars, true)
+    fn clone_env_wires(&self) -> TokenStream {
+        clone_env_raw(self.accessable.keys())
+    }
+
+    fn deref_wire_in_user_expr(&self) -> TokenStream {
+        let (pat, value) = self.deref_wire_in_user_expr_splitted();
+        quote! {
+            #[allow(unused_variables)]
+            let #pat = #value;
+        }
+    }
+
+    fn deref_wire_in_user_expr_splitted(&self) -> (TokenStream, TokenStream) {
+        let idents = self.accessable.keys();
+        let idents2 = idents.clone();
+        (
+            quote! {
+                (#(#idents,)*)
+            },
+            quote! {
+                (#(
+                    ::irisia::data_flow::watch_on_deref::WatchOnDeref::new(&#idents2),
+                )*)
+            },
+        )
     }
 
     fn create_wire(&self, expr: &Expr) -> TokenStream {
-        let env = self.env_to_tokens();
+        let env = self.clone_env_wires();
+        let deref_env = self.deref_wire_in_user_expr();
         quote! {
             {
                 #env
                 ::irisia::data_flow::wire(move || {
-                    #expr
+                    #deref_env
+                    let __irisia_wire_ret = {#expr};
+                    __irisia_wire_ret
                 })
             }
         }
     }
 }
 
-fn env_to_tokens_raw(vars: &[Ident], borrow: bool) -> TokenStream {
-    let and = borrow.then(<Token![&]>::default);
+fn clone_env_raw<'a, I>(vars: I) -> TokenStream
+where
+    I: Iterator<Item = &'a Ident> + Clone,
+{
+    let vars2 = vars.clone();
     quote! {
         #[allow(unused_variables)]
-        let (#(#vars,)*) = (
-            #(::std::clone::Clone::clone(#and #vars),)*
-        );
+        let (#(#vars,)*) = {
+            use ::irisia::__macro_helper::CloneHelper as _;
+            (#(#vars2.__irisia_clone_wire(),)*)
+        };
     }
 }

@@ -46,7 +46,7 @@ impl Environment {
             }
         });
 
-        let env = self.env_to_tokens();
+        let env = self.clone_env_wires();
         let bind_vars =
             pat_binds.bind_var_from_wire(&parse_quote!(__irisia_tuple_wire), &pat_binds.tuple_expr);
         let if_matched = quote! {
@@ -75,22 +75,31 @@ impl Environment {
         pat_binds: &PatBinds,
         body: impl ToTokens,
     ) -> TokenStream {
-        let env = self.env_to_tokens();
+        let env_wires = self.clone_env_wires();
+        let (iter_envs_pat, iter_envs_value) = self.deref_wire_in_user_expr_splitted();
         let var_binds =
             pat_binds.bind_var_from_wire(&parse_quote!(__irisia_wire), &pat_binds.pattern);
         let key_pattern = &pat_binds.pattern;
 
         quote! {
             ::irisia::structure::repeat({
-                #env
-                move |__irisia_mutator| __irisia_mutator.update(
-                    #iter,
-                    |#[allow(unused_variables)] #key_pattern| #key,
-                    |__irisia_wire| {
-                        #var_binds
-                        #body
-                    }
-                )
+                #env_wires
+                move |__irisia_mutator| {
+                    let __irisia_iter_envs = #iter_envs_value;
+                    __irisia_mutator.update(
+                        {
+                            let #iter_envs_pat = &__irisia_iter_envs;
+                            #iter
+                        },
+                        |#[allow(unused_variables)] #key_pattern| {
+                            #key
+                        },
+                        |__irisia_wire| {
+                            #var_binds
+                            #body
+                        }
+                    )
+                }
             })
         }
     }

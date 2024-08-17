@@ -22,7 +22,7 @@ pub struct Register<T> {
     listeners: ListenerList,
 }
 
-pub struct WriteGuard<'a, T> {
+pub struct WriteGuard<'a, T: ?Sized> {
     listeners: &'a ListenerList,
     r: Option<TraceRef<'a, RefMut<'a, T>>>,
 }
@@ -70,21 +70,21 @@ where
     })
 }
 
-impl<T> Drop for WriteGuard<'_, T> {
+impl<T: ?Sized> Drop for WriteGuard<'_, T> {
     fn drop(&mut self) {
         self.r.take();
         self.listeners.wake_all()
     }
 }
 
-impl<T> Deref for WriteGuard<'_, T> {
+impl<T: ?Sized> Deref for WriteGuard<'_, T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
         self.r.as_ref().unwrap()
     }
 }
 
-impl<T> DerefMut for WriteGuard<'_, T> {
+impl<T: ?Sized> DerefMut for WriteGuard<'_, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.r.as_mut().unwrap()
     }

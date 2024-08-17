@@ -12,9 +12,6 @@ pub use component::{CompInputWatcher, Component, ComponentTemplate, OneStructure
 
 mod component;
 
-#[doc(hidden)]
-pub mod macro_helper;
-
 #[derive(Clone, Copy, Default)]
 pub struct EmptyProps {}
 

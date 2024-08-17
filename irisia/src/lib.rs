@@ -5,8 +5,8 @@ pub mod anyhow {
 pub type Result<T> = anyhow::Result<T>;
 
 #[doc(hidden)]
-#[path = "private/mod.rs"]
-pub mod __private;
+#[path = "macro_helper.rs"]
+pub mod __macro_helper;
 
 macro_rules! inner_error {
     ($($tt:tt)+) => {
