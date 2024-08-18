@@ -6,8 +6,8 @@ use irisia::{
         Readable,
     },
     el_model::ElementAccess,
-    element::{CompInputWatcher, Component, ComponentTemplate, EmptyProps, OneStructureCreate},
-    event::standard::PointerDown,
+    element::{CompInputWatcher, ComponentTemplate, EmptyProps, OneStructureCreate},
+    event::standard::{CloseRequested, PointerDown},
     skia_safe::Color,
     style,
     winit::window::WindowBuilder,
@@ -22,7 +22,7 @@ mod window_backend;
 async fn main() -> Result<()> {
     Window::new(
         WindowBuilder::new().with_title("hello irisia"),
-        build!(Component<App>;),
+        build!(App;),
     )
     .await
     .unwrap()
@@ -79,7 +79,7 @@ impl App {
                 {
                     if let Some(color) = *item.read() {
                         Rectangle {
-                            force_color: *color,
+                            force_color <= color.to_wire(),
                             @style: style! {
                                 in window_backend::sty {
                                     Width: 50px;

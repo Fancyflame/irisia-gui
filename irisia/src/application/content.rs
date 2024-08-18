@@ -1,4 +1,4 @@
-use std::{rc::Rc, sync::Arc};
+use std::{cell::Cell, rc::Rc, sync::Arc};
 
 use irisia_backend::{window_handle::CloseHandle, WinitWindow};
 
@@ -14,6 +14,7 @@ pub struct GlobalContent {
     pub(super) global_ed: EventDispatcher,
     pub(super) window: Arc<WinitWindow>,
     pub(super) close_handle: CloseHandle,
+    pub(super) user_close: Cell<bool>,
     pub(super) redraw_scheduler: RedrawScheduler,
 }
 
@@ -48,5 +49,13 @@ impl GlobalContent {
     /// Returns a reference to the window
     pub fn window(&self) -> &WinitWindow {
         &self.window
+    }
+
+    pub fn user_close(&self) -> bool {
+        self.user_close.get()
+    }
+
+    pub fn set_user_close(&self, enable: bool) {
+        self.user_close.set(enable);
     }
 }

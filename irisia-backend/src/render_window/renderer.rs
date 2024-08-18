@@ -54,18 +54,19 @@ impl Renderer {
                     features: Features::empty(),
                     limits: Limits::downlevel_defaults().using_resolution(Limits::default()),
                 })
-                .clear_color(pixels::wgpu::Color::WHITE)
+                .clear_color(pixels::wgpu::Color::BLUE)
                 .build()?;
 
         let image_info = ImageInfo::new(
             (width as _, height as _),
             ColorType::RGBA8888,
-            skia_safe::AlphaType::Opaque,
+            skia_safe::AlphaType::Premul,
             Some(ColorSpace::new_srgb()),
         );
 
-        let surface = skia_safe::surfaces::raster_n32_premul((w2x as _, h2x as _))
+        let surface = skia_safe::surfaces::raster(&image_info, None, None)
             .ok_or_else(|| anyhow!("skia surface not found"))?;
+        //dbg!(surface.image_info());
 
         Ok(Renderer {
             window_pixels: pixels,
@@ -84,7 +85,7 @@ impl Renderer {
         F: FnOnce(&Canvas) -> Result<()>,
     {
         let canvas = self.surface.canvas();
-        canvas.clear(Color::WHITE);
+        canvas.clear(Color::TRANSPARENT);
         f(canvas)?;
 
         if !self.surface.read_pixels(

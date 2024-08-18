@@ -36,14 +36,15 @@ impl LayerCompositer {
         let rec = SaveLayerRec::default()
             .flags(SaveLayerFlags::INIT_WITH_PREVIOUS)
             .paint(&paint);
-        canvas.save_layer(&rec);
 
         for layer in self.layers.iter() {
             match layer {
                 Layer::Normal(bitmap) => {
+                    canvas.save_layer(&rec);
                     if !canvas.write_pixels_from_bitmap(bitmap, (0, 0)) {
                         return Err(anyhow!("cannot write bitmap to canvas"));
                     }
+                    canvas.restore();
                 }
                 Layer::Extern { layer, matrix } => {
                     canvas.save();
@@ -53,8 +54,6 @@ impl LayerCompositer {
                 }
             }
         }
-
-        canvas.restore();
         Ok(())
     }
 }

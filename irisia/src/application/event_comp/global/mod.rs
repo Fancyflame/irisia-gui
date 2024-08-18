@@ -57,7 +57,10 @@ impl GlobalEventMgr {
             None => {
                 match &event {
                     WindowEvent::CloseRequested => {
-                        gc.global_ed.emit_trusted(CloseRequested(gc.close_handle))
+                        gc.global_ed.emit_trusted(CloseRequested(gc.close_handle));
+                        if gc.user_close() {
+                            gc.close_handle.close();
+                        }
                     }
                     _ => {}
                 }

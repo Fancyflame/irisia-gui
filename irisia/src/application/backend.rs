@@ -1,4 +1,4 @@
-use std::{rc::Rc, sync::Arc, time::Duration};
+use std::{cell::Cell, rc::Rc, sync::Arc, time::Duration};
 
 use irisia_backend::{
     skia_safe::{colors::WHITE, Canvas},
@@ -95,6 +95,7 @@ where
                 window,
                 redraw_scheduler,
                 close_handle,
+                user_close: Cell::new(true),
             });
 
             let root = root_creator.create(&EMCreateCtx {
