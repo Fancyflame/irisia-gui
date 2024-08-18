@@ -9,24 +9,27 @@ use irisia::{
     primitive::{Length, Point},
     skia_safe::{Color, Color4f, Paint, Rect},
     structure::ChildBox,
-    Event, ReadStyle, Result, Style, UserProps, WriteStyle,
+    Event, Result, Style, UserProps, WriteStyle,
 };
 
-#[derive(Style, Clone, Copy, PartialEq)]
-pub struct StyleColor(Color);
+pub mod sty {
+    use irisia::{primitive::Length, Style};
 
-#[derive(Style, Clone, Copy, PartialEq)]
-#[style(all)]
-pub struct StyleWidth(Length);
+    #[derive(Style, Clone, Copy, PartialEq)]
+    pub struct Color(pub irisia::skia_safe::Color);
 
-#[derive(Style, Clone, Copy, PartialEq)]
-#[style(all)]
-pub struct StyleHeight(Length);
+    #[derive(Style, Clone, Copy, PartialEq)]
+    #[style(all)]
+    pub struct Width(pub Length);
+
+    #[derive(Style, Clone, Copy, PartialEq)]
+    #[style(all)]
+    pub struct Height(pub Length);
+}
 
 pub struct Rectangle {
     is_force: bool,
     force_color: ReadWire<Color>,
-    styles: ReadWire<RectStyles>,
     access: ElementAccess,
 }
 
@@ -38,9 +41,9 @@ pub struct RectProps {
 
 #[derive(Default, WriteStyle)]
 struct RectStyles {
-    width: Option<StyleWidth>,
-    height: Option<StyleHeight>,
-    color: Option<StyleColor>,
+    width: Option<sty::Width>,
+    height: Option<sty::Height>,
+    color: Option<sty::Color>,
 }
 
 impl ElementInterfaces for Rectangle {
@@ -56,11 +59,6 @@ impl ElementInterfaces for Rectangle {
     where
         Slt: irisia::structure::StructureCreate,
     {
-        let styles = {
-            let access = access.clone();
-            wire(move || RectStyles::from_style(access.styles()))
-        };
-
         let wi = watch_input.clone();
         let access_cloned = access.clone();
         access.listen().trusted().spawn(move |_: PointerEntered| {
@@ -81,7 +79,6 @@ impl ElementInterfaces for Rectangle {
         Self {
             is_force: false,
             force_color: RectProps::from(props).force_color,
-            styles,
             access,
         }
     }
@@ -94,7 +91,7 @@ impl ElementInterfaces for Rectangle {
 
     fn render(&mut self, lr: &mut LayerRebuilder, _: std::time::Duration) -> Result<()> {
         let region = self.access.draw_region();
-        let styles = self.styles.read();
+        let styles = RectStyles::from_style(self.access.styles());
 
         let end_point = Point(
             region.0 .0
@@ -116,11 +113,7 @@ impl ElementInterfaces for Rectangle {
         let color = if self.is_force {
             *self.force_color.read()
         } else {
-            self.styles
-                .read()
-                .color
-                .unwrap_or(StyleColor(Color::GREEN))
-                .0
+            styles.color.unwrap_or(sty::Color(Color::GREEN)).0
         };
 
         let paint = Paint::new(Color4f::from(color), None);

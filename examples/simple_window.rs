@@ -9,6 +9,7 @@ use irisia::{
     element::{CompInputWatcher, Component, ComponentTemplate, EmptyProps, OneStructureCreate},
     event::standard::PointerDown,
     skia_safe::Color,
+    style,
     winit::window::WindowBuilder,
     Result,
 };
@@ -50,7 +51,7 @@ impl ComponentTemplate for App {
                 Color::RED,
                 Color::YELLOW,
                 Color::BLUE,
-                Color::GREEN,
+                Color::MAGENTA,
                 Color::BLACK,
             ]
             .into_iter()
@@ -68,6 +69,7 @@ impl ComponentTemplate for App {
 impl App {
     fn structure(&self) -> impl OneStructureCreate {
         let rects = &self.rects;
+
         build! {
             input rects;
 
@@ -77,11 +79,13 @@ impl App {
                 {
                     if let Some(color) = *item.read() {
                         Rectangle {
-                            force_color <= color.to_wire(),
-                            /*@style: style! {
-                                width: 100px;
-                                height: 100px + 40px * *index as f32;
-                            },*/
+                            force_color: *color,
+                            @style: style! {
+                                in window_backend::sty {
+                                    Width: 50px;
+                                    Height: 70px + 40px * *index.read() as f32;
+                                }
+                            },
                             @on_create: move |access| {
                                 access.listen().spawn(move |_: PointerDown| {
                                     rects.write()[*index.read()].set(None);
