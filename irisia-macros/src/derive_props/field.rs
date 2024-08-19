@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 use attr_parser_fn::{
     find_attr,
     meta::{conflicts, key_str, key_value, path_only, ParseMetaExt},
@@ -8,12 +6,13 @@ use attr_parser_fn::{
 
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{parse_quote, Expr, Field, Ident, Result, Type};
+use syn::{Expr, Field, Ident, Result, Type};
 
 #[derive(Default)]
 pub enum Defaulter {
     #[default]
     Required,
+    Optioned,
     Default,
     DefaultWith(Expr),
 }
@@ -43,6 +42,7 @@ impl FieldProps {
                     ("required", path_only()).value(Defaulter::Required),
                     ("default", path_only()).value(Defaulter::Default),
                     ("default", key_value::<Expr>()).map(Defaulter::DefaultWith),
+                    ("optioned", path_only()).value(Defaulter::Optioned),
                 ))
                 .optional(),
             ))
@@ -63,37 +63,36 @@ impl FieldProps {
 
     pub fn new_field(&self) -> TokenStream {
         let origin_type = &self.ty;
-
-        let ty = match &self.defaulter {
-            Defaulter::Required => Cow::Owned(parse_quote! {
-                ::irisia::element::FieldMustInit<#origin_type>
-            }),
-            Defaulter::Default | Defaulter::DefaultWith(_) => Cow::Borrowed(origin_type),
-        };
-
         let name = self.field_name();
 
         quote! {
-            #name: #ty
+            #name: ::irisia::element::FieldPlaceholder<#origin_type>,
         }
     }
 
     pub fn default_field(&self) -> TokenStream {
         let name = self.field_name();
 
-        match &self.defaulter {
+        let method = match &self.defaulter {
             Defaulter::Required => {
                 let name_str = name.to_string();
                 quote! {
-                    #name: ::irisia::element::FieldMustInit::new_uninit(#name_str)
+                    MustInit(#name_str)
                 }
             }
             Defaulter::Default => quote! {
-                #name: ::std::default::Default::default()
+                OrDefault(::std::default::Default::default)
             },
             Defaulter::DefaultWith(with_expr) => quote! {
-                #name: #with_expr
+                OrDefault(|| {#with_expr})
             },
+            Defaulter::Optioned => quote! {
+                Optioned
+            },
+        };
+
+        quote! {
+            #name: ::irisia::element::FieldPlaceholder::#method,
         }
     }
 
@@ -101,13 +100,13 @@ impl FieldProps {
         let origin_name = &self.ident;
         let props_name = self.field_name();
 
-        match &self.defaulter {
-            Defaulter::Required => quote! {
-                #origin_name: props.#props_name.take()
-            },
-            Defaulter::Default | Defaulter::DefaultWith(_) => quote! {
-                #origin_name: props.#props_name
-            },
+        let take = match self.defaulter {
+            Defaulter::Optioned => quote! { take_optioned },
+            _ => quote! { take },
+        };
+
+        quote! {
+            #origin_name: _props.#props_name.#take(),
         }
     }
 }

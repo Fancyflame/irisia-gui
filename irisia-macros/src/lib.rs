@@ -3,7 +3,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{
     parse::{ParseStream, Parser},
-    parse_macro_input, DeriveInput, ItemFn, Result,
+    parse_macro_input, DeriveInput, Item, ItemFn, Result,
 };
 
 mod build_macro;
@@ -66,11 +66,12 @@ pub fn derive_read_style(input: TokenStream) -> TokenStream {
     )))
 }
 
-#[proc_macro_derive(UserProps, attributes(props))]
-pub fn props(input: TokenStream) -> TokenStream {
-    parse_macro_input!(input as derive_props::DeriveProps)
-        .compile()
-        .into()
+#[proc_macro_attribute]
+pub fn user_props(attr: TokenStream, input: TokenStream) -> TokenStream {
+    result_into_stream(
+        derive_props::DeriveProps::parse(attr.into(), parse_macro_input!(input as Item))
+            .map(|x| x.compile()),
+    )
 }
 
 #[proc_macro]

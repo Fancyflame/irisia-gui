@@ -1,11 +1,14 @@
 use std::ops::Range;
 
 use irisia::{
-    data_flow::ReadWire, element::ElementInterfaces, skia_safe::{
+    data_flow::ReadWire,
+    element::ElementInterfaces,
+    skia_safe::{
         font_style::Width,
         textlayout::{FontCollection, Paragraph, ParagraphBuilder, ParagraphStyle, TextStyle},
         Color, FontMgr, FontStyle, Point as SkiaPoint,
-    }, ReadStyle, UserProps, WriteStyle
+    },
+    FromUserProps, ReadStyle, WriteStyle,
 };
 use irisia::{
     primitive::Region,

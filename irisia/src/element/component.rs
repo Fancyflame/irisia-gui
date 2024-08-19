@@ -9,8 +9,10 @@ use crate::{
     ElementInterfaces,
 };
 
+use super::FromUserProps;
+
 pub trait ComponentTemplate: Sized + 'static {
-    type Props<'a>: Default;
+    type Props<'a>: FromUserProps;
 
     fn create<Slt>(
         props: Self::Props<'_>,

@@ -1,6 +1,6 @@
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
-use syn::{parse_quote, punctuated::Punctuated, Token, WhereClause};
+use syn::{parse_quote, WhereClause};
 
 struct ListenOptions {
     once: bool,
@@ -147,7 +147,7 @@ impl ListenOptions {
         (syn::parse2(tokens).unwrap(), generics)
     }
 
-    fn auto_infer(&self, where_clause: &WhereClause) -> TokenStream {
+    /*fn auto_infer(&self, where_clause: &WhereClause) -> TokenStream {
         let Self {
             asyn,
             sub_event,
@@ -182,7 +182,7 @@ impl ListenOptions {
             #where_clause
             {}
         }
-    }
+    }*/
 }
 
 pub fn impl_listen() -> TokenStream {

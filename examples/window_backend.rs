@@ -1,15 +1,12 @@
-use std::{rc::Rc, time::Duration};
-
 use irisia::{
     application::IncomingPointerEvent,
-    data_flow::{register::Register, wire, ReadWire},
     el_model::{EMCreateCtx, ElInputWatcher, ElementAccess, LayerRebuilder},
-    element::{ElementInterfaces, EmptyProps, FieldMustInit},
+    element::ElementInterfaces,
     event::standard::{PointerEntered, PointerOut},
-    primitive::{Length, Point},
+    primitive::Point,
     skia_safe::{Color, Color4f, Paint, Rect},
     structure::ChildBox,
-    Event, Result, Style, UserProps, WriteStyle,
+    user_props, Event, Result, WriteStyle,
 };
 
 pub mod sty {
@@ -29,14 +26,17 @@ pub mod sty {
 
 pub struct Rectangle {
     is_force: bool,
-    force_color: ReadWire<Color>,
+    props: RectProps,
     access: ElementAccess,
 }
 
-#[derive(UserProps)]
+#[user_props(name = "AAA")]
 pub struct RectProps {
-    #[props(required)]
-    pub force_color: ReadWire<Color>,
+    #[props(optioned)]
+    pub force_color: Color,
+
+    #[props(default)]
+    pub force_height: Option<f32>,
 }
 
 #[derive(Default, WriteStyle)]
@@ -47,7 +47,7 @@ struct RectStyles {
 }
 
 impl ElementInterfaces for Rectangle {
-    type Props<'a> = <RectProps as UserProps>::Props;
+    type Props<'a> = RectProps;
     const REQUIRE_INDEPENDENT_LAYER: bool = true;
 
     fn create<Slt>(
@@ -79,7 +79,7 @@ impl ElementInterfaces for Rectangle {
 
         Self {
             is_force: false,
-            force_color: RectProps::from(props).force_color,
+            props,
             access,
         }
     }
@@ -94,17 +94,21 @@ impl ElementInterfaces for Rectangle {
         let region = self.access.draw_region();
         let styles = RectStyles::from_style(self.access.styles());
 
+        let height = match *self.props.force_height.read() {
+            Some(h) => h,
+            None => styles
+                .height
+                .map(|h| h.0.to_resolved(&self.access))
+                .unwrap_or(50.0),
+        };
+
         let end_point = Point(
             region.0 .0
                 + styles
                     .width
                     .map(|x| x.0.to_resolved(&self.access))
                     .unwrap_or(50.0),
-            region.0 .1
-                + styles
-                    .height
-                    .map(|h| h.0.to_resolved(&self.access))
-                    .unwrap_or(50.0),
+            region.0 .1 + height,
         );
 
         self.access.set_interact_region(Some((region.0, end_point)));
@@ -112,7 +116,11 @@ impl ElementInterfaces for Rectangle {
         let rect = Rect::new(region.0 .0, region.0 .1, end_point.0, end_point.1);
 
         let color = if self.is_force {
-            *self.force_color.read()
+            self.props
+                .force_color
+                .as_ref()
+                .map(|color| *color.read())
+                .unwrap_or(Color::BLACK)
         } else {
             styles.color.unwrap_or(sty::Color(Color::GREEN)).0
         };
@@ -132,7 +140,7 @@ pub struct Flex {
 }
 
 impl ElementInterfaces for Flex {
-    type Props<'a> = EmptyProps;
+    type Props<'a> = ();
 
     fn create<Slt>(
         _: Self::Props<'_>,

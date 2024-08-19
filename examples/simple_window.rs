@@ -6,8 +6,8 @@ use irisia::{
         Readable,
     },
     el_model::ElementAccess,
-    element::{CompInputWatcher, ComponentTemplate, EmptyProps, OneStructureCreate},
-    event::standard::{CloseRequested, PointerDown},
+    element::{CompInputWatcher, ComponentTemplate, OneStructureCreate},
+    event::standard::PointerDown,
     skia_safe::Color,
     style,
     winit::window::WindowBuilder,
@@ -35,7 +35,7 @@ struct App {
 }
 
 impl ComponentTemplate for App {
-    type Props<'a> = EmptyProps;
+    type Props<'a> = ();
 
     fn create<Slt>(
         _: Self::Props<'_>,
@@ -80,6 +80,7 @@ impl App {
                     if let Some(color) = *item.read() {
                         Rectangle {
                             force_color <= color.to_wire(),
+                            force_height: (*index == 2).then_some(30.0),
                             @style: style! {
                                 in window_backend::sty {
                                     Width: 50px;
@@ -88,7 +89,7 @@ impl App {
                             },
                             @on_create: move |access| {
                                 access.listen().spawn(move |_: PointerDown| {
-                                    rects.write()[*index.read()].set(None);
+                                    rects.write().remove(*index.read());
                                 });
                             },
                         }

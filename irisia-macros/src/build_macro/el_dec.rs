@@ -11,7 +11,7 @@ use super::Environment;
 pub struct ElDecBuilder<'a> {
     env: &'a mut Environment,
     el_type: TypePath,
-    props: HashMap<Ident, Expr>,
+    props: HashMap<Ident, TokenStream /* as Expr */>,
     styles: Option<Expr>,
     slot: TokenStream,
     on_create: Option<Expr>,
@@ -92,12 +92,18 @@ impl ElDecBuilder<'_> {
             true
         };
 
-        let mut value: Expr = parse_maybe_incomplete_expr(input, Token![,]); //input.parse()?;
-
-        if !assign_mode {
-            let raw = self.env.create_wire(&value);
-            value = syn::parse2(raw.clone()).unwrap_or(Expr::Verbatim(raw));
-        }
+        let value = parse_maybe_incomplete_expr(input, Token![,]); //input.parse()?;
+        let value = if assign_mode {
+            let vars = self.env.accessable.keys();
+            let vars2 = vars.clone();
+            quote! {{
+                #[allow(unused_variables)]
+                let (#(#vars,)*) = (#(&#vars2,)*);
+                #value
+            }}
+        } else {
+            self.env.create_wire(&value)
+        };
 
         match self.props.entry(id) {
             Entry::Occupied(occ) => Err(Error::new_spanned(
@@ -127,7 +133,7 @@ impl ElDecBuilder<'_> {
 
         let props = props.iter().map(|(key, value)| {
             quote! {
-                #key: ::std::convert::From::from(#value),
+                #key: ::irisia::element::FieldPlaceholder::initialized(#value),
             }
         });
 

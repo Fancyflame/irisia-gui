@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use crate::{
     application::event_comp::IncomingPointerEvent,
+    data_flow::{const_wire, ReadWire},
     el_model::{layer::LayerRebuilder, EMCreateCtx, ElInputWatcher, ElementAccess},
     primitive::Region,
     structure::StructureCreate,
@@ -12,16 +13,13 @@ pub use component::{CompInputWatcher, Component, ComponentTemplate, OneStructure
 
 mod component;
 
-#[derive(Clone, Copy, Default)]
-pub struct EmptyProps {}
-
 /// Element is a thing can draw itself on the given canvas,
 /// according to its properties, styles and given drawing region.
 /// This trait is close to the native rendering, if you are not a
 /// component maker, please using exist elements or macros to
 /// customize one.
 pub trait ElementInterfaces: Sized + 'static {
-    type Props<'a>: Default;
+    type Props<'a>: FromUserProps;
     const REQUIRE_INDEPENDENT_LAYER: bool = false;
 
     fn create<Slt>(
@@ -39,33 +37,47 @@ pub trait ElementInterfaces: Sized + 'static {
     fn children_emit_event(&mut self, ipe: &IncomingPointerEvent) -> bool;
 }
 
-pub trait UserProps {
-    type Props;
+pub trait FromUserProps {
+    type Props: Default;
     fn take(props: Self::Props) -> Self;
 }
 
-pub enum FieldMustInit<T> {
-    NotInit { field_name: &'static str },
-    Init { value: T },
+pub enum FieldPlaceholder<T> {
+    MustInit { field_name: &'static str },
+    OrDefault(fn() -> T),
+    Optioned,
+    Init(ReadWire<T>),
 }
 
-impl<T> FieldMustInit<T> {
-    pub const fn new_uninit(field_name: &'static str) -> Self {
-        Self::NotInit { field_name }
+impl<T: 'static> FieldPlaceholder<T> {
+    pub const fn initialized(value: ReadWire<T>) -> Self {
+        Self::Init(value)
     }
 
-    pub fn take(self) -> T {
+    pub fn take(self) -> ReadWire<T> {
         match self {
-            Self::Init { value } => value,
-            Self::NotInit { field_name } => {
+            Self::Init(value) => value,
+            Self::OrDefault(default_with) => const_wire(default_with()),
+            Self::MustInit { field_name } => {
                 panic!("field `{field_name}` of this props must be initialized")
             }
+            Self::Optioned => panic!("cannot call `take` on `FieldPlaceholder::Optioned`"),
+        }
+    }
+
+    pub fn take_optioned(self) -> Option<ReadWire<T>> {
+        match self {
+            Self::Init(value) => Some(value),
+            Self::OrDefault(default_with) => Some(const_wire(default_with())),
+            Self::MustInit { .. } | Self::Optioned => None,
         }
     }
 }
 
-impl<T> From<T> for FieldMustInit<T> {
-    fn from(value: T) -> Self {
-        Self::Init { value }
-    }
+#[derive(Clone, Copy, Default)]
+pub struct EmptyProps {}
+
+impl FromUserProps for () {
+    type Props = EmptyProps;
+    fn take(_: Self::Props) -> Self {}
 }
