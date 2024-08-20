@@ -4,13 +4,16 @@ use std::{
     rc::{Rc, Weak},
 };
 
-use self::watch_on_deref::WatchOnDeref;
-pub use self::wire::{const_wire, wire, wire2, wire3};
+pub use self::{
+    const_data::{const_wire, const_wire_unsized},
+    wire::{wire, wire2, wire3},
+};
 use listener_list::ListenerList;
 use map::Map;
 use trace_cell::TraceRef;
 use watcher::{watcher, Handle};
 
+pub mod const_data;
 pub mod convert_from;
 mod listener_list;
 pub mod map;
@@ -52,10 +55,6 @@ pub trait ReadableExt: Readable + 'static {
         Self: Sized,
     {
         Map::new(self, f)
-    }
-
-    fn watch_on_deref(&self) -> WatchOnDeref<Self> {
-        WatchOnDeref::new(self)
     }
 }
 

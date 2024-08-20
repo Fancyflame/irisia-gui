@@ -5,6 +5,7 @@ use std::{
 };
 
 use super::{
+    const_data::const_wire,
     convert_from::{Updater, UpdaterInner},
     trace_cell::{TraceCell, TraceRef},
     Listener, ListenerList, ReadRef, ReadWire, Readable, Wakeable,
@@ -16,12 +17,9 @@ const BORROW_ERROR: &str = "cannot update data inside the wire, because at least
     old data of this wire itself, which bound to cause infinite updating. to address this problem, \
     you should remove the loop manually";
 
-enum Wire<F, T> {
-    Watching {
-        computes: TraceCell<(F, T)>,
-        listeners: ListenerList,
-    },
-    Constant(T),
+struct Wire<F, T> {
+    computes: TraceCell<(F, T)>,
+    listeners: ListenerList,
 }
 
 pub fn wire<F, R>(mut f: F) -> ReadWire<F::Output>
@@ -57,7 +55,7 @@ where
     F2: FnOnce() -> (T, F),
     F: FnMut(WireMutator<T>) + 'static,
 {
-    let mut rc = Rc::new_cyclic(|weak: &Weak<Wire<F, T>>| {
+    let rc = Rc::new_cyclic(|weak: &Weak<Wire<F, T>>| {
         ListenerList::push_global_stack(Listener::Weak(weak.clone()));
         let (mut data, mut update_fn) = f();
         if update_immediately {
@@ -68,60 +66,35 @@ where
         }
         ListenerList::pop_global_stack();
 
-        Wire::Watching {
+        Wire {
             computes: TraceCell::new((update_fn, data)),
             listeners: ListenerList::new(),
         }
     });
 
     // We assume that if the rc was not taken, the wire will never be waked.
-    if let Some(wire) = Rc::get_mut(&mut rc) {
-        take_mut::take(wire, |wire| {
-            let Wire::Watching {
-                listeners: _,
-                computes,
-            } = wire
-            else {
-                unreachable!()
-            };
-            let (_, value) = computes.into_inner();
-            Wire::Constant(value)
-        });
+    if Rc::weak_count(&rc) == 0 && Rc::strong_count(&rc) == 1 {
+        let value = Rc::into_inner(rc).unwrap().computes.into_inner().1;
+        return const_wire(value);
     }
 
     rc
-}
-
-pub fn const_wire<T>(data: T) -> ReadWire<T>
-where
-    T: 'static,
-{
-    Rc::new(Wire::Constant::<fn(WireMutator<T>), T>(data))
 }
 
 impl<F, T> Readable for Wire<F, T> {
     type Data = T;
 
     fn read(&self) -> ReadRef<Self::Data> {
-        match self {
-            Wire::Watching {
-                computes,
-                listeners,
-            } => {
-                let bt = Backtrace::force_capture();
-                listeners.capture_caller();
-                ReadRef::CellRef(TraceRef::map(computes.borrow(bt).unwrap(), |(_, cache)| {
-                    cache
-                }))
-            }
-            Wire::Constant(data) => ReadRef::Ref(data),
-        }
+        let bt = Backtrace::force_capture();
+        self.listeners.capture_caller();
+        ReadRef::CellRef(TraceRef::map(
+            self.computes.borrow(bt).unwrap(),
+            |(_, cache)| cache,
+        ))
     }
 
     fn pipe(&self, listen_end: Listener) {
-        if let Wire::Watching { listeners, .. } = self {
-            listeners.watch(&listen_end);
-        }
+        self.listeners.watch(&listen_end);
     }
 }
 
@@ -131,17 +104,10 @@ where
     F: FnMut(WireMutator<T>) + 'static,
 {
     fn update(self: Rc<Self>) -> bool {
-        let Self::Watching {
-            listeners,
-            computes,
-        } = &*self
-        else {
-            return false;
-        };
-
         ListenerList::push_global_stack(Listener::Weak(Rc::downgrade(&self) as _));
 
-        let mut computes_ref = computes
+        let mut computes_ref = self
+            .computes
             .borrow_mut(Backtrace::force_capture())
             .expect(BORROW_ERROR);
         let computes = &mut *computes_ref;
@@ -156,7 +122,7 @@ where
         ListenerList::pop_global_stack();
 
         if mutated {
-            listeners.wake_all();
+            self.listeners.wake_all();
         }
 
         true
