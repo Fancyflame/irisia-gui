@@ -6,6 +6,7 @@ use std::{
 
 pub use self::{
     const_data::{const_wire, const_wire_unsized},
+    register::register,
     wire::{wire, wire2, wire3},
 };
 use listener_list::ListenerList;

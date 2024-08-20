@@ -23,4 +23,5 @@ path = "simple_window.rs"
 [dev-dependencies]
 tokio = { version = "1.27", features = ["sync", "rt-multi-thread", "macros"] }
 irisia = { path = "../irisia" }
+rand = "0.8"
 #irisia_widgets = { path = "../irisia-widgets" }

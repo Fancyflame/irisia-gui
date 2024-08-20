@@ -94,13 +94,7 @@ impl ElDecBuilder<'_> {
 
         let value = parse_maybe_incomplete_expr(input, Token![,]); //input.parse()?;
         let value = if assign_mode {
-            let vars = self.env.accessable.keys();
-            let vars2 = vars.clone();
-            quote! {{
-                #[allow(unused_variables)]
-                let (#(#vars,)*) = (#(&#vars2,)*);
-                #value
-            }}
+            self.env.borrow_wire(&value)
         } else {
             self.env.create_wire(&value)
         };

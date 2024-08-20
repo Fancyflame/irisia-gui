@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use irisia::{
     application::Window,
     build,
@@ -7,13 +9,14 @@ use irisia::{
     },
     el_model::ElementAccess,
     element::{CompInputWatcher, ComponentTemplate, OneStructureCreate},
-    event::standard::PointerDown,
+    event::standard::{PointerDown, PointerMove},
     skia_safe::Color,
     style,
     winit::window::WindowBuilder,
     Result,
 };
 
+use rand::Rng;
 use window_backend::{Flex, Rectangle};
 
 mod window_backend;
@@ -62,6 +65,19 @@ impl ComponentTemplate for App {
         let app = App { rects: vec };
         let children = app.structure();
 
+        tokio::task::spawn_local({
+            let rects = app.rects.clone();
+            async move {
+                loop {
+                    tokio::time::sleep(Duration::from_secs(1)).await;
+                    let mut r = rects.write();
+                    if r.len() < 5 {
+                        r.push(register(Some(Color::RED)));
+                    }
+                }
+            }
+        });
+
         (app, children)
     }
 }
@@ -78,9 +94,10 @@ impl App {
                 key = *index
                 {
                     if let Some(color) = *item.read() {
+                        reg force_height = (*index.read() == 2).then_some(30.0);
                         Rectangle {
                             force_color <= color.to_wire(),
-                            force_height: (*index == 2).then_some(30.0),
+                            force_height <= force_height.clone(),
                             @style: style! {
                                 in window_backend::sty {
                                     Width: 50px;
@@ -88,6 +105,9 @@ impl App {
                                 }
                             },
                             @on_create: move |access| {
+                                access.listen().spawn(move |_: PointerMove| {
+                                    force_height.set(Some(rand::thread_rng().gen_range(50.0..200.0)));
+                                });
                                 access.listen().spawn(move |_: PointerDown| {
                                     rects.write().remove(*index.read());
                                 });

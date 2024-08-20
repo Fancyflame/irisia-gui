@@ -5,15 +5,9 @@ use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
 use syn::{spanned::Spanned, Expr, Ident};
 
-mod pat_bind;
-mod kw {
-    use syn::custom_keyword;
-
-    custom_keyword!(input);
-    custom_keyword!(key);
-}
 mod el_dec;
 mod parse;
+mod pat_bind;
 mod to_tokens;
 
 pub struct Environment {
@@ -46,31 +40,38 @@ impl Environment {
         }
     }
 
-    fn push_env(&mut self, envs: impl Iterator<Item = Ident>) -> usize {
-        self.vars.reserve(envs.size_hint().0);
-        let before_len = self.vars.len();
-        for env in envs {
-            self.vars.push(env.clone());
-            self.accessable
-                .entry(env)
-                .and_modify(|x| *x += 1)
-                .or_insert(1);
-        }
-        self.vars.len() - before_len
+    fn push_env(&mut self, env: Ident) {
+        self.vars.push(env.clone());
+        self.accessable
+            .entry(env)
+            .and_modify(|x| *x += 1)
+            .or_insert(1);
     }
 
     fn bind_env<F, R>(&mut self, pat: &PatBinds, f: F) -> R
     where
         F: FnOnce(&mut Environment) -> R,
     {
-        let stack_size = self.push_env(pat.binds.iter().cloned());
+        for ident in &pat.binds {
+            self.push_env(ident.clone());
+        }
         let ret = f(self);
-        self.pop_env(stack_size);
+        self.pop_env(pat.binds.len());
         ret
     }
 
     fn clone_env_wires(&self) -> TokenStream {
         clone_env_raw(self.accessable.keys())
+    }
+
+    fn borrow_wire(&self, expr: &Expr) -> TokenStream {
+        let vars = self.accessable.keys();
+        let vars2 = vars.clone();
+        quote! {{
+            #[allow(unused_variables)]
+            let (#(#vars,)*) = (#(&#vars2,)*);
+            #expr
+        }}
     }
 
     fn deref_wire_in_user_expr(&self) -> TokenStream {

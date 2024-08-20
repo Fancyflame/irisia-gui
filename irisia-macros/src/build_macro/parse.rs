@@ -1,5 +1,3 @@
-use std::iter;
-
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
@@ -7,7 +5,14 @@ use syn::{
     Result, Token,
 };
 
-use super::{clone_env_raw, el_dec::ElDecBuilder, kw, pat_bind::PatBinds, Environment};
+use super::{clone_env_raw, el_dec::ElDecBuilder, pat_bind::PatBinds, Environment};
+
+mod kw {
+    use syn::custom_keyword;
+    custom_keyword!(input);
+    custom_keyword!(key);
+    custom_keyword!(reg);
+}
 
 const MAX_CHAIN_TUPLE_LENGTH: usize = 25;
 
@@ -27,12 +32,18 @@ impl Environment {
     }
 
     pub fn parse_statements(&mut self, input: ParseStream) -> Result<TokenStream> {
-        if input.peek(kw::input) {
-            return self.parse_input(input);
-        }
-
         let mut nodes = Vec::new();
         while !input.is_empty() {
+            if input.peek(kw::input) {
+                nodes.push(self.parse_input(input)?);
+                break;
+            }
+
+            if input.peek(Token![let]) || input.peek(kw::reg) {
+                nodes.push(self.parse_let_or_reg(input)?);
+                break;
+            }
+
             nodes.push(self.parse_node(input)?);
         }
 
@@ -65,7 +76,7 @@ impl Environment {
                     ));
                 }
 
-                self.push_env(iter::once(ident));
+                self.push_env(ident);
                 count += 1;
                 if !input.peek(Token![;]) {
                     input.parse::<Token![,]>()?;
@@ -83,6 +94,38 @@ impl Environment {
 
         self.pop_env(count);
         result
+    }
+
+    fn parse_let_or_reg(&mut self, input: ParseStream) -> Result<TokenStream> {
+        let is_reg = input.peek(kw::reg);
+        if is_reg {
+            input.parse::<kw::reg>()?;
+        } else {
+            input.parse::<Token![let]>()?;
+        }
+        let ident: Ident = input.parse()?;
+        input.parse::<Token![=]>()?;
+        let expr: Expr = input.parse()?;
+        input.parse::<Token![;]>()?;
+
+        self.push_env(ident.clone());
+        let rest = self.parse_statements(input)?;
+        self.pop_env(1);
+
+        let wire = if is_reg {
+            self.borrow_wire(&parse_quote! {
+                ::irisia::data_flow::register(
+                    #expr
+                )
+            })
+        } else {
+            self.create_wire(&expr)
+        };
+
+        Ok(quote! {{
+            let #ident = #wire;
+            #rest
+        }})
     }
 
     pub fn parse_block(&mut self, input: ParseStream) -> Result<TokenStream> {
