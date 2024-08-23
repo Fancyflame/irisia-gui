@@ -70,9 +70,8 @@ impl ComponentTemplate for App {
             async move {
                 loop {
                     tokio::time::sleep(Duration::from_secs(1)).await;
-                    let mut r = rects.write();
-                    if r.len() < 5 {
-                        r.push(register(Some(Color::RED)));
+                    if rects.read().len() < 5 {
+                        rects.write().push(register(Some(Color::RED)));
                     }
                 }
             }

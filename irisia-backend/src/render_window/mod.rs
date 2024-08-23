@@ -23,42 +23,18 @@ pub struct RenderWindowController {
 
 impl RenderWindowController {
     pub fn new(app: AppBuildFn, window: Arc<WinitWindow>) -> Self {
-        let (tx, mut rx) = mpsc::unbounded_channel::<Command>();
+        let (tx, rx) = mpsc::unbounded_channel::<Command>();
         let draw_finished = Arc::new((StdMutex::new(true), Condvar::new()));
         let draw_finished_cloned = draw_finished.clone();
 
         std::thread::Builder::new()
             .name("irisia window".into())
-            .spawn(move || {
-                let async_runtime = tokio::runtime::Builder::new_current_thread()
-                    .enable_all()
-                    .build()
-                    .unwrap();
-
-                let local = LocalSet::new();
-                local.block_on(&async_runtime, async move {
-                    let mut rw = RenderWindow::new(app, window).expect("cannot launch renderer");
-                    loop {
-                        let Some(cmd) = rx.recv().await else {
-                            break;
-                        };
-
-                        match cmd {
-                            Command::Redraw => {
-                                rw.redraw();
-                                *draw_finished.0.lock().unwrap() = true;
-                                draw_finished.1.notify_all();
-                            }
-                            Command::HandleEvent(ev) => rw.handle_event(ev),
-                        }
-                    }
-                });
-            })
+            .spawn(move || window_runtime(app, window, rx, draw_finished_cloned))
             .unwrap();
 
         Self {
             chan: tx,
-            draw_finished: draw_finished_cloned,
+            draw_finished,
         }
     }
 
@@ -80,6 +56,38 @@ impl RenderWindowController {
             .send(Command::HandleEvent(event))
             .map_err(|_| recv_shut_down_error())
     }
+}
+
+fn window_runtime(
+    app: AppBuildFn,
+    window: Arc<WinitWindow>,
+    mut rx: mpsc::UnboundedReceiver<Command>,
+    draw_finished: Arc<(StdMutex<bool>, Condvar)>,
+) {
+    let async_runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+
+    let local = LocalSet::new();
+    local.block_on(&async_runtime, async move {
+        let mut rw = RenderWindow::new(app, window.clone()).expect("cannot launch renderer");
+        loop {
+            let Some(cmd) = rx.recv().await else {
+                break;
+            };
+
+            match cmd {
+                Command::Redraw => {
+                    rw.redraw();
+                    *draw_finished.0.lock().unwrap() = true;
+                    draw_finished.1.notify_all();
+                    window.request_redraw();
+                }
+                Command::HandleEvent(ev) => rw.handle_event(ev),
+            }
+        }
+    });
 }
 
 fn recv_shut_down_error() -> anyhow::Error {

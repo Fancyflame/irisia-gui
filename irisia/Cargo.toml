@@ -19,3 +19,6 @@ irisia_macros = { path = "../irisia-macros" }
 irisia_backend = { path = "../irisia-backend", features = ["fps_recorder"] }
 irisia_utils = { path = "../irisia-utils" }
 impl_variadics = "0.1.1"
+
+[features]
+dhat_heap = ["irisia_backend/dhat_heap"]

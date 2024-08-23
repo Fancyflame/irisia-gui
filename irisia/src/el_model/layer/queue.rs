@@ -1,11 +1,14 @@
-use irisia_backend::skia_safe::{Bitmap, ImageInfo, M44};
+use irisia_backend::skia_safe::{Bitmap, IPoint, ImageInfo, M44};
 use smallvec::SmallVec;
 
 use super::SharedLayerCompositer;
 
 pub(super) enum Layer {
-    Normal(Bitmap),
-    Extern {
+    Bitmap {
+        bitmap: Bitmap,
+        offset: IPoint,
+    },
+    CacheLayer {
         layer: SharedLayerCompositer,
         matrix: M44,
     },
@@ -28,20 +31,24 @@ impl Queue {
         self.len = 0;
     }
 
-    pub fn add_bitmap(&mut self, image_info: &ImageInfo) -> &mut Bitmap {
+    pub fn add_bitmap(&mut self, image_info: &ImageInfo, offset: IPoint) -> &mut Bitmap {
         loop {
             match self.buffer.get_mut(self.len) {
                 None => {
                     let mut bitmap = Bitmap::new();
                     assert!(bitmap.set_info(image_info, None));
-                    self.buffer.push(Layer::Normal(bitmap));
+                    self.buffer.push(Layer::Bitmap { bitmap, offset });
                     break;
                 }
-                Some(Layer::Normal(bitmap)) => {
+                Some(Layer::Bitmap {
+                    bitmap,
+                    offset: old_offset,
+                }) => {
                     assert!(bitmap.set_info(image_info, None));
+                    *old_offset = offset;
                     break;
                 }
-                Some(Layer::Extern { .. }) => {
+                Some(Layer::CacheLayer { .. }) => {
                     self.buffer.swap_remove(self.len);
                 }
             }
@@ -49,17 +56,17 @@ impl Queue {
 
         self.len += 1;
         match self.buffer.last_mut() {
-            Some(Layer::Normal(bitmap)) => bitmap,
+            Some(Layer::Bitmap { bitmap, .. }) => bitmap,
             _ => unreachable!(),
         }
     }
 
     pub fn add_layer(&mut self, layer: SharedLayerCompositer, matrix: M44) {
-        let layer = Layer::Extern { layer, matrix };
+        let layer = Layer::CacheLayer { layer, matrix };
 
         match self.buffer.get_mut(self.len) {
-            Some(ext @ Layer::Extern { .. }) => *ext = layer,
-            Some(normal @ Layer::Normal { .. }) => {
+            Some(ext @ Layer::CacheLayer { .. }) => *ext = layer,
+            Some(normal @ Layer::Bitmap { .. }) => {
                 let bitmap = std::mem::replace(normal, layer);
                 self.buffer.push(bitmap);
             }

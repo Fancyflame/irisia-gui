@@ -1,5 +1,4 @@
 use std::{
-    backtrace::Backtrace,
     ops::{Deref, DerefMut},
     rc::{Rc, Weak},
 };
@@ -85,10 +84,9 @@ impl<F, T> Readable for Wire<F, T> {
     type Data = T;
 
     fn read(&self) -> ReadRef<Self::Data> {
-        let bt = Backtrace::force_capture();
         self.listeners.capture_caller();
         ReadRef::CellRef(TraceRef::map(
-            self.computes.borrow(bt).unwrap(),
+            self.computes.borrow().unwrap(),
             |(_, cache)| cache,
         ))
     }
@@ -106,10 +104,7 @@ where
     fn update(self: Rc<Self>) -> bool {
         ListenerList::push_global_stack(Listener::Weak(Rc::downgrade(&self) as _));
 
-        let mut computes_ref = self
-            .computes
-            .borrow_mut(Backtrace::force_capture())
-            .expect(BORROW_ERROR);
+        let mut computes_ref = self.computes.borrow_mut().expect(BORROW_ERROR);
         let computes = &mut *computes_ref;
 
         let mut mutated = false;

@@ -1,5 +1,4 @@
 use std::{
-    backtrace::Backtrace,
     cell::RefMut,
     ops::{Deref, DerefMut},
     rc::Rc,
@@ -31,17 +30,12 @@ impl<T> Register<T> {
     pub fn write(&self) -> WriteGuard<T> {
         WriteGuard {
             listeners: &self.listeners,
-            r: Some(
-                self.data
-                    .borrow_mut(Backtrace::force_capture())
-                    .expect(BORROW_ERROR),
-            ),
+            r: Some(self.data.borrow_mut().expect(BORROW_ERROR)),
         }
     }
 
     pub fn set(&self, value: T) {
-        let bt = Backtrace::force_capture();
-        *self.data.borrow_mut(bt).expect(BORROW_ERROR) = value;
+        *self.data.borrow_mut().expect(BORROW_ERROR) = value;
         self.listeners.wake_all();
     }
 }
@@ -50,9 +44,8 @@ impl<T> Readable for Register<T> {
     type Data = T;
 
     fn read(&self) -> ReadRef<Self::Data> {
-        let bt = Backtrace::force_capture();
         self.listeners.capture_caller();
-        ReadRef::CellRef(self.data.borrow(bt).unwrap())
+        ReadRef::CellRef(self.data.borrow().unwrap())
     }
 
     fn pipe(&self, listen_end: Listener) {

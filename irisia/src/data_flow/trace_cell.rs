@@ -41,14 +41,16 @@ impl<T> TraceCell<T> {
         anyhow::Error::msg(msg)
     }
 
-    pub fn borrow(&self, bt: Backtrace) -> Result<TraceRef<Ref<T>>> {
+    pub fn borrow(&self) -> Result<TraceRef<Ref<T>>> {
+        let bt = Backtrace::capture();
         Ok(TraceRef {
             inner_ref: self.value.try_borrow().map_err(|_| self.get_error())?,
             trace: DropTrace::record(&self.borrow_traces, bt),
         })
     }
 
-    pub fn borrow_mut(&self, bt: Backtrace) -> Result<TraceRef<RefMut<T>>> {
+    pub fn borrow_mut(&self) -> Result<TraceRef<RefMut<T>>> {
+        let bt = Backtrace::capture();
         Ok(TraceRef {
             inner_ref: self.value.try_borrow_mut().map_err(|_| self.get_error())?,
             trace: DropTrace::record(&self.borrow_traces, bt),
@@ -89,7 +91,7 @@ pub struct TraceRef<'a, R> {
 
 impl<'a, T: ?Sized> TraceRef<'a, Ref<'a, T>> {
     pub fn clone(this: &Self) -> Self {
-        let bt = Backtrace::force_capture();
+        let bt = Backtrace::capture();
         Self {
             inner_ref: Ref::clone(&this.inner_ref),
             trace: DropTrace::record(&this.trace.trace_table, bt),

@@ -23,6 +23,9 @@ pub fn start_runtime<F>(f: F) -> Result<()>
 where
     F: Future<Output = ()> + Send + 'static,
 {
+    #[cfg(feature = "dhat_heap")]
+    let mut _profiler = Some(dhat::Profiler::new_heap());
+
     let mut future_option = Some(async move {
         f.await;
         exit_app().await;
@@ -91,6 +94,9 @@ where
                 }
 
                 WindowReg::Exit => {
+                    #[cfg(feature = "dhat_heap")]
+                    drop(_profiler.take());
+
                     window_target.exit();
                 }
             },

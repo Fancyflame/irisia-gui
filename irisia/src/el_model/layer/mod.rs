@@ -39,14 +39,14 @@ impl LayerCompositer {
 
         for layer in self.layers.iter() {
             match layer {
-                Layer::Normal(bitmap) => {
+                Layer::Bitmap { bitmap, offset } => {
                     canvas.save_layer(&rec);
-                    if !canvas.write_pixels_from_bitmap(bitmap, (0, 0)) {
+                    if !canvas.write_pixels_from_bitmap(bitmap, *offset) {
                         return Err(anyhow!("cannot write bitmap to canvas"));
                     }
                     canvas.restore();
                 }
-                Layer::Extern { layer, matrix } => {
+                Layer::CacheLayer { layer, matrix } => {
                     canvas.save();
                     canvas.set_matrix(matrix);
                     layer.borrow().composite(canvas)?;
