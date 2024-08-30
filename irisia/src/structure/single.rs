@@ -2,13 +2,13 @@ use super::{StructureCreate, VisitBy};
 use crate::{
     el_model::{EMCreateCtx, ElementAccess, ElementModel, SharedEM},
     element::FromUserProps,
-    style::ReadStyle,
+    style::StyleFn,
     ElementInterfaces,
 };
 
 pub fn single<'a, El>(
     props: <El::Props<'a> as FromUserProps>::Props,
-    styles: impl ReadStyle + 'static,
+    styles: impl StyleFn + 'static,
     slot: impl StructureCreate + 'a,
     on_create: impl FnOnce(ElementAccess) + 'a,
 ) -> impl StructureCreate<Target = SharedEM<El>> + 'a

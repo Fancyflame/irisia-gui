@@ -31,10 +31,11 @@ impl VisitMut for Visitor {
             Err(_) => return,
         };
 
-        let method = if let "px" | "vw" | "vh" | "vmin" | "vmax" = suffix {
-            format_ident!("{suffix}", span = i.span())
-        } else {
-            return;
+        let method = match suffix {
+            "px" | "vw" | "vh" | "vmin" | "vmax" | "pw" | "ph" | "pmin" | "pmax" => {
+                format_ident!("{suffix}", span = i.span())
+            }
+            _ => return,
         };
 
         let new_expr: Expr = parse_quote! {
