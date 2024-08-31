@@ -1,8 +1,8 @@
 use anyhow::{anyhow, Result};
 
-use crate::style::Eof;
+use crate::style::value::Eof;
 
-use super::{ParseStyleValue, StyleValue};
+use super::{value::ParseStyleValue, StyleValue};
 
 #[derive(Clone)]
 #[must_use]
