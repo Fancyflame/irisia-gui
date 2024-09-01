@@ -21,16 +21,9 @@ impl<'a> ParseRule<'a> {
     }
 
     pub fn try_parse<T: ParseStyleValue>(&mut self) -> Option<T> {
-        let (first, rest) = match self.stream.split_first() {
-            Some((first, rest)) => (Some(first), rest),
-            None => (None, &[] as _),
-        };
-
-        let result = T::try_parse(first).cloned();
-        if result.is_some() {
-            self.stream = rest;
-        }
-        result
+        let (result, rest) = T::try_parse(self.stream)?;
+        self.stream = rest;
+        Some(result)
     }
 
     pub fn parse<T: ParseStyleValue>(&mut self) -> Result<T> {
@@ -44,8 +37,8 @@ impl<'a> ParseRule<'a> {
         })
     }
 
-    pub fn peek<T: ParseStyleValue>(&self) -> Option<&'a T> {
-        T::try_parse(self.stream.first())
+    pub fn peek<T: ParseStyleValue>(&self) -> Option<T> {
+        T::try_parse(self.stream).map(|(x, _)| x)
     }
 
     pub fn is_empty(&self) -> bool {

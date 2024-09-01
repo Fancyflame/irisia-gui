@@ -1,6 +1,7 @@
-use std::{borrow::Cow, ops::Deref};
+use std::{fmt::Write, ops::Deref, rc::Rc};
 
 use crate::primitive::Length;
+use anyhow::Error;
 use irisia_backend::skia_safe::Color;
 
 #[derive(Clone)]
@@ -9,8 +10,9 @@ pub enum StyleValue {
     Length(Length),
     Float(f32),
     Bool(bool),
-    Identifier(Identifier),
+    Ident(Ident),
     Delimiter,
+    KeyEq(KeyEq),
 }
 
 impl StyleValue {
@@ -20,8 +22,9 @@ impl StyleValue {
             Self::Length(_) => "length",
             Self::Float(_) => "float",
             Self::Bool(_) => "bool",
-            Self::Identifier(_) => "identifier",
+            Self::Ident(_) => "ident",
             Self::Delimiter => "delimiter",
+            Self::KeyEq(_) => "key equal",
         }
     }
 }
@@ -30,41 +33,10 @@ impl StyleValue {
 pub struct Delimiter;
 
 #[derive(Clone, Copy)]
-pub struct Eof;
-
-#[derive(Clone)]
-pub struct Identifier(Cow<'static, str>);
-
-impl Identifier {
-    pub const fn new(ident: &'static str) -> Self {
-        Self(Cow::Borrowed(ident))
-    }
-
-    /// Do not use this unless for debug usage
-    pub fn new_debug(ident: String) -> Self {
-        Self(Cow::Owned(ident))
-    }
-
-    pub fn is_strict_ident(&self) -> bool {
-        let mut trailing = false;
-        self.0.chars().all(|ch| {
-            let match_alpha = matches!(ch, '_' | 'a'..='z');
-            let match_numeric = trailing && matches!(ch, '0'..='9');
-            trailing = true;
-            match_alpha || match_numeric
-        })
-    }
-}
-
-impl Deref for Identifier {
-    type Target = str;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+pub struct Eof(());
 
 pub trait ParseStyleValue: Clone {
-    fn try_parse(this: Option<&StyleValue>) -> Option<&Self>;
+    fn try_parse(this: &[StyleValue]) -> Option<(Self, &[StyleValue])>;
     fn type_name() -> &'static str;
 }
 
@@ -72,9 +44,9 @@ macro_rules! impl_psv {
     ($($Var:ident $type_name:literal $Type:ty,)*) => {
         $(
             impl ParseStyleValue for $Type {
-                fn try_parse(this: Option<&StyleValue>) -> Option<&Self> {
-                    if let StyleValue::$Var(val) = this? {
-                        Some(val)
+                fn try_parse(this: &[StyleValue]) -> Option<(Self, &[StyleValue])> {
+                    if let [StyleValue::$Var(val), ref rest @ ..] = this {
+                        Some((val.clone(), rest))
                     } else {
                         None
                     }
@@ -89,17 +61,17 @@ macro_rules! impl_psv {
 }
 
 impl_psv! {
-    Color      "color"      Color     ,
-    Length     "length"     Length    ,
-    Float      "float"      f32       ,
-    Bool       "bool"       bool      ,
-    Identifier "identifier" Identifier,
+    Color      "color"      Color ,
+    Length     "length"     Length,
+    Float      "float"      f32   ,
+    Bool       "bool"       bool  ,
+    Ident      "ident"      Ident ,
 }
 
 impl ParseStyleValue for Delimiter {
-    fn try_parse(this: Option<&StyleValue>) -> Option<&Self> {
-        if let StyleValue::Delimiter = this? {
-            Some(&Delimiter)
+    fn try_parse(this: &[StyleValue]) -> Option<(Self, &[StyleValue])> {
+        if let [StyleValue::Delimiter, ref rest @ ..] = this {
+            Some((Delimiter, rest))
         } else {
             None
         }
@@ -111,9 +83,9 @@ impl ParseStyleValue for Delimiter {
 }
 
 impl ParseStyleValue for Eof {
-    fn try_parse(this: Option<&StyleValue>) -> Option<&Self> {
-        if this.is_none() {
-            Some(&Self)
+    fn try_parse(this: &[StyleValue]) -> Option<(Self, &[StyleValue])> {
+        if this.is_empty() {
+            Some((Eof(()), this))
         } else {
             None
         }
@@ -125,12 +97,33 @@ impl ParseStyleValue for Eof {
 }
 
 impl ParseStyleValue for StyleValue {
-    fn try_parse(this: Option<&StyleValue>) -> Option<&Self> {
-        this
+    fn try_parse(this: &[StyleValue]) -> Option<(Self, &[StyleValue])> {
+        match this.split_first() {
+            Some((StyleValue::KeyEq(_), _)) | None => None,
+            Some((value, rest)) => Some((value.clone(), rest)),
+        }
     }
 
     fn type_name() -> &'static str {
         "any value"
+    }
+}
+
+impl<T> ParseStyleValue for (KeyEq, T)
+where
+    T: ParseStyleValue,
+{
+    fn try_parse(this: &[StyleValue]) -> Option<(Self, &[StyleValue])> {
+        let [StyleValue::KeyEq(key), rest @ ..] = this else {
+            return None;
+        };
+
+        let (value, rest) = T::try_parse(rest)?;
+        Some(((key.clone(), value), rest))
+    }
+
+    fn type_name() -> &'static str {
+        "key-value"
     }
 }
 
@@ -151,16 +144,84 @@ impl_from! {
     Length Length,
     Float f32,
     Bool bool,
+    KeyEq KeyEq,
 }
 
 impl From<&'static str> for StyleValue {
     fn from(value: &'static str) -> Self {
-        Self::Identifier(Identifier::new(value))
+        Self::Ident(Ident::new(value))
     }
 }
 
 impl From<Delimiter> for StyleValue {
     fn from(_: Delimiter) -> Self {
         Self::Delimiter
+    }
+}
+
+#[derive(Clone)]
+pub struct Ident(IdentInner);
+
+#[derive(Clone)]
+enum IdentInner {
+    Borrowed(&'static str),
+    Rc(Rc<str>),
+}
+
+impl Ident {
+    pub const fn new(ident: &'static str) -> Self {
+        Self(IdentInner::Borrowed(ident))
+    }
+
+    /// Do not use this unless for debug usage
+    pub fn new_debug(ident: &str) -> Self {
+        Self(IdentInner::Rc(ident.into()))
+    }
+
+    pub fn error(&self, expected: &[&str]) -> Error {
+        let mut s = "expected identifier".to_string();
+        if let Some(last_index) = expected.len().checked_sub(1) {
+            for (index, &ident) in expected.iter().enumerate() {
+                let spliter = if index == 0 {
+                    " "
+                } else if index == last_index {
+                    " or "
+                } else {
+                    ", "
+                };
+                write!(&mut s, "{spliter}`{ident}`").unwrap();
+            }
+        } else {
+            s += "matches nothing";
+        };
+
+        write!(&mut s, ", found {}`", &**self).unwrap();
+        Error::msg(s)
+    }
+}
+
+impl Deref for Ident {
+    type Target = str;
+    fn deref(&self) -> &Self::Target {
+        match &self.0 {
+            &IdentInner::Borrowed(b) => b,
+            IdentInner::Rc(r) => r,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct KeyEq(Ident);
+
+impl KeyEq {
+    pub const fn new(key: Ident) -> Self {
+        Self(key)
+    }
+}
+
+impl Deref for KeyEq {
+    type Target = str;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }

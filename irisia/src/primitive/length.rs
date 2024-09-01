@@ -1,10 +1,15 @@
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use core::str;
+use std::{
+    fmt::{Debug, Formatter},
+    io::{BufWriter, Write as _},
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
+};
 
 use crate::el_model::ElementAccess;
 
 macro_rules! create_length {
     {$($name:ident $short:ident,)*} => {
-        #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+        #[derive(Clone, Copy, PartialEq, PartialOrd)]
         pub struct Length {
             $(pub $name: f32,)*
         }
@@ -40,6 +45,13 @@ macro_rules! create_length {
             /*fn fields(&mut self) -> impl Iterator<Item = &mut f32> {
                 [ $(&mut self.$name,)* ].into_iter()
             }*/
+
+            #[inline]
+            fn debug_fields(&self) -> impl Iterator<Item = (f32, &'static str)> {
+                [
+                    $((self.$name, stringify!($short)),)*
+                ].into_iter()
+            }
         }
     };
 }
@@ -64,11 +76,13 @@ impl Length {
         let window = access.global_content().window();
         let (draw_start, draw_end) = access.draw_region();
 
+        const PERCENT_FACTOR: f32 = 100.0;
+
         let viewport_size = window.inner_size();
-        let vw = viewport_size.width as f32;
-        let vh = viewport_size.height as f32;
-        let ew = draw_end.0 - draw_start.0;
-        let eh = draw_end.1 - draw_start.1;
+        let vw = viewport_size.width as f32 / PERCENT_FACTOR;
+        let vh = viewport_size.height as f32 / PERCENT_FACTOR;
+        let ew = (draw_end.0 - draw_start.0) / PERCENT_FACTOR;
+        let eh = (draw_end.1 - draw_start.1) / PERCENT_FACTOR;
         let dpi = window.scale_factor() as f32;
 
         self.pixel * dpi
@@ -160,4 +174,57 @@ impl SubAssign<Self> for Length {
     fn sub_assign(&mut self, rhs: Self) {
         *self = *self - rhs;
     }
+}
+
+impl Debug for Length {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        enum State {
+            Zero,
+            Once { value: f32, unit: &'static str },
+            Multiple,
+        }
+
+        let mut state = State::Zero;
+
+        for (value, unit) in self.debug_fields() {
+            if value == 0.0 {
+                continue;
+            }
+
+            match state {
+                State::Zero => {
+                    state = State::Once { value, unit };
+                    continue;
+                }
+                State::Once { value, unit } => {
+                    write!(f, "(")?;
+                    fmt_value(f, value, unit)?;
+                    state = State::Multiple;
+                }
+                State::Multiple => {}
+            }
+
+            write!(f, " + ")?;
+            fmt_value(f, value, unit)?;
+        }
+
+        match state {
+            State::Zero => write!(f, "0px"),
+            State::Once { value, unit } => fmt_value(f, value, unit),
+            State::Multiple => {
+                write!(f, ")")
+            }
+        }
+    }
+}
+
+fn fmt_value(out_buf: &mut Formatter, value: f32, unit: &str) -> std::fmt::Result {
+    let mut byte_buf = [0u8; 32];
+    let mut fmt_buf = BufWriter::new(&mut byte_buf as &mut [u8]);
+    write!(&mut fmt_buf, "{value:.2}").unwrap();
+    let s = str::from_utf8(fmt_buf.buffer())
+        .unwrap()
+        .trim_end_matches('0')
+        .trim_end_matches('.');
+    write!(out_buf, "{s}{unit}")
 }
