@@ -7,9 +7,9 @@ use syn::{
 };
 
 mod build_macro;
+mod define_style;
 mod derive_props;
 mod derive_read_style;
-mod derive_style;
 mod derive_write_style;
 mod inner_impl_listen;
 mod main_macro;
@@ -45,11 +45,9 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
     .into()
 }
 
-#[proc_macro_derive(Style, attributes(style))]
-pub fn derive_style_trait(input: TokenStream) -> TokenStream {
-    result_into_stream(derive_style::derive_style(parse_macro_input!(
-        input as DeriveInput
-    )))
+#[proc_macro]
+pub fn define_style(input: TokenStream) -> TokenStream {
+    result_into_stream(define_style::define.parse(input))
 }
 
 #[proc_macro_derive(WriteStyle, attributes(style))]
