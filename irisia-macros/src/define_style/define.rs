@@ -2,7 +2,7 @@ use std::collections::{hash_map::Entry, HashMap};
 
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned, ToTokens, TokenStreamExt};
-use syn::{parse::ParseStream, Error, Expr, Ident, Result, Token, Type};
+use syn::{parse::ParseStream, Attribute, Error, Expr, Ident, Result, Token, Type};
 
 pub fn parse(input: ParseStream) -> Result<TokenStream> {
     let mut map: HashMap<Ident, Definition> = HashMap::new();
@@ -29,6 +29,7 @@ pub fn parse(input: ParseStream) -> Result<TokenStream> {
 }
 
 struct Definition {
+    attrs: Vec<Attribute>,
     name: Ident,
     variants: Variants,
 }
@@ -45,6 +46,7 @@ enum Variants {
 }
 
 struct DefHeader {
+    attrs: Vec<Attribute>,
     name: Ident,
     variant: Option<Ident>,
 }
@@ -64,6 +66,7 @@ enum State {
 impl Definition {
     fn new(header: DefHeader, body: DefBody) -> Self {
         Self {
+            attrs: header.attrs,
             name: header.name,
             variants: match header.variant {
                 Some(id) => {
@@ -77,6 +80,8 @@ impl Definition {
     }
 
     fn parse_header(input: ParseStream) -> Result<DefHeader> {
+        let attrs = Attribute::parse_outer(input)?;
+
         let name: Ident = input.parse()?;
         let variant: Option<Ident> = if input.peek(Token![::]) {
             input.parse::<Token![::]>()?;
@@ -86,7 +91,11 @@ impl Definition {
         };
 
         input.parse::<Token![:]>()?;
-        Ok(DefHeader { name, variant })
+        Ok(DefHeader {
+            attrs,
+            name,
+            variant,
+        })
     }
 
     fn parse_body(input: ParseStream) -> Result<DefBody> {
@@ -191,12 +200,19 @@ impl Definition {
             }
         }
 
+        self.attrs.extend(header.attrs);
+
         Ok(())
     }
 
     fn compile(&self) -> TokenStream {
-        let name = &self.name;
-        match &self.variants {
+        let Self {
+            attrs,
+            name,
+            variants,
+        } = self;
+
+        match variants {
             Variants::EnumLike(e) => {
                 let field_names = e.keys();
                 let field_bodies = e.values().map(|x| Self::compile_fields(x, false));
@@ -205,6 +221,7 @@ impl Definition {
                     .map(|(variant, body)| Self::compile_from(name, Some(variant), body));
 
                 quote! {
+                    #(#attrs)*
                     pub enum #name {
                         #(#field_names #field_bodies,)*
                     }
@@ -216,8 +233,11 @@ impl Definition {
             Variants::StructLike(body) => {
                 let fields = Self::compile_fields(body, true);
                 let impl_from = Self::compile_from(name, None, body);
+
                 quote! {
+                    #(#attrs)*
                     pub struct #name #fields
+
                     #impl_from
                 }
             }

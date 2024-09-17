@@ -12,6 +12,8 @@ define_style! {
     BoxShadow::Color:
         color Color = Color::GREEN;
 
+    /// This is documentations
+    #[derive(Clone)]
     Border:
         width Length,
         style &'static str = "solid",
@@ -24,6 +26,6 @@ fn main() {
     sty.blur(Length::px(3.0)).color(Color::BLUE);
 
     let mut sty: Border;
-    sty = <_>::from((Length::px(1.0),));
+    sty = <_>::from((Length::px(1.0), "dashed"));
     sty.color(Color::CYAN);
 }
