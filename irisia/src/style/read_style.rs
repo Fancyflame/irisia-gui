@@ -29,18 +29,3 @@ where
 impl ReadStyle for () {
     fn read_style_into(&self, _: &mut StyleBuffer) {}
 }
-
-rules! {
-    color (as type): ;
-    color (as Color::L1):
-        x Length,
-        assa Length,
-        a Length,
-        /,
-        a Color = Color::Red,
-        b Color = Color::Blue,
-    ;
-    color (as Color::L2):
-
-    ;
-}

@@ -1,14 +1,19 @@
 use std::collections::{hash_map::Entry, HashMap};
 
 use proc_macro2::TokenStream;
-use quote::{quote, quote_spanned, ToTokens, TokenStreamExt};
-use syn::{parse::ParseStream, Attribute, Error, Expr, Ident, Result, Token, Type};
+use quote::{quote, ToTokens};
+use syn::{parse::ParseStream, Attribute, Error, Ident, Result, Token, Type};
+
+use super::{
+    def_body::{DefBody, Seg},
+    impl_from::compile_from,
+};
 
 pub fn parse(input: ParseStream) -> Result<TokenStream> {
     let mut map: HashMap<Ident, Definition> = HashMap::new();
     while !input.is_empty() {
         let header = Definition::parse_header(input)?;
-        let body = Definition::parse_body(input)?;
+        let body: DefBody = input.parse()?;
 
         match map.entry(header.name.clone()) {
             Entry::Occupied(mut occ) => {
@@ -34,12 +39,6 @@ struct Definition {
     variants: Variants,
 }
 
-#[derive(Clone)]
-struct Seg {
-    name: Ident,
-    ty: Type,
-}
-
 enum Variants {
     StructLike(DefBody),
     EnumLike(HashMap<Ident, DefBody>),
@@ -49,18 +48,6 @@ struct DefHeader {
     attrs: Vec<Attribute>,
     name: Ident,
     variant: Option<Ident>,
-}
-
-struct DefBody {
-    necessaries: Vec<Seg>,
-    optionals: Vec<(Seg, Expr)>,
-    opt_arg_max_len: usize,
-}
-
-enum State {
-    Necessary,
-    Optional,
-    RequireKV,
 }
 
 impl Definition {
@@ -96,64 +83,6 @@ impl Definition {
             name,
             variant,
         })
-    }
-
-    fn parse_body(input: ParseStream) -> Result<DefBody> {
-        let mut body = DefBody {
-            necessaries: Vec::new(),
-            optionals: Vec::new(),
-            opt_arg_max_len: 0,
-        };
-
-        let mut state = State::Necessary;
-        while !input.is_empty() {
-            if input.peek(Token![/]) {
-                let stop_token = input.parse::<Token![/]>()?;
-                match state {
-                    State::RequireKV => {
-                        return Err(Error::new_spanned(
-                            stop_token,
-                            "duplicated position-argument-stop token `/` found",
-                        ));
-                    }
-                    _ => {
-                        body.opt_arg_max_len = body.optionals.len();
-                    }
-                }
-                state = State::RequireKV;
-            } else {
-                let seg = Seg {
-                    name: input.parse()?,
-                    ty: input.parse()?,
-                };
-
-                match state {
-                    State::Necessary if !input.peek(Token![=]) => {
-                        body.necessaries.push(seg);
-                    }
-                    _ => {
-                        if let State::Necessary = state {
-                            state = State::Optional;
-                        }
-                        input.parse::<Token![=]>()?;
-                        body.optionals.push((seg, input.parse()?));
-                    }
-                }
-            }
-
-            if input.peek(Token![;]) {
-                input.parse::<Token![;]>()?;
-                break;
-            } else {
-                input.parse::<Token![,]>()?;
-            }
-        }
-
-        if !matches!(state, State::RequireKV) {
-            body.opt_arg_max_len = body.optionals.len();
-        }
-
-        Ok(body)
     }
 
     fn append(&mut self, header: DefHeader, body: DefBody) -> Result<()> {
@@ -216,30 +145,31 @@ impl Definition {
             Variants::EnumLike(e) => {
                 let field_names = e.keys();
                 let field_bodies = e.values().map(|x| Self::compile_fields(x, false));
-                let impl_from = e
-                    .iter()
-                    .map(|(variant, body)| Self::compile_from(name, Some(variant), body));
 
-                quote! {
+                let mut tokens = quote! {
                     #(#attrs)*
                     pub enum #name {
                         #(#field_names #field_bodies,)*
                     }
+                };
 
-                    #(#impl_from)*
+                for (variant, body) in e {
+                    compile_from(&mut tokens, name, Some(variant), body);
                 }
+
+                tokens
             }
 
             Variants::StructLike(body) => {
                 let fields = Self::compile_fields(body, true);
-                let impl_from = Self::compile_from(name, None, body);
 
-                quote! {
+                let mut tokens = quote! {
                     #(#attrs)*
                     pub struct #name #fields
+                };
 
-                    #impl_from
-                }
+                compile_from(&mut tokens, name, None, body);
+                tokens
             }
         }
     }
@@ -248,7 +178,8 @@ impl Definition {
         let all_fields = body
             .necessaries
             .iter()
-            .chain(body.optionals.iter().map(|(seg, _)| seg));
+            .chain(body.optional_args().map(|(seg, _)| seg));
+
         let field_names = all_fields.clone().map(|seg| &seg.name);
         let types = all_fields.map(|seg| &seg.ty);
         let pub_token = if pub_token {
@@ -262,56 +193,11 @@ impl Definition {
         }
     }
 
-    fn compile_from(name: &Ident, variant: Option<&Ident>, body: &DefBody) -> TokenStream {
-        let mut tokens = TokenStream::new();
-        let pos_opts = &body.optionals[..body.opt_arg_max_len];
-
-        for got_opts_count in 0..=body.opt_arg_max_len {
-            let got_opts = body
-                .necessaries
-                .iter()
-                .chain(pos_opts[..got_opts_count].iter().map(|(seg, _)| seg));
-
-            let names = got_opts.clone().map(|seg| &seg.name);
-            let names2 = names.clone();
-            let types = got_opts.map(|seg| &seg.ty);
-            let types2 = types.clone();
-
-            let rest_opts =
-                body.optionals[got_opts_count..]
-                    .iter()
-                    .map(|(Seg { name, .. }, default)| {
-                        quote! {#name: #default}
-                    });
-
-            let span = match variant {
-                Some(v) => v.span(),
-                None => name.span(),
-            };
-
-            let colon2 = variant.is_some().then(<Token![::]>::default);
-
-            tokens.append_all(quote_spanned! {
-                span =>
-                impl ::std::convert::From<(#(#types,)*)> for #name {
-                    fn from((#(#names,)*): (#(#types2,)*)) -> Self {
-                        Self #colon2 #variant {
-                            #(#names2,)*
-                            #(#rest_opts,)*
-                        }
-                    }
-                }
-            });
-        }
-
-        tokens
-    }
-
     fn compile_methods(&self) -> Result<TokenStream> {
         let mut methods: Vec<(&Ident, &Type, TokenStream)> = Vec::new();
         match &self.variants {
             Variants::StructLike(s) => {
-                for (Seg { name, ty }, _) in &s.optionals {
+                for (Seg { name, ty }, _) in s.optional_args() {
                     methods.push((
                         name,
                         ty,
@@ -322,52 +208,65 @@ impl Definition {
                 }
             }
 
-            Variants::EnumLike(e) => {
-                let mut map: HashMap<&Ident, (&Type, Vec<&Ident>)> = HashMap::new();
+            Variants::EnumLike(enums) => {
+                let mut opt_map: HashMap<&Ident, (&Type, bool)> = HashMap::new();
 
-                for (variant, body) in e.iter() {
+                let mut first_variant = None;
+                for (variant, body) in enums.iter() {
                     for (
                         Seg {
                             name: arg_name,
                             ty: arg_type,
                         },
                         _,
-                    ) in &body.optionals
+                    ) in body.optional_args()
                     {
-                        match map.entry(arg_name) {
-                            Entry::Occupied(mut occ) => {
-                                let (expect_type, defined_variants) = occ.get_mut();
+                        let Some(first_variant) = first_variant else {
+                            opt_map.insert(arg_name, (arg_type, false));
+                            continue;
+                        };
+
+                        match opt_map.get_mut(arg_name) {
+                            Some((expect_type, checked)) => {
                                 if *arg_type != **expect_type {
-                                    let display_vars = display_variants(defined_variants);
+                                    let et = expect_type.to_token_stream().to_string();
+                                    let at = arg_type.to_token_stream().to_string();
                                     return Err(Error::new_spanned(arg_name, format!(
                                         "type of the optional argument `{arg_name}` defined in variant `{variant}` \
-                                        is conflicts with other variants: {display_vars}"
+                                        is conflicts with other variants.\n\
+                                        expected: {et}\n\
+                                           found: {at}"
                                     )));
                                 }
-                                defined_variants.push(variant);
+                                *checked = true;
                             }
-                            Entry::Vacant(vac) => {
-                                vac.insert((arg_type, vec![variant]));
+                            None => {
+                                return Err(not_all_defined_error(arg_name, first_variant));
                             }
                         }
                     }
+
+                    if first_variant.is_none() {
+                        first_variant = Some(variant);
+                        continue;
+                    }
+
+                    for (&arg_name, (_, checked)) in opt_map.iter_mut() {
+                        if !*checked {
+                            return Err(not_all_defined_error(arg_name, variant));
+                        }
+                        *checked = false;
+                    }
                 }
 
-                for (&method, &(ty, ref variants)) in map.iter() {
-                    let display_vars = format!(
-                        "style `{}` only with these variants could call `{method}`: {}",
-                        self.name,
-                        display_variants(variants)
-                    );
-
+                for (&method, &(ty, _)) in opt_map.iter() {
+                    let variants = enums.keys();
                     methods.push((
                         method,
                         ty,
                         quote! {
-                            match self {
-                                #(| Self::#variants { #method: ref_mut, .. })* => *ref_mut = value,
-                                _ => panic!(#display_vars),
-                            }
+                            let (#(| Self::#variants { #method: ref_mut, .. })*) = self;
+                            *ref_mut = value;
                         },
                     ));
                 }
@@ -392,9 +291,13 @@ impl Definition {
     }
 }
 
-fn display_variants(vec: &Vec<&Ident>) -> String {
-    vec.iter()
-        .map(|id| format!("`{id}`"))
-        .collect::<Vec<_>>()
-        .join(", ")
+fn not_all_defined_error(arg_name: &Ident, example: &Ident) -> Error {
+    Error::new_spanned(
+        arg_name,
+        format!(
+            "optional argument `{arg_name}` is not defined by other variants: `{example}`.\n\
+            note: all variants must contain the same optional arguments, \
+            except the position that can be different."
+        ),
+    )
 }

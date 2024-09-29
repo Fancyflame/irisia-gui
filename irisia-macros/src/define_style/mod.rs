@@ -2,7 +2,9 @@ use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
 use syn::{Data, DataEnum, DataStruct, DeriveInput, Error, Result};
 
+mod def_body;
 mod define;
+mod impl_from;
 
 pub use define::parse as define;
 

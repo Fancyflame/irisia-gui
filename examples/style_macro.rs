@@ -3,20 +3,21 @@
 use irisia::{define_style, primitive::Length, skia_safe::Color};
 
 define_style! {
-    BoxShadow::Full:
+    BoxShadow:
         x Length,
         y Length,
-        blur Length = Length::zero(),
+        [
+            blur Length = Length::zero(),
+            spread Length = Length::zero()
+        ],
         color Color = Color::BLACK;
 
-    BoxShadow::Color:
-        color Color = Color::GREEN;
-
-    /// This is documentations
+    /// This is documentation
     #[derive(Clone)]
     Border:
         width Length,
         style &'static str = "solid",
+        /,
         color Color = Color::BLACK;
 }
 
