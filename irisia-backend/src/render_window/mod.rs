@@ -1,6 +1,8 @@
 use std::sync::{Arc, Condvar, Mutex as StdMutex};
 
 use anyhow::{anyhow, Result};
+use pixels::Pixels;
+use renderer::Renderer;
 use tokio::{sync::mpsc, task::LocalSet};
 use winit::event::WindowEvent;
 
@@ -27,9 +29,12 @@ impl RenderWindowController {
         let draw_finished = Arc::new((StdMutex::new(true), Condvar::new()));
         let draw_finished_cloned = draw_finished.clone();
 
+        // because some system needs renderer to be created on main thread, like MacOS.
+        let pixels = Renderer::create_pixels(&window).expect("cannot create pixels");
+
         std::thread::Builder::new()
             .name("irisia window".into())
-            .spawn(move || window_runtime(app, window, rx, draw_finished_cloned))
+            .spawn(move || window_runtime(app, window, pixels, rx, draw_finished_cloned))
             .unwrap();
 
         Self {
@@ -61,6 +66,7 @@ impl RenderWindowController {
 fn window_runtime(
     app: AppBuildFn,
     window: Arc<WinitWindow>,
+    pixels: Pixels,
     mut rx: mpsc::UnboundedReceiver<Command>,
     draw_finished: Arc<(StdMutex<bool>, Condvar)>,
 ) {
@@ -71,7 +77,9 @@ fn window_runtime(
 
     let local = LocalSet::new();
     local.block_on(&async_runtime, async move {
-        let mut rw = RenderWindow::new(app, window.clone()).expect("cannot launch renderer");
+        let mut rw =
+            RenderWindow::new(app, pixels, window.clone()).expect("cannot launch renderer");
+
         loop {
             let Some(cmd) = rx.recv().await else {
                 break;

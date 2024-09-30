@@ -40,13 +40,10 @@ fn fps_recorder() -> Arc<AtomicU16> {
 }
 
 impl Renderer {
-    pub fn new(window: &Arc<WinitWindow>) -> Result<Self> {
+    pub fn create_pixels(window: &WinitWindow) -> Result<Pixels> {
         let PhysicalSize { width, height } = window.inner_size();
-
-        let (w2x, h2x) = to_size2x(window.inner_size());
-
-        let pixels =
-            PixelsBuilder::new(width, height, SurfaceTexture::new(width, height, &**window))
+        Ok(
+            PixelsBuilder::new(width, height, SurfaceTexture::new(width, height, window))
                 .blend_state(BlendState::REPLACE)
                 .enable_vsync(false)
                 .device_descriptor(DeviceDescriptor {
@@ -55,7 +52,13 @@ impl Renderer {
                     limits: Limits::downlevel_defaults().using_resolution(Limits::default()),
                 })
                 .clear_color(pixels::wgpu::Color::BLUE)
-                .build()?;
+                .build()?,
+        )
+    }
+
+    pub fn new(pixels: Pixels, window: &Arc<WinitWindow>) -> Result<Self> {
+        let PhysicalSize { width, height } = window.inner_size();
+        let (w2x, h2x) = to_size2x(window.inner_size());
 
         let image_info = ImageInfo::new(
             (width as _, height as _),
