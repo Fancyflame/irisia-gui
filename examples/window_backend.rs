@@ -48,7 +48,7 @@ struct RectStyles {
 
 impl ElementInterfaces for Rectangle {
     type Props<'a> = RectProps;
-    const REQUIRE_INDEPENDENT_LAYER: bool = true;
+    const REQUIRE_INDEPENDENT_LAYER: bool = false;
 
     fn create<Slt>(
         props: Self::Props<'_>,

@@ -4,7 +4,7 @@ use anyhow::Result;
 use tokio::task::LocalSet;
 use winit::{
     event::{Event, StartCause, WindowEvent},
-    event_loop::{ControlFlow, EventLoop, EventLoopBuilder},
+    event_loop::{ControlFlow, EventLoop},
     window::WindowId,
 };
 
@@ -39,7 +39,7 @@ where
 
     let _guards = (tokio_runtime.enter(), local_set.enter());
 
-    let event_loop: EventLoop<WindowReg> = EventLoopBuilder::with_user_event().build()?;
+    let event_loop: EventLoop<WindowReg> = EventLoop::with_user_event().build()?;
     let mut window_map: HashMap<WindowId, RenderWindowController> = HashMap::new();
     WindowRegiterMutex::init(event_loop.create_proxy());
 
@@ -70,11 +70,11 @@ where
 
             Event::UserEvent(window_reg) => match window_reg {
                 WindowReg::RawWindowRequest {
-                    builder,
+                    window_attributes,
                     window_giver,
                 } => {
-                    let window = builder.build(window_target);
-                    let _ = window_giver.send(window);
+                    let result_window = window_target.create_window(window_attributes);
+                    let _ = window_giver.send(result_window);
                 }
 
                 WindowReg::WindowRegister { app, raw_window } => {

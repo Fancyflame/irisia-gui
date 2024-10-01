@@ -1,6 +1,6 @@
 use std::sync::Weak;
 
-use irisia_backend::{window_handle::WindowBuilder, WinitWindow};
+use irisia_backend::{winit::window::WindowAttributes, WinitWindow};
 
 use crate::{
     el_model::SharedEM,
@@ -28,12 +28,12 @@ pub struct Window {
 }
 
 impl Window {
-    pub async fn new<T, El>(wb: WindowBuilder, dom: T) -> Result<Self>
+    pub async fn new<T, El>(wa: WindowAttributes, dom: T) -> Result<Self>
     where
         T: StructureCreate<Target = SharedEM<El>> + Send + 'static,
         El: ElementInterfaces,
     {
-        new_window(wb, dom).await
+        new_window(wa, dom).await
     }
 
     pub fn winit_window(&self) -> &Weak<WinitWindow> {

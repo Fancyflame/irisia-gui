@@ -2,8 +2,8 @@ use std::{cell::Cell, rc::Rc, sync::Arc, time::Duration};
 
 use irisia_backend::{
     skia_safe::{colors::WHITE, Canvas},
-    window_handle::{RawWindowHandle, WindowBuilder},
-    winit::{dpi::PhysicalSize, event::WindowEvent},
+    window_handle::RawWindowHandle,
+    winit::{dpi::PhysicalSize, event::WindowEvent, window::WindowAttributes},
     AppWindow, WinitWindow,
 };
 
@@ -36,7 +36,6 @@ where
     fn on_redraw(&mut self, canvas: &Canvas, interval: Duration) -> Result<()> {
         self.gc.redraw_scheduler.redraw(canvas, interval)?;
 
-        // composite
         canvas.reset_matrix();
         canvas.clear(WHITE);
 
@@ -74,7 +73,7 @@ fn window_size_to_draw_region(size: PhysicalSize<u32>) -> Region {
 }
 
 pub(super) async fn new_window<El, F>(
-    window_builder: WindowBuilder,
+    window_attributes: WindowAttributes,
     root_creator: F,
 ) -> Result<Window>
 where
@@ -116,7 +115,7 @@ where
     let RawWindowHandle {
         raw_window,
         close_handle,
-    } = RawWindowHandle::create(create_app, window_builder).await?;
+    } = RawWindowHandle::create(create_app, window_attributes).await?;
 
     Ok(Window {
         winit_window: Arc::downgrade(&raw_window),

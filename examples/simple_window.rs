@@ -11,9 +11,7 @@ use irisia::{
     element::{CompInputWatcher, ComponentTemplate, OneStructureCreate},
     event::standard::{PointerDown, PointerMove},
     skia_safe::Color,
-    style,
-    winit::window::WindowBuilder,
-    Result,
+    style, Result, WinitWindow,
 };
 
 use rand::Rng;
@@ -24,7 +22,7 @@ mod window_backend;
 #[irisia::main]
 async fn main() -> Result<()> {
     Window::new(
-        WindowBuilder::new().with_title("hello irisia"),
+        WinitWindow::default_attributes().with_title("hello irisia"),
         build!(App;),
     )
     .await
@@ -84,6 +82,7 @@ impl ComponentTemplate for App {
 impl App {
     fn structure(&self) -> impl OneStructureCreate {
         let rects = &self.rects;
+        let mut move_count = 0;
 
         build! {
             input rects;

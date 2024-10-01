@@ -7,12 +7,12 @@ use crate::{
 
 use anyhow::Result;
 use tokio::sync::oneshot;
-use winit::window::WindowBuilder;
+use winit::window::WindowAttributes;
 
 use super::{close_handle::CloseHandle, RawWindowHandle};
 
 impl RawWindowHandle {
-    pub async fn create<A, F>(create_app: F, wb: WindowBuilder) -> Result<Self>
+    pub async fn create<A, F>(create_app: F, wa: WindowAttributes) -> Result<Self>
     where
         A: AppWindow,
         F: FnOnce(Arc<WinitWindow>, CloseHandle) -> A + Send + 'static,
@@ -22,7 +22,7 @@ impl RawWindowHandle {
         WindowRegiterMutex::lock()
             .await
             .send(WindowReg::RawWindowRequest {
-                builder: wb,
+                window_attributes: wa,
                 window_giver,
             });
 
