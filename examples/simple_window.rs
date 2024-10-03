@@ -82,7 +82,6 @@ impl ComponentTemplate for App {
 impl App {
     fn structure(&self) -> impl OneStructureCreate {
         let rects = &self.rects;
-        let mut move_count = 0;
 
         build! {
             input rects;
