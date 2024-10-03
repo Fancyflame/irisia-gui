@@ -95,7 +95,11 @@ fn emit_physical_pointer_event(
         }),
         (PointerStateChange::LeaveViewport, None) => ed.emit_trusted(PointerOut),
         _ => {
-            unreachable!("unexpected new-pointer-state and optioned position combination")
+            eprintln!(
+                "warning: unexpected new-pointer-state and optioned position combination ({}:{})",
+                file!(),
+                line!() - 2
+            )
         }
     }
 }

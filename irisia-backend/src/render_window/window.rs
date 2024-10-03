@@ -4,6 +4,7 @@ use std::{
 };
 
 use anyhow::Result;
+use pixels::Pixels;
 use winit::event::WindowEvent;
 
 use crate::{runtime::rt_event::AppBuildFn, AppWindow, WinitWindow};
@@ -18,10 +19,10 @@ pub struct RenderWindow {
 }
 
 impl RenderWindow {
-    pub fn new(app: AppBuildFn, window: Arc<WinitWindow>) -> Result<Self> {
+    pub fn new(app: AppBuildFn, pixels: Pixels, window: Arc<WinitWindow>) -> Result<Self> {
         Ok(RenderWindow {
             app: app(),
-            renderer: Renderer::new(&window)?,
+            renderer: Renderer::new(pixels, &window)?,
             window,
             last_frame_instant: None,
         })
