@@ -1,62 +1,33 @@
-pub use self::read_style::{ReadStyle, StyleBuffer};
+use reader::ParseRule;
 
-mod read_style;
+pub use value::StyleValue;
 
-pub trait Style: Clone + 'static {}
+mod reader;
+pub mod value;
 
-pub trait WriteStyle {
-    fn write_style<R>(&mut self, read: &R)
-    where
-        R: ReadStyle + ?Sized;
+pub type ReadStyleFn<'a> = &'a mut dyn FnMut(ParseRule);
 
-    #[inline]
-    fn from_style<R>(read: &R) -> Self
-    where
-        Self: Default,
-        R: ReadStyle + ?Sized,
-    {
-        let mut this = Self::default();
-        this.write_style(read);
-        this
+pub struct StyleBuffer<'a>(ReadStyleFn<'a>);
+
+impl StyleBuffer<'_> {
+    pub fn write(&mut self, rule_name: &str, body: &[StyleValue]) {
+        (self.0)(ParseRule::new(rule_name, body))
     }
 }
 
-impl<T> WriteStyle for Option<T>
+pub trait StyleFn {
+    fn read(&self, f: ReadStyleFn);
+}
+
+impl<F> StyleFn for F
 where
-    T: Style,
+    F: Fn(StyleBuffer),
 {
-    #[inline]
-    fn write_style<R>(&mut self, read: &R)
-    where
-        R: ReadStyle + ?Sized,
-    {
-        read.read_style_into(&mut StyleBuffer(self));
+    fn read(&self, f: ReadStyleFn) {
+        self(StyleBuffer(f))
     }
 }
 
-impl<T> WriteStyle for T
-where
-    T: Style,
-{
-    #[inline]
-    fn write_style<R>(&mut self, read: &R)
-    where
-        R: ReadStyle + ?Sized,
-    {
-        let mut option = None;
-        read.read_style_into(&mut StyleBuffer(&mut option));
-        if let Some(value) = option {
-            *self = value;
-        }
-    }
-}
-
-pub trait StyleFn<Tuple>: Style {
-    fn from(tuple: Tuple) -> Self;
-}
-
-impl<T: Style> StyleFn<(Self,)> for T {
-    fn from(tuple: (Self,)) -> Self {
-        tuple.0
-    }
+impl StyleFn for () {
+    fn read(&self, _: ReadStyleFn) {}
 }

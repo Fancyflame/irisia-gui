@@ -19,7 +19,7 @@ use crate::{
     event::{standard::ElementAbandoned, EventDispatcher, Listen},
     primitive::Region,
     structure::StructureCreate,
-    style::ReadStyle,
+    style::StyleFn,
     ElementInterfaces, Result,
 };
 
@@ -29,12 +29,12 @@ use super::{
 };
 
 #[derive(Clone)]
-pub struct ElementAccess(Rc<Shared<dyn ReadStyle>>);
+pub struct ElementAccess(Rc<Shared<dyn StyleFn>>);
 
 pub struct ElementModel<El> {
     pub(crate) el: RefCell<InitLater<El>>,
     pub(crate) event_mgr: RefCell<NodeEventMgr>,
-    pub(crate) shared: Rc<Shared<dyn ReadStyle>>, // TODO: 双Rc优化
+    pub(crate) shared: Rc<Shared<dyn StyleFn>>, // TODO: 双Rc优化
     pub(crate) redraw_hook: RcObserver,
 }
 
@@ -113,7 +113,7 @@ impl ElementAccess {
         self.0.request_redraw()
     }
 
-    pub fn styles(&self) -> &dyn ReadStyle {
+    pub fn styles(&self) -> &dyn StyleFn {
         &self.0.styles
     }
 
@@ -148,7 +148,7 @@ impl<El> ElementModel<El> {
     ) -> SharedEM<El>
     where
         El: ElementInterfaces,
-        Sty: ReadStyle + 'static,
+        Sty: StyleFn + 'static,
         Slt: StructureCreate,
     {
         let ed = EventDispatcher::new();

@@ -1,5 +1,5 @@
 use irisia::{
-    style::{ReadStyle, WriteStyle},
+    style::{StyleFn, WriteStyle},
     Style,
 };
 use irisia_macros::style;
@@ -35,7 +35,7 @@ struct TestStyle {
 impl WriteStyle for TestStyle {
     fn write_style<R>(&mut self, read: &R)
     where
-        R: ReadStyle + ?Sized,
+        R: StyleFn + ?Sized,
     {
         self.color = <_>::from_style(read);
         self.font_size = <_>::from_style(read);

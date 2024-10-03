@@ -6,7 +6,7 @@ use crate::{
     application::event_comp::IncomingPointerEvent,
     el_model::{layer::LayerRebuilder, EMCreateCtx, RenderOn, SharedEM},
     primitive::Region,
-    style::ReadStyle,
+    style::StyleFn,
     ElementInterfaces, Result,
 };
 
@@ -34,9 +34,9 @@ pub trait VisitBy: 'static {
 pub trait RenderMultiple: 'static {
     fn render(&mut self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()>;
 
-    fn peek_styles(&self, f: &mut dyn FnMut(&dyn ReadStyle));
+    fn peek_styles(&self, f: &mut dyn FnMut(&dyn StyleFn));
 
-    fn layout(&mut self, f: &mut dyn FnMut(&dyn ReadStyle) -> Option<Region>) -> Result<()>;
+    fn layout(&mut self, f: &mut dyn FnMut(&dyn StyleFn) -> Option<Region>) -> Result<()>;
 
     fn emit_event(&self, ipe: &IncomingPointerEvent) -> bool;
 
@@ -75,12 +75,12 @@ where
         self.visit(&mut Render { lr, interval })
     }
 
-    fn peek_styles(&self, f: &mut dyn FnMut(&dyn ReadStyle)) {
+    fn peek_styles(&self, f: &mut dyn FnMut(&dyn StyleFn)) {
         struct PeekStyles<F>(F);
 
         impl<F> Visitor for PeekStyles<F>
         where
-            F: FnMut(&dyn ReadStyle),
+            F: FnMut(&dyn StyleFn),
         {
             fn visit<El>(&mut self, em: &SharedEM<El>) -> Result<()>
             where
@@ -94,12 +94,12 @@ where
         self.visit(&mut PeekStyles(f)).unwrap()
     }
 
-    fn layout(&mut self, f: &mut dyn FnMut(&dyn ReadStyle) -> Option<Region>) -> Result<()> {
+    fn layout(&mut self, f: &mut dyn FnMut(&dyn StyleFn) -> Option<Region>) -> Result<()> {
         struct Layout<F>(F);
 
         impl<F> Visitor for Layout<F>
         where
-            F: FnMut(&dyn ReadStyle) -> Option<Region>,
+            F: FnMut(&dyn StyleFn) -> Option<Region>,
         {
             fn visit<El>(&mut self, em: &SharedEM<El>) -> Result<()>
             where
