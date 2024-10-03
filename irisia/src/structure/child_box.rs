@@ -3,7 +3,7 @@ use std::time::Duration;
 use super::{RenderMultiple, StructureCreate};
 use crate::{
     application::event_comp::IncomingPointerEvent, el_model::layer::LayerRebuilder,
-    primitive::Region, structure::EMCreateCtx, style::ReadStyle, Result,
+    primitive::Region, structure::EMCreateCtx, style::StyleFn, Result,
 };
 
 pub struct ChildBox(Box<dyn RenderMultiple>);
@@ -22,14 +22,14 @@ impl ChildBox {
 
     pub fn peek_styles<F>(&self, mut f: F)
     where
-        F: FnMut(&dyn ReadStyle),
+        F: FnMut(&dyn StyleFn),
     {
         self.0.peek_styles(&mut f)
     }
 
     pub fn layout<F>(&mut self, mut f: F) -> Result<()>
     where
-        F: FnMut(&dyn ReadStyle) -> Option<Region>,
+        F: FnMut(&dyn StyleFn) -> Option<Region>,
     {
         self.0.layout(&mut f)
     }
