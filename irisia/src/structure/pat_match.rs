@@ -18,24 +18,11 @@ pub struct PatMatch<T, S1, F1, S2> {
     or_else: S2,
 }
 
-impl<T, S1, F1, S2> VisitBy for PatMatch<T, S1, F1, S2>
-where
-    T: Clone + 'static,
-    F1: FnOnce(ReadWire<T>) -> S1 + 'static,
-    S1: VisitBy,
-    S2: VisitBy,
-{
-    fn visit<V>(&self, v: &mut V) -> crate::Result<()>
-    where
-        V: super::Visitor,
-    {
-        if self.cond.read().is_none() {
-            return self.or_else.visit(v);
-        }
-
+impl<T, S1, F1, S2> PatMatch<T, S1, F1, S2> {
+    fn init_if_need(&self) {
         let borrowed = self.if_selected.borrow();
         match &*borrowed {
-            IfSelected::Initialized(branch) => return branch.visit(v),
+            IfSelected::Initialized(_) => return,
             IfSelected::Intermediate => panic!(
                 "thread was panicked during last updating, this structure should not be used anymore"
             ),
@@ -66,10 +53,46 @@ where
             )
         };
 
-        let tree = creator(value_wire);
-        let result = tree.visit(v);
-        *borrow_mut = IfSelected::Initialized(tree);
-        result
+        *borrow_mut = IfSelected::Initialized(creator(value_wire));
+    }
+}
+
+impl<Cp, T, S1, F1, S2> VisitBy<Cp> for PatMatch<T, S1, F1, S2>
+where
+    T: Clone + 'static,
+    F1: FnOnce(ReadWire<T>) -> S1 + 'static,
+    S1: VisitBy<Cp>,
+    S2: VisitBy<Cp>,
+{
+    fn visit<V>(&self, v: &mut V) -> crate::Result<()>
+    where
+        V: super::Visitor,
+    {
+        if self.cond.read().is_none() {
+            return self.or_else.visit(v);
+        }
+
+        self.init_if_need();
+        if let IfSelected::Initialized(x) = &*self.if_selected.borrow() {
+            x.visit(v)
+        } else {
+            unreachable!();
+        }
+    }
+
+    fn visit_mut<V>(&mut self, v: &mut V) -> crate::Result<()>
+    where
+        V: super::Visitor,
+    {
+        if self.cond.read().is_none() {
+            return self.or_else.visit_mut(v);
+        }
+
+        if let IfSelected::Initialized(x) = &mut *self.if_selected.borrow_mut() {
+            x.visit_mut(v)
+        } else {
+            unreachable!();
+        }
     }
 }
 

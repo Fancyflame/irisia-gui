@@ -1,12 +1,10 @@
-use std::time::Duration;
-
 use anyhow::anyhow;
 
 use crate::{
     application::event_comp::IncomingPointerEvent,
-    el_model::{layer::LayerRebuilder, EMCreateCtx, RenderOn, SharedEM},
+    el_model::{EMCreateCtx, ElementModel},
+    element::Render,
     primitive::Region,
-    style::StyleFn,
     ElementInterfaces, Result,
 };
 
@@ -25,94 +23,100 @@ mod pat_match;
 mod repeat;
 mod single;
 
-pub trait VisitBy: 'static {
+pub trait VisitBy<Cp>: 'static {
     fn visit<V>(&self, v: &mut V) -> Result<()>
     where
-        V: Visitor;
+        V: Visitor<Cp>;
+
+    fn visit_mut<V>(&mut self, v: &mut V) -> Result<()>
+    where
+        V: VisitorMut<Cp>;
 }
 
-pub trait RenderMultiple: 'static {
-    fn render(&mut self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()>;
+type PropsFn<'a, Cp> = &'a mut dyn FnMut(&Cp);
+type LayoutFn<'a, Cp> = &'a mut dyn FnMut(&Cp) -> Option<Region>;
 
-    fn peek_styles(&self, f: &mut dyn FnMut(&dyn StyleFn));
+pub trait RenderMultiple<T>: 'static {
+    fn render(&mut self, args: Render) -> Result<()>;
 
-    fn layout(&mut self, f: &mut dyn FnMut(&dyn StyleFn) -> Option<Region>) -> Result<()>;
+    fn props(&self, f: PropsFn<T>);
+
+    fn layout(&mut self, f: LayoutFn<T>) -> Result<()>;
 
     fn emit_event(&self, ipe: &IncomingPointerEvent) -> bool;
 
     fn len(&self) -> usize;
 }
 
-pub trait Visitor {
-    fn visit<El>(&mut self, em: &SharedEM<El>) -> Result<()>
+pub trait Visitor<Cp> {
+    fn visit<El>(&mut self, em: &ElementModel<El, Cp>) -> Result<()>
     where
         El: ElementInterfaces;
 }
 
-impl<T> RenderMultiple for T
-where
-    T: VisitBy,
-{
-    fn render(&mut self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()> {
-        struct Render<'a, 'b> {
-            lr: &'a mut LayerRebuilder<'b>,
-            interval: Duration,
-        }
+pub trait VisitorMut<Cp> {
+    fn visit_mut<El>(&mut self, em: &mut ElementModel<El, Cp>) -> Result<()>
+    where
+        El: ElementInterfaces;
+}
 
-        impl Visitor for Render<'_, '_> {
-            fn visit<El>(&mut self, em: &SharedEM<El>) -> Result<()>
+impl<T, Cp> RenderMultiple<Cp> for T
+where
+    T: VisitBy<Cp>,
+{
+    fn render(&mut self, args: Render) -> Result<()> {
+        struct Vis<'a>(Render<'a>);
+
+        impl<Cp> VisitorMut<Cp> for Vis<'_> {
+            fn visit_mut<El>(&mut self, em: &mut ElementModel<El, Cp>) -> Result<()>
             where
                 El: ElementInterfaces,
             {
                 em.shared.redraw_signal_sent.set(false);
-                match &em.shared.render_on {
-                    RenderOn::NewLayer { layer, .. } => self.lr.append_layer(layer),
-                    RenderOn::ParentLayer(_) => em.monitoring_render(self.lr, self.interval),
+                let draw_region = em.shared.draw_region.get();
+                if draw_region.intersects(self.0.dirty_zone) {
+                    em.render(self.0)
+                } else {
+                    Ok(())
                 }
             }
         }
 
-        self.visit(&mut Render { lr, interval })
+        self.visit_mut(&mut Vis(args))
     }
 
-    fn peek_styles(&self, f: &mut dyn FnMut(&dyn StyleFn)) {
-        struct PeekStyles<F>(F);
+    fn props(&self, f: PropsFn<Cp>) {
+        struct Vis<'a, Cp>(PropsFn<'a, Cp>);
 
-        impl<F> Visitor for PeekStyles<F>
-        where
-            F: FnMut(&dyn StyleFn),
-        {
-            fn visit<El>(&mut self, em: &SharedEM<El>) -> Result<()>
+        impl<Cp> Visitor<Cp> for Vis<'_, Cp> {
+            fn visit<El>(&mut self, em: &ElementModel<El, Cp>) -> Result<()>
             where
                 El: ElementInterfaces,
             {
-                (self.0)(&em.shared.styles);
+                (self.0)(&em.child_props);
                 Ok(())
             }
         }
 
-        self.visit(&mut PeekStyles(f)).unwrap()
+        self.visit(&mut Vis(f)).unwrap()
     }
 
-    fn layout(&mut self, f: &mut dyn FnMut(&dyn StyleFn) -> Option<Region>) -> Result<()> {
-        struct Layout<F>(F);
+    fn layout(&mut self, f: LayoutFn<Cp>) -> Result<()> {
+        struct Vis<'a, Cp>(LayoutFn<'a, Cp>);
 
-        impl<F> Visitor for Layout<F>
-        where
-            F: FnMut(&dyn StyleFn) -> Option<Region>,
-        {
-            fn visit<El>(&mut self, em: &SharedEM<El>) -> Result<()>
+        impl<Cp> VisitorMut<Cp> for Vis<'_, Cp> {
+            fn visit_mut<El>(&mut self, em: &ElementModel<El, Cp>) -> Result<()>
             where
                 El: ElementInterfaces,
             {
-                let option = (self.0)(&em.shared.styles);
+                let option = (self.0)(&em.child_props);
                 match option {
                     Some(region) => {
                         let old_region = em.shared.draw_region.get();
 
                         if region != old_region {
                             em.set_draw_region(region);
-                            em.request_redraw();
+                            em.request_redraw(); // TODO: 是否需要重绘？
                         }
 
                         Ok(())
@@ -122,17 +126,17 @@ where
             }
         }
 
-        self.visit(&mut Layout(f))
+        self.visit(&mut Vis(f))
     }
 
-    fn emit_event(&self, ipe: &IncomingPointerEvent) -> bool {
-        struct EmitEvent<'a> {
+    fn emit_event(&mut self, ipe: &IncomingPointerEvent) -> bool {
+        struct Vis<'a> {
             children_entered: bool,
             ipe: &'a IncomingPointerEvent<'a>,
         }
 
-        impl Visitor for EmitEvent<'_> {
-            fn visit<El>(&mut self, em: &SharedEM<El>) -> Result<()>
+        impl<Cp> VisitorMut<Cp> for Vis<'_> {
+            fn visit_mut<El>(&mut self, em: &ElementModel<El, Cp>) -> Result<()>
             where
                 El: ElementInterfaces,
             {
@@ -141,20 +145,20 @@ where
             }
         }
 
-        let mut ee = EmitEvent {
+        let mut ee = Vis {
             children_entered: false,
             ipe,
         };
 
-        self.visit(&mut ee).unwrap();
+        self.visit_mut(&mut ee).unwrap();
         ee.children_entered
     }
 
     fn len(&self) -> usize {
-        struct VisitLength(usize);
+        struct Vis(usize);
 
-        impl Visitor for VisitLength {
-            fn visit<El>(&mut self, _: &SharedEM<El>) -> Result<()>
+        impl<Cp> Visitor<Cp> for Vis {
+            fn visit<El>(&mut self, _: &ElementModel<El, Cp>) -> Result<()>
             where
                 El: ElementInterfaces,
             {
@@ -163,14 +167,14 @@ where
             }
         }
 
-        let mut visitor = VisitLength(0);
+        let mut visitor = Vis(0);
         self.visit(&mut visitor).unwrap();
         visitor.0
     }
 }
 
 pub trait StructureCreate {
-    type Target: VisitBy;
+    type Target;
 
     fn create(self, ctx: &EMCreateCtx) -> Self::Target;
 }
@@ -178,9 +182,9 @@ pub trait StructureCreate {
 impl<F, R> StructureCreate for F
 where
     F: FnOnce(&EMCreateCtx) -> R,
-    R: VisitBy,
 {
     type Target = R;
+
     fn create(self, ctx: &EMCreateCtx) -> Self::Target {
         self(ctx)
     }

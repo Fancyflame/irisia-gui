@@ -4,10 +4,7 @@ use irisia_backend::{window_handle::CloseHandle, WinitWindow};
 
 use crate::event::EventDispatcher;
 
-use super::{
-    event_comp::global::focusing::Focusing,
-    redraw_scheduler::{RedrawScheduler, StandaloneRender},
-};
+use super::{event_comp::global::focusing::Focusing, redraw_scheduler::RedrawScheduler};
 
 pub struct GlobalContent {
     pub(super) focusing: Focusing,

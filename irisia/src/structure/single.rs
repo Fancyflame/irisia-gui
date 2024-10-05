@@ -1,29 +1,28 @@
 use super::{StructureCreate, VisitBy};
 use crate::{
-    el_model::{EMCreateCtx, ElementAccess, ElementModel, SharedEM},
+    el_model::{EMCreateCtx, ElementAccess, ElementModel},
     element::FromUserProps,
-    style::StyleFn,
     ElementInterfaces,
 };
 
-pub fn single<'a, El>(
+pub fn single<'a, El, Cp>(
     props: <El::Props<'a> as FromUserProps>::Props,
-    styles: impl StyleFn + 'static,
+    child_props: Cp,
     slot: impl StructureCreate + 'a,
     on_create: impl FnOnce(ElementAccess) + 'a,
-) -> impl StructureCreate<Target = SharedEM<El>> + 'a
+) -> impl StructureCreate<Target = ElementModel<El, Cp>> + 'a
 where
     El: ElementInterfaces,
 {
     move |context: &EMCreateCtx| {
         let props = <El::Props<'a> as FromUserProps>::take(props);
-        let em = ElementModel::new(context, props, styles, slot);
+        let em = ElementModel::new(context, props, child_props, slot);
         on_create(em.access());
         em
     }
 }
 
-impl<El> VisitBy for SharedEM<El>
+impl<El, Cp> VisitBy<Cp> for ElementModel<El, Cp>
 where
     El: ElementInterfaces,
 {
@@ -32,5 +31,12 @@ where
         V: super::Visitor,
     {
         v.visit(self)
+    }
+
+    fn visit_mut<V>(&mut self, v: &mut V) -> crate::Result<()>
+    where
+        V: super::VisitorMut<Cp>,
+    {
+        v.visit_mut(self)
     }
 }

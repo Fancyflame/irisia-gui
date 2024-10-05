@@ -1,15 +1,12 @@
-use std::time::Duration;
-
 use crate::{
     application::event_comp::IncomingPointerEvent,
-    data_flow::ReadWire,
-    el_model::{layer::LayerRebuilder, EMCreateCtx, ElInputWatcher, ElementAccess, SharedEM},
+    el_model::{EMCreateCtx, ElementAccess, ElementModel},
     primitive::Region,
     structure::{ChildBox, StructureCreate},
     ElementInterfaces,
 };
 
-use super::FromUserProps;
+use super::{FromUserProps, Render};
 
 pub trait ComponentTemplate: Sized + 'static {
     type Props<'a>: FromUserProps;
@@ -18,15 +15,13 @@ pub trait ComponentTemplate: Sized + 'static {
         props: Self::Props<'_>,
         slot: Slt,
         access: ElementAccess,
-        watch_input: CompInputWatcher<Self>,
-    ) -> (Self, impl OneStructureCreate)
+    ) -> impl OneStructureCreate
     where
         Slt: StructureCreate;
 }
 
-pub struct Component<T> {
-    inner: T,
-    slot: ChildBox,
+pub struct Component<Cp> {
+    slot: ChildBox<Cp>,
 }
 
 impl<T> ElementInterfaces for Component<T>
@@ -39,23 +34,18 @@ where
         props: Self::Props<'_>,
         slot: Slt,
         access: ElementAccess,
-        watch_input: ElInputWatcher<Self>,
         ctx: &EMCreateCtx,
     ) -> Self
     where
         Slt: StructureCreate,
     {
-        let (inner, slot) =
-            <T as ComponentTemplate>::create(props, slot, access, CompInputWatcher(watch_input));
-
         Component {
-            inner,
-            slot: ChildBox::new(slot, ctx),
+            slot: ChildBox::new(T::create(props, slot, access), ctx),
         }
     }
 
-    fn render(&mut self, lr: &mut LayerRebuilder, interval: Duration) -> crate::Result<()> {
-        self.slot.render(lr, interval)
+    fn render(&mut self, args: Render) -> crate::Result<()> {
+        self.slot.render(args)
     }
 
     fn children_emit_event(&mut self, ipe: &IncomingPointerEvent) -> bool {
@@ -70,48 +60,18 @@ where
     }
 }
 
-pub struct CompInputWatcher<El>(ElInputWatcher<Component<El>>);
-
-impl<El> Clone for CompInputWatcher<El> {
-    fn clone(&self) -> Self {
-        CompInputWatcher(self.0.clone())
-    }
-}
-
-impl<El: ComponentTemplate> CompInputWatcher<El> {
-    pub fn watch<U, F>(&self, watch: ReadWire<U>, mut func: F)
-    where
-        U: 'static,
-        F: FnMut(&mut El, &U) + 'static,
-    {
-        self.0.watch(watch, move |comp, watch_data| {
-            func(&mut comp.inner, watch_data)
-        });
-    }
-
-    pub fn invoke<F, R>(&self, f: F) -> R
-    where
-        F: FnOnce(&El) -> R,
-    {
-        self.0.invoke(|comp| f(&comp.inner))
-    }
-
-    pub fn invoke_mut<F, R>(&self, f: F) -> R
-    where
-        F: FnOnce(&mut El) -> R,
-    {
-        self.0.invoke_mut(|comp| f(&mut comp.inner))
-    }
-}
-
-pub trait OneStructureCreate: StructureCreate<Target = SharedEM<Self::Element>> {
+pub trait OneStructureCreate:
+    StructureCreate<Target = ElementModel<Self::Element, Self::OneChildProps>>
+{
     type Element: ElementInterfaces;
+    type OneChildProps;
 }
 
-impl<T, El> OneStructureCreate for T
+impl<T, El, Cp> OneStructureCreate for T
 where
-    T: StructureCreate<Target = SharedEM<El>>,
+    T: StructureCreate<Target = ElementModel<El, Cp>>,
     El: ElementInterfaces,
 {
     type Element = El;
+    type OneChildProps = Cp;
 }

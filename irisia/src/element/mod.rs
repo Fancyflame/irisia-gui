@@ -3,15 +3,23 @@ use std::time::Duration;
 use crate::{
     application::event_comp::IncomingPointerEvent,
     data_flow::{const_wire, ReadWire},
-    el_model::{layer::LayerRebuilder, EMCreateCtx, ElInputWatcher, ElementAccess},
+    el_model::{EMCreateCtx, ElementAccess},
     primitive::Region,
     structure::StructureCreate,
     Result,
 };
 
-pub use component::{CompInputWatcher, Component, ComponentTemplate, OneStructureCreate};
+pub use component::{Component, ComponentTemplate, OneStructureCreate};
+use irisia_backend::skia_safe::Canvas;
 
 mod component;
+
+#[derive(Clone, Copy)]
+pub struct Render<'a> {
+    pub canvas: &'a Canvas,
+    pub dirty_zone: Region,
+    pub interval: Duration,
+}
 
 /// Element is a thing can draw itself on the given canvas,
 /// according to its properties, styles and given drawing region.
@@ -26,13 +34,12 @@ pub trait ElementInterfaces: Sized + 'static {
         props: Self::Props<'_>,
         slot: Slt,
         access: ElementAccess,
-        watch_input: ElInputWatcher<Self>,
         ctx: &EMCreateCtx,
     ) -> Self
     where
         Slt: StructureCreate;
 
-    fn render(&mut self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()>;
+    fn render(&mut self, args: Render) -> Result<()>;
     fn set_draw_region(&mut self, dr: Region);
     fn children_emit_event(&mut self, ipe: &IncomingPointerEvent) -> bool;
 }

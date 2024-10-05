@@ -1,14 +1,12 @@
-use std::time::Duration;
-
 use super::{RenderMultiple, StructureCreate};
 use crate::{
-    application::event_comp::IncomingPointerEvent, el_model::layer::LayerRebuilder,
-    primitive::Region, structure::EMCreateCtx, style::StyleFn, Result,
+    application::event_comp::IncomingPointerEvent, element::Render, primitive::Region,
+    structure::EMCreateCtx, Result,
 };
 
-pub struct ChildBox(Box<dyn RenderMultiple>);
+pub struct ChildBox<Cp>(Box<dyn RenderMultiple<Cp>>);
 
-impl ChildBox {
+impl<Cp> ChildBox<Cp> {
     pub fn new<T>(updater: T, ctx: &EMCreateCtx) -> Self
     where
         T: StructureCreate,
@@ -16,25 +14,25 @@ impl ChildBox {
         ChildBox(Box::new(updater.create(ctx)))
     }
 
-    pub fn render(&mut self, lr: &mut LayerRebuilder, interval: Duration) -> Result<()> {
-        self.0.render(lr, interval)
+    pub fn render(&mut self, args: Render) -> Result<()> {
+        self.0.render(args)
     }
 
-    pub fn peek_styles<F>(&self, mut f: F)
+    pub fn props<F>(&self, mut f: F)
     where
-        F: FnMut(&dyn StyleFn),
+        F: FnMut(&Cp),
     {
-        self.0.peek_styles(&mut f)
+        self.0.props(&mut f);
     }
 
     pub fn layout<F>(&mut self, mut f: F) -> Result<()>
     where
-        F: FnMut(&dyn StyleFn) -> Option<Region>,
+        F: FnMut(&Cp) -> Option<Region>,
     {
         self.0.layout(&mut f)
     }
 
-    pub fn emit_event(&self, ipe: &IncomingPointerEvent) -> bool {
+    pub fn emit_event(&mut self, ipe: &IncomingPointerEvent) -> bool {
         self.0.emit_event(ipe)
     }
 

@@ -85,7 +85,3 @@ fn fmt_errors(errors: &[anyhow::Error]) -> Result<()> {
         msg
     ))
 }
-
-pub(crate) trait StandaloneRender {
-    fn standalone_render(&self, canvas: &Canvas, interval: Duration) -> Result<()>;
-}

@@ -9,21 +9,6 @@ use irisia::{
     user_props, Event, Result, WriteStyle,
 };
 
-pub mod sty {
-    use irisia::{primitive::Length, Style};
-
-    #[derive(Style, Clone, Copy, PartialEq)]
-    pub struct Color(pub irisia::skia_safe::Color);
-
-    #[derive(Style, Clone, Copy, PartialEq)]
-    #[style(all)]
-    pub struct Width(pub Length);
-
-    #[derive(Style, Clone, Copy, PartialEq)]
-    #[style(all)]
-    pub struct Height(pub Length);
-}
-
 pub struct Rectangle {
     is_force: bool,
     props: RectProps,
@@ -37,13 +22,6 @@ pub struct RectProps {
 
     #[props(default)]
     pub force_height: Option<f32>,
-}
-
-#[derive(Default, WriteStyle)]
-struct RectStyles {
-    width: Option<sty::Width>,
-    height: Option<sty::Height>,
-    color: Option<sty::Color>,
 }
 
 impl ElementInterfaces for Rectangle {

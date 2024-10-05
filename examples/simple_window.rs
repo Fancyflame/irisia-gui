@@ -95,12 +95,6 @@ impl App {
                         Rectangle {
                             force_color <= color.to_wire(),
                             force_height <= force_height.clone(),
-                            @style: style! {
-                                in window_backend::sty {
-                                    Width: 50px;
-                                    Height: 70px + 40px * *index.read() as f32;
-                                }
-                            },
                             @on_create: move |access| {
                                 access.listen().spawn(move |_: PointerMove| {
                                     force_height.set(Some(rand::thread_rng().gen_range(50.0..200.0)));

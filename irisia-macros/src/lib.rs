@@ -8,9 +8,6 @@ use syn::{
 
 mod build_macro;
 mod derive_props;
-mod derive_read_style;
-mod derive_style;
-mod derive_write_style;
 mod inner_impl_listen;
 mod main_macro;
 mod parse_incomplete;
@@ -42,27 +39,6 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
         {}
     }
     .into()
-}
-
-#[proc_macro_derive(Style, attributes(style))]
-pub fn derive_style_trait(input: TokenStream) -> TokenStream {
-    result_into_stream(derive_style::derive_style(parse_macro_input!(
-        input as DeriveInput
-    )))
-}
-
-#[proc_macro_derive(WriteStyle, attributes(style))]
-pub fn derive_write_style(input: TokenStream) -> TokenStream {
-    result_into_stream(derive_write_style::derive(parse_macro_input!(
-        input as DeriveInput
-    )))
-}
-
-#[proc_macro_derive(ReadStyle)]
-pub fn derive_read_style(input: TokenStream) -> TokenStream {
-    result_into_stream(derive_read_style::derive(parse_macro_input!(
-        input as DeriveInput
-    )))
 }
 
 #[proc_macro_attribute]

@@ -8,8 +8,8 @@ use irisia_backend::{
 };
 
 use crate::{
-    el_model::{EMCreateCtx, SharedEM},
-    element::ElementInterfaces,
+    el_model::{EMCreateCtx, ElementModel},
+    element::{ElementInterfaces, OneStructureCreate},
     event::{standard::WindowDestroyed, EventDispatcher},
     primitive::{Point, Region},
     structure::StructureCreate,
@@ -26,7 +26,7 @@ use super::{
 pub(super) struct BackendRuntime<El> {
     gem: GlobalEventMgr,
     gc: Rc<GlobalContent>,
-    root: SharedEM<El>,
+    root: ElementModel<El, ()>,
 }
 
 impl<El> AppWindow for BackendRuntime<El>
@@ -72,13 +72,12 @@ fn window_size_to_draw_region(size: PhysicalSize<u32>) -> Region {
     )
 }
 
-pub(super) async fn new_window<El, F>(
+pub(super) async fn new_window<F>(
     window_attributes: WindowAttributes,
     root_creator: F,
 ) -> Result<Window>
 where
-    F: StructureCreate<Target = SharedEM<El>> + Send + 'static,
-    El: ElementInterfaces,
+    F: OneStructureCreate<OneChildProps = ()> + Send + 'static,
 {
     let ev_disp = EventDispatcher::new();
 
@@ -99,7 +98,6 @@ where
 
             let root = root_creator.create(&EMCreateCtx {
                 global_content: gc.clone(),
-                parent_layer: None,
             });
 
             root.set_draw_region(window_size_to_draw_region(gc.window().inner_size()));

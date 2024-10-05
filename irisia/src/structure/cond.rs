@@ -7,10 +7,10 @@ pub struct Conditional<S1, S2> {
     or_else: S2,
 }
 
-impl<S1, S2> VisitBy for Conditional<S1, S2>
+impl<S1, S2, Cp> VisitBy<Cp> for Conditional<S1, S2>
 where
-    S1: VisitBy,
-    S2: VisitBy,
+    S1: VisitBy<Cp>,
+    S2: VisitBy<Cp>,
 {
     fn visit<V>(&self, v: &mut V) -> crate::Result<()>
     where
@@ -20,6 +20,17 @@ where
             self.if_selected.visit(v)
         } else {
             self.or_else.visit(v)
+        }
+    }
+
+    fn visit_mut<V>(&mut self, v: &mut V) -> crate::Result<()>
+    where
+        V: super::VisitorMut,
+    {
+        if *self.cond.read() {
+            self.if_selected.visit_mut(v)
+        } else {
+            self.or_else.visit_mut(v)
         }
     }
 }

@@ -14,8 +14,8 @@ pub struct TraceCell<T> {
 }
 
 struct BorrowTraces {
-    table: HashMap<usize, Backtrace>,
-    next_id: usize,
+    table: HashMap<u32, Backtrace>,
+    next_id: u32,
 }
 
 impl<T> TraceCell<T> {
@@ -42,29 +42,28 @@ impl<T> TraceCell<T> {
     }
 
     pub fn borrow(&self) -> Result<TraceRef<Ref<T>>> {
-        let bt = Backtrace::capture();
         Ok(TraceRef {
             inner_ref: self.value.try_borrow().map_err(|_| self.get_error())?,
-            trace: DropTrace::record(&self.borrow_traces, bt),
+            trace: DropTrace::record(&self.borrow_traces),
         })
     }
 
     pub fn borrow_mut(&self) -> Result<TraceRef<RefMut<T>>> {
-        let bt = Backtrace::capture();
         Ok(TraceRef {
             inner_ref: self.value.try_borrow_mut().map_err(|_| self.get_error())?,
-            trace: DropTrace::record(&self.borrow_traces, bt),
+            trace: DropTrace::record(&self.borrow_traces),
         })
     }
 }
 
 struct DropTrace<'a> {
     trace_table: &'a RefCell<BorrowTraces>,
-    id: usize,
+    id: u32,
 }
 
 impl<'a> DropTrace<'a> {
-    fn record(borrow_traces: &'a RefCell<BorrowTraces>, bt: Backtrace) -> Self {
+    fn record(borrow_traces: &'a RefCell<BorrowTraces>) -> Self {
+        let backtrace = Backtrace::capture();
         let mut borrowed_r = borrow_traces.borrow_mut();
         let borrowed = &mut *borrowed_r;
 
@@ -72,7 +71,7 @@ impl<'a> DropTrace<'a> {
             let this_id = borrowed.next_id;
             borrowed.next_id = borrowed.next_id.wrapping_add(1);
             if let Entry::Vacant(vac) = borrowed.table.entry(this_id) {
-                vac.insert(bt);
+                vac.insert(backtrace);
                 break this_id;
             }
         };
@@ -84,17 +83,16 @@ impl<'a> DropTrace<'a> {
     }
 }
 
-pub struct TraceRef<'a, R> {
-    inner_ref: R,
+pub struct TraceRef<'a, T> {
+    inner_ref: Ref<'a, T>,
     trace: DropTrace<'a>,
 }
 
-impl<'a, T: ?Sized> TraceRef<'a, Ref<'a, T>> {
+impl<'a, T: ?Sized> TraceRef<'a, T> {
     pub fn clone(this: &Self) -> Self {
-        let bt = Backtrace::capture();
         Self {
             inner_ref: Ref::clone(&this.inner_ref),
-            trace: DropTrace::record(&this.trace.trace_table, bt),
+            trace: DropTrace::record(&this.trace.trace_table),
         }
     }
 
@@ -110,35 +108,42 @@ impl<'a, T: ?Sized> TraceRef<'a, Ref<'a, T>> {
     }
 }
 
-impl<'a, T: ?Sized> TraceRef<'a, RefMut<'a, T>> {
-    pub fn map_mut<U, F>(orig: Self, f: F) -> TraceRef<'a, RefMut<'a, U>>
+pub struct TraceMut<'a, T> {
+    inner_ref: RefMut<'a, T>,
+    trace: DropTrace<'a>,
+}
+
+impl<'a, T: ?Sized> TraceMut<'a, RefMut<'a, T>> {
+    pub fn map<U, F>(orig: Self, f: F) -> TraceRef<'a, RefMut<'a, U>>
     where
         F: FnOnce(&mut T) -> &mut U,
         U: ?Sized,
     {
-        TraceRef {
+        TraceMut {
             inner_ref: RefMut::map(orig.inner_ref, f),
             trace: orig.trace,
         }
     }
 }
 
-impl<'a, R> Deref for TraceRef<'a, R>
-where
-    R: Deref,
-{
-    type Target = R::Target;
+impl<T: ?Sized> Deref for TraceRef<'_, T> {
+    type Target = T;
 
-    fn deref(&self) -> &Self::Target {
+    fn deref(&self) -> &T {
         &self.inner_ref
     }
 }
 
-impl<'a, R> DerefMut for TraceRef<'a, R>
-where
-    R: DerefMut,
-{
-    fn deref_mut(&mut self) -> &mut Self::Target {
+impl<T: ?Sized> Deref for TraceMut<'_, T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        &self.inner_ref
+    }
+}
+
+impl<T: ?Sized> DerefMut for TraceMut<'_, T> {
+    fn deref_mut(&mut self) -> &mut T {
         &mut self.inner_ref
     }
 }

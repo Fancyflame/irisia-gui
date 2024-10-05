@@ -16,12 +16,11 @@ use super::{StructureCreate, VisitBy};
 
 const MAX_TIME_TO_LIVE: u8 = 3;
 
-struct Repeat<K, T, Tree>(ReadWire<RepeatInner<K, T, Tree>>);
-
-struct RepeatInner<K, T, Tree> {
+pub struct Repeat<K, T, Tree> {
+    order: ReadWire<Vec<K>>,
+    //dirty:
     map: HashMap<K, Item<T, Tree>>,
     ctx: EMCreateCtx,
-    order: Vec<K>,
 }
 
 struct Item<T, Tree> {
@@ -30,11 +29,11 @@ struct Item<T, Tree> {
     time_to_live: u8,
 }
 
-impl<K, T, Tree> VisitBy for Repeat<K, T, Tree>
+impl<Cp, K, T, Tree> VisitBy<Cp> for Repeat<K, T, Tree>
 where
     K: Hash + Eq + 'static,
     T: 'static,
-    Tree: VisitBy,
+    Tree: VisitBy<Cp>,
 {
     fn visit<V>(&self, v: &mut V) -> crate::Result<()>
     where
@@ -48,15 +47,30 @@ where
 
         Ok(())
     }
+
+    fn visit_mut<V>(&mut self, v: &mut V) -> crate::Result<()>
+    where
+        V: super::Visitor,
+    {
+        let this = self.0.read();
+
+        for key in &this.order {
+            this.map.get_mut(key).unwrap().tree.visit_mut(v)?;
+        }
+
+        Ok(())
+    }
 }
 
 pub struct RepeatMutator<'a, K, T, Tree>(&'a mut RepeatInner<K, T, Tree>);
 
-impl<'a, K, Item, Tree> RepeatMutator<'a, K, Item, Tree> {
+impl<'a, K, Item, Tree> RepeatMutator<'a, K, Item, Tree>
+where
+    K: Hash + Eq + Clone,
+    Item: 'static,
+{
     pub fn update<Iter, Fk, F, Upd>(self, iter: Iter, key_fn: Fk, content_fn: F)
     where
-        K: Hash + Eq + Clone,
-        Item: 'static,
         Iter: IntoIterator<Item = Item>,
         Fk: Fn(&Item) -> K,
         F: Fn(ReadWire<Item>) -> Upd,
