@@ -1,4 +1,4 @@
-use super::{RenderMultiple, StructureCreate};
+use super::{RenderMultiple, StructureCreate, VisitBy};
 use crate::{
     application::event_comp::IncomingPointerEvent, element::Render, primitive::Region,
     structure::EMCreateCtx, Result,
@@ -6,10 +6,11 @@ use crate::{
 
 pub struct ChildBox<Cp>(Box<dyn RenderMultiple<Cp>>);
 
-impl<Cp> ChildBox<Cp> {
+impl<Cp: 'static> ChildBox<Cp> {
     pub fn new<T>(updater: T, ctx: &EMCreateCtx) -> Self
     where
         T: StructureCreate,
+        T::Target: VisitBy<Cp>,
     {
         ChildBox(Box::new(updater.create(ctx)))
     }

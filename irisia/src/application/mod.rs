@@ -3,7 +3,7 @@ use std::sync::Weak;
 use irisia_backend::{winit::window::WindowAttributes, WinitWindow};
 
 use crate::{
-    element::OneStructureCreate,
+    element::RootStructureCreate,
     event::{standard::WindowDestroyed, EventDispatcher},
     Result,
 };
@@ -28,7 +28,7 @@ pub struct Window {
 impl Window {
     pub async fn new<T>(wa: WindowAttributes, dom: T) -> Result<Self>
     where
-        T: OneStructureCreate<OneChildProps = ()> + Send + 'static,
+        T: RootStructureCreate<OneChildProps = ()> + Send + 'static,
     {
         new_window(wa, dom).await
     }

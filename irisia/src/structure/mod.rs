@@ -9,11 +9,7 @@ use crate::{
 };
 
 pub use self::{
-    child_box::ChildBox,
-    cond::conditional,
-    pat_match::pat_match,
-    repeat::{repeat, RepeatMutator},
-    single::single,
+    child_box::ChildBox, cond::conditional, pat_match::pat_match, repeat::repeat, single::single,
 };
 
 mod chain;
@@ -43,7 +39,7 @@ pub trait RenderMultiple<T>: 'static {
 
     fn layout(&mut self, f: LayoutFn<T>) -> Result<()>;
 
-    fn emit_event(&self, ipe: &IncomingPointerEvent) -> bool;
+    fn emit_event(&mut self, ipe: &IncomingPointerEvent) -> bool;
 
     fn len(&self) -> usize;
 }
@@ -63,11 +59,12 @@ pub trait VisitorMut<Cp> {
 impl<T, Cp> RenderMultiple<Cp> for T
 where
     T: VisitBy<Cp>,
+    Cp: 'static,
 {
     fn render(&mut self, args: Render) -> Result<()> {
         struct Vis<'a>(Render<'a>);
 
-        impl<Cp> VisitorMut<Cp> for Vis<'_> {
+        impl<Cp: 'static> VisitorMut<Cp> for Vis<'_> {
             fn visit_mut<El>(&mut self, em: &mut ElementModel<El, Cp>) -> Result<()>
             where
                 El: ElementInterfaces,
@@ -104,8 +101,8 @@ where
     fn layout(&mut self, f: LayoutFn<Cp>) -> Result<()> {
         struct Vis<'a, Cp>(LayoutFn<'a, Cp>);
 
-        impl<Cp> VisitorMut<Cp> for Vis<'_, Cp> {
-            fn visit_mut<El>(&mut self, em: &ElementModel<El, Cp>) -> Result<()>
+        impl<Cp> Visitor<Cp> for Vis<'_, Cp> {
+            fn visit<El>(&mut self, em: &ElementModel<El, Cp>) -> Result<()>
             where
                 El: ElementInterfaces,
             {
@@ -136,7 +133,7 @@ where
         }
 
         impl<Cp> VisitorMut<Cp> for Vis<'_> {
-            fn visit_mut<El>(&mut self, em: &ElementModel<El, Cp>) -> Result<()>
+            fn visit_mut<El>(&mut self, em: &mut ElementModel<El, Cp>) -> Result<()>
             where
                 El: ElementInterfaces,
             {

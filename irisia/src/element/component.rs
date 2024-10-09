@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use crate::{
     application::event_comp::IncomingPointerEvent,
     el_model::{EMCreateCtx, ElementAccess, ElementModel},
@@ -15,13 +17,14 @@ pub trait ComponentTemplate: Sized + 'static {
         props: Self::Props<'_>,
         slot: Slt,
         access: ElementAccess,
-    ) -> impl OneStructureCreate
+    ) -> impl RootStructureCreate
     where
         Slt: StructureCreate;
 }
 
-pub struct Component<Cp> {
-    slot: ChildBox<Cp>,
+pub struct Component<T> {
+    _el: PhantomData<T>,
+    slot: ChildBox<()>,
 }
 
 impl<T> ElementInterfaces for Component<T>
@@ -41,6 +44,7 @@ where
     {
         Component {
             slot: ChildBox::new(T::create(props, slot, access), ctx),
+            _el: PhantomData,
         }
     }
 
@@ -60,18 +64,14 @@ where
     }
 }
 
-pub trait OneStructureCreate:
-    StructureCreate<Target = ElementModel<Self::Element, Self::OneChildProps>>
-{
+pub trait RootStructureCreate: StructureCreate<Target = ElementModel<Self::Element, ()>> {
     type Element: ElementInterfaces;
-    type OneChildProps;
 }
 
-impl<T, El, Cp> OneStructureCreate for T
+impl<T, El> RootStructureCreate for T
 where
-    T: StructureCreate<Target = ElementModel<El, Cp>>,
+    T: StructureCreate<Target = ElementModel<El, ()>>,
     El: ElementInterfaces,
 {
     type Element = El;
-    type OneChildProps = Cp;
 }

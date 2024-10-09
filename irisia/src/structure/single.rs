@@ -12,6 +12,7 @@ pub fn single<'a, El, Cp>(
     on_create: impl FnOnce(ElementAccess) + 'a,
 ) -> impl StructureCreate<Target = ElementModel<El, Cp>> + 'a
 where
+    Cp: 'static,
     El: ElementInterfaces,
 {
     move |context: &EMCreateCtx| {
@@ -24,11 +25,12 @@ where
 
 impl<El, Cp> VisitBy<Cp> for ElementModel<El, Cp>
 where
+    Cp: 'static,
     El: ElementInterfaces,
 {
     fn visit<V>(&self, v: &mut V) -> crate::Result<()>
     where
-        V: super::Visitor,
+        V: super::Visitor<Cp>,
     {
         v.visit(self)
     }

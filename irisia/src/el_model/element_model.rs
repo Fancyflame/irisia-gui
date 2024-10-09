@@ -12,7 +12,7 @@ use crate::{
         content::GlobalContent,
         event_comp::{IncomingPointerEvent, NodeEventMgr},
     },
-    data_flow::observer::{Observer, RcObserver},
+    data_flow::observer::Observer,
     element::Render,
     event::{standard::ElementAbandoned, EventDispatcher, Listen},
     primitive::Region,
@@ -27,7 +27,7 @@ pub struct ElementModel<El, Cp> {
     pub(crate) el: El,
     pub(crate) event_mgr: NodeEventMgr,
     pub(crate) shared: Rc<Shared>,
-    pub(crate) redraw_hook: RcObserver,
+    pub(crate) redraw_hook: Observer,
     pub(crate) child_props: Cp,
 }
 
@@ -101,7 +101,7 @@ impl Shared {
 }
 
 impl<El, Cp> ElementModel<El, Cp> {
-    pub(crate) fn new<Slt, Sty>(
+    pub(crate) fn new<Slt>(
         context: &EMCreateCtx,
         props: El::Props<'_>,
         child_props: Cp,
@@ -126,7 +126,10 @@ impl<El, Cp> ElementModel<El, Cp> {
             event_mgr: NodeEventMgr::new(ed.clone()).into(),
             redraw_hook: {
                 let shared = shared.clone();
-                Observer::new(move || shared.request_redraw())
+                Observer::new(move || {
+                    shared.request_redraw();
+                    true
+                })
             },
             shared,
             child_props,

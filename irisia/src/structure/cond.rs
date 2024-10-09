@@ -14,7 +14,7 @@ where
 {
     fn visit<V>(&self, v: &mut V) -> crate::Result<()>
     where
-        V: super::Visitor,
+        V: super::Visitor<Cp>,
     {
         if *self.cond.read() {
             self.if_selected.visit(v)
@@ -25,7 +25,7 @@ where
 
     fn visit_mut<V>(&mut self, v: &mut V) -> crate::Result<()>
     where
-        V: super::VisitorMut,
+        V: super::VisitorMut<Cp>,
     {
         if *self.cond.read() {
             self.if_selected.visit_mut(v)

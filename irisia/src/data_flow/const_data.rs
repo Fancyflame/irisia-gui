@@ -1,33 +1,22 @@
 use std::rc::Rc;
 
-use super::{Listener, ReadRef, ReadWire, Readable};
+use super::{deps::Listener, Listenable, ReadRef, ReadWire, Readable};
 
-struct ConstWire<T, F> {
-    data: T,
-    map: F,
+pub fn const_wire<T>(data: T) -> ReadWire<T> {
+    Rc::new(ConstWire(data))
 }
 
-impl<T, F, U> Readable for ConstWire<T, F>
-where
-    F: Fn(&T) -> &U,
-    U: ?Sized,
-{
-    type Data = U;
-    fn pipe(&self, _: Listener) {}
+struct ConstWire<T>(T);
+
+impl<T> Readable for ConstWire<T> {
+    type Data = T;
+
     fn read(&self) -> ReadRef<Self::Data> {
-        ReadRef::Ref((self.map)(&self.data))
+        ReadRef::Ref(&self.0)
     }
 }
 
-pub fn const_wire<T: 'static>(data: T) -> ReadWire<T> {
-    const_wire_unsized(data, |x: &T| x)
-}
-
-pub fn const_wire_unsized<T, F, U>(data: T, map: F) -> ReadWire<U>
-where
-    T: 'static,
-    F: Fn(&T) -> &U + 'static,
-    U: ?Sized,
-{
-    Rc::new(ConstWire { data, map })
+impl<T> Listenable for ConstWire<T> {
+    fn add_listener(&self, _: &Listener) {}
+    fn remove_listener(&self, _: &Listener) {}
 }

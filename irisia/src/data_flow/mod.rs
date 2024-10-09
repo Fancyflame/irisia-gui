@@ -1,22 +1,18 @@
-use std::{
-    cell::Ref,
-    ops::Deref,
-    rc::{Rc, Weak},
-};
+use std::{ops::Deref, rc::Rc};
 
 pub use self::{
-    const_data::{const_wire, const_wire_unsized},
-    register::register,
-    wire::{wire, wire2, wire3},
+    const_data::const_wire,
+    register::Register,
+    watcher::Watcher,
+    wire::{wire, wire2, wire3, wire_cmp},
 };
-use listener_list::ListenerList;
+use deps::{Listener, ListenerList};
 use map::Map;
 use trace_cell::TraceRef;
-use watcher::{watcher, Handle};
 
 pub mod const_data;
-pub mod convert_from;
-mod listener_list;
+mod deps;
+pub mod dirty_flag;
 pub mod map;
 pub mod observer;
 pub mod register;
@@ -27,28 +23,30 @@ pub mod wire;
 
 pub type ReadWire<T> = Rc<dyn Readable<Data = T>>;
 
-#[derive(Clone)]
-pub enum Listener {
-    Weak(Weak<dyn Wakeable>),
-    Rc(Rc<dyn Wakeable>),
+pub trait Readable: Listenable {
+    type Data: ?Sized;
+    fn read(&self) -> ReadRef<Self::Data>;
 }
 
-pub trait Readable {
-    type Data: ?Sized;
+pub trait Listenable {
+    fn add_listener(&self, listener: &Listener);
+    fn remove_listener(&self, listener: &Listener);
+}
 
-    fn read(&self) -> ReadRef<Self::Data>;
-    fn pipe(&self, listen_end: Listener);
+pub trait Wakeable {
+    fn add_back_reference(&self, dep: &Rc<dyn Listenable>);
+    fn set_dirty(&self);
+    fn wake(&self) -> bool;
 }
 
 pub trait ReadableExt: Readable + 'static {
-    fn watch<F>(self: &Rc<Self>, mut watch_fn: F, call_immediately: bool) -> Handle
+    fn watch<F>(&self, callback: F) -> Watcher
     where
-        F: FnMut(&Rc<Self>, &Handle) + 'static,
+        F: FnMut() -> bool + 'static,
     {
-        let this = self.clone();
-        let (watcher, handle) = watcher(move |handle| watch_fn(&this, handle), call_immediately);
-        self.pipe(watcher);
-        handle
+        let w = Watcher::new(callback);
+        w.watch(self);
+        w
     }
 
     fn map<R>(self, f: fn(&Self::Data) -> &R) -> Map<Self, Self::Data, R>
@@ -59,6 +57,8 @@ pub trait ReadableExt: Readable + 'static {
     }
 }
 
+impl<T> ReadableExt for T where T: Readable + ?Sized + 'static {}
+
 impl<T> Readable for Rc<T>
 where
     T: Readable + ?Sized,
@@ -68,17 +68,19 @@ where
     fn read(&self) -> ReadRef<Self::Data> {
         (**self).read()
     }
-
-    fn pipe(&self, listen_end: Listener) {
-        (**self).pipe(listen_end)
-    }
 }
 
-impl<T> ReadableExt for T where T: Readable + ?Sized + 'static {}
+impl<T> Listenable for Rc<T>
+where
+    T: Listenable + ?Sized,
+{
+    fn add_listener(&self, listener: &Listener) {
+        (**self).add_listener(listener);
+    }
 
-pub trait Wakeable {
-    /// Return true if the wakeable should continue to be waked.
-    fn update(self: Rc<Self>) -> bool;
+    fn remove_listener(&self, listener: &Listener) {
+        (**self).remove_listener(listener);
+    }
 }
 
 pub enum ReadRef<'a, T>
@@ -86,7 +88,7 @@ where
     T: ?Sized,
 {
     Ref(&'a T),
-    CellRef(TraceRef<'a, Ref<'a, T>>),
+    CellRef(TraceRef<'a, T>),
 }
 
 impl<T> Deref for ReadRef<'_, T>
@@ -120,5 +122,27 @@ impl<'a, T: ?Sized> ReadRef<'a, T> {
             ReadRef::Ref(r) => ReadRef::Ref(f(r)),
             ReadRef::CellRef(r) => ReadRef::CellRef(TraceRef::map(r, f)),
         }
+    }
+}
+
+pub trait AsReadWire {
+    type TargetData: ?Sized;
+    fn as_read_wire(&self) -> &ReadWire<Self::TargetData>;
+}
+
+impl<T> AsReadWire for Rc<T>
+where
+    T: Readable,
+{
+    type TargetData = <Self as Readable>::Data;
+    fn as_read_wire(&self) -> &ReadWire<Self::TargetData> {
+        self
+    }
+}
+
+impl<Data: ?Sized> AsReadWire for ReadWire<Data> {
+    type TargetData = Data;
+    fn as_read_wire(&self) -> &ReadWire<Self::TargetData> {
+        self
     }
 }

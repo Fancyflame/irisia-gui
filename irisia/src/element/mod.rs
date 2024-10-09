@@ -9,7 +9,7 @@ use crate::{
     Result,
 };
 
-pub use component::{Component, ComponentTemplate, OneStructureCreate};
+pub use component::{Component, ComponentTemplate, RootStructureCreate};
 use irisia_backend::skia_safe::Canvas;
 
 mod component;

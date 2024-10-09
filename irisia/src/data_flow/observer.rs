@@ -1,46 +1,52 @@
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 
-use super::{listener_list::ListenerList, Listener, Wakeable};
+use super::{deps::DepdencyList, Listener, Wakeable};
 
-pub type RcObserver = Rc<Observer<dyn Fn()>>;
+pub struct Observer {
+    inner: Rc<Inner<dyn Fn() -> bool>>,
+}
 
-pub struct Observer<F: ?Sized> {
-    this: Weak<dyn Wakeable>,
+struct Inner<F: ?Sized> {
+    deps: DepdencyList,
     trigger_fn: F,
 }
 
-impl<F> Observer<F>
-where
-    F: Fn() + ?Sized + 'static,
-{
-    pub fn new(trigger_fn: F) -> RcObserver
+impl Observer {
+    pub fn new<F>(trigger_fn: F) -> Self
     where
-        F: Sized,
+        F: Fn() -> bool + 'static,
     {
-        Rc::new_cyclic(|this| Self {
-            trigger_fn,
-            this: this.clone() as _,
-        })
+        Observer {
+            inner: Rc::new_cyclic(|this| Inner {
+                trigger_fn,
+                deps: DepdencyList::new(Listener::Weak(this.clone())),
+            }),
+        }
     }
 
-    pub fn invoke<F2, R>(self: &Rc<Self>, f: F2) -> R
+    pub fn invoke<F2, R>(&self, f: F2) -> R
     where
         F2: FnOnce() -> R,
     {
-        // `F` is unsized, so `Rc<Self>` couldn't be downgraded
-        ListenerList::push_global_stack(Listener::Weak(self.this.clone()));
-        let r = f();
-        ListenerList::pop_global_stack();
-        r
+        self.inner.deps.collect_dependencies(f)
     }
 }
 
-impl<F> Wakeable for Observer<F>
+impl<F> Wakeable for Inner<F>
 where
-    F: Fn() + ?Sized,
+    F: Fn() -> bool + ?Sized,
 {
-    fn update(self: Rc<Self>) -> bool {
-        (self.trigger_fn)();
-        false
+    fn add_back_reference(&self, dep: &Rc<dyn super::Listenable>) {
+        self.deps.add_dependency(dep);
+    }
+
+    fn set_dirty(&self) {}
+
+    fn wake(&self) -> bool {
+        let keep_watching = (self.trigger_fn)();
+        if !keep_watching {
+            self.deps.clear();
+        }
+        true
     }
 }

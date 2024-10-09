@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use super::{ReadRef, ReadWire, Readable};
+use super::{deps::Listener, Listenable, ReadRef, ReadWire, Readable};
 
 pub struct Map<T, Data1, Data2>
 where
@@ -20,24 +20,6 @@ where
     pub fn new(src: T, map: fn(&Data1) -> &Data2) -> Self {
         Self { src, map }
     }
-
-    pub fn to_wire(&self) -> ReadWire<Data2>
-    where
-        Data1: 'static,
-        Data2: 'static,
-        T: Clone + 'static,
-    {
-        self.clone().into_wire()
-    }
-
-    pub fn into_wire(self) -> ReadWire<Data2>
-    where
-        Data1: 'static,
-        Data2: 'static,
-        T: 'static,
-    {
-        Rc::new(self)
-    }
 }
 
 impl<T, Data1, Data2> Readable for Map<T, Data1, Data2>
@@ -51,9 +33,20 @@ where
     fn read(&self) -> ReadRef<Self::Data> {
         ReadRef::map(self.src.read(), &self.map)
     }
+}
 
-    fn pipe(&self, listen_end: super::Listener) {
-        self.src.pipe(listen_end)
+impl<T, Data1, Data2> Listenable for Map<T, Data1, Data2>
+where
+    T: Listenable,
+    Data1: ?Sized,
+    Data2: ?Sized,
+{
+    fn add_listener(&self, listener: &Listener) {
+        self.src.add_listener(listener);
+    }
+
+    fn remove_listener(&self, listener: &Listener) {
+        self.src.remove_listener(listener);
     }
 }
 
@@ -68,5 +61,16 @@ where
             src: self.src.clone(),
             map: self.map,
         }
+    }
+}
+
+impl<T, Data1, Data2> From<Map<T, Data1, Data2>> for ReadWire<Data2>
+where
+    T: Readable<Data = Data1>,
+    Data1: ?Sized,
+    Data2: ?Sized,
+{
+    fn from(value: Map<T, Data1, Data2>) -> Self {
+        Rc::new(value)
     }
 }

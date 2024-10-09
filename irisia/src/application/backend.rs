@@ -9,7 +9,7 @@ use irisia_backend::{
 
 use crate::{
     el_model::{EMCreateCtx, ElementModel},
-    element::{ElementInterfaces, OneStructureCreate},
+    element::{ElementInterfaces, RootStructureCreate},
     event::{standard::WindowDestroyed, EventDispatcher},
     primitive::{Point, Region},
     structure::StructureCreate,
@@ -77,7 +77,7 @@ pub(super) async fn new_window<F>(
     root_creator: F,
 ) -> Result<Window>
 where
-    F: OneStructureCreate<OneChildProps = ()> + Send + 'static,
+    F: RootStructureCreate<OneChildProps = ()> + Send + 'static,
 {
     let ev_disp = EventDispatcher::new();
 
