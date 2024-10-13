@@ -108,7 +108,7 @@ where
     |ctx: &EMCreateCtx| Repeat {
         dirty_flag: {
             let flag = DirtyFlag::new();
-            flag.wake();
+            flag.set_dirty();
             vec.add_listener(&flag);
             flag
         },

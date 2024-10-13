@@ -1,4 +1,4 @@
-use std::{cell::Cell, ops::Deref, rc::Rc};
+use std::{cell::Cell, rc::Rc};
 
 use super::{deps::Listener, Listenable, ToListener, Wakeable};
 
@@ -24,6 +24,10 @@ impl DirtyFlag {
         self.inner.flag.get()
     }
 
+    pub fn set_dirty(&self) {
+        self.inner.set_dirty();
+    }
+
     pub fn set_clean(&self) {
         self.inner.flag.set(false);
     }
@@ -38,13 +42,6 @@ impl Wakeable for Inner {
 
     fn wake(&self) -> bool {
         true
-    }
-}
-
-impl Deref for DirtyFlag {
-    type Target = dyn Wakeable;
-    fn deref(&self) -> &Self::Target {
-        &*self.inner
     }
 }
 
