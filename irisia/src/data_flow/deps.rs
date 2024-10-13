@@ -36,20 +36,22 @@ impl ListenerList {
     pub fn capture_caller(&self, dep: &Rc<dyn Listenable>) {
         STACK.with_borrow(|vec| {
             if let Some(listener) = vec.last() {
-                self.add_listener(&listener.clone());
-                listener.assume_valid().add_back_reference(dep);
+                self.add_listener(listener.clone());
+                if let Some(listener) = listener.optioned() {
+                    listener.add_back_reference(dep);
+                }
             }
         });
     }
 
-    pub fn add_listener(&self, listener: &Listener) {
-        self.try_operate(Operation::Add(listener.clone()));
+    pub fn add_listener(&self, listener: Listener) {
+        self.try_operate(Operation::Add(listener));
     }
 
-    pub fn remove_listener(&self, listener: &Listener) {
+    pub fn remove_listener(&self, listener: Listener) {
         self.try_operate(Operation::Remove(match listener {
-            Listener::Rc(rc) => Rc::downgrade(rc),
-            Listener::Weak(weak) => weak.clone(),
+            Listener::Rc(rc) => Rc::downgrade(&rc),
+            Listener::Weak(weak) => weak,
         }));
     }
 
@@ -65,8 +67,8 @@ impl ListenerList {
     fn operate(listeners: &mut ListenerTable, opr: Operation) {
         match opr {
             Operation::Add(listener) => {
-                let key: *const () = match listener {
-                    Listener::Rc(rc) => Rc::as_ptr(&rc) as _,
+                let key: *const () = match &listener {
+                    Listener::Rc(rc) => Rc::as_ptr(rc) as _,
                     Listener::Weak(weak) => weak.as_ptr() as _,
                 };
                 listeners.insert(key, listener);
@@ -97,11 +99,6 @@ impl ListenerList {
     }
 
     pub fn wake_all(&self) {
-        if !self.is_dirty.get() {
-            return;
-        }
-
-        self.is_dirty.set(false);
         let mut listeners = self.listeners.borrow_mut();
 
         Self::for_each_listeners(&mut listeners, |listener| {
@@ -112,10 +109,6 @@ impl ListenerList {
         for opr in delay_operation.drain(..) {
             Self::operate(&mut listeners, opr);
         }
-    }
-
-    pub fn is_dirty(&self) -> bool {
-        self.is_dirty.get()
     }
 }
 
@@ -179,7 +172,7 @@ pub enum Listener {
 }
 
 impl Listener {
-    fn optioned(&self) -> Rc<dyn Wakeable> {
+    fn optioned(&self) -> Option<Rc<dyn Wakeable>> {
         match self {
             Listener::Rc(l) => Some(l.clone()),
             Listener::Weak(l) => l.upgrade(),

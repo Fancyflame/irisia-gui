@@ -136,12 +136,12 @@ impl<El, Cp> ElementModel<El, Cp> {
         }
     }
 
-    pub(crate) fn set_draw_region(&self, region: Region)
+    pub(crate) fn set_draw_region(&mut self, region: Region)
     where
         El: ElementInterfaces,
     {
         self.shared.draw_region.set(region);
-        self.el.borrow_mut().set_draw_region(region);
+        self.el.set_draw_region(region);
     }
 
     /// Get event dispatcher of this element.
@@ -207,7 +207,7 @@ impl<El, Cp> ElementModel<El, Cp> {
     where
         El: ElementInterfaces,
     {
-        let children_logically_entered = self.el.borrow_mut().children_emit_event(ipe);
+        let children_logically_entered = self.el.children_emit_event(ipe);
         self.event_mgr.update_and_emit(
             ipe,
             self.shared.interact_region.get(),
@@ -219,8 +219,7 @@ impl<El, Cp> ElementModel<El, Cp> {
     where
         El: ElementInterfaces,
     {
-        self.redraw_hook
-            .invoke(|| self.el.get_mut().unwrap().render(args))
+        self.redraw_hook.invoke(|| self.el.render(args))
     }
 }
 

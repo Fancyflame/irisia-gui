@@ -29,8 +29,8 @@ pub trait Readable: Listenable {
 }
 
 pub trait Listenable {
-    fn add_listener(&self, listener: &Listener);
-    fn remove_listener(&self, listener: &Listener);
+    fn add_listener(&self, listener: &dyn ToListener);
+    fn remove_listener(&self, listener: &dyn ToListener);
 }
 
 pub trait Wakeable {
@@ -45,7 +45,7 @@ pub trait ReadableExt: Readable + 'static {
         F: FnMut() -> bool + 'static,
     {
         let w = Watcher::new(callback);
-        w.watch(self);
+        self.add_listener(&w);
         w
     }
 
@@ -74,11 +74,11 @@ impl<T> Listenable for Rc<T>
 where
     T: Listenable + ?Sized,
 {
-    fn add_listener(&self, listener: &Listener) {
+    fn add_listener(&self, listener: &dyn ToListener) {
         (**self).add_listener(listener);
     }
 
-    fn remove_listener(&self, listener: &Listener) {
+    fn remove_listener(&self, listener: &dyn ToListener) {
         (**self).remove_listener(listener);
     }
 }
@@ -125,24 +125,34 @@ impl<'a, T: ?Sized> ReadRef<'a, T> {
     }
 }
 
-pub trait AsReadWire {
-    type TargetData: ?Sized;
-    fn as_read_wire(&self) -> &ReadWire<Self::TargetData>;
+pub trait ToReadWire {
+    type Data: ?Sized;
+    fn to_read_wire(&self) -> ReadWire<Self::Data>;
 }
 
-impl<T> AsReadWire for Rc<T>
+impl<T> ToReadWire for Rc<T>
 where
-    T: Readable,
+    T: Readable + 'static,
 {
-    type TargetData = <Self as Readable>::Data;
-    fn as_read_wire(&self) -> &ReadWire<Self::TargetData> {
-        self
+    type Data = <Self as Readable>::Data;
+    fn to_read_wire(&self) -> ReadWire<Self::Data> {
+        self.clone()
     }
 }
 
-impl<Data: ?Sized> AsReadWire for ReadWire<Data> {
-    type TargetData = Data;
-    fn as_read_wire(&self) -> &ReadWire<Self::TargetData> {
-        self
+impl<Data: ?Sized> ToReadWire for ReadWire<Data> {
+    type Data = Data;
+    fn to_read_wire(&self) -> ReadWire<Data> {
+        self.clone()
+    }
+}
+
+pub trait ToListener {
+    fn to_listener(&self) -> Listener;
+}
+
+impl ToListener for Listener {
+    fn to_listener(&self) -> Listener {
+        self.clone()
     }
 }

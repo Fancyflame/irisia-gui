@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use super::{deps::Listener, Listenable, ReadRef, ReadWire, Readable};
+use super::{Listenable, ReadRef, ReadWire, Readable, ToListener};
 
 pub struct Map<T, Data1, Data2>
 where
@@ -41,11 +41,11 @@ where
     Data1: ?Sized,
     Data2: ?Sized,
 {
-    fn add_listener(&self, listener: &Listener) {
+    fn add_listener(&self, listener: &dyn ToListener) {
         self.src.add_listener(listener);
     }
 
-    fn remove_listener(&self, listener: &Listener) {
+    fn remove_listener(&self, listener: &dyn ToListener) {
         self.src.remove_listener(listener);
     }
 }
@@ -66,9 +66,9 @@ where
 
 impl<T, Data1, Data2> From<Map<T, Data1, Data2>> for ReadWire<Data2>
 where
-    T: Readable<Data = Data1>,
-    Data1: ?Sized,
-    Data2: ?Sized,
+    T: Readable<Data = Data1> + 'static,
+    Data1: ?Sized + 'static,
+    Data2: ?Sized + 'static,
 {
     fn from(value: Map<T, Data1, Data2>) -> Self {
         Rc::new(value)

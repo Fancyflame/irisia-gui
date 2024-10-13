@@ -21,7 +21,8 @@ pub struct PatMatch<Src, T, S1, F1, S2> {
 
 impl<Src, T, S1, F1, S2> PatMatch<Src, T, S1, F1, S2>
 where
-    T: Clone,
+    Src: 'static,
+    T: Clone + 'static,
     F1: FnOnce(ReadWire<T>) -> S1,
 {
     fn init_if_need(&self) {

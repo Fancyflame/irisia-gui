@@ -1,6 +1,6 @@
 use std::{cell::Cell, ops::Deref, rc::Rc};
 
-use super::{deps::Listener, Listenable, Wakeable};
+use super::{deps::Listener, Listenable, ToListener, Wakeable};
 
 #[derive(Clone)]
 pub struct DirtyFlag {
@@ -9,27 +9,23 @@ pub struct DirtyFlag {
 
 struct Inner {
     flag: Cell<bool>,
-    this: Listener,
 }
 
 impl DirtyFlag {
     pub fn new() -> Self {
-        Self(Rc::new_cyclic(|this| Inner {
-            flag: Cell::new(false),
-            this: Listener::Weak(this.clone()),
-        }))
+        Self {
+            inner: Rc::new(Inner {
+                flag: Cell::new(false),
+            }),
+        }
     }
 
-    pub const fn is_dirty(&self) -> bool {
+    pub fn is_dirty(&self) -> bool {
         self.inner.flag.get()
     }
 
     pub fn set_clean(&self) {
         self.inner.flag.set(false);
-    }
-
-    pub fn listener(&self) -> &Listener {
-        &self.inner.this
     }
 }
 
@@ -46,8 +42,14 @@ impl Wakeable for Inner {
 }
 
 impl Deref for DirtyFlag {
-    type Target = Rc<dyn Wakeable>;
+    type Target = dyn Wakeable;
     fn deref(&self) -> &Self::Target {
-        &self.inner
+        &*self.inner
+    }
+}
+
+impl ToListener for DirtyFlag {
+    fn to_listener(&self) -> Listener {
+        Listener::Weak(Rc::downgrade(&self.inner) as _)
     }
 }

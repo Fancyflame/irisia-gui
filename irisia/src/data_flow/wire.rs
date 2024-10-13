@@ -7,7 +7,7 @@ use std::{
 use super::{
     deps::DepdencyList,
     trace_cell::{TraceCell, TraceRef},
-    Listenable, Listener, ListenerList, ReadRef, ReadWire, Readable, Wakeable,
+    Listenable, Listener, ListenerList, ReadRef, ReadWire, Readable, ToListener, Wakeable,
 };
 
 const BORROW_ERROR: &str = "cannot update data inside the wire, because at least one reader still exists \
@@ -18,6 +18,7 @@ const BORROW_ERROR: &str = "cannot update data inside the wire, because at least
 
 pub fn wire<F, T>(f: F) -> ReadWire<T>
 where
+    T: 'static,
     F: Fn() -> T + 'static,
 {
     Wire::new(move || {
@@ -30,8 +31,8 @@ where
 
 pub fn wire_cmp<F, T>(f: F) -> ReadWire<T>
 where
+    T: Eq + 'static,
     F: Fn() -> T + 'static,
-    T: Eq,
 {
     Wire::new(move || {
         (f(), move |r| {
@@ -45,6 +46,7 @@ where
 
 pub fn wire2<Fi, F, T>(init_state: Fi, f: F) -> ReadWire<T>
 where
+    T: 'static,
     Fi: FnOnce() -> T,
     F: Fn(Setter<T>) + 'static,
 {
@@ -53,8 +55,9 @@ where
 
 pub fn wire3<Fi, T, F>(fn_init: Fi) -> ReadWire<T>
 where
+    T: 'static,
     Fi: FnOnce() -> (T, F),
-    F: Fn(Setter<T>),
+    F: Fn(Setter<T>) + 'static,
 {
     Wire::new(move || {
         let (init, updater) = fn_init();
@@ -79,13 +82,14 @@ struct Wire<F, T> {
 
 impl<F, T> Wire<F, T>
 where
-    F: Fn(&mut T) -> bool,
+    F: Fn(&mut T) -> bool + 'static,
 {
     fn new<Fi>(fn_init: Fi) -> Rc<Self>
     where
         Fi: FnOnce() -> (T, F),
+        T: 'static,
     {
-        let w = Rc::new_cyclic(move |this| Wire {
+        let w = Rc::new_cyclic(move |this: &Weak<Wire<_, _>>| Wire {
             computes: TraceCell::new(None),
             listeners: ListenerList::new(),
             deps: DepdencyList::new(Listener::Weak(this.clone())),
@@ -96,6 +100,7 @@ where
         let mut computes = w.computes.borrow_mut().unwrap();
         let init = w.deps.collect_dependencies(fn_init);
         *computes = Some((init.1, init.0));
+        drop(computes);
         w
     }
 }
@@ -111,7 +116,7 @@ where
             .capture_caller(&self.as_listenable.upgrade().unwrap());
         ReadRef::CellRef(TraceRef::map(
             self.computes.borrow().expect(BORROW_ERROR),
-            |(_, cache)| cache.as_ref().unwrap(),
+            |computes| &computes.as_ref().unwrap().1,
         ))
     }
 }
@@ -130,15 +135,14 @@ where
     }
 
     fn wake(&self) -> bool {
-        if !self.listeners.is_dirty() {
-            return;
+        if !self.is_dirty.get() {
+            return true;
         }
 
-        let mut computes = self.computes.borrow_mut().expect(BORROW_ERROR);
-        let mut mutated = self
-            .deps
-            .collect_dependencies(|| (computes.0)(&mut computes.1));
+        let mut computes_opt = self.computes.borrow_mut().expect(BORROW_ERROR);
+        let (update_fn, state) = computes_opt.as_mut().unwrap();
 
+        let mutated = self.deps.collect_dependencies(|| update_fn(state));
         if mutated {
             self.listeners.wake_all();
         }
@@ -149,12 +153,12 @@ where
 }
 
 impl<F, T> Listenable for Wire<F, T> {
-    fn add_listener(&self, listener: &Listener) {
-        self.listeners.add_listener(listener);
+    fn add_listener(&self, listener: &dyn ToListener) {
+        self.listeners.add_listener(listener.to_listener());
     }
 
-    fn remove_listener(&self, listener: &Listener) {
-        self.listeners.remove_listener(listener);
+    fn remove_listener(&self, listener: &dyn ToListener) {
+        self.listeners.remove_listener(listener.to_listener());
     }
 }
 

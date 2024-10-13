@@ -28,7 +28,7 @@ pub struct Window {
 impl Window {
     pub async fn new<T>(wa: WindowAttributes, dom: T) -> Result<Self>
     where
-        T: RootStructureCreate<OneChildProps = ()> + Send + 'static,
+        T: RootStructureCreate + Send + 'static,
     {
         new_window(wa, dom).await
     }

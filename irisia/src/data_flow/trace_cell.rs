@@ -96,7 +96,7 @@ impl<'a, T: ?Sized> TraceRef<'a, T> {
         }
     }
 
-    pub fn map<U, F>(orig: Self, f: F) -> TraceRef<'a, Ref<'a, U>>
+    pub fn map<U, F>(orig: Self, f: F) -> TraceRef<'a, U>
     where
         F: FnOnce(&T) -> &U,
         U: ?Sized,
@@ -113,8 +113,8 @@ pub struct TraceMut<'a, T: ?Sized> {
     trace: DropTrace<'a>,
 }
 
-impl<'a, T: ?Sized> TraceMut<'a, RefMut<'a, T>> {
-    pub fn map<U, F>(orig: Self, f: F) -> TraceRef<'a, RefMut<'a, U>>
+impl<'a, T: ?Sized> TraceMut<'a, T> {
+    pub fn map<U, F>(orig: Self, f: F) -> TraceMut<'a, U>
     where
         F: FnOnce(&mut T) -> &mut U,
         U: ?Sized,

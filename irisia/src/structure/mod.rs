@@ -101,8 +101,8 @@ where
     fn layout(&mut self, f: LayoutFn<Cp>) -> Result<()> {
         struct Vis<'a, Cp>(LayoutFn<'a, Cp>);
 
-        impl<Cp> Visitor<Cp> for Vis<'_, Cp> {
-            fn visit<El>(&mut self, em: &ElementModel<El, Cp>) -> Result<()>
+        impl<Cp> VisitorMut<Cp> for Vis<'_, Cp> {
+            fn visit_mut<El>(&mut self, em: &mut ElementModel<El, Cp>) -> Result<()>
             where
                 El: ElementInterfaces,
             {
@@ -123,7 +123,7 @@ where
             }
         }
 
-        self.visit(&mut Vis(f))
+        self.visit_mut(&mut Vis(f))
     }
 
     fn emit_event(&mut self, ipe: &IncomingPointerEvent) -> bool {

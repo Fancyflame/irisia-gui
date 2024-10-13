@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 use super::{deps::DepdencyList, Listener, Wakeable};
 
@@ -17,7 +17,7 @@ impl Observer {
         F: Fn() -> bool + 'static,
     {
         Observer {
-            inner: Rc::new_cyclic(|this| Inner {
+            inner: Rc::new_cyclic(|this: &Weak<Inner<_>>| Inner {
                 trigger_fn,
                 deps: DepdencyList::new(Listener::Weak(this.clone())),
             }),

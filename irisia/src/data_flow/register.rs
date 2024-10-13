@@ -4,12 +4,9 @@ use std::{
 };
 
 use super::{
-    deps::Listener,
     trace_cell::{TraceCell, TraceMut},
-    Listenable, ListenerList, ReadRef, ReadWire, Readable,
+    Listenable, ListenerList, ReadRef, ReadWire, Readable, ToListener, ToReadWire,
 };
-
-pub type RcReg<T> = Rc<Register<T>>;
 
 const BORROW_ERROR: &str = "cannot mutate data inside the register, \
     because the write guard is still held somewhere. please note that \
@@ -31,7 +28,7 @@ impl<T> Register<T> {
     where
         T: 'static,
     {
-        let inner = Rc::new_cyclic(|this| Inner {
+        let inner = Rc::new_cyclic(|this: &Weak<Inner<_>>| Inner {
             data: TraceCell::new(data),
             listeners: ListenerList::new(),
             this: this.clone(),
@@ -42,7 +39,7 @@ impl<T> Register<T> {
 
     pub fn write(&self) -> WriteGuard<T> {
         WriteGuard {
-            listeners: &self.inner.listeners,
+            listeners: WakeListeners(&self.inner.listeners),
             r: self.inner.data.borrow_mut().expect(BORROW_ERROR),
         }
     }
@@ -62,12 +59,12 @@ impl<T> Readable for Inner<T> {
 }
 
 impl<T> Listenable for Inner<T> {
-    fn add_listener(&self, listener: &Listener) {
-        self.listeners.add_listener(listener);
+    fn add_listener(&self, listener: &dyn ToListener) {
+        self.listeners.add_listener(listener.to_listener());
     }
 
-    fn remove_listener(&self, listener: &Listener) {
-        self.listeners.remove_listener(listener);
+    fn remove_listener(&self, listener: &dyn ToListener) {
+        self.listeners.remove_listener(listener.to_listener());
     }
 }
 
@@ -98,9 +95,9 @@ impl Drop for WakeListeners<'_> {
     }
 }
 
-impl<T> Deref for Register<T> {
-    type Target = ReadWire<T>;
-    fn deref(&self) -> &Self::Target {
-        &self.inner
+impl<T: 'static> ToReadWire for Register<T> {
+    type Data = T;
+    fn to_read_wire(&self) -> ReadWire<Self::Data> {
+        self.inner.clone()
     }
 }

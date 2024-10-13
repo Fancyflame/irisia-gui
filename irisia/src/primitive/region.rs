@@ -1,6 +1,6 @@
 use super::Point;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Default, Clone, Copy, Debug, PartialEq)]
 pub struct Region {
     pub left_top: Point,
     pub right_bottom: Point,
@@ -9,6 +9,10 @@ pub struct Region {
 impl Region {
     pub fn contains(&self, rhs: Self) -> bool {
         self.left_top.abs_le(rhs.left_top) && self.right_bottom.abs_ge(rhs.right_bottom)
+    }
+
+    pub fn contains_point(&self, point: Point) -> bool {
+        point.abs_ge(self.left_top) && point.abs_le(self.right_bottom)
     }
 
     pub fn intersects(&self, rhs: Self) -> bool {

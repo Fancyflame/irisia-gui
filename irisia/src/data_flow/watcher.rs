@@ -3,7 +3,7 @@ use std::{
     rc::{Rc, Weak},
 };
 
-use super::{deps::Listener, Listenable, Wakeable};
+use super::{deps::Listener, ToListener, Wakeable};
 
 pub struct Watcher {
     inner: Rc<Inner<dyn OptionedFn>>,
@@ -19,10 +19,10 @@ struct Inner<Of: ?Sized> {
 impl Watcher {
     pub fn new<F>(callback: F) -> Self
     where
-        F: FnMut() -> bool,
+        F: FnMut() -> bool + 'static,
     {
-        let inner = Rc::new_cyclic(|this| Inner {
-            type_name: callback.fn_type_name(),
+        let inner = Rc::new_cyclic(|this: &Weak<Inner<_>>| Inner {
+            type_name: std::any::type_name::<F>(),
             delay_set_unwatch: Cell::new(false),
             this: this.clone(),
             callback: RefCell::new(Some(callback)),
@@ -31,8 +31,24 @@ impl Watcher {
         Self { inner }
     }
 
-    fn get_optioned_fn(&self) -> RefMut<dyn OptionedFn> {
+    pub fn call(&self) -> bool {
+        self.inner.get_optioned_fn().call()
+    }
+
+    pub fn drop_callback(&self) {
         match self.inner.callback.try_borrow_mut() {
+            Ok(mut refm) => refm.drop(),
+            Err(_) => self.inner.delay_set_unwatch.set(true),
+        }
+    }
+}
+
+impl<Of> Inner<Of>
+where
+    Of: OptionedFn + ?Sized,
+{
+    fn get_optioned_fn(&self) -> RefMut<Of> {
+        match self.callback.try_borrow_mut() {
             Ok(cb) => cb,
             Err(_) => {
                 panic!(
@@ -44,48 +60,21 @@ impl Watcher {
             }
         }
     }
-
-    pub fn call(&self) -> bool {
-        let mut optioned_fn = self.get_optioned_fn();
-        match &mut *optioned_fn {
-            Some(f) => {
-                let keep_watching = f() && !self.delay_set_unwatch.get();
-                if !keep_watching {
-                    *optioned_fn = None;
-                }
-                keep_watching
-            }
-            None => false,
-        }
-    }
-
-    pub fn destroy(&self) {
-        match self.callback.try_borrow_mut() {
-            Ok(mut cb) => *cb = None,
-            Err(_) => {
-                self.delay_set_unwatch.set(true);
-            }
-        }
-    }
-
-    pub fn watch<T: Listenable>(&self, target: &T) -> &Self {
-        let listener = Listener::Rc(self.this.upgrade().unwrap());
-        target.add_listener(&listener);
-        self
-    }
-
-    pub fn unwatch<T: Listenable>(&self, target: &T) -> &Self {
-        let listener = Listener::Rc(self.this.upgrade().unwrap());
-        target.remove_listener(&listener);
-        self
-    }
 }
 
-impl Wakeable for Watcher {
+impl<Of> Wakeable for Inner<Of>
+where
+    Of: OptionedFn + ?Sized,
+{
     fn add_back_reference(&self, _: &Rc<dyn super::Listenable>) {}
     fn set_dirty(&self) {}
     fn wake(&self) -> bool {
-        self.get_optioned_fn().call()
+        let mut refm = self.get_optioned_fn();
+        let keep_watching = refm.call() && !self.delay_set_unwatch.get();
+        if !keep_watching {
+            refm.drop();
+        }
+        keep_watching
     }
 }
 
@@ -96,7 +85,7 @@ trait OptionedFn {
 
 impl<F> OptionedFn for Option<F>
 where
-    F: FnMut() -> bool,
+    F: FnMut() -> bool + 'static,
 {
     fn drop(&mut self) {
         *self = None
@@ -113,5 +102,11 @@ where
             }
             None => false,
         }
+    }
+}
+
+impl ToListener for Watcher {
+    fn to_listener(&self) -> Listener {
+        Listener::Rc(self.inner.this.upgrade().unwrap())
     }
 }

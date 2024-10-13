@@ -66,10 +66,10 @@ where
 }
 
 fn window_size_to_draw_region(size: PhysicalSize<u32>) -> Region {
-    (
-        Point(0.0, 0.0),
-        Point(size.width as f32, size.height as f32),
-    )
+    Region {
+        left_top: Point(0.0, 0.0),
+        right_bottom: Point(size.width as f32, size.height as f32),
+    }
 }
 
 pub(super) async fn new_window<F>(

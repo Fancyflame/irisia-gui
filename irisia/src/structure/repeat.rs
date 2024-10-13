@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    data_flow::{dirty_flag::DirtyFlag, AsReadWire, ReadWire, Readable},
+    data_flow::{dirty_flag::DirtyFlag, ReadWire, Readable, ToReadWire},
     el_model::EMCreateCtx,
 };
 
@@ -14,12 +14,12 @@ use super::{StructureCreate, VisitBy};
 pub struct Repeat<Wire, Tb>
 where
     Tb: TreeBuilderFn,
-    Wire: AsReadWire,
+    Wire: ToReadWire,
 {
     src: ReadWire<Vec<Wire>>,
     dirty_flag: DirtyFlag,
     tree_builder: Tb,
-    map: RefCell<HashMap<*const (), MapItem<Wire::TargetData, Tb::Tree>>>,
+    map: RefCell<HashMap<*const (), MapItem<Wire::Data, Tb::Tree>>>,
     ctx: EMCreateCtx,
 }
 
@@ -31,7 +31,7 @@ struct MapItem<Data: ?Sized, Tree> {
 
 impl<Cp, Wire, Tb> VisitBy<Cp> for Repeat<Wire, Tb>
 where
-    Wire: AsReadWire + 'static,
+    Wire: ToReadWire + 'static,
     Tb: TreeBuilderFn,
     Tb::Tree: VisitBy<Cp>,
 {
@@ -62,7 +62,7 @@ where
 
 impl<Wire, Tb> Repeat<Wire, Tb>
 where
-    Wire: AsReadWire,
+    Wire: ToReadWire,
     Tb: TreeBuilderFn,
 {
     fn update_if_need(&self) {
@@ -73,14 +73,14 @@ where
         let mut map = self.map.borrow_mut();
 
         for wire in &*self.src.read() {
-            let wire = wire.as_read_wire();
-            match map.entry(Rc::as_ptr(wire) as _) {
+            let wire = wire.to_read_wire();
+            match map.entry(Rc::as_ptr(&wire) as _) {
                 Entry::Occupied(mut occ) => {
                     occ.get_mut().alive = true;
                 }
                 Entry::Vacant(vac) => {
                     vac.insert(MapItem {
-                        _data: Rc::downgrade(wire),
+                        _data: Rc::downgrade(&wire),
                         tree: self.tree_builder.build(&self.ctx),
                         alive: true,
                     });
@@ -102,14 +102,14 @@ where
 
 pub fn repeat<W, F>(vec: ReadWire<Vec<W>>, body: F) -> impl StructureCreate
 where
-    W: AsReadWire + 'static,
+    W: ToReadWire + 'static,
     F: TreeBuilderFn,
 {
     |ctx: &EMCreateCtx| Repeat {
         dirty_flag: {
             let flag = DirtyFlag::new();
             flag.wake();
-            vec.add_listener(flag.listener());
+            vec.add_listener(&flag);
             flag
         },
         src: vec,
@@ -137,7 +137,7 @@ where
 
 fn ptr_of_wire<W>(w: &W) -> *const ()
 where
-    W: AsReadWire,
+    W: ToReadWire,
 {
-    Rc::as_ptr(w.as_read_wire()) as _
+    Rc::as_ptr(&w.to_read_wire()) as _
 }

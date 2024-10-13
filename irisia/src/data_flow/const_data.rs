@@ -1,8 +1,8 @@
 use std::rc::Rc;
 
-use super::{deps::Listener, Listenable, ReadRef, ReadWire, Readable};
+use super::{Listenable, ReadRef, ReadWire, Readable, ToListener};
 
-pub fn const_wire<T>(data: T) -> ReadWire<T> {
+pub fn const_wire<T: 'static>(data: T) -> ReadWire<T> {
     Rc::new(ConstWire(data))
 }
 
@@ -17,6 +17,6 @@ impl<T> Readable for ConstWire<T> {
 }
 
 impl<T> Listenable for ConstWire<T> {
-    fn add_listener(&self, _: &Listener) {}
-    fn remove_listener(&self, _: &Listener) {}
+    fn add_listener(&self, _: &dyn ToListener) {}
+    fn remove_listener(&self, _: &dyn ToListener) {}
 }
