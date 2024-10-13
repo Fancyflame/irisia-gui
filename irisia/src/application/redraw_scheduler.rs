@@ -1,7 +1,5 @@
 use std::{
     cell::{Cell, RefCell},
-    collections::HashMap,
-    rc::Rc,
     sync::Arc,
     time::Duration,
 };

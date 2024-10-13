@@ -8,7 +8,7 @@ use irisia::{
         Readable,
     },
     el_model::ElementAccess,
-    element::{CompInputWatcher, ComponentTemplate, OneStructureCreate},
+    element::{CompInputWatcher, ComponentTemplate, RootStructureCreate},
     event::standard::{PointerDown, PointerMove},
     skia_safe::Color,
     style, Result, WinitWindow,
@@ -43,7 +43,7 @@ impl ComponentTemplate for App {
         _: Slt,
         _: ElementAccess,
         _: CompInputWatcher<Self>,
-    ) -> (Self, impl OneStructureCreate)
+    ) -> (Self, impl RootStructureCreate)
     where
         Slt: irisia::structure::StructureCreate,
     {
@@ -80,7 +80,7 @@ impl ComponentTemplate for App {
 }
 
 impl App {
-    fn structure(&self) -> impl OneStructureCreate {
+    fn structure(&self) -> impl RootStructureCreate {
         let rects = &self.rects;
 
         build! {

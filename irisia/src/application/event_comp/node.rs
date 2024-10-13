@@ -38,7 +38,7 @@ impl NodeEventMgr {
         logically_entered: bool,
     ) -> bool {
         let position = match (update.new_position, region) {
-            (Some(p), Some(region)) if p.abs_ge(region.0) && p.abs_le(region.1) => {
+            (Some(p), Some(region)) if region.contains_point(p) => {
                 self.update_state(State::PhysicallyEnter);
                 p
             }

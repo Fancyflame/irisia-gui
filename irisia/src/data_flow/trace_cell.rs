@@ -9,8 +9,8 @@ use std::{
 use anyhow::Result;
 
 pub struct TraceCell<T> {
-    value: RefCell<T>,
     borrow_traces: RefCell<BorrowTraces>,
+    value: RefCell<T>,
 }
 
 struct BorrowTraces {
@@ -41,15 +41,15 @@ impl<T> TraceCell<T> {
         anyhow::Error::msg(msg)
     }
 
-    pub fn borrow(&self) -> Result<TraceRef<Ref<T>>> {
+    pub fn borrow(&self) -> Result<TraceRef<T>> {
         Ok(TraceRef {
             inner_ref: self.value.try_borrow().map_err(|_| self.get_error())?,
             trace: DropTrace::record(&self.borrow_traces),
         })
     }
 
-    pub fn borrow_mut(&self) -> Result<TraceRef<RefMut<T>>> {
-        Ok(TraceRef {
+    pub fn borrow_mut(&self) -> Result<TraceMut<T>> {
+        Ok(TraceMut {
             inner_ref: self.value.try_borrow_mut().map_err(|_| self.get_error())?,
             trace: DropTrace::record(&self.borrow_traces),
         })
@@ -83,7 +83,7 @@ impl<'a> DropTrace<'a> {
     }
 }
 
-pub struct TraceRef<'a, T> {
+pub struct TraceRef<'a, T: ?Sized> {
     inner_ref: Ref<'a, T>,
     trace: DropTrace<'a>,
 }
@@ -96,7 +96,7 @@ impl<'a, T: ?Sized> TraceRef<'a, T> {
         }
     }
 
-    pub fn map<U, F>(orig: Self, f: F) -> TraceRef<'a, Ref<'a, U>>
+    pub fn map<U, F>(orig: Self, f: F) -> TraceRef<'a, U>
     where
         F: FnOnce(&T) -> &U,
         U: ?Sized,
@@ -108,13 +108,13 @@ impl<'a, T: ?Sized> TraceRef<'a, T> {
     }
 }
 
-pub struct TraceMut<'a, T> {
+pub struct TraceMut<'a, T: ?Sized> {
     inner_ref: RefMut<'a, T>,
     trace: DropTrace<'a>,
 }
 
-impl<'a, T: ?Sized> TraceMut<'a, RefMut<'a, T>> {
-    pub fn map<U, F>(orig: Self, f: F) -> TraceRef<'a, RefMut<'a, U>>
+impl<'a, T: ?Sized> TraceMut<'a, T> {
+    pub fn map<U, F>(orig: Self, f: F) -> TraceMut<'a, U>
     where
         F: FnOnce(&mut T) -> &mut U,
         U: ?Sized,

@@ -1,99 +1,112 @@
 use std::{
-    cell::{Cell, RefCell},
+    cell::{Cell, RefCell, RefMut},
     rc::{Rc, Weak},
 };
 
-use super::{Listener, Wakeable};
+use super::{deps::Listener, ToListener, Wakeable};
 
-#[derive(Clone, Copy)]
-enum State {
-    MultiTimes,
-    Once,
-    Discard,
+pub struct Watcher {
+    inner: Rc<Inner<dyn OptionedFn>>,
 }
 
-struct WatcherCore<F> {
-    func: RefCell<F>,
-    handle: Handle,
-    state: Cell<State>,
+struct Inner<Of: ?Sized> {
+    delay_set_unwatch: Cell<bool>,
+    type_name: &'static str,
+    this: Weak<dyn Wakeable>,
+    callback: RefCell<Of>,
 }
 
-impl<F> Wakeable for WatcherCore<F>
-where
-    F: FnMut(&Handle),
-{
-    fn update(self: Rc<Self>) -> bool {
-        match self.state.get() {
-            State::MultiTimes => {
-                self.func.borrow_mut()(&self.handle);
-                true
-            }
-
-            State::Once => {
-                self.state.set(State::Discard);
-                self.func.borrow_mut()(&self.handle);
-                false
-            }
-
-            State::Discard => false,
-        }
-    }
-}
-
-pub fn watcher<F>(mut watch_fn: F, call_immediately: bool) -> (Listener, Handle)
-where
-    F: FnMut(&Handle) + 'static,
-{
-    let rc = Rc::new_cyclic(|weak: &Weak<WatcherCore<F>>| {
-        let handle = Handle(weak.clone());
-
-        if call_immediately {
-            watch_fn(&handle);
-        }
-
-        WatcherCore {
-            func: RefCell::new(watch_fn),
-            handle,
-            state: Cell::new(State::MultiTimes),
-        }
-    });
-
-    let handle = rc.handle.clone();
-    (Listener::Rc(rc), handle)
-}
-
-#[derive(Clone)]
-pub struct Handle(Weak<dyn SetState>);
-
-trait SetState {
-    fn set_state(&self) -> &Cell<State>;
-}
-
-impl<F> SetState for WatcherCore<F> {
-    fn set_state(&self) -> &Cell<State> {
-        &self.state
-    }
-}
-
-impl Handle {
-    fn set<F>(&self, f: F)
+impl Watcher {
+    pub fn new<F>(callback: F) -> Self
     where
-        F: FnOnce(&Cell<State>),
+        F: FnMut() -> bool + 'static,
     {
-        if let Some(this) = self.0.upgrade() {
-            f(this.set_state());
+        let inner = Rc::new_cyclic(|this: &Weak<Inner<_>>| Inner {
+            type_name: std::any::type_name::<F>(),
+            delay_set_unwatch: Cell::new(false),
+            this: this.clone(),
+            callback: RefCell::new(Some(callback)),
+        });
+
+        Self { inner }
+    }
+
+    pub fn call(&self) -> bool {
+        self.inner.get_optioned_fn().call()
+    }
+
+    pub fn drop_callback(&self) {
+        match self.inner.callback.try_borrow_mut() {
+            Ok(mut refm) => refm.drop(),
+            Err(_) => self.inner.delay_set_unwatch.set(true),
         }
     }
+}
 
-    pub fn discard(&self) {
-        self.set(|cell| cell.set(State::Discard));
+impl<Of> Inner<Of>
+where
+    Of: OptionedFn + ?Sized,
+{
+    fn get_optioned_fn(&self) -> RefMut<Of> {
+        match self.callback.try_borrow_mut() {
+            Ok(cb) => cb,
+            Err(_) => {
+                panic!(
+                    "cyclic callback triggered, please do not mutate values \
+                    that this watcher may directly or indirectly watching. \
+                    type of the callback function is `{}`",
+                    self.type_name
+                );
+            }
+        }
+    }
+}
+
+impl<Of> Wakeable for Inner<Of>
+where
+    Of: OptionedFn + ?Sized,
+{
+    fn add_back_reference(&self, _: &Rc<dyn super::Listenable>) {}
+    fn set_dirty(&self) {}
+    fn wake(&self) -> bool {
+        let mut refm = self.get_optioned_fn();
+        let keep_watching = refm.call() && !self.delay_set_unwatch.get();
+        if !keep_watching {
+            refm.drop();
+        }
+        keep_watching
+    }
+}
+
+trait OptionedFn {
+    fn drop(&mut self);
+    fn call(&mut self) -> bool;
+}
+
+impl<F> OptionedFn for Option<F>
+where
+    F: FnMut() -> bool + 'static,
+{
+    fn drop(&mut self) {
+        *self = None
     }
 
-    pub fn once(&self) {
-        self.set(|cell| {
-            if let State::MultiTimes = cell.get() {
-                cell.set(State::Once);
+    fn call(&mut self) -> bool {
+        match self {
+            Some(f) => {
+                let keep_watching = f();
+                if !keep_watching {
+                    *self = None;
+                }
+                keep_watching
             }
-        });
+            None => false,
+        }
+    }
+}
+
+impl ToListener for Watcher {
+    fn to_listener(&self) -> Listener {
+        Listener::Rc(self.inner.this.upgrade().unwrap())
     }
 }

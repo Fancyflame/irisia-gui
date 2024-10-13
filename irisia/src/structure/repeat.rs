@@ -1,157 +1,143 @@
 use std::{
+    cell::RefCell,
     collections::{hash_map::Entry, HashMap},
-    hash::Hash,
-    rc::Rc,
+    rc::{Rc, Weak},
 };
 
 use crate::{
-    data_flow::{
-        register::{register, Register},
-        wire3, ReadWire,
-    },
+    data_flow::{dirty_flag::DirtyFlag, ReadWire, Readable, ToReadWire},
     el_model::EMCreateCtx,
 };
 
 use super::{StructureCreate, VisitBy};
 
-const MAX_TIME_TO_LIVE: u8 = 3;
-
-pub struct Repeat<K, T, Tree> {
-    order: ReadWire<Vec<K>>,
-    //dirty:
-    map: HashMap<K, Item<T, Tree>>,
+pub struct Repeat<Wire, Tb>
+where
+    Tb: TreeBuilderFn,
+    Wire: ToReadWire,
+{
+    src: ReadWire<Vec<Wire>>,
+    dirty_flag: DirtyFlag,
+    tree_builder: Tb,
+    map: RefCell<HashMap<*const (), MapItem<Wire::Data, Tb::Tree>>>,
     ctx: EMCreateCtx,
 }
 
-struct Item<T, Tree> {
-    iter_item: Rc<Register<T>>,
+struct MapItem<Data: ?Sized, Tree> {
+    _data: Weak<dyn Readable<Data = Data>>,
     tree: Tree,
-    time_to_live: u8,
+    alive: bool,
 }
 
-impl<Cp, K, T, Tree> VisitBy<Cp> for Repeat<K, T, Tree>
+impl<Cp, Wire, Tb> VisitBy<Cp> for Repeat<Wire, Tb>
 where
-    K: Hash + Eq + 'static,
-    T: 'static,
-    Tree: VisitBy<Cp>,
+    Wire: ToReadWire + 'static,
+    Tb: TreeBuilderFn,
+    Tb::Tree: VisitBy<Cp>,
 {
     fn visit<V>(&self, v: &mut V) -> crate::Result<()>
     where
-        V: super::Visitor,
+        V: super::Visitor<Cp>,
     {
-        let this = self.0.read();
-
-        for key in &this.order {
-            this.map[key].tree.visit(v)?;
+        self.update_if_need();
+        let map = self.map.borrow();
+        for key in &*self.src.read() {
+            map[&ptr_of_wire(key)].tree.visit(v)?;
         }
-
         Ok(())
     }
 
     fn visit_mut<V>(&mut self, v: &mut V) -> crate::Result<()>
     where
-        V: super::Visitor,
+        V: super::VisitorMut<Cp>,
     {
-        let this = self.0.read();
-
-        for key in &this.order {
-            this.map.get_mut(key).unwrap().tree.visit_mut(v)?;
+        self.update_if_need();
+        let mut map = self.map.borrow_mut();
+        for key in &*self.src.read() {
+            map.get_mut(&ptr_of_wire(key)).unwrap().tree.visit_mut(v)?;
         }
-
         Ok(())
     }
 }
 
-pub struct RepeatMutator<'a, K, T, Tree>(&'a mut RepeatInner<K, T, Tree>);
-
-impl<'a, K, Item, Tree> RepeatMutator<'a, K, Item, Tree>
+impl<Wire, Tb> Repeat<Wire, Tb>
 where
-    K: Hash + Eq + Clone,
-    Item: 'static,
+    Wire: ToReadWire,
+    Tb: TreeBuilderFn,
 {
-    pub fn update<Iter, Fk, F, Upd>(self, iter: Iter, key_fn: Fk, content_fn: F)
-    where
-        Iter: IntoIterator<Item = Item>,
-        Fk: Fn(&Item) -> K,
-        F: Fn(ReadWire<Item>) -> Upd,
-        Upd: StructureCreate<Target = Tree>,
-    {
-        self.0.update(
-            iter.into_iter().map(|data| (key_fn(&data), data)),
-            content_fn,
-        );
-    }
-}
+    fn update_if_need(&self) {
+        if !self.dirty_flag.is_dirty() {
+            return;
+        }
 
-pub fn repeat<K, T, Tree, F>(content_fn: F) -> impl StructureCreate
-where
-    K: Hash + Eq + Clone + 'static,
-    T: 'static,
-    Tree: VisitBy,
-    F: Fn(RepeatMutator<K, T, Tree>) + 'static,
-{
-    move |ctx: &EMCreateCtx| {
-        let ctx = ctx.clone();
+        let mut map = self.map.borrow_mut();
 
-        let w = wire3(
-            move || {
-                let rep = RepeatInner {
-                    map: HashMap::new(),
-                    ctx,
-                    order: Vec::new(),
-                };
-
-                (rep, move |mut r| content_fn(RepeatMutator(&mut r)))
-            },
-            true,
-        );
-
-        Repeat(w)
-    }
-}
-
-impl<K, T, Tree> RepeatInner<K, T, Tree> {
-    fn update<I, Upd, F>(&mut self, iter: I, content_fn: F)
-    where
-        K: Hash + Eq + Clone,
-        T: 'static,
-        I: Iterator<Item = (K, T)>,
-        F: Fn(ReadWire<T>) -> Upd,
-        Upd: StructureCreate<Target = Tree>,
-    {
-        let RepeatInner { map, order, ctx } = self;
-
-        order.clear();
-        for (key, data) in iter {
-            match map.entry(key.clone()) {
+        for wire in &*self.src.read() {
+            let wire = wire.to_read_wire();
+            match map.entry(Rc::as_ptr(&wire) as _) {
                 Entry::Occupied(mut occ) => {
-                    let item = occ.get_mut();
-                    assert_ne!(
-                        item.time_to_live, MAX_TIME_TO_LIVE,
-                        "some keys in the iterator is duplicated"
-                    );
-                    item.time_to_live = MAX_TIME_TO_LIVE;
-                    item.iter_item.set(data);
+                    occ.get_mut().alive = true;
                 }
                 Entry::Vacant(vac) => {
-                    let reg = register(data);
-                    vac.insert(Item {
-                        tree: content_fn(reg.clone()).create(ctx),
-                        iter_item: reg,
-                        time_to_live: MAX_TIME_TO_LIVE,
+                    vac.insert(MapItem {
+                        _data: Rc::downgrade(&wire),
+                        tree: self.tree_builder.build(&self.ctx),
+                        alive: true,
                     });
                 }
             }
-
-            order.push(key);
         }
 
-        map.retain(|_, item| match item.time_to_live.checked_sub(1) {
-            Some(ttl) => {
-                item.time_to_live = ttl;
-                true
+        map.retain(|_, item| {
+            let alive = item.alive;
+            if alive {
+                item.alive = false;
             }
-            None => false,
+            alive
         });
+
+        self.dirty_flag.set_clean();
     }
+}
+
+pub fn repeat<W, F>(vec: ReadWire<Vec<W>>, body: F) -> impl StructureCreate
+where
+    W: ToReadWire + 'static,
+    F: TreeBuilderFn,
+{
+    |ctx: &EMCreateCtx| Repeat {
+        dirty_flag: {
+            let flag = DirtyFlag::new();
+            flag.set_dirty();
+            vec.add_listener(&flag);
+            flag
+        },
+        src: vec,
+        tree_builder: body,
+        map: RefCell::new(HashMap::new()),
+        ctx: ctx.clone(),
+    }
+}
+
+pub trait TreeBuilderFn: 'static {
+    type Tree;
+    fn build(&self, ctx: &EMCreateCtx) -> Self::Tree;
+}
+
+impl<F, Tb> TreeBuilderFn for F
+where
+    F: Fn() -> Tb + 'static,
+    Tb: StructureCreate,
+{
+    type Tree = Tb::Target;
+    fn build(&self, ctx: &EMCreateCtx) -> Self::Tree {
+        self().create(ctx)
+    }
+}
+
+fn ptr_of_wire<W>(w: &W) -> *const ()
+where
+    W: ToReadWire,
+{
+    Rc::as_ptr(&w.to_read_wire()) as _
 }

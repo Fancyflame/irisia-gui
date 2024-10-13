@@ -2,7 +2,7 @@ use std::{cell::Cell, rc::Rc, sync::Arc};
 
 use irisia_backend::{window_handle::CloseHandle, WinitWindow};
 
-use crate::event::EventDispatcher;
+use crate::{event::EventDispatcher, primitive::Region};
 
 use super::{event_comp::global::focusing::Focusing, redraw_scheduler::RedrawScheduler};
 
@@ -24,7 +24,7 @@ impl GlobalContent {
         &self.focusing
     }
 
-    pub(crate) fn request_redraw(&self, ro: Rc<dyn StandaloneRender>) {
+    pub(crate) fn request_redraw(&self, dirty_zone: Region) {
         self.redraw_scheduler.request_redraw(ro)
     }
 

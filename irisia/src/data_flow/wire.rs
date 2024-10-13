@@ -1,13 +1,13 @@
 use std::{
+    cell::Cell,
     ops::{Deref, DerefMut},
     rc::{Rc, Weak},
 };
 
 use super::{
-    const_data::const_wire,
-    convert_from::{Updater, UpdaterInner},
+    deps::DepdencyList,
     trace_cell::{TraceCell, TraceRef},
-    Listener, ListenerList, ReadRef, ReadWire, Readable, Wakeable,
+    Listenable, Listener, ListenerList, ReadRef, ReadWire, Readable, ToListener, Wakeable,
 };
 
 const BORROW_ERROR: &str = "cannot update data inside the wire, because at least one reader still exists \
@@ -16,127 +16,165 @@ const BORROW_ERROR: &str = "cannot update data inside the wire, because at least
     old data of this wire itself, which bound to cause infinite updating. to address this problem, \
     you should remove the loop manually";
 
-struct Wire<F, T> {
-    computes: TraceCell<(F, T)>,
-    listeners: ListenerList,
-}
-
-pub fn wire<F, R>(mut f: F) -> ReadWire<F::Output>
-where
-    F: FnMut() -> R + 'static,
-    R: 'static,
-{
-    wire3(move || (f(), move |mut r| *r = f()), false)
-}
-
-pub fn wire2<T>(mut f: impl FnMut(Updater<'_, T>) + 'static) -> ReadWire<T>
+pub fn wire<F, T>(f: F) -> ReadWire<T>
 where
     T: 'static,
+    F: Fn() -> T + 'static,
 {
-    wire3(
-        move || {
-            let mut cache = None;
-            f(Updater(UpdaterInner::Unassigned(&mut cache)));
-            (cache.expect("not initialized"), move |mut r| {
-                f(Updater(UpdaterInner::OutOfDate {
-                    target: &mut r,
-                    updated: false,
-                }))
-            })
-        },
-        false,
-    )
+    Wire::new(move || {
+        (f(), move |r| {
+            *r = f();
+            true
+        })
+    })
 }
 
-pub fn wire3<F2, F, T>(f: F2, update_immediately: bool) -> ReadWire<T>
+pub fn wire_cmp<F, T>(f: F) -> ReadWire<T>
+where
+    T: Eq + 'static,
+    F: Fn() -> T + 'static,
+{
+    Wire::new(move || {
+        (f(), move |r| {
+            let value = f();
+            let mutated = value != *r;
+            *r = value;
+            mutated
+        })
+    })
+}
+
+pub fn wire2<Fi, F, T>(init_state: Fi, f: F) -> ReadWire<T>
 where
     T: 'static,
-    F2: FnOnce() -> (T, F),
-    F: FnMut(WireMutator<T>) + 'static,
+    Fi: FnOnce() -> T,
+    F: Fn(Setter<T>) + 'static,
 {
-    let rc = Rc::new_cyclic(|weak: &Weak<Wire<F, T>>| {
-        ListenerList::push_global_stack(Listener::Weak(weak.clone()));
-        let (mut data, mut update_fn) = f();
-        if update_immediately {
-            update_fn(WireMutator {
-                r: &mut data,
-                mutated: &mut true,
+    wire3(move || (init_state(), f))
+}
+
+pub fn wire3<Fi, T, F>(fn_init: Fi) -> ReadWire<T>
+where
+    T: 'static,
+    Fi: FnOnce() -> (T, F),
+    F: Fn(Setter<T>) + 'static,
+{
+    Wire::new(move || {
+        let (init, updater) = fn_init();
+        (init, move |r| {
+            let mut mutated = false;
+            updater(Setter {
+                r,
+                mutated: &mut mutated,
             });
-        }
-        ListenerList::pop_global_stack();
-
-        Wire {
-            computes: TraceCell::new((update_fn, data)),
-            listeners: ListenerList::new(),
-        }
-    });
-
-    // We assume that if the rc was not taken, the wire will never be waked.
-    if Rc::weak_count(&rc) == 0 && Rc::strong_count(&rc) == 1 {
-        let value = Rc::into_inner(rc).unwrap().computes.into_inner().1;
-        return const_wire(value);
-    }
-
-    rc
+            mutated
+        })
+    })
 }
 
-impl<F, T> Readable for Wire<F, T> {
+struct Wire<F, T> {
+    computes: TraceCell<Option<(F, T)>>,
+    listeners: ListenerList,
+    deps: DepdencyList,
+    as_listenable: Weak<dyn Listenable>,
+    is_dirty: Cell<bool>,
+}
+
+impl<F, T> Wire<F, T>
+where
+    F: Fn(&mut T) -> bool + 'static,
+{
+    fn new<Fi>(fn_init: Fi) -> Rc<Self>
+    where
+        Fi: FnOnce() -> (T, F),
+        T: 'static,
+    {
+        let w = Rc::new_cyclic(move |this: &Weak<Wire<_, _>>| Wire {
+            computes: TraceCell::new(None),
+            listeners: ListenerList::new(),
+            deps: DepdencyList::new(Listener::Weak(this.clone())),
+            as_listenable: this.clone(),
+            is_dirty: Cell::new(true),
+        });
+
+        let mut computes = w.computes.borrow_mut().unwrap();
+        let init = w.deps.collect_dependencies(fn_init);
+        *computes = Some((init.1, init.0));
+        drop(computes);
+        w
+    }
+}
+
+impl<F, T> Readable for Wire<F, T>
+where
+    F: Fn(&mut T) -> bool,
+{
     type Data = T;
 
     fn read(&self) -> ReadRef<Self::Data> {
-        self.listeners.capture_caller();
+        self.listeners
+            .capture_caller(&self.as_listenable.upgrade().unwrap());
         ReadRef::CellRef(TraceRef::map(
-            self.computes.borrow().unwrap(),
-            |(_, cache)| cache,
+            self.computes.borrow().expect(BORROW_ERROR),
+            |computes| &computes.as_ref().unwrap().1,
         ))
-    }
-
-    fn pipe(&self, listen_end: Listener) {
-        self.listeners.watch(&listen_end);
     }
 }
 
 impl<F, T> Wakeable for Wire<F, T>
 where
-    T: 'static,
-    F: FnMut(WireMutator<T>) + 'static,
+    F: Fn(&mut T) -> bool,
 {
-    fn update(self: Rc<Self>) -> bool {
-        ListenerList::push_global_stack(Listener::Weak(Rc::downgrade(&self) as _));
+    fn add_back_reference(&self, dep: &Rc<dyn Listenable>) {
+        self.deps.add_dependency(dep);
+    }
 
-        let mut computes_ref = self.computes.borrow_mut().expect(BORROW_ERROR);
-        let computes = &mut *computes_ref;
+    fn set_dirty(&self) {
+        self.is_dirty.set(true);
+        self.listeners.set_dirty();
+    }
 
-        let mut mutated = false;
-        (computes.0)(WireMutator {
-            r: &mut computes.1,
-            mutated: &mut mutated,
-        });
-        drop(computes_ref);
+    fn wake(&self) -> bool {
+        if !self.is_dirty.get() {
+            return true;
+        }
 
-        ListenerList::pop_global_stack();
+        let mut computes_opt = self.computes.borrow_mut().expect(BORROW_ERROR);
+        let (update_fn, state) = computes_opt.as_mut().unwrap();
 
+        let mutated = self.deps.collect_dependencies(|| update_fn(state));
         if mutated {
             self.listeners.wake_all();
         }
 
+        self.is_dirty.set(false);
         true
     }
 }
 
-pub struct WireMutator<'a, T> {
+impl<F, T> Listenable for Wire<F, T> {
+    fn add_listener(&self, listener: &dyn ToListener) {
+        self.listeners.add_listener(listener.to_listener());
+    }
+
+    fn remove_listener(&self, listener: &dyn ToListener) {
+        self.listeners.remove_listener(listener.to_listener());
+    }
+}
+
+pub struct Setter<'a, T: ?Sized> {
     r: &'a mut T,
     mutated: &'a mut bool,
 }
 
-impl<T> Deref for WireMutator<'_, T> {
+impl<T: ?Sized> Deref for Setter<'_, T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
         self.r
     }
 }
 
-impl<T> DerefMut for WireMutator<'_, T> {
+impl<T: ?Sized> DerefMut for Setter<'_, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         *self.mutated = true;
         self.r

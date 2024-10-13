@@ -1,15 +1,12 @@
 use std::{
-    cell::RefMut,
     ops::{Deref, DerefMut},
-    rc::Rc,
+    rc::{Rc, Weak},
 };
 
 use super::{
-    trace_cell::{TraceCell, TraceRef},
-    Listener, ListenerList, ReadRef, Readable,
+    trace_cell::{TraceCell, TraceMut},
+    Listenable, ListenerList, ReadRef, ReadWire, Readable, ToListener, ToReadWire,
 };
-
-pub type RcReg<T> = Rc<Register<T>>;
 
 const BORROW_ERROR: &str = "cannot mutate data inside the register, \
     because the write guard is still held somewhere. please note that \
@@ -17,68 +14,90 @@ const BORROW_ERROR: &str = "cannot mutate data inside the register, \
     not use it";
 
 pub struct Register<T> {
-    data: TraceCell<T>,
-    listeners: ListenerList,
+    inner: Rc<Inner<T>>,
 }
 
-pub struct WriteGuard<'a, T: ?Sized> {
-    listeners: &'a ListenerList,
-    r: Option<TraceRef<'a, RefMut<'a, T>>>,
+struct Inner<T> {
+    data: TraceCell<T>,
+    listeners: ListenerList,
+    this: Weak<dyn Listenable>,
 }
 
 impl<T> Register<T> {
+    pub fn register(data: T) -> Self
+    where
+        T: 'static,
+    {
+        let inner = Rc::new_cyclic(|this: &Weak<Inner<_>>| Inner {
+            data: TraceCell::new(data),
+            listeners: ListenerList::new(),
+            this: this.clone(),
+        });
+
+        Self { inner }
+    }
+
     pub fn write(&self) -> WriteGuard<T> {
         WriteGuard {
-            listeners: &self.listeners,
-            r: Some(self.data.borrow_mut().expect(BORROW_ERROR)),
+            listeners: WakeListeners(&self.inner.listeners),
+            r: self.inner.data.borrow_mut().expect(BORROW_ERROR),
         }
     }
 
     pub fn set(&self, value: T) {
-        *self.data.borrow_mut().expect(BORROW_ERROR) = value;
-        self.listeners.wake_all();
+        *self.write() = value;
     }
 }
 
-impl<T> Readable for Register<T> {
+impl<T> Readable for Inner<T> {
     type Data = T;
 
     fn read(&self) -> ReadRef<Self::Data> {
-        self.listeners.capture_caller();
+        self.listeners.capture_caller(&self.this.upgrade().unwrap());
         ReadRef::CellRef(self.data.borrow().unwrap())
     }
+}
 
-    fn pipe(&self, listen_end: Listener) {
-        self.listeners.watch(&listen_end)
+impl<T> Listenable for Inner<T> {
+    fn add_listener(&self, listener: &dyn ToListener) {
+        self.listeners.add_listener(listener.to_listener());
+    }
+
+    fn remove_listener(&self, listener: &dyn ToListener) {
+        self.listeners.remove_listener(listener.to_listener());
     }
 }
 
-pub fn register<T>(data: T) -> Rc<Register<T>>
-where
-    T: 'static,
-{
-    Rc::new(Register {
-        data: TraceCell::new(data),
-        listeners: ListenerList::new(),
-    })
-}
-
-impl<T: ?Sized> Drop for WriteGuard<'_, T> {
-    fn drop(&mut self) {
-        self.r.take();
-        self.listeners.wake_all()
-    }
+pub struct WriteGuard<'a, T: ?Sized> {
+    // do not swap the field order
+    r: TraceMut<'a, T>,
+    listeners: WakeListeners<'a>,
 }
 
 impl<T: ?Sized> Deref for WriteGuard<'_, T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
-        self.r.as_ref().unwrap()
+        &self.r
     }
 }
 
 impl<T: ?Sized> DerefMut for WriteGuard<'_, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.r.as_mut().unwrap()
+        &mut self.r
+    }
+}
+
+struct WakeListeners<'a>(&'a ListenerList);
+
+impl Drop for WakeListeners<'_> {
+    fn drop(&mut self) {
+        self.0.wake_all();
+    }
+}
+
+impl<T: 'static> ToReadWire for Register<T> {
+    type Data = T;
+    fn to_read_wire(&self) -> ReadWire<Self::Data> {
+        self.inner.clone()
     }
 }

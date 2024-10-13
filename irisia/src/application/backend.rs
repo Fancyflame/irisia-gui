@@ -9,7 +9,7 @@ use irisia_backend::{
 
 use crate::{
     el_model::{EMCreateCtx, ElementModel},
-    element::{ElementInterfaces, OneStructureCreate},
+    element::{ElementInterfaces, RootStructureCreate},
     event::{standard::WindowDestroyed, EventDispatcher},
     primitive::{Point, Region},
     structure::StructureCreate,
@@ -66,10 +66,10 @@ where
 }
 
 fn window_size_to_draw_region(size: PhysicalSize<u32>) -> Region {
-    (
-        Point(0.0, 0.0),
-        Point(size.width as f32, size.height as f32),
-    )
+    Region {
+        left_top: Point(0.0, 0.0),
+        right_bottom: Point(size.width as f32, size.height as f32),
+    }
 }
 
 pub(super) async fn new_window<F>(
@@ -77,7 +77,7 @@ pub(super) async fn new_window<F>(
     root_creator: F,
 ) -> Result<Window>
 where
-    F: OneStructureCreate<OneChildProps = ()> + Send + 'static,
+    F: RootStructureCreate<OneChildProps = ()> + Send + 'static,
 {
     let ev_disp = EventDispatcher::new();
 
