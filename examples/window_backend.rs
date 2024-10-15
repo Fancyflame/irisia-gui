@@ -62,11 +62,11 @@ impl ElementInterfaces for Rectangle {
         }
     }
 
-    fn children_emit_event(&mut self, _: &IncomingPointerEvent) -> bool {
+    fn spread_event(&mut self, _: &IncomingPointerEvent) -> bool {
         false
     }
 
-    fn set_draw_region(&mut self, _: irisia::primitive::Region) {}
+    fn on_draw_region_changed(&mut self, _: irisia::primitive::Region) {}
 
     fn render(&mut self, lr: &mut LayerRebuilder, _: std::time::Duration) -> Result<()> {
         let region = self.access.draw_region();
@@ -136,11 +136,11 @@ impl ElementInterfaces for Flex {
         }
     }
 
-    fn children_emit_event(&mut self, ipe: &IncomingPointerEvent) -> bool {
+    fn spread_event(&mut self, ipe: &IncomingPointerEvent) -> bool {
         self.children.emit_event(ipe)
     }
 
-    fn set_draw_region(&mut self, _: irisia::primitive::Region) {}
+    fn on_draw_region_changed(&mut self, _: irisia::primitive::Region) {}
 
     fn render(&mut self, lr: &mut LayerRebuilder, interval: std::time::Duration) -> Result<()> {
         self.flex_layout()?;

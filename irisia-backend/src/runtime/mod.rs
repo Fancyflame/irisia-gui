@@ -3,6 +3,7 @@ use std::{collections::HashMap, future::Future};
 use anyhow::Result;
 use tokio::task::LocalSet;
 use winit::{
+    application::ApplicationHandler,
     event::{Event, StartCause, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::WindowId,
@@ -101,21 +102,7 @@ where
                 }
             },
 
-            _ => {} /*_ => match event.map_nonuser_event() {
-                        Ok(e) => {
-                            if let Some(e) = e.to_static() {
-                                window_map.retain(|_, window| {
-                                    if let Err(err) = window.handle_event(e.clone()) {
-                                        println!("{err}");
-                                        false
-                                    } else {
-                                        true
-                                    }
-                                });
-                            }
-                        }
-                        _ => unreachable!(),
-                    },*/
+            _ => {}
         }
     })?;
 

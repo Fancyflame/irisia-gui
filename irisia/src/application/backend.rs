@@ -1,7 +1,7 @@
 use std::{cell::Cell, rc::Rc, sync::Arc, time::Duration};
 
 use irisia_backend::{
-    skia_safe::{colors::WHITE, Canvas},
+    skia_safe::Canvas,
     window_handle::RawWindowHandle,
     winit::{dpi::PhysicalSize, event::WindowEvent, window::WindowAttributes},
     AppWindow, WinitWindow,
@@ -12,7 +12,6 @@ use crate::{
     element::{ElementInterfaces, RootStructureCreate},
     event::{standard::WindowDestroyed, EventDispatcher},
     primitive::{Point, Region},
-    structure::StructureCreate,
     Result,
 };
 
@@ -34,23 +33,14 @@ where
     El: ElementInterfaces,
 {
     fn on_redraw(&mut self, canvas: &Canvas, interval: Duration) -> Result<()> {
-        self.gc.redraw_scheduler.redraw(canvas, interval)?;
-
-        canvas.reset_matrix();
-        canvas.clear(WHITE);
-
-        self.root
-            .shared
-            .render_on
-            .expect_independent()
-            .borrow_mut()
-            .composite(canvas)
+        self.gc
+            .redraw_scheduler
+            .redraw(&mut self.root, canvas, interval)
     }
 
     fn on_window_event(&mut self, event: WindowEvent) {
         if let WindowEvent::Resized(size) = &event {
             self.root.set_draw_region(window_size_to_draw_region(*size));
-            self.gc.request_redraw(self.root.clone());
         }
 
         if let Some(ipe) = self.gem.emit_event(event, &self.gc) {
@@ -77,7 +67,7 @@ pub(super) async fn new_window<F>(
     root_creator: F,
 ) -> Result<Window>
 where
-    F: RootStructureCreate<OneChildProps = ()> + Send + 'static,
+    F: RootStructureCreate + Send + 'static,
 {
     let ev_disp = EventDispatcher::new();
 
@@ -96,7 +86,7 @@ where
                 user_close: Cell::new(true),
             });
 
-            let root = root_creator.create(&EMCreateCtx {
+            let mut root = root_creator.create(&EMCreateCtx {
                 global_content: gc.clone(),
             });
 

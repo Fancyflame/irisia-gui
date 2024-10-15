@@ -6,16 +6,20 @@ use std::{
 
 use anyhow::anyhow;
 use irisia_backend::{
-    skia_safe::{colors::TRANSPARENT, Canvas},
+    skia_safe::{region::RegionOp, Canvas, ClipOp, Region as SkRegion},
     WinitWindow,
 };
-use smallvec::SmallVec;
 
-use crate::Result;
+use crate::{
+    el_model::{ElementAccess, ElementModel},
+    element::Render,
+    ElementInterfaces, Result,
+};
 
 pub(super) struct RedrawScheduler {
     window: Arc<WinitWindow>,
-    list: RefCell<HashMap<*const dyn StandaloneRender, Rc<dyn StandaloneRender>>>,
+    dirty_regions: RefCell<Vec<ElementAccess>>,
+    redrawing: RefCell<SkRegion>,
     redraw_req_sent: Cell<bool>,
 }
 
@@ -23,43 +27,54 @@ impl RedrawScheduler {
     pub fn new(window: Arc<WinitWindow>) -> Self {
         Self {
             window,
-            list: Default::default(),
+            dirty_regions: RefCell::new(Vec::new()),
+            redrawing: RefCell::new(SkRegion::new()),
             redraw_req_sent: Cell::new(false),
         }
     }
 
-    pub fn request_redraw(&self, ro: Rc<dyn StandaloneRender>) {
+    pub fn request_redraw(&self, access: ElementAccess) {
         if !self.redraw_req_sent.get() {
             self.redraw_req_sent.set(true);
             self.window.request_redraw();
         }
-        self.list.borrow_mut().insert(Rc::as_ptr(&ro), ro);
+        self.dirty_regions.borrow_mut().push(access);
     }
 
-    pub fn redraw(&self, canvas: &Canvas, interval: Duration) -> Result<()> {
-        let mut errors: SmallVec<[_; 2]> = SmallVec::new();
-
-        loop {
-            let mut list = self.list.borrow_mut();
-            let ro = match list.keys().next() {
-                Some(key) => {
-                    let key = *key;
-                    list.remove(&key).unwrap()
-                }
-                None => break,
-            };
-            drop(list);
-
-            canvas.clear(TRANSPARENT);
-            canvas.reset_matrix();
-
-            if let Err(err) = ro.standalone_render(canvas, interval) {
-                errors.push(err);
+    pub fn redraw<Root>(
+        &self,
+        root: &mut ElementModel<Root, ()>,
+        canvas: &Canvas,
+        interval: Duration,
+    ) -> Result<()>
+    where
+        Root: ElementInterfaces,
+    {
+        let mut dirty_region = self.redrawing.borrow_mut();
+        let mut unmerged = self.dirty_regions.borrow_mut();
+        dirty_region.set_empty();
+        for access in unmerged.drain(..) {
+            let (old_region, new_region) = access.reset_redraw_region_pair();
+            if let Some(old) = old_region {
+                dirty_region.op_rect(old.ceil_to_irect(), RegionOp::Union);
             }
+            dirty_region.op_rect(new_region.ceil_to_irect(), RegionOp::Union);
+        }
+        drop(unmerged);
+        if dirty_region.is_empty() {
+            return Ok(());
         }
 
         self.redraw_req_sent.set(false);
-        fmt_errors(&errors)
+        canvas.save();
+        canvas.clip_region(&dirty_region, ClipOp::Max_EnumValue);
+        let res = root.render(Render {
+            canvas,
+            interval,
+            dirty_region: &dirty_region,
+        });
+        canvas.restore();
+        res
     }
 }
 

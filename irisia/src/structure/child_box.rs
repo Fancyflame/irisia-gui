@@ -16,25 +16,25 @@ impl<Cp: 'static> ChildBox<Cp> {
     }
 
     pub fn render(&mut self, args: Render) -> Result<()> {
-        self.0.render(args)
+        self.0.render_all(args)
     }
 
     pub fn props<F>(&self, mut f: F)
     where
         F: FnMut(&Cp),
     {
-        self.0.props(&mut f);
+        self.0.props_all(&mut f);
     }
 
     pub fn layout<F>(&mut self, mut f: F) -> Result<()>
     where
         F: FnMut(&Cp) -> Option<Region>,
     {
-        self.0.layout(&mut f)
+        self.0.layout_all(&mut f)
     }
 
     pub fn emit_event(&mut self, ipe: &IncomingPointerEvent) -> bool {
-        self.0.emit_event(ipe)
+        self.0.emit_event_all(ipe)
     }
 
     pub fn len(&self) -> usize {
@@ -43,5 +43,9 @@ impl<Cp: 'static> ChildBox<Cp> {
 
     pub fn is_empty(&self) -> bool {
         self.0.len() == 0
+    }
+
+    pub fn check_mark_dirty(&mut self, dirty_region: Region) {
+        self.0.check_mark_dirty_all(dirty_region);
     }
 }

@@ -24,7 +24,7 @@ struct Inner<T> {
 }
 
 impl<T> Register<T> {
-    pub fn register(data: T) -> Self
+    pub fn new(data: T) -> Self
     where
         T: 'static,
     {
@@ -37,9 +37,14 @@ impl<T> Register<T> {
         Self { inner }
     }
 
+    #[inline]
+    pub fn read(&self) -> ReadRef<T> {
+        self.inner.read()
+    }
+
     pub fn write(&self) -> WriteGuard<T> {
         WriteGuard {
-            listeners: WakeListeners(&self.inner.listeners),
+            _wl: WakeListeners(&self.inner.listeners),
             r: self.inner.data.borrow_mut().expect(BORROW_ERROR),
         }
     }
@@ -71,7 +76,7 @@ impl<T> Listenable for Inner<T> {
 pub struct WriteGuard<'a, T: ?Sized> {
     // do not swap the field order
     r: TraceMut<'a, T>,
-    listeners: WakeListeners<'a>,
+    _wl: WakeListeners<'a>,
 }
 
 impl<T: ?Sized> Deref for WriteGuard<'_, T> {
@@ -99,5 +104,14 @@ impl<T: 'static> ToReadWire for Register<T> {
     type Data = T;
     fn to_read_wire(&self) -> ReadWire<Self::Data> {
         self.inner.clone()
+    }
+}
+
+impl<T> Default for Register<T>
+where
+    T: Default + 'static,
+{
+    fn default() -> Self {
+        Self::new(T::default())
     }
 }

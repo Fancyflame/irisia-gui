@@ -33,15 +33,12 @@ type PropsFn<'a, Cp> = &'a mut dyn FnMut(&Cp);
 type LayoutFn<'a, Cp> = &'a mut dyn FnMut(&Cp) -> Option<Region>;
 
 pub trait RenderMultiple<T>: 'static {
-    fn render(&mut self, args: Render) -> Result<()>;
-
-    fn props(&self, f: PropsFn<T>);
-
-    fn layout(&mut self, f: LayoutFn<T>) -> Result<()>;
-
-    fn emit_event(&mut self, ipe: &IncomingPointerEvent) -> bool;
-
+    fn render_all(&mut self, args: Render) -> Result<()>;
+    fn props_all(&self, f: PropsFn<T>);
+    fn layout_all(&mut self, f: LayoutFn<T>) -> Result<()>;
+    fn emit_event_all(&mut self, ipe: &IncomingPointerEvent) -> bool;
     fn len(&self) -> usize;
+    fn check_mark_dirty_all(&mut self, dirty_region: Region);
 }
 
 pub trait Visitor<Cp> {
@@ -61,7 +58,7 @@ where
     T: VisitBy<Cp>,
     Cp: 'static,
 {
-    fn render(&mut self, args: Render) -> Result<()> {
+    fn render_all(&mut self, args: Render) -> Result<()> {
         struct Vis<'a>(Render<'a>);
 
         impl<Cp: 'static> VisitorMut<Cp> for Vis<'_> {
@@ -69,20 +66,14 @@ where
             where
                 El: ElementInterfaces,
             {
-                em.shared.redraw_signal_sent.set(false);
-                let draw_region = em.shared.draw_region.get();
-                if draw_region.intersects(self.0.dirty_zone) {
-                    em.render(self.0)
-                } else {
-                    Ok(())
-                }
+                em.render(self.0)
             }
         }
 
         self.visit_mut(&mut Vis(args))
     }
 
-    fn props(&self, f: PropsFn<Cp>) {
+    fn props_all(&self, f: PropsFn<Cp>) {
         struct Vis<'a, Cp>(PropsFn<'a, Cp>);
 
         impl<Cp> Visitor<Cp> for Vis<'_, Cp> {
@@ -98,7 +89,7 @@ where
         self.visit(&mut Vis(f)).unwrap()
     }
 
-    fn layout(&mut self, f: LayoutFn<Cp>) -> Result<()> {
+    fn layout_all(&mut self, f: LayoutFn<Cp>) -> Result<()> {
         struct Vis<'a, Cp>(LayoutFn<'a, Cp>);
 
         impl<Cp> VisitorMut<Cp> for Vis<'_, Cp> {
@@ -109,13 +100,7 @@ where
                 let option = (self.0)(&em.child_props);
                 match option {
                     Some(region) => {
-                        let old_region = em.shared.draw_region.get();
-
-                        if region != old_region {
-                            em.set_draw_region(region);
-                            em.request_redraw(); // TODO: 是否需要重绘？
-                        }
-
+                        em.set_draw_region(region);
                         Ok(())
                     }
                     None => Err(anyhow!("layouter is exhausted")),
@@ -126,7 +111,7 @@ where
         self.visit_mut(&mut Vis(f))
     }
 
-    fn emit_event(&mut self, ipe: &IncomingPointerEvent) -> bool {
+    fn emit_event_all(&mut self, ipe: &IncomingPointerEvent) -> bool {
         struct Vis<'a> {
             children_entered: bool,
             ipe: &'a IncomingPointerEvent<'a>,
@@ -167,6 +152,22 @@ where
         let mut visitor = Vis(0);
         self.visit(&mut visitor).unwrap();
         visitor.0
+    }
+
+    fn check_mark_dirty_all(&mut self, dirty_region: Region) {
+        struct Vis(Region);
+
+        impl<Cp> VisitorMut<Cp> for Vis {
+            fn visit_mut<El>(&mut self, em: &mut ElementModel<El, Cp>) -> Result<()>
+            where
+                El: ElementInterfaces,
+            {
+                em.check_mark_dirty(self.0);
+                Ok(())
+            }
+        }
+
+        let _ = self.visit_mut(&mut Vis(dirty_region));
     }
 }
 

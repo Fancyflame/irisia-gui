@@ -1,8 +1,8 @@
-use std::{cell::Cell, rc::Rc, sync::Arc};
+use std::{cell::Cell, sync::Arc};
 
 use irisia_backend::{window_handle::CloseHandle, WinitWindow};
 
-use crate::{event::EventDispatcher, primitive::Region};
+use crate::{el_model::ElementAccess, event::EventDispatcher};
 
 use super::{event_comp::global::focusing::Focusing, redraw_scheduler::RedrawScheduler};
 
@@ -24,8 +24,8 @@ impl GlobalContent {
         &self.focusing
     }
 
-    pub(crate) fn request_redraw(&self, dirty_zone: Region) {
-        self.redraw_scheduler.request_redraw(ro)
+    pub(crate) fn request_redraw(&self, access: ElementAccess) {
+        self.redraw_scheduler.request_redraw(access)
     }
 
     /// Returns a reference to the global event dispatcher

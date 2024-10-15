@@ -10,15 +10,15 @@ use crate::{
 };
 
 pub use component::{Component, ComponentTemplate, RootStructureCreate};
-use irisia_backend::skia_safe::Canvas;
+use irisia_backend::skia_safe::{Canvas, Region as SkRegion};
 
 mod component;
 
 #[derive(Clone, Copy)]
 pub struct Render<'a> {
     pub canvas: &'a Canvas,
-    pub dirty_zone: Region,
     pub interval: Duration,
+    pub dirty_region: &'a SkRegion,
 }
 
 /// Element is a thing can draw itself on the given canvas,
@@ -40,8 +40,9 @@ pub trait ElementInterfaces: Sized + 'static {
         Slt: StructureCreate;
 
     fn render(&mut self, args: Render) -> Result<()>;
-    fn set_draw_region(&mut self, dr: Region);
-    fn children_emit_event(&mut self, ipe: &IncomingPointerEvent) -> bool;
+    fn spread_event(&mut self, ipe: &IncomingPointerEvent) -> bool;
+    fn spread_mark_dirty(&mut self, dirty_region: Region);
+    fn on_draw_region_changed(&mut self);
 }
 
 pub trait FromUserProps {

@@ -77,7 +77,7 @@ impl ElementInterfaces for TextBox {
         Ok(())
     }
 
-    fn set_draw_region(&mut self, _: &RcElementModel<Self>, draw_region: Region) {
+    fn on_draw_region_changed(&mut self, _: &RcElementModel<Self>, draw_region: Region) {
         let Some(p) = &mut self.paragraph else {
             return;
         };

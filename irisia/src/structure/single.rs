@@ -9,7 +9,7 @@ pub fn single<'a, El, Cp>(
     props: <El::Props<'a> as FromUserProps>::Props,
     child_props: Cp,
     slot: impl StructureCreate + 'a,
-    on_create: impl FnOnce(ElementAccess) + 'a,
+    on_create: impl FnOnce(&ElementAccess) + 'a,
 ) -> impl StructureCreate<Target = ElementModel<El, Cp>> + 'a
 where
     Cp: 'static,

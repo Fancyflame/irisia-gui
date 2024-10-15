@@ -24,6 +24,7 @@ pub trait ComponentTemplate: Sized + 'static {
 
 pub struct Component<T> {
     _el: PhantomData<T>,
+    access: ElementAccess,
     slot: ChildBox<()>,
 }
 
@@ -43,7 +44,8 @@ where
         Slt: StructureCreate,
     {
         Component {
-            slot: ChildBox::new(T::create(props, slot, access), ctx),
+            slot: ChildBox::new(T::create(props, slot, access.clone()), ctx),
+            access,
             _el: PhantomData,
         }
     }
@@ -52,12 +54,16 @@ where
         self.slot.render(args)
     }
 
-    fn children_emit_event(&mut self, ipe: &IncomingPointerEvent) -> bool {
+    fn spread_event(&mut self, ipe: &IncomingPointerEvent) -> bool {
         self.slot.emit_event(ipe)
     }
 
-    fn set_draw_region(&mut self, dr: Region) {
-        let mut dr = Some(dr);
+    fn spread_mark_dirty(&mut self, dirty_region: Region) {
+        self.slot.check_mark_dirty(dirty_region);
+    }
+
+    fn on_draw_region_changed(&mut self) {
+        let mut dr = Some(self.access.draw_region());
         self.slot
             .layout(|_| dr.take())
             .expect("unexpected layout failure");
