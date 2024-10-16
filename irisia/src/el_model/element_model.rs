@@ -1,9 +1,4 @@
-use std::{
-    cell::Cell,
-    future::Future,
-    ops::{Deref, DerefMut},
-    rc::Rc,
-};
+use std::{cell::Cell, future::Future, rc::Rc};
 
 use tokio::task::JoinHandle;
 
@@ -130,7 +125,7 @@ where
                 let access = access.clone();
                 Observer::new(move || {
                     access.request_redraw();
-                    true
+                    false
                 })
             },
             access,
@@ -156,10 +151,6 @@ where
         )
     }
 
-    pub(crate) fn monitoring_render(&mut self, args: Render) -> Result<()> {
-        self.redraw_hook.invoke(|| self.el.render(args))
-    }
-
     pub fn check_mark_dirty(&mut self, dirty_region: Region) {
         if !self.access.draw_region().intersects(dirty_region) {
             return;
@@ -175,7 +166,7 @@ where
         }
 
         self.access.0.redraw_signal_sent.set(false);
-        let result = self.el.render(args);
+        let result = self.redraw_hook.invoke(|| self.el.render(args));
         if result.is_ok() {
             self.dirty = false;
         }
@@ -241,20 +232,5 @@ impl ElementAccess {
 
     pub fn draw_region(&self) -> Region {
         self.0.draw_region.get()
-    }
-}
-
-pub(crate) struct InitLater<T>(pub(super) Option<T>);
-
-impl<T> Deref for InitLater<T> {
-    type Target = T;
-    fn deref(&self) -> &Self::Target {
-        self.0.as_ref().unwrap()
-    }
-}
-
-impl<T> DerefMut for InitLater<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.0.as_mut().unwrap()
     }
 }

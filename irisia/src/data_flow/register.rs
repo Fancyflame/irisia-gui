@@ -115,3 +115,11 @@ where
         Self::new(T::default())
     }
 }
+
+impl<T> Clone for Register<T> {
+    fn clone(&self) -> Self {
+        Register {
+            inner: self.inner.clone(),
+        }
+    }
+}

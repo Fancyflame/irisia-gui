@@ -16,27 +16,29 @@ const BORROW_ERROR: &str = "cannot update data inside the wire, because at least
     old data of this wire itself, which bound to cause infinite updating. to address this problem, \
     you should remove the loop manually";
 
-pub fn wire<F, T>(f: F) -> ReadWire<T>
+pub fn wire<F, T, Mv>(f: F, helper_move: Mv) -> ReadWire<T>
 where
     T: 'static,
-    F: Fn() -> T + 'static,
+    F: Fn(&Mv) -> T + 'static,
+    Mv: 'static,
 {
     Wire::new(move || {
-        (f(), move |r| {
-            *r = f();
+        (f(&helper_move), move |r| {
+            *r = f(&helper_move);
             true
         })
     })
 }
 
-pub fn wire_cmp<F, T>(f: F) -> ReadWire<T>
+pub fn wire_cmp<F, T, Mv>(f: F, helper_move: Mv) -> ReadWire<T>
 where
     T: Eq + 'static,
-    F: Fn() -> T + 'static,
+    F: Fn(&Mv) -> T + 'static,
+    Mv: 'static,
 {
     Wire::new(move || {
-        (f(), move |r| {
-            let value = f();
+        (f(&helper_move), move |r| {
+            let value = f(&helper_move);
             let mutated = value != *r;
             *r = value;
             mutated

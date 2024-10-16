@@ -5,6 +5,7 @@ use std::{
 
 use super::{deps::Listener, ToListener, Wakeable};
 
+#[derive(Clone)]
 pub struct Watcher {
     inner: Rc<Inner<dyn OptionedFn>>,
 }

@@ -4,7 +4,6 @@ use std::{
     time::Duration,
 };
 
-use anyhow::anyhow;
 use irisia_backend::{
     skia_safe::{region::RegionOp, Canvas, ClipOp, Region as SkRegion},
     WinitWindow,
@@ -76,25 +75,4 @@ impl RedrawScheduler {
         canvas.restore();
         res
     }
-}
-
-fn fmt_errors(errors: &[anyhow::Error]) -> Result<()> {
-    if errors.is_empty() {
-        return Ok(());
-    }
-
-    let mut msg = String::new();
-    for (index, err) in errors.iter().enumerate() {
-        msg += &format!("`{err}`");
-        if index != errors.len() - 1 {
-            msg += ", ";
-        }
-    }
-
-    Err(anyhow!(
-        "{} error{} occurred on redraw: {}",
-        errors.len(),
-        if errors.len() > 1 { "s" } else { "" },
-        msg
-    ))
 }

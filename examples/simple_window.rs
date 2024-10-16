@@ -5,7 +5,7 @@ use irisia::{
     build,
     data_flow::{
         register::{register, RcReg},
-        Readable,
+        Readable, RegVec, Register,
     },
     el_model::ElementAccess,
     element::{CompInputWatcher, ComponentTemplate, RootStructureCreate},
@@ -31,23 +31,16 @@ async fn main() -> Result<()> {
     .await;
 }
 
-struct App {
-    rects: RcReg<Vec<RcReg<Option<Color>>>>,
-}
+struct App;
 
 impl ComponentTemplate for App {
     type Props<'a> = ();
 
-    fn create<Slt>(
-        _: Self::Props<'_>,
-        _: Slt,
-        _: ElementAccess,
-        _: CompInputWatcher<Self>,
-    ) -> (Self, impl RootStructureCreate)
+    fn create<Slt>(_: Self::Props<'_>, _: Slt, _: ElementAccess) -> impl RootStructureCreate
     where
         Slt: irisia::structure::StructureCreate,
     {
-        let vec = register(
+        let vec = Register::new(
             [
                 Color::RED,
                 Color::YELLOW,
@@ -56,15 +49,14 @@ impl ComponentTemplate for App {
                 Color::BLACK,
             ]
             .into_iter()
-            .map(|c| register(Some(c)))
+            .map(|c| Register::new(Some(c)))
             .collect::<Vec<_>>(),
         );
 
-        let app = App { rects: vec };
-        let children = app.structure();
+        let children = structure(&vec);
 
         tokio::task::spawn_local({
-            let rects = app.rects.clone();
+            let rects = vec.clone();
             async move {
                 loop {
                     tokio::time::sleep(Duration::from_secs(1)).await;
@@ -75,35 +67,31 @@ impl ComponentTemplate for App {
             }
         });
 
-        (app, children)
+        children
     }
 }
 
-impl App {
-    fn structure(&self) -> impl RootStructureCreate {
-        let rects = &self.rects;
+fn structure(rects: &RegVec<Option<Color>>) -> impl RootStructureCreate {
+    build! {
+        input rects;
 
-        build! {
-            input rects;
-
-            Flex {
-                for (index, item) in rects.iter().cloned().enumerate(),
-                key = *index
-                {
-                    if let Some(color) = *item.read() {
-                        reg force_height = (*index.read() == 2).then_some(30.0);
-                        Rectangle {
-                            force_color <= color.to_wire(),
-                            force_height <= force_height.clone(),
-                            @on_create: move |access| {
-                                access.listen().spawn(move |_: PointerMove| {
-                                    force_height.set(Some(rand::thread_rng().gen_range(50.0..200.0)));
-                                });
-                                access.listen().spawn(move |_: PointerDown| {
-                                    rects.write().remove(*index.read());
-                                });
-                            },
-                        }
+        Flex {
+            for (index, item) in rects.iter().cloned().enumerate(),
+            key = *index
+            {
+                if let Some(color) = *item.read() {
+                    reg force_height = (*index.read() == 2).then_some(30.0);
+                    Rectangle {
+                        force_color <= color.to_wire(),
+                        force_height <= force_height.clone(),
+                        @on_create: move |access| {
+                            access.listen().spawn(move |_: PointerMove| {
+                                force_height.set(Some(rand::thread_rng().gen_range(50.0..200.0)));
+                            });
+                            access.listen().spawn(move |_: PointerDown| {
+                                rects.write().remove(*index.read());
+                            });
+                        },
                     }
                 }
             }

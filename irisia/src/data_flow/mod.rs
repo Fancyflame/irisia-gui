@@ -13,6 +13,7 @@ use trace_cell::TraceRef;
 pub mod const_data;
 mod deps;
 pub mod dirty_flag;
+pub mod macros;
 pub mod map;
 pub mod observer;
 pub mod register;
@@ -21,6 +22,7 @@ pub mod watch_on_deref;
 pub mod watcher;
 pub mod wire;
 
+pub type RegVec<T> = Register<Vec<Register<T>>>;
 pub type ReadWire<T> = Rc<dyn Readable<Data = T>>;
 
 pub trait Readable: Listenable {
