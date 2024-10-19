@@ -1,18 +1,28 @@
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 use super::{Listenable, ReadRef, ReadWire, Readable, ToListener};
 
 pub fn const_wire<T: 'static>(data: T) -> ReadWire<T> {
-    Rc::new(ConstWire(data))
+    Rc::new_cyclic(|weak| ConstWire {
+        data,
+        this: weak.clone(),
+    })
 }
 
-struct ConstWire<T>(T);
+struct ConstWire<T> {
+    data: T,
+    this: Weak<Self>,
+}
 
 impl<T> Readable for ConstWire<T> {
     type Data = T;
 
     fn read(&self) -> ReadRef<Self::Data> {
-        ReadRef::Ref(&self.0)
+        ReadRef::Ref(&self.data)
+    }
+
+    fn ptr_as_id(&self) -> *const () {
+        self.this.as_ptr().cast()
     }
 }
 

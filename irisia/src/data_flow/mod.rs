@@ -28,6 +28,7 @@ pub type ReadWire<T> = Rc<dyn Readable<Data = T>>;
 pub trait Readable: Listenable {
     type Data: ?Sized;
     fn read(&self) -> ReadRef<Self::Data>;
+    fn ptr_as_id(&self) -> *const ();
 }
 
 pub trait Listenable {
@@ -69,6 +70,10 @@ where
 
     fn read(&self) -> ReadRef<Self::Data> {
         (**self).read()
+    }
+
+    fn ptr_as_id(&self) -> *const () {
+        (**self).ptr_as_id()
     }
 }
 

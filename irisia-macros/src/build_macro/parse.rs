@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream;
-use quote::quote;
+use quote::{format_ident, quote};
 use syn::{
-    braced, parse::ParseStream, parse_quote, token::Brace, Error, Expr, ExprLet, Ident, Pat,
+    braced, parse::ParseStream, parse_quote, spanned::Spanned, Error, Expr, ExprLet, Ident, Pat,
     Result, Token,
 };
 
@@ -10,8 +10,6 @@ use super::{clone_env_raw, el_dec::ElDecBuilder, pat_bind::PatBinds, Environment
 mod kw {
     use syn::custom_keyword;
     custom_keyword!(input);
-    custom_keyword!(key);
-    custom_keyword!(reg);
 }
 
 const MAX_CHAIN_TUPLE_LENGTH: usize = 25;
@@ -24,7 +22,7 @@ impl Environment {
             self.parse_if(input)
         } else if input.peek(Token![for]) {
             self.parse_for(input)
-        } else if input.peek(Brace) {
+        } else if input.peek(Token![..]) {
             self.parse_extern(input)
         } else {
             ElDecBuilder::parse(self, input)
@@ -39,8 +37,8 @@ impl Environment {
                 break;
             }
 
-            if input.peek(Token![let]) || input.peek(kw::reg) {
-                nodes.push(self.parse_let_or_reg(input)?);
+            if input.peek(Token![let]) {
+                nodes.push(self.parse_let(input)?);
                 break;
             }
 
@@ -96,34 +94,19 @@ impl Environment {
         result
     }
 
-    fn parse_let_or_reg(&mut self, input: ParseStream) -> Result<TokenStream> {
-        let is_reg = input.peek(kw::reg);
-        if is_reg {
-            input.parse::<kw::reg>()?;
-        } else {
-            input.parse::<Token![let]>()?;
-        }
-        let ident: Ident = input.parse()?;
+    fn parse_let(&mut self, input: ParseStream) -> Result<TokenStream> {
+        input.parse::<Token![let]>()?;
+        let pat = PatBinds::new(Pat::parse_multi_with_leading_vert(input)?, None);
         input.parse::<Token![=]>()?;
         let expr: Expr = input.parse()?;
         input.parse::<Token![;]>()?;
 
-        self.push_env(ident.clone());
-        let rest = self.parse_statements(input)?;
-        self.pop_env(1);
-
-        let wire = if is_reg {
-            self.borrow_wire(&parse_quote! {
-                ::irisia::data_flow::register(
-                    #expr
-                )
-            })
-        } else {
-            self.create_wire(&expr)
-        };
-
+        let rest = self.bind_env(&pat, |env| env.parse_statements(input))?;
+        let temp_var = format_ident!("__irisia_let_binds", span = expr.span());
+        let binds = pat.bind_var_from_wire(&temp_var, &pat.pattern);
         Ok(quote! {{
-            let #ident = #wire;
+            let #temp_var = #expr;
+            #binds
             #rest
         }})
     }
@@ -176,7 +159,7 @@ impl Environment {
         for Branch { pat, expr, body } in branches.into_iter().rev() {
             output = match pat {
                 Some(pat_binds) => self.pat_match_to_tokens(&expr, &pat_binds, body, output),
-                None => self.cond_to_tokens(self.create_wire(&expr), body, output),
+                None => self.cond_to_tokens(&expr, body, output),
             }
         }
 
@@ -185,7 +168,7 @@ impl Environment {
 
     fn parse_match(&mut self, input: ParseStream) -> Result<TokenStream> {
         input.parse::<Token![match]>()?;
-        let cond_wire = self.create_wire(&input.parse()?);
+        let cond_wire = Expr::parse_without_eager_brace(input)?;
 
         let content;
         braced!(content in input);
@@ -235,31 +218,16 @@ impl Environment {
         input.parse::<Token![for]>()?;
         let pat = PatBinds::new(input.call(Pat::parse_multi_with_leading_vert)?, None);
         input.parse::<Token![in]>()?;
-        let iter: Expr = input.parse()?;
-
-        input.parse::<Token![,]>()?;
-        input.parse::<kw::key>()?;
-        input.parse::<Token![=]>()?;
-        let key_expr = input.call(Expr::parse_without_eager_brace)?;
+        let iter = input.call(Expr::parse_without_eager_brace)?;
 
         let body = self.bind_env(&pat, |this| this.parse_block(input))?;
 
-        Ok(self.repeat_to_tokens(&iter, &key_expr, &pat, body))
+        Ok(self.repeat_to_tokens(&pat, &iter, body))
     }
 
     fn parse_extern(&mut self, input: ParseStream) -> Result<TokenStream> {
-        let content;
-        braced!(content in input);
-
-        // we don't care about the content, maybe it is an incomplete expression
-        let tokens = content.parse::<TokenStream>()?;
-
-        let env = self.clone_env_wires();
-        Ok(quote! {
-            {
-                #env
-                #tokens
-            }
-        })
+        input.parse::<Token![..]>()?;
+        let expr: Expr = input.parse()?;
+        Ok(self.borrow_wire(&expr))
     }
 }

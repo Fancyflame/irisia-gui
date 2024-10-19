@@ -1,8 +1,8 @@
 use proc_macro2::TokenStream;
-use quote::{quote, ToTokens};
+use quote::quote;
 use syn::{
     visit::{visit_pat, Visit},
-    Expr, Ident, Pat,
+    Expr, Ident, Pat, PatIdent,
 };
 
 pub struct PatBinds {
@@ -29,19 +29,25 @@ impl PatBinds {
         }
     }
 
-    pub fn bind_var_from_wire(&self, from_ident: &Ident, pattern: impl ToTokens) -> TokenStream {
+    pub fn bind_var_from_wire(&self, from_ident: &Ident, pattern: &Pat) -> TokenStream {
         let Self { binds, .. } = self;
 
-        quote! {
-            #[allow(unused_variables)]
-            let (#(#binds,)*) = (
-                #(::irisia::data_flow::ReadableExt::map(
-                    ::std::clone::Clone::clone(&#from_ident),
-                    |#[allow(unused_variables)] #pattern| {
-                        #binds
-                    }
-                ),)*
-            );
+        if let Pat::Ident(PatIdent { subpat: None, .. }) = pattern {
+            quote! {
+                let #pattern = #from_ident.clone();
+            }
+        } else {
+            quote! {
+                #[allow(unused_variables)]
+                let (#(#binds,)*) = (
+                    #(::irisia::data_flow::ReadableExt::map(
+                        #from_ident.clone(),
+                        |#[allow(unused_variables)] #pattern| {
+                            #binds
+                        }
+                    ),)*
+                );
+            }
         }
     }
 }

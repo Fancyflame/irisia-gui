@@ -1,7 +1,6 @@
 use std::{
     cell::RefCell,
     collections::{hash_map::Entry, HashMap},
-    rc::{Rc, Weak},
 };
 
 use crate::{
@@ -13,26 +12,25 @@ use super::{StructureCreate, VisitBy};
 
 pub struct Repeat<Wire, Tb>
 where
-    Tb: TreeBuilderFn,
-    Wire: ToReadWire,
+    Tb: TreeBuilderFn<Wire>,
 {
     src: ReadWire<Vec<Wire>>,
     dirty_flag: DirtyFlag,
     tree_builder: Tb,
-    map: RefCell<HashMap<*const (), MapItem<Wire::Data, Tb::Tree>>>,
+    map: RefCell<HashMap<*const (), MapItem<Wire, Tb::Tree>>>,
     ctx: EMCreateCtx,
 }
 
-struct MapItem<Data: ?Sized, Tree> {
-    _data: Weak<dyn Readable<Data = Data>>,
+struct MapItem<Wire, Tree> {
+    _data: Wire,
     tree: Tree,
     alive: bool,
 }
 
 impl<Cp, Wire, Tb> VisitBy<Cp> for Repeat<Wire, Tb>
 where
-    Wire: ToReadWire + 'static,
-    Tb: TreeBuilderFn,
+    Wire: Readable + Clone + 'static,
+    Tb: TreeBuilderFn<Wire>,
     Tb::Tree: VisitBy<Cp>,
 {
     fn visit<V>(&self, v: &mut V) -> crate::Result<()>
@@ -41,8 +39,8 @@ where
     {
         self.update_if_need();
         let map = self.map.borrow();
-        for key in &*self.src.read() {
-            map[&ptr_of_wire(key)].tree.visit(v)?;
+        for data in &*self.src.read() {
+            map[&data.ptr_as_id()].tree.visit(v)?;
         }
         Ok(())
     }
@@ -53,8 +51,8 @@ where
     {
         self.update_if_need();
         let mut map = self.map.borrow_mut();
-        for key in &*self.src.read() {
-            map.get_mut(&ptr_of_wire(key)).unwrap().tree.visit_mut(v)?;
+        for data in &*self.src.read() {
+            map.get_mut(&data.ptr_as_id()).unwrap().tree.visit_mut(v)?;
         }
         Ok(())
     }
@@ -62,8 +60,8 @@ where
 
 impl<Wire, Tb> Repeat<Wire, Tb>
 where
-    Wire: ToReadWire,
-    Tb: TreeBuilderFn,
+    Wire: Readable + Clone,
+    Tb: TreeBuilderFn<Wire>,
 {
     fn update_if_need(&self) {
         if !self.dirty_flag.is_dirty() {
@@ -73,15 +71,14 @@ where
         let mut map = self.map.borrow_mut();
 
         for wire in &*self.src.read() {
-            let wire = wire.to_read_wire();
-            match map.entry(Rc::as_ptr(&wire) as _) {
+            match map.entry(wire.ptr_as_id()) {
                 Entry::Occupied(mut occ) => {
                     occ.get_mut().alive = true;
                 }
                 Entry::Vacant(vac) => {
                     vac.insert(MapItem {
-                        _data: Rc::downgrade(&wire),
-                        tree: self.tree_builder.build(&self.ctx),
+                        _data: wire.clone(),
+                        tree: self.tree_builder.build(wire, &self.ctx),
                         alive: true,
                     });
                 }
@@ -100,11 +97,14 @@ where
     }
 }
 
-pub fn repeat<W, F>(vec: ReadWire<Vec<W>>, body: F) -> impl StructureCreate
+pub fn repeat<V, W, F, Tb>(vec: V, body: F) -> impl StructureCreate
 where
+    V: ToReadWire<Data = Vec<W>>,
     W: ToReadWire + 'static,
-    F: TreeBuilderFn,
+    F: Fn(&W) -> Tb + 'static,
+    Tb: StructureCreate + 'static,
 {
+    let vec = vec.to_read_wire();
     |ctx: &EMCreateCtx| Repeat {
         dirty_flag: {
             let flag = DirtyFlag::new();
@@ -119,25 +119,18 @@ where
     }
 }
 
-pub trait TreeBuilderFn: 'static {
+pub trait TreeBuilderFn<W>: 'static {
     type Tree;
-    fn build(&self, ctx: &EMCreateCtx) -> Self::Tree;
+    fn build(&self, input_wire: &W, ctx: &EMCreateCtx) -> Self::Tree;
 }
 
-impl<F, Tb> TreeBuilderFn for F
+impl<F, W, Tb> TreeBuilderFn<W> for F
 where
-    F: Fn() -> Tb + 'static,
+    F: Fn(&W) -> Tb + 'static,
     Tb: StructureCreate,
 {
     type Tree = Tb::Target;
-    fn build(&self, ctx: &EMCreateCtx) -> Self::Tree {
-        self().create(ctx)
+    fn build(&self, input_wire: &W, ctx: &EMCreateCtx) -> Self::Tree {
+        self(input_wire).create(ctx)
     }
-}
-
-fn ptr_of_wire<W>(w: &W) -> *const ()
-where
-    W: ToReadWire,
-{
-    Rc::as_ptr(&w.to_read_wire()) as _
 }

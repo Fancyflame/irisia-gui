@@ -54,12 +54,38 @@ impl<T> Register<T> {
     }
 }
 
+impl<T> Readable for Register<T> {
+    type Data = T;
+
+    fn read(&self) -> ReadRef<Self::Data> {
+        self.inner.read()
+    }
+
+    fn ptr_as_id(&self) -> *const () {
+        self.inner.ptr_as_id()
+    }
+}
+
+impl<T> Listenable for Register<T> {
+    fn add_listener(&self, listener: &dyn ToListener) {
+        self.inner.add_listener(listener);
+    }
+
+    fn remove_listener(&self, listener: &dyn ToListener) {
+        self.inner.remove_listener(listener);
+    }
+}
+
 impl<T> Readable for Inner<T> {
     type Data = T;
 
     fn read(&self) -> ReadRef<Self::Data> {
         self.listeners.capture_caller(&self.this.upgrade().unwrap());
         ReadRef::CellRef(self.data.borrow().unwrap())
+    }
+
+    fn ptr_as_id(&self) -> *const () {
+        self.this.as_ptr().cast()
     }
 }
 

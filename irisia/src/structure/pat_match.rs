@@ -2,28 +2,25 @@ use std::cell::RefCell;
 
 use super::{StructureCreate, VisitBy};
 use crate::{
-    data_flow::{wire3, ReadWire},
+    data_flow::{wire, wire3, ReadWire, ToReadWire},
     el_model::EMCreateCtx,
 };
 
-enum IfSelected<T, F> {
-    Initialized(T),
+enum IfSelected<S, F> {
+    Initialized(S),
     Uninitialized(F),
     Intermediate,
 }
 
-pub struct PatMatch<Src, T, S1, F1, S2> {
-    src: ReadWire<Src>,
-    judge_fn: fn(&Src) -> Option<&T>,
+pub struct PatMatch<T, S1, F1, S2> {
+    cond: ReadWire<Option<T>>,
     if_selected: RefCell<IfSelected<S1, F1>>,
     or_else: S2,
 }
 
-impl<Src, T, S1, F1, S2> PatMatch<Src, T, S1, F1, S2>
+impl<T, S1, F1, S2> PatMatch<T, S1, F1, S2>
 where
-    Src: 'static,
-    T: Clone + 'static,
-    F1: FnOnce(ReadWire<T>) -> S1,
+    F1: FnOnce() -> S1,
 {
     fn init_if_need(&self) {
         let borrowed = self.if_selected.borrow();
@@ -44,28 +41,14 @@ where
             unreachable!()
         };
 
-        let value_wire = {
-            let src = self.src.clone();
-            let judge_fn = self.judge_fn;
-            wire3(move || {
-                let init_state = judge_fn(&src.read()).unwrap().clone();
-                (init_state, move |mut setter| {
-                    if let Some(value) = judge_fn(&src.read()) {
-                        *setter = value.clone();
-                    }
-                })
-            })
-        };
-
-        *borrow_mut = IfSelected::Initialized(creator(value_wire));
+        *borrow_mut = IfSelected::Initialized(creator());
     }
 }
 
-impl<Cp, Src, T, S1, F1, S2> VisitBy<Cp> for PatMatch<Src, T, S1, F1, S2>
+impl<Cp, T, S1, F1, S2> VisitBy<Cp> for PatMatch<T, S1, F1, S2>
 where
-    Src: 'static,
     T: Clone + 'static,
-    F1: FnOnce(ReadWire<T>) -> S1 + 'static,
+    F1: FnOnce() -> S1 + 'static,
     S1: VisitBy<Cp>,
     S2: VisitBy<Cp>,
 {
@@ -73,7 +56,7 @@ where
     where
         V: super::Visitor<Cp>,
     {
-        if (self.judge_fn)(&*self.src.read()).is_none() {
+        if self.cond.read().is_none() {
             return self.or_else.visit(v);
         }
 
@@ -89,7 +72,7 @@ where
     where
         V: super::VisitorMut<Cp>,
     {
-        if (self.judge_fn)(&*self.src.read()).is_none() {
+        if self.cond.read().is_none() {
             return self.or_else.visit_mut(v);
         }
 
@@ -102,25 +85,43 @@ where
     }
 }
 
-pub fn pat_match<Src, T, F1, R1, R2>(
-    src: ReadWire<Src>,
-    cond: fn(&Src) -> Option<&T>,
+pub fn pat_match<IntoSrc, Src, T, F1, R1, R2>(
+    src: IntoSrc,
+    cond: fn(&Src) -> Option<T>,
     if_selected: F1,
     or_else: R2,
 ) -> impl StructureCreate
 where
+    IntoSrc: ToReadWire<Data = Src>,
+    Src: 'static,
     T: Clone + 'static,
     F1: FnOnce(ReadWire<T>) -> R1 + 'static,
     R1: StructureCreate,
     R2: StructureCreate,
 {
-    move |ctx: &EMCreateCtx| PatMatch {
-        src,
-        judge_fn: cond,
-        if_selected: {
+    let src = src.to_read_wire();
+    let opt_wire = wire(move |src| cond(&src.read()), src.clone());
+    move |ctx: &EMCreateCtx| {
+        let creator = {
             let ctx = ctx.clone();
-            IfSelected::Uninitialized::<T, _>(move |w| if_selected(w).create(&ctx)).into()
-        },
-        or_else: or_else.create(ctx),
+            let opt_wire = opt_wire.clone();
+            move || {
+                let w = wire3(move || {
+                    let init_state = opt_wire.read().as_ref().unwrap().clone();
+                    (init_state, move |mut setter| {
+                        if let Some(value) = &*opt_wire.read() {
+                            *setter = value.clone();
+                        }
+                    })
+                });
+                if_selected(w).create(&ctx)
+            }
+        };
+
+        PatMatch {
+            cond: opt_wire.clone(),
+            if_selected: IfSelected::Uninitialized::<R1, _>(creator).into(),
+            or_else: or_else.create(ctx),
+        }
     }
 }

@@ -1,6 +1,6 @@
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
-use syn::{parse_quote, Expr};
+use syn::{parse::Parser, parse_quote, Expr, Pat};
 
 use super::{pat_bind::PatBinds, Environment};
 
@@ -22,7 +22,7 @@ impl Environment {
 
     pub(super) fn pat_match_to_tokens(
         &self,
-        origin: &Expr,
+        source: &Expr,
         pat_binds: &PatBinds,
         if_matched: impl ToTokens,
         or_else: impl ToTokens,
@@ -34,34 +34,45 @@ impl Environment {
             ..
         } = pat_binds;
 
-        let if_guard = guard.as_ref().map(|guard| quote! {if #guard});
-
-        let wire_option = self.create_wire(&parse_quote! {
-            match &(#origin) {
-                #[allow(unused_variables)]
-                #pattern #if_guard => ::std::option::Option::Some(
-                    (#(::std::clone::Clone::clone(#binds),)*)
-                ),
-                _ => ::std::option::Option::None
+        let cond_fn = {
+            let if_guard = guard.as_ref().map(|guard| quote! {if #guard});
+            quote! {
+                |__irisia_cond| match &__irisia_cond {
+                    #[allow(unused_variables)]
+                    #pattern #if_guard => ::std::option::Option::Some(
+                        (#(#binds.clone(),)*)
+                    ),
+                    _ => ::std::option::Option::None
+                }
             }
-        });
+        };
 
-        let env = self.clone_env_wires();
-        let bind_vars =
-            pat_binds.bind_var_from_wire(&parse_quote!(__irisia_tuple_wire), &pat_binds.tuple_expr);
-        let if_matched = quote! {
-            {
-                #env
-                move |__irisia_tuple_wire| {
-                    #bind_vars
-                    #if_matched
+        let if_matched = {
+            let env = self.clone_env_wires();
+            let temp_var = parse_quote!(__irisia_tuple_wire);
+
+            let bind_vars = pat_binds.bind_var_from_wire(
+                &temp_var,
+                &Pat::parse_multi_with_leading_vert
+                    .parse2(pat_binds.tuple_expr.clone())
+                    .unwrap(),
+            );
+
+            quote! {
+                {
+                    #env
+                    move |#temp_var| {
+                        #bind_vars
+                        #if_matched
+                    }
                 }
             }
         };
 
         quote! {
             ::irisia::structure::pat_match(
-                #wire_option,
+                #source,
+                #cond_fn,
                 #if_matched,
                 #or_else,
             )
@@ -70,37 +81,25 @@ impl Environment {
 
     pub(super) fn repeat_to_tokens(
         &self,
-        iter: &Expr,
-        key: &Expr,
         pat_binds: &PatBinds,
+        iter: &Expr,
         body: impl ToTokens,
     ) -> TokenStream {
         let env_wires = self.clone_env_wires();
-        let (iter_envs_pat, iter_envs_value) = self.deref_wire_in_user_expr_splitted();
         let var_binds =
-            pat_binds.bind_var_from_wire(&parse_quote!(__irisia_wire), &pat_binds.pattern);
-        let key_pattern = &pat_binds.pattern;
+            pat_binds.bind_var_from_wire(&parse_quote!(__irisia_input_wire), &pat_binds.pattern);
 
         quote! {
-            ::irisia::structure::repeat({
-                #env_wires
-                move |__irisia_mutator| {
-                    let __irisia_iter_envs = #iter_envs_value;
-                    __irisia_mutator.update(
-                        {
-                            let #iter_envs_pat = &__irisia_iter_envs;
-                            #iter
-                        },
-                        |#[allow(unused_variables)] #key_pattern| {
-                            #key
-                        },
-                        |__irisia_wire| {
-                            #var_binds
-                            #body
-                        }
-                    )
+            ::irisia::structure::repeat(
+                #iter,
+                {
+                    #env_wires
+                    move |__irisia_input_wire| {
+                        #var_binds
+                        #body
+                    }
                 }
-            })
+            )
         }
     }
 }

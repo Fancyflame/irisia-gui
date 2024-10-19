@@ -121,6 +121,10 @@ where
             |computes| &computes.as_ref().unwrap().1,
         ))
     }
+
+    fn ptr_as_id(&self) -> *const () {
+        self.as_listenable.as_ptr().cast()
+    }
 }
 
 impl<F, T> Wakeable for Wire<F, T>

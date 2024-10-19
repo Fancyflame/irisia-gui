@@ -83,21 +83,11 @@ impl ElDecBuilder<'_> {
 
     fn parse_prop(&mut self, input: ParseStream) -> Result<()> {
         let id: Ident = input.parse()?;
+        input.parse::<Token![:]>()?;
 
-        let assign_mode = if input.peek(Token![:]) {
-            input.parse::<Token![:]>()?;
-            false
-        } else {
-            input.parse::<Token![<=]>()?;
-            true
-        };
-
-        let value = parse_maybe_incomplete_expr(input, Token![,]); //input.parse()?;
-        let value = if assign_mode {
-            self.env.borrow_wire(&value)
-        } else {
-            self.env.create_wire(&value)
-        };
+        let value = self
+            .env
+            .borrow_wire(&parse_maybe_incomplete_expr(input, Token![,])); //input.parse()?;
 
         match self.props.entry(id) {
             Entry::Occupied(occ) => Err(Error::new_spanned(
@@ -152,7 +142,7 @@ impl ElDecBuilder<'_> {
         };
 
         quote! {
-            ::irisia::structure::single::<#el_type>(
+            ::irisia::structure::single::<#el_type, _>(
                 ::irisia::__macro_helper::ElementPropsAlias::<#el_type> {
                     #(#props)*
                     ..::std::default::Default::default()

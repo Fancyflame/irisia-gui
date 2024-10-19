@@ -2,8 +2,8 @@ use std::collections::{hash_map::Entry, HashMap};
 
 use pat_bind::PatBinds;
 use proc_macro2::TokenStream;
-use quote::{quote, quote_spanned};
-use syn::{spanned::Spanned, Expr, Ident};
+use quote::quote;
+use syn::{Expr, Ident};
 
 mod el_dec;
 mod parse;
@@ -95,21 +95,6 @@ impl Environment {
                 )*)
             },
         )
-    }
-
-    fn create_wire(&self, expr: &Expr) -> TokenStream {
-        let env = self.clone_env_wires();
-        let deref_env = self.deref_wire_in_user_expr();
-        quote_spanned! { expr.span() =>
-            {
-                #env
-                ::irisia::data_flow::wire(move || {
-                    #deref_env
-                    let __irisia_wire_ret = {#expr};
-                    __irisia_wire_ret
-                })
-            }
-        }
     }
 }
 

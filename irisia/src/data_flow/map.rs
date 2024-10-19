@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use super::{Listenable, ReadRef, ReadWire, Readable, ToListener};
+use super::{Listenable, ReadRef, ReadWire, Readable, ToListener, ToReadWire};
 
 pub struct Map<T, Data1, Data2>
 where
@@ -33,6 +33,10 @@ where
     fn read(&self) -> ReadRef<Self::Data> {
         ReadRef::map(self.src.read(), &self.map)
     }
+
+    fn ptr_as_id(&self) -> *const () {
+        self.src.ptr_as_id()
+    }
 }
 
 impl<T, Data1, Data2> Listenable for Map<T, Data1, Data2>
@@ -64,13 +68,14 @@ where
     }
 }
 
-impl<T, Data1, Data2> From<Map<T, Data1, Data2>> for ReadWire<Data2>
+impl<T, Data1, Data2> ToReadWire for Map<T, Data1, Data2>
 where
-    T: Readable<Data = Data1> + 'static,
+    T: Readable<Data = Data1> + Clone + 'static,
     Data1: ?Sized + 'static,
     Data2: ?Sized + 'static,
 {
-    fn from(value: Map<T, Data1, Data2>) -> Self {
-        Rc::new(value)
+    type Data = Data2;
+    fn to_read_wire(&self) -> ReadWire<Self::Data> {
+        Rc::new(self.clone())
     }
 }
