@@ -41,12 +41,12 @@ impl Point {
     }
 
     /// Absolutely greater than or equals
-    pub fn abs_ge(self, other: Self) -> bool {
+    pub const fn abs_ge(self, other: Self) -> bool {
         self.0 >= other.0 && self.1 >= other.1
     }
 
     /// Absolutely less than or equals
-    pub fn abs_le(self, other: Self) -> bool {
+    pub const fn abs_le(self, other: Self) -> bool {
         self.0 <= other.0 && self.1 <= other.1
     }
 }

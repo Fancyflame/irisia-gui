@@ -16,19 +16,23 @@ impl Region {
         }
     }
 
-    pub fn contains(&self, rhs: Self) -> bool {
+    pub const fn contains(&self, rhs: Self) -> bool {
         self.left_top.abs_le(rhs.left_top) && self.right_bottom.abs_ge(rhs.right_bottom)
     }
 
-    pub fn contains_point(&self, point: Point) -> bool {
+    pub const fn contains_point(&self, point: Point) -> bool {
         point.abs_ge(self.left_top) && point.abs_le(self.right_bottom)
     }
 
-    pub fn intersects(&self, rhs: Self) -> bool {
+    pub const fn intersects(&self, rhs: Self) -> bool {
         !(self.left_top.0 >= rhs.right_bottom.0
             || self.left_top.1 >= rhs.right_bottom.1
             || self.right_bottom.0 <= rhs.left_top.0
             || self.right_bottom.1 <= rhs.left_top.1)
+    }
+
+    pub const fn is_empty(&self) -> bool {
+        self.left_top.0 == self.right_bottom.0 && self.left_top.1 == self.right_bottom.1
     }
 
     pub fn ceil_to_irect(&self) -> IRect {
