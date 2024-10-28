@@ -1,7 +1,7 @@
 use std::collections::{hash_map::Entry, HashMap};
 
 use proc_macro2::TokenStream;
-use quote::quote;
+use quote::{quote, ToTokens};
 use syn::{braced, parse::ParseStream, Error, Expr, Ident, Result, Token, TypePath};
 
 use crate::parse_incomplete::parse_maybe_incomplete_expr;
@@ -12,9 +12,9 @@ pub struct ElDecBuilder<'a> {
     env: &'a mut Environment,
     el_type: TypePath,
     props: HashMap<Ident, TokenStream /* as Expr */>,
-    styles: Option<Expr>,
     slot: TokenStream,
     on_create: Option<Expr>,
+    as_child_data: Option<Expr>,
 }
 
 impl ElDecBuilder<'_> {
@@ -23,9 +23,9 @@ impl ElDecBuilder<'_> {
             env,
             el_type: input.parse()?,
             props: HashMap::new(),
-            styles: None,
             slot: quote! {()},
             on_create: None,
+            as_child_data: None,
         };
 
         if input.peek(Token![;]) {
@@ -72,8 +72,8 @@ impl ElDecBuilder<'_> {
         input.parse::<Token![:]>()?;
 
         match &*id.to_string() {
-            "style" => Self::check_and_set_cmd(&mut self.styles, &id, input),
             "on_create" => Self::check_and_set_cmd(&mut self.on_create, &id, input),
+            "data" => Self::check_and_set_cmd(&mut self.as_child_data, &id, input),
             other => Err(Error::new_spanned(
                 &id,
                 format!("unrecognized command `{other}`"),
@@ -106,9 +106,9 @@ impl ElDecBuilder<'_> {
             env,
             el_type,
             props,
-            styles,
             slot,
             on_create,
+            as_child_data,
         } = self;
 
         let el_type = quote! {
@@ -121,15 +121,12 @@ impl ElDecBuilder<'_> {
             }
         });
 
-        let env_vars = env.clone_env_wires();
-
-        let styles = match styles {
-            Some(styles) => quote! {{
-                #env_vars
-                #styles
-            }},
-            None => quote! {()},
+        let as_child_data = match &as_child_data {
+            Some(c) => c.clone().to_token_stream(),
+            None => quote! {::std::default::Default::default()},
         };
+
+        let env_vars = env.clone_env_wires();
 
         let on_create = match on_create {
             Some(on_create) => quote! {{
@@ -147,7 +144,7 @@ impl ElDecBuilder<'_> {
                     #(#props)*
                     ..::std::default::Default::default()
                 },
-                #styles,
+                #as_child_data,
                 #slot,
                 #on_create,
             )

@@ -5,7 +5,7 @@ use std::{
 };
 
 use irisia_backend::{
-    skia_safe::{region::RegionOp, Canvas, ClipOp, Region as SkRegion},
+    skia_safe::{region::RegionOp, Canvas, ClipOp, Color, Region as SkRegion},
     WinitWindow,
 };
 
@@ -52,6 +52,7 @@ impl RedrawScheduler {
         let mut dirty_region = self.redrawing.borrow_mut();
         let mut unmerged = self.dirty_regions.borrow_mut();
         dirty_region.set_empty();
+
         for access in unmerged.drain(..) {
             let (old_region, new_region) = access.reset_redraw_region_pair();
             if let Some(old) = old_region {
@@ -59,14 +60,12 @@ impl RedrawScheduler {
             }
             dirty_region.op_rect(new_region.ceil_to_irect(), RegionOp::Union);
         }
-        drop(unmerged);
-        if dirty_region.is_empty() {
-            return Ok(());
-        }
 
+        drop(unmerged);
         self.redraw_req_sent.set(false);
         canvas.save();
         canvas.clip_region(&dirty_region, ClipOp::Max_EnumValue);
+        canvas.clear(Color::WHITE);
         let res = root.render(Render {
             canvas,
             interval,

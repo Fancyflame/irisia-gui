@@ -122,6 +122,7 @@ struct WakeListeners<'a>(&'a ListenerList);
 
 impl Drop for WakeListeners<'_> {
     fn drop(&mut self) {
+        self.0.set_dirty();
         self.0.wake_all();
     }
 }

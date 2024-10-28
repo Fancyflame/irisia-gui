@@ -2,14 +2,14 @@
 debug = 1
 
 [workspace]
-resolver = "2"
-package.rust-version = "1.75"
 members = [
-    "irisia-widgets",
-    "irisia",
-    "irisia-backend",
-    "irisia-macros",
-    "irisia-utils",
-    "examples",
-    "tests",
+  "irisia-widgets",
+  "irisia",
+  "irisia-backend",
+  "irisia-macros",
+  "irisia-utils",
+  "examples",
+  "tests",
 ]
+package.rust-version = "1.82"
+resolver = "2"

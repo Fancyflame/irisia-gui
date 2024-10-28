@@ -1,16 +1,17 @@
 use irisia::{
     application::IncomingPointerEvent,
-    el_model::{EMCreateCtx, ElInputWatcher, ElementAccess, LayerRebuilder},
-    element::ElementInterfaces,
+    data_flow::Register,
+    el_model::{EMCreateCtx, ElementAccess},
+    element::{ElementInterfaces, Render},
     event::standard::{PointerEntered, PointerOut},
-    primitive::Point,
+    primitive::{Point, Region},
     skia_safe::{Color, Color4f, Paint, Rect},
     structure::ChildBox,
-    user_props, Event, Result, WriteStyle,
+    user_props, Event, Result,
 };
 
 pub struct Rectangle {
-    is_force: bool,
+    is_force: Register<bool>,
     props: RectProps,
     access: ElementAccess,
 }
@@ -18,45 +19,36 @@ pub struct Rectangle {
 #[user_props(name = "AAA")]
 pub struct RectProps {
     #[props(optioned)]
-    pub force_color: Color,
+    pub color: Color,
 
     #[props(default)]
-    pub force_height: Option<f32>,
+    pub height: Option<f32>,
 }
 
 impl ElementInterfaces for Rectangle {
     type Props<'a> = RectProps;
+    type SlotData = ();
     const REQUIRE_INDEPENDENT_LAYER: bool = false;
 
-    fn create<Slt>(
-        props: Self::Props<'_>,
-        _: Slt,
-        access: ElementAccess,
-        watch_input: ElInputWatcher<Self>,
-        _: &EMCreateCtx,
-    ) -> Self
+    fn create<Slt>(props: Self::Props<'_>, _: Slt, access: ElementAccess, _: &EMCreateCtx) -> Self
     where
-        Slt: irisia::structure::StructureCreate,
+        Slt: irisia::structure::StructureCreate<()>,
     {
-        let wi = watch_input.clone();
-        let access_cloned = access.clone();
+        let is_force_reg = Register::new(false);
+
+        let is_force = is_force_reg.clone();
         access.listen().trusted().spawn(move |_: PointerEntered| {
             println!("entered");
-            wi.invoke_mut(|el| el.is_force = true);
-            access_cloned.request_redraw();
+            is_force.set(true);
         });
 
-        let wi = watch_input.clone();
-        let access_cloned = access.clone();
+        let is_force = is_force_reg.clone();
         access.listen().trusted().spawn(move |_: PointerOut| {
-            wi.invoke_mut(|el| el.is_force = false);
-            access_cloned.request_redraw();
+            is_force.set(false);
         });
-
-        access.set_interact_region(Some((Default::default(), (Point(50.0, 50.0)))));
 
         Self {
-            is_force: false,
+            is_force: Register::new(false),
             props,
             access,
         }
@@ -66,45 +58,35 @@ impl ElementInterfaces for Rectangle {
         false
     }
 
-    fn on_draw_region_changed(&mut self, _: irisia::primitive::Region) {}
+    fn on_draw_region_changed(&mut self) {}
 
-    fn render(&mut self, lr: &mut LayerRebuilder, _: std::time::Duration) -> Result<()> {
+    fn render(&mut self, args: Render) -> Result<()> {
         let region = self.access.draw_region();
-        let styles = RectStyles::from_style(self.access.styles());
 
-        let height = match *self.props.force_height.read() {
-            Some(h) => h,
-            None => styles
-                .height
-                .map(|h| h.0.to_resolved(&self.access))
-                .unwrap_or(50.0),
-        };
+        let height = self.props.height.read().unwrap_or(50.0);
+        let end_point = Point(region.left_top.0 + 80.0, region.left_top.1 + height);
 
-        let end_point = Point(
-            region.0 .0
-                + styles
-                    .width
-                    .map(|x| x.0.to_resolved(&self.access))
-                    .unwrap_or(50.0),
-            region.0 .1 + height,
+        self.access.set_interact_region(Region {
+            left_top: region.left_top,
+            right_bottom: end_point,
+        });
+
+        let rect = Rect::new(
+            region.left_top.0,
+            region.left_top.1,
+            end_point.0,
+            end_point.1,
         );
 
-        self.access.set_interact_region(Some((region.0, end_point)));
-
-        let rect = Rect::new(region.0 .0, region.0 .1, end_point.0, end_point.1);
-
-        let color = if self.is_force {
-            self.props
-                .force_color
-                .as_ref()
-                .map(|color| *color.read())
-                .unwrap_or(Color::BLACK)
-        } else {
-            styles.color.unwrap_or(sty::Color(Color::GREEN)).0
-        };
+        let mut color = Color::GREEN;
+        if !*self.is_force.read() {
+            if let Some(props_color) = self.props.color.as_ref().map(|color| *color.read()) {
+                color = props_color;
+            }
+        }
 
         let paint = Paint::new(Color4f::from(color), None);
-        lr.canvas().draw_rect(rect, &paint);
+        args.canvas.draw_rect(rect, &paint);
         Ok(())
     }
 }
@@ -119,16 +101,11 @@ pub struct Flex {
 
 impl ElementInterfaces for Flex {
     type Props<'a> = ();
+    type SlotData = ();
 
-    fn create<Slt>(
-        _: Self::Props<'_>,
-        slot: Slt,
-        access: ElementAccess,
-        _: ElInputWatcher<Self>,
-        ctx: &EMCreateCtx,
-    ) -> Self
+    fn create<Slt>(_: Self::Props<'_>, slot: Slt, access: ElementAccess, ctx: &EMCreateCtx) -> Self
     where
-        Slt: irisia::structure::StructureCreate,
+        Slt: irisia::structure::StructureCreate<()>,
     {
         Self {
             children: ChildBox::new(slot, ctx),
@@ -140,17 +117,21 @@ impl ElementInterfaces for Flex {
         self.children.emit_event(ipe)
     }
 
-    fn on_draw_region_changed(&mut self, _: irisia::primitive::Region) {}
+    fn on_draw_region_changed(&mut self) {}
 
-    fn render(&mut self, lr: &mut LayerRebuilder, interval: std::time::Duration) -> Result<()> {
+    fn render(&mut self, args: Render) -> Result<()> {
         self.flex_layout()?;
-        self.children.render(lr, interval)
+        self.children.render(args)
     }
 }
 
 impl Flex {
     fn flex_layout(&mut self) -> Result<()> {
-        let (start, end) = self.access.draw_region();
+        let Region {
+            left_top: start,
+            right_bottom: end,
+        } = self.access.draw_region();
+
         let abs = end - start;
         let len = self.children.len();
         let width = abs.0 / len as f32;
@@ -161,7 +142,7 @@ impl Flex {
                 return None;
             }
 
-            let region = (
+            let region = Region::new(
                 Point(width * index as f32, start.1),
                 Point(width * (index + 1) as f32, end.1),
             );

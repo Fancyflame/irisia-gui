@@ -5,9 +5,9 @@ use crate::structure::EMCreateCtx;
 
 impl_variadics! {
     ..=25 "T*" => {
-        impl<#(#T0),*> StructureCreate for (#(#T0,)*)
+        impl<Cp, #(#T0),*> StructureCreate<Cp> for (#(#T0,)*)
         where
-            #(#T0: StructureCreate,)*
+            #(#T0: StructureCreate<Cp>,)*
         {
             type Target = (#(#T0::Target,)*);
 

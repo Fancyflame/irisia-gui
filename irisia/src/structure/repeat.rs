@@ -10,9 +10,9 @@ use crate::{
 
 use super::{StructureCreate, VisitBy};
 
-pub struct Repeat<Wire, Tb>
+pub struct Repeat<Cp, Wire, Tb>
 where
-    Tb: TreeBuilderFn<Wire>,
+    Tb: TreeBuilderFn<Cp, Wire>,
 {
     src: ReadWire<Vec<Wire>>,
     dirty_flag: DirtyFlag,
@@ -27,10 +27,11 @@ struct MapItem<Wire, Tree> {
     alive: bool,
 }
 
-impl<Cp, Wire, Tb> VisitBy<Cp> for Repeat<Wire, Tb>
+impl<Cp, Wire, Tb> VisitBy<Cp> for Repeat<Cp, Wire, Tb>
 where
+    Cp: 'static,
     Wire: Readable + Clone + 'static,
-    Tb: TreeBuilderFn<Wire>,
+    Tb: TreeBuilderFn<Cp, Wire>,
     Tb::Tree: VisitBy<Cp>,
 {
     fn visit<V>(&self, v: &mut V) -> crate::Result<()>
@@ -58,10 +59,10 @@ where
     }
 }
 
-impl<Wire, Tb> Repeat<Wire, Tb>
+impl<Cp, Wire, Tb> Repeat<Cp, Wire, Tb>
 where
     Wire: Readable + Clone,
-    Tb: TreeBuilderFn<Wire>,
+    Tb: TreeBuilderFn<Cp, Wire>,
 {
     fn update_if_need(&self) {
         if !self.dirty_flag.is_dirty() {
@@ -97,12 +98,13 @@ where
     }
 }
 
-pub fn repeat<V, W, F, Tb>(vec: V, body: F) -> impl StructureCreate
+pub fn repeat<Cp, V, W, F, Tb>(vec: V, body: F) -> impl StructureCreate<Cp>
 where
+    Cp: 'static,
     V: ToReadWire<Data = Vec<W>>,
-    W: ToReadWire + 'static,
+    W: Readable + Clone + 'static,
     F: Fn(&W) -> Tb + 'static,
-    Tb: StructureCreate + 'static,
+    Tb: StructureCreate<Cp> + 'static,
 {
     let vec = vec.to_read_wire();
     |ctx: &EMCreateCtx| Repeat {
@@ -119,15 +121,15 @@ where
     }
 }
 
-pub trait TreeBuilderFn<W>: 'static {
+pub trait TreeBuilderFn<Cp, W>: 'static {
     type Tree;
     fn build(&self, input_wire: &W, ctx: &EMCreateCtx) -> Self::Tree;
 }
 
-impl<F, W, Tb> TreeBuilderFn<W> for F
+impl<Cp, F, W, Tb> TreeBuilderFn<Cp, W> for F
 where
     F: Fn(&W) -> Tb + 'static,
-    Tb: StructureCreate,
+    Tb: StructureCreate<Cp>,
 {
     type Tree = Tb::Target;
     fn build(&self, input_wire: &W, ctx: &EMCreateCtx) -> Self::Tree {

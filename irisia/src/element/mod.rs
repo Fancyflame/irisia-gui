@@ -4,7 +4,6 @@ use crate::{
     application::event_comp::IncomingPointerEvent,
     data_flow::{const_wire, ReadWire},
     el_model::{EMCreateCtx, ElementAccess},
-    primitive::Region,
     structure::StructureCreate,
     Result,
 };
@@ -28,6 +27,7 @@ pub struct Render<'a> {
 /// customize one.
 pub trait ElementInterfaces: Sized + 'static {
     type Props<'a>: FromUserProps;
+    type SlotData: 'static;
     const REQUIRE_INDEPENDENT_LAYER: bool = false;
 
     fn create<Slt>(
@@ -37,11 +37,10 @@ pub trait ElementInterfaces: Sized + 'static {
         ctx: &EMCreateCtx,
     ) -> Self
     where
-        Slt: StructureCreate;
+        Slt: StructureCreate<Self::SlotData>;
 
     fn render(&mut self, args: Render) -> Result<()>;
     fn spread_event(&mut self, ipe: &IncomingPointerEvent) -> bool;
-    fn spread_mark_dirty(&mut self, dirty_region: Region);
     fn on_draw_region_changed(&mut self);
 }
 

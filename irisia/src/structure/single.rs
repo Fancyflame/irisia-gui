@@ -8,9 +8,9 @@ use crate::{
 pub fn single<'a, El, Cp>(
     props: <El::Props<'a> as FromUserProps>::Props,
     child_props: Cp,
-    slot: impl StructureCreate + 'a,
+    slot: impl StructureCreate<El::SlotData> + 'a,
     on_create: impl FnOnce(&ElementAccess) + 'a,
-) -> impl StructureCreate<Target = ElementModel<El, Cp>> + 'a
+) -> impl StructureCreate<Cp, Target = ElementModel<El, Cp>> + 'a
 where
     Cp: 'static,
     El: ElementInterfaces,

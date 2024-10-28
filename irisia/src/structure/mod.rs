@@ -38,7 +38,6 @@ pub trait RenderMultiple<T>: 'static {
     fn layout_all(&mut self, f: LayoutFn<T>) -> Result<()>;
     fn emit_event_all(&mut self, ipe: &IncomingPointerEvent) -> bool;
     fn len(&self) -> usize;
-    fn check_mark_dirty_all(&mut self, dirty_region: Region);
 }
 
 pub trait Visitor<Cp> {
@@ -153,33 +152,18 @@ where
         self.visit(&mut visitor).unwrap();
         visitor.0
     }
-
-    fn check_mark_dirty_all(&mut self, dirty_region: Region) {
-        struct Vis(Region);
-
-        impl<Cp> VisitorMut<Cp> for Vis {
-            fn visit_mut<El>(&mut self, em: &mut ElementModel<El, Cp>) -> Result<()>
-            where
-                El: ElementInterfaces,
-            {
-                em.check_mark_dirty(self.0);
-                Ok(())
-            }
-        }
-
-        let _ = self.visit_mut(&mut Vis(dirty_region));
-    }
 }
 
-pub trait StructureCreate {
-    type Target;
+pub trait StructureCreate<Cp> {
+    type Target: VisitBy<Cp>;
 
     fn create(self, ctx: &EMCreateCtx) -> Self::Target;
 }
 
-impl<F, R> StructureCreate for F
+impl<Cp, F, R> StructureCreate<Cp> for F
 where
     F: FnOnce(&EMCreateCtx) -> R,
+    R: VisitBy<Cp>,
 {
     type Target = R;
 

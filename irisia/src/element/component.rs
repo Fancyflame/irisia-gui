@@ -3,7 +3,6 @@ use std::marker::PhantomData;
 use crate::{
     application::event_comp::IncomingPointerEvent,
     el_model::{EMCreateCtx, ElementAccess, ElementModel},
-    primitive::Region,
     structure::{ChildBox, StructureCreate},
     ElementInterfaces,
 };
@@ -19,7 +18,7 @@ pub trait ComponentTemplate: Sized + 'static {
         access: ElementAccess,
     ) -> impl RootStructureCreate
     where
-        Slt: StructureCreate;
+        Slt: StructureCreate<()>;
 }
 
 pub struct Component<T> {
@@ -33,6 +32,7 @@ where
     T: ComponentTemplate,
 {
     type Props<'a> = <T as ComponentTemplate>::Props<'a>;
+    type SlotData = ();
 
     fn create<Slt>(
         props: Self::Props<'_>,
@@ -41,7 +41,7 @@ where
         ctx: &EMCreateCtx,
     ) -> Self
     where
-        Slt: StructureCreate,
+        Slt: StructureCreate<()>,
     {
         Component {
             slot: ChildBox::new(T::create(props, slot, access.clone()), ctx),
@@ -58,10 +58,6 @@ where
         self.slot.emit_event(ipe)
     }
 
-    fn spread_mark_dirty(&mut self, dirty_region: Region) {
-        self.slot.check_mark_dirty(dirty_region);
-    }
-
     fn on_draw_region_changed(&mut self) {
         let mut dr = Some(self.access.draw_region());
         self.slot
@@ -70,13 +66,15 @@ where
     }
 }
 
-pub trait RootStructureCreate: StructureCreate<Target = ElementModel<Self::Element, ()>> {
+pub trait RootStructureCreate:
+    StructureCreate<(), Target = ElementModel<Self::Element, ()>>
+{
     type Element: ElementInterfaces;
 }
 
 impl<T, El> RootStructureCreate for T
 where
-    T: StructureCreate<Target = ElementModel<El, ()>>,
+    T: StructureCreate<(), Target = ElementModel<El, ()>>,
     El: ElementInterfaces,
 {
     type Element = El;

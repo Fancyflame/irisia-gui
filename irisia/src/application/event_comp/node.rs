@@ -34,22 +34,22 @@ impl NodeEventMgr {
     pub fn update_and_emit(
         &mut self,
         update: &IncomingPointerEvent,
-        region: Option<Region>,
+        region: Region,
         logically_entered: bool,
     ) -> bool {
-        let position = match (update.new_position, region) {
-            (Some(p), Some(region)) if region.contains_point(p) => {
+        let position = if let Some(pos) = update.new_position {
+            if region.contains_point(pos) {
                 self.update_state(State::PhysicallyEnter);
-                p
-            }
-            (Some(p), None) if logically_entered => {
+            } else if logically_entered {
                 self.update_state(State::LogicallyEnter);
-                p
-            }
-            _ => {
+            } else {
                 self.update_state(State::Untracked);
                 return false;
             }
+            pos
+        } else {
+            self.update_state(State::Untracked);
+            return false;
         };
 
         self.emit_physical_pointer_event(

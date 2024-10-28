@@ -35,14 +35,14 @@ where
     }
 }
 
-pub fn conditional<F1, F2>(
+pub fn conditional<Cp, F1, F2>(
     cond: ReadWire<bool>,
     if_selected: F1,
     or_else: F2,
-) -> impl StructureCreate
+) -> impl StructureCreate<Cp>
 where
-    F1: StructureCreate,
-    F2: StructureCreate,
+    F1: StructureCreate<Cp>,
+    F2: StructureCreate<Cp>,
 {
     move |ctx: &EMCreateCtx| Conditional {
         cond,

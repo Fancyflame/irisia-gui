@@ -66,7 +66,7 @@ impl Renderer {
         F: FnOnce(&Canvas) -> Result<()>,
     {
         let canvas = self.surface.canvas();
-        canvas.clear(Color::TRANSPARENT);
+        //canvas.clear(Color::TRANSPARENT);
 
         f(canvas)?;
 

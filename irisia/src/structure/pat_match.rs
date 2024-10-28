@@ -85,19 +85,19 @@ where
     }
 }
 
-pub fn pat_match<IntoSrc, Src, T, F1, R1, R2>(
-    src: IntoSrc,
+pub fn pat_match<Cp, ToSrc, Src, T, F1, R1, R2>(
+    src: ToSrc,
     cond: fn(&Src) -> Option<T>,
     if_selected: F1,
     or_else: R2,
-) -> impl StructureCreate
+) -> impl StructureCreate<Cp>
 where
-    IntoSrc: ToReadWire<Data = Src>,
+    ToSrc: ToReadWire<Data = Src>,
     Src: 'static,
     T: Clone + 'static,
     F1: FnOnce(ReadWire<T>) -> R1 + 'static,
-    R1: StructureCreate,
-    R2: StructureCreate,
+    R1: StructureCreate<Cp>,
+    R2: StructureCreate<Cp>,
 {
     let src = src.to_read_wire();
     let opt_wire = wire(move |src| cond(&src.read()), src.clone());
@@ -120,7 +120,7 @@ where
 
         PatMatch {
             cond: opt_wire.clone(),
-            if_selected: IfSelected::Uninitialized::<R1, _>(creator).into(),
+            if_selected: IfSelected::Uninitialized::<R1::Target, _>(creator).into(),
             or_else: or_else.create(ctx),
         }
     }

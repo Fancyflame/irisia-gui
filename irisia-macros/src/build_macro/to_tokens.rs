@@ -37,7 +37,7 @@ impl Environment {
         let cond_fn = {
             let if_guard = guard.as_ref().map(|guard| quote! {if #guard});
             quote! {
-                |__irisia_cond| match &__irisia_cond {
+                |__irisia_cond: &_| match __irisia_cond {
                     #[allow(unused_variables)]
                     #pattern #if_guard => ::std::option::Option::Some(
                         (#(#binds.clone(),)*)

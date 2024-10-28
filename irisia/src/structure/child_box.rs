@@ -1,16 +1,15 @@
-use super::{RenderMultiple, StructureCreate, VisitBy};
+use super::{RenderMultiple, StructureCreate};
 use crate::{
     application::event_comp::IncomingPointerEvent, element::Render, primitive::Region,
     structure::EMCreateCtx, Result,
 };
 
-pub struct ChildBox<Cp>(Box<dyn RenderMultiple<Cp>>);
+pub struct ChildBox<Cp = ()>(Box<dyn RenderMultiple<Cp>>);
 
 impl<Cp: 'static> ChildBox<Cp> {
     pub fn new<T>(updater: T, ctx: &EMCreateCtx) -> Self
     where
-        T: StructureCreate,
-        T::Target: VisitBy<Cp>,
+        T: StructureCreate<Cp>,
     {
         ChildBox(Box::new(updater.create(ctx)))
     }
@@ -43,9 +42,5 @@ impl<Cp: 'static> ChildBox<Cp> {
 
     pub fn is_empty(&self) -> bool {
         self.0.len() == 0
-    }
-
-    pub fn check_mark_dirty(&mut self, dirty_region: Region) {
-        self.0.check_mark_dirty_all(dirty_region);
     }
 }

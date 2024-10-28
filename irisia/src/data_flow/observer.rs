@@ -47,6 +47,6 @@ where
         if !keep_watching {
             self.deps.clear();
         }
-        true
+        keep_watching
     }
 }

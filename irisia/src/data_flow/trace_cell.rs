@@ -38,6 +38,7 @@ impl<T> TraceCell<T> {
         for (index, bt) in self.borrow_traces.borrow().table.values().enumerate() {
             writeln!(&mut msg, "####### {index}: \n{}\n", bt).unwrap();
         }
+        writeln!(&mut msg, "###### end").unwrap();
         anyhow::Error::msg(msg)
     }
 

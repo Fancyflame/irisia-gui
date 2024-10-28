@@ -3,18 +3,16 @@ use std::time::Duration;
 use irisia::{
     application::Window,
     build,
-    data_flow::{
-        register::{register, RcReg},
-        Readable, RegVec, Register,
-    },
+    data_flow::{const_wire, wire2, ReadWire, Readable, ReadableExt, RegVec, Register, ToReadWire},
     el_model::ElementAccess,
-    element::{CompInputWatcher, ComponentTemplate, RootStructureCreate},
-    event::standard::{PointerDown, PointerMove},
+    element::{ComponentTemplate, RootStructureCreate},
+    event::standard::{PointerDown, PointerEntered, PointerMove, PointerOut, PointerUp},
     skia_safe::Color,
     style, wire, Result, WinitWindow,
 };
 
 use rand::Rng;
+use tokio::select;
 use window_backend::{Flex, Rectangle};
 
 mod window_backend;
@@ -38,7 +36,7 @@ impl ComponentTemplate for App {
 
     fn create<Slt>(_: Self::Props<'_>, _: Slt, _: ElementAccess) -> impl RootStructureCreate
     where
-        Slt: irisia::structure::StructureCreate,
+        Slt: irisia::structure::StructureCreate<()>,
     {
         let vec = Register::new(
             [
@@ -50,19 +48,20 @@ impl ComponentTemplate for App {
             ]
             .into_iter()
             .enumerate()
-            .map(|(i, c)| Register::new((i, Some(c))))
+            .map(|(i, x)| Register::new((i, Some(x))))
             .collect::<Vec<_>>(),
         );
 
         let children = structure(&vec);
 
         tokio::task::spawn_local({
-            let rects = vec.clone();
             async move {
                 loop {
                     tokio::time::sleep(Duration::from_secs(1)).await;
-                    if rects.read().len() < 5 {
-                        rects.write().push(register(Some(Color::RED)));
+                    if vec.read().len() < 5 {
+                        let mut w = vec.write();
+                        let len = w.len();
+                        w.push(Register::new((len, Some(Color::RED))));
                     }
                 }
             }
@@ -73,131 +72,71 @@ impl ComponentTemplate for App {
 }
 
 fn structure(rects: &RegVec<(usize, Option<Color>)>) -> impl RootStructureCreate {
-    /*build! {
+    build! {
         input rects;
 
         Flex {
-            for (index, item) in rects {
-                if let Some(color) = item {
-                    let force_height = wire!((*index.read() == 2).then_some(30.0); index.clone());
+            for (index, item) in rects.clone() {
+                if let Some(color) = item.clone() {
+                    let height = Register::new(40.0);
                     Rectangle {
-                        force_color: color.to_wire(),
-                        force_height: force_height.clone(),
+                        color: {
+                            let c = color.clone();
+                            std::mem::forget(c);
+                            wire!(Color::RED)
+                        },
+                        height: wire!(Some(*height.read()); height),
                         @on_create: move |access| {
-                            access.listen().spawn(move |_: PointerMove| {
-                                force_height.set(Some(rand::thread_rng().gen_range(50.0..200.0)));
-                            });
+                            bind_rt(access.clone(), height.clone());
                             access.listen().spawn(move |_: PointerDown| {
                                 rects.write().remove(*index.read());
+                                reset_index(&rects);
                             });
                         },
                     }
                 }
             }
         }
-    }*/
-
-    // Recursive expansion of build! macro
-    // ====================================
-
-    {
-        {
-            #[allow(unused_variables)]
-            let (rects,) = {
-                use ::irisia::__macro_helper::CloneHelper as _;
-                (rects.__irisia_clone_wire(),)
-            };
-            ::irisia::structure::single::<
-                <Flex as ::irisia::__macro_helper::ElementTypeHelper<_>>::Target,
-                _,
-            >(
-                ::irisia::__macro_helper::ElementPropsAlias::<
-                    <Flex as ::irisia::__macro_helper::ElementTypeHelper<_>>::Target,
-                > {
-                    ..::std::default::Default::default()
-                },
-                (),
-                ::irisia::structure::repeat(rects, {
-                    #[allow(unused_variables)]
-                    let (rects,) = {
-                        use ::irisia::__macro_helper::CloneHelper as _;
-                        (rects.__irisia_clone_wire(),)
-                    };
-                    move |__irisia_input_wire| {
-                        #[allow(unused_variables)]
-                        let (index, item) = (
-                            ::irisia::data_flow::ReadableExt::map(
-                                __irisia_input_wire.clone(),
-                                |#[allow(unused_variables)] (index, item)| index,
-                            ),
-                            ::irisia::data_flow::ReadableExt::map(
-                                __irisia_input_wire.clone(),
-                                |#[allow(unused_variables)] (index, item)| item,
-                            ),
-                        );
-                        ::irisia::structure::pat_match(
-                            item,
-                            (|__irisia_cond| match &__irisia_cond {
-                                #[allow(unused_variables)]
-                                Some(color) => ::std::option::Option::Some((color.clone(),)),
-                                _ => ::std::option::Option::None,
-                            }) as fn(&_) -> Option<_>,
-                            {
-                                #[allow(unused_variables)]
-                                let (rects, item, index) = {
-                                    use ::irisia::__macro_helper::CloneHelper as _;
-                                    (
-                                        rects.__irisia_clone_wire(),
-                                        item.__irisia_clone_wire(),
-                                        index.__irisia_clone_wire(),
-                                    )
-                                };
-                                move |__irisia_tuple_wire| {
-                                    #[allow(unused_variables)]
-                                    let (color,) = (::irisia::data_flow::ReadableExt::map(
-                                        __irisia_tuple_wire.clone(),
-                                        |#[allow(unused_variables)] (color,)| color,
-                                    ),);
-                                    {
-                                        let __irisia_let_binds =
-                                            wire!((*index.read() == 2).then_some(30.0); index);
-                                        let force_height = __irisia_let_binds.clone();
-                                        ::irisia::structure::single:: < <Rectangle as ::irisia::__macro_helper::ElementTypeHelper<_>> ::Target,_>(::irisia::__macro_helper::ElementPropsAlias:: < <Rectangle as ::irisia::__macro_helper::ElementTypeHelper<_>> ::Target>{
-                            force_color: ::irisia::element::FieldPlaceholder::initialized({
-                                #[allow(unused_variables)]
-                                let(rects,item,force_height,color,index,) = (&rects, &item, &force_height, &color, &index,);
-                                color.to_wire()
-                            }),force_height: ::irisia::element::FieldPlaceholder::initialized({
-                                #[allow(unused_variables)]
-                                let(rects,item,force_height,color,index,) = (&rects, &item, &force_height, &color, &index,);
-                                force_height.clone()
-                            }), .. ::std::default::Default::default()
-                        },(),(),{
-                            #[allow(unused_variables)]
-                            let(rects,item,force_height,color,index,) = {
-                                use::irisia::__macro_helper::CloneHelper as _;
-                                (rects.__irisia_clone_wire(),item.__irisia_clone_wire(),force_height.__irisia_clone_wire(),color.__irisia_clone_wire(),index.__irisia_clone_wire(),)
-                            };
-                            move|access|{
-                                access.listen().spawn(move|_:PointerMove|{
-                                    force_height.set(Some(rand::thread_rng().gen_range(50.0..200.0)));
-                                });
-                                access.listen().spawn(move|_:PointerDown|{
-                                    rects.write().remove(*index.read());
-                                });
-                            }
-                        },)
-                                    }
-                                }
-                            },
-                            (),
-                        )
-                    }
-                }),
-                |_| {},
-            )
-        }
     }
+}
+
+fn reset_index(rects: &RegVec<(usize, Option<Color>)>) {
+    for (i, reg) in rects.read().iter().enumerate() {
+        reg.write().0 = i;
+    }
+}
+
+fn bind_rt(access: ElementAccess, height: Register<f32>) {
+    let access2 = access.clone();
+    access2.listen().spawn(move |_: PointerEntered| {
+        let access = access.clone();
+
+        let height = height.clone();
+        let repeater = async move {
+            let mut interval = tokio::time::interval(Duration::from_millis(50));
+            let mut step = 1.0;
+            loop {
+                interval.tick().await;
+                let mut height_w = height.write();
+                if *height_w >= 200.0 {
+                    step = -1.0;
+                } else if *height_w <= 20.0 {
+                    step = 1.0;
+                }
+                *height_w += step * 4.0;
+            }
+        };
+
+        let access = access.clone();
+        async move {
+            select! {
+                _ = access.event_dispatcher().recv::<PointerOut>() => {
+                    println!("pointer out");
+                }
+                _ = repeater => {}
+            }
+        }
+    });
 }
 /*impl ElementInterfaces for App {
     type BlankProps = ();
