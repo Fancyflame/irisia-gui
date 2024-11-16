@@ -19,6 +19,7 @@ pub mod data_flow;
 pub mod el_model;
 pub mod element;
 pub mod event;
+pub mod hook;
 pub mod log;
 pub mod primitive;
 pub mod structure;
