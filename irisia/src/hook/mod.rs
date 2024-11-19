@@ -1,27 +1,33 @@
-use std::rc::Rc;
+use std::ops::Deref;
 
-pub use consumer::listener::Listener;
+pub use listener::Listener;
 
 pub mod consumer;
-pub mod listener_list;
+pub mod listener;
+pub mod memo;
+mod provider_wrapper;
+pub mod read_many;
+pub mod state;
+pub mod trace_cell;
+pub mod utils;
 
 pub trait Provider {
+    type Data: ?Sized;
+    fn read(&self) -> Ref<Self::Data>;
     fn dependent(&self, listener: Listener);
 }
 
-macro_rules! deref_impl {
-    ($($Type: ty),*) => {
-        $(
-            impl<P> Provider for $Type
-            where
-                P: Provider + ?Sized,
-            {
-                fn dependent(&self, listener: Listener) {
-                    (**self).dependent(listener);
-                }
-            }
-        )*
-    };
+pub enum Ref<'a, T: ?Sized> {
+    Ref(&'a T),
+    CellRef(trace_cell::TraceRef<'a, T>),
 }
 
-deref_impl!(&P, Rc<P>, Box<P>);
+impl<T: ?Sized> Deref for Ref<'_, T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::Ref(r) => r,
+            Self::CellRef(r) => &r,
+        }
+    }
+}

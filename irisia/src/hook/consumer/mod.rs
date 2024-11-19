@@ -1,29 +1,58 @@
 use std::{cell::RefCell, rc::Rc};
 
-use super::{Listener, Provider};
-
-pub mod listener;
+use super::{listener::CallbackAction, read_many::ProviderGroup, Listener};
 
 pub struct Consumer<T: ?Sized> {
-    inner: Rc<ResInner<T>>,
+    inner: Rc<Inner<T>>,
 }
 
-struct ResInner<T: ?Sized> {
+struct Inner<T: ?Sized> {
     value: RefCell<T>,
 }
 
-impl<T: ?Sized> Consumer<T> {
-    pub fn builder(value: T) -> ConsumerBuilder<T>
+impl<T: ?Sized + 'static> Consumer<T> {
+    pub fn new(value: T) -> Self
     where
         T: Sized,
     {
-        ConsumerBuilder {
-            consumer: Self {
-                inner: Rc::new(ResInner {
-                    value: RefCell::new(value),
-                }),
-            },
+        Self {
+            inner: Rc::new(Inner {
+                value: RefCell::new(value),
+            }),
         }
+    }
+
+    pub fn with_dep<D>(&self, callback: fn(&mut T), deps: D) -> &Self
+    where
+        D: ProviderGroup,
+    {
+        let listener = Listener::new(Rc::downgrade(&self.inner), move |this, action| {
+            if let CallbackAction::Update = action {
+                this.callback(callback, action);
+            }
+        });
+        deps.dependent_many(listener);
+        self
+    }
+
+    pub fn with_dep_action<D>(&self, callback: fn(&mut T, CallbackAction), deps: D) -> &Self
+    where
+        D: ProviderGroup,
+    {
+        let listener = Listener::new(Rc::downgrade(&self.inner), move |this, action| {
+            this.callback(|value| callback(value, action), action);
+        });
+        deps.dependent_many(listener);
+        self
+    }
+}
+
+impl<T: ?Sized> Inner<T> {
+    fn callback<F>(&self, f: F, _action: CallbackAction)
+    where
+        F: Fn(&mut T),
+    {
+        f(&mut self.value.borrow_mut());
     }
 }
 
@@ -32,51 +61,5 @@ impl<T: ?Sized> Clone for Consumer<T> {
         Self {
             inner: self.inner.clone(),
         }
-    }
-}
-
-pub struct ConsumerBuilder<T: ?Sized> {
-    consumer: Consumer<T>,
-}
-
-impl<T: ?Sized + 'static> ConsumerBuilder<T> {
-    pub fn dependent_many<'a, P>(
-        self,
-        providers: P,
-        callback: fn(&mut T),
-        dirty_setter: Option<fn(&mut T)>,
-    ) -> Self
-    where
-        P: IntoIterator<Item = &'a dyn Provider>,
-    {
-        let src = Rc::downgrade(&self.consumer.inner);
-        let dirty_setter = dirty_setter.unwrap_or(|_| {});
-
-        for provider in providers {
-            provider.dependent(Listener::new(src.clone(), callback, dirty_setter));
-        }
-
-        self
-    }
-
-    pub fn dependent<P>(
-        self,
-        provider: P,
-        callback: fn(&mut T),
-        dirty_setter: Option<fn(&mut T)>,
-    ) -> Self
-    where
-        P: Provider,
-    {
-        provider.dependent(Listener::new(
-            Rc::downgrade(&self.consumer.inner),
-            callback,
-            dirty_setter.unwrap_or(|_| {}),
-        ));
-        self
-    }
-
-    pub fn build(self) -> Consumer<T> {
-        self.consumer
     }
 }

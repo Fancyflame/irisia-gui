@@ -1,7 +1,9 @@
-use super::Listener;
 use smallvec::SmallVec;
 use std::cell::RefCell;
 
+use crate::hook::{listener::CallbackAction, Listener};
+
+/// Use it when implementing a provider
 #[derive(Default)]
 pub struct ListenerList {
     listeners: RefCell<Vec<Listener>>,
@@ -35,11 +37,7 @@ impl ListenerList {
         listeners.extend(self.delay_add.borrow_mut().drain(..));
     }
 
-    pub fn set_dirty(&self) {
-        self.for_each_listeners(Listener::set_dirty);
-    }
-
-    pub fn wake_all(&self) {
-        self.for_each_listeners(Listener::call);
+    pub fn callback_all(&self, action: CallbackAction) {
+        self.for_each_listeners(|listener| listener.callback(action));
     }
 }
