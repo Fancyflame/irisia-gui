@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use super::{listener::CallbackAction, read_many::ProviderGroup, Listener};
+use super::{listener::CallbackAction, provider_group::ProviderGroup, Listener};
 
 pub struct Consumer<T: ?Sized> {
     inner: Rc<Inner<T>>,

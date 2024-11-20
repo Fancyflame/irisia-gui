@@ -5,7 +5,7 @@ use std::{
 
 use super::{
     listener::CallbackAction,
-    read_many::ProviderGroup,
+    provider_group::ProviderGroup,
     trace_cell::TraceCell,
     utils::{DirtyCounter, ListenerList},
     Listener, Provider, Ref,

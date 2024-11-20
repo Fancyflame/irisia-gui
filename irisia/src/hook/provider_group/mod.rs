@@ -6,8 +6,10 @@ pub trait ProviderGroup {
     type Data<'a>
     where
         Self: 'a;
+
     fn read_many(&self) -> Self::Data<'_>;
-    fn dependent_many(&self, listener: Listener);
+
+    fn dependent_many(&self, _listener: Listener);
 }
 
 impl<T> ProviderGroup for T
@@ -46,4 +48,9 @@ impl_variadics! {
             }
         }
     }
+}
+
+pub trait RefDepsTuple {
+    type ToOwned: ProviderGroup;
+    fn to_owned_pg(self) -> Self::ToOwned;
 }
