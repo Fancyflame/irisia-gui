@@ -22,37 +22,18 @@ impl<T: ?Sized + 'static> Consumer<T> {
         }
     }
 
-    pub fn with_dep<D>(&self, callback: fn(&mut T), deps: D) -> &Self
+    pub fn dep<F, D>(&self, callback: F, deps: D) -> &Self
     where
+        F: Fn(&mut T) + 'static,
         D: ProviderGroup,
     {
         let listener = Listener::new(Rc::downgrade(&self.inner), move |this, action| {
             if let CallbackAction::Update = action {
-                this.callback(callback, action);
+                callback(&mut this.value.borrow_mut());
             }
         });
         deps.dependent_many(listener);
         self
-    }
-
-    pub fn with_dep_action<D>(&self, callback: fn(&mut T, CallbackAction), deps: D) -> &Self
-    where
-        D: ProviderGroup,
-    {
-        let listener = Listener::new(Rc::downgrade(&self.inner), move |this, action| {
-            this.callback(|value| callback(value, action), action);
-        });
-        deps.dependent_many(listener);
-        self
-    }
-}
-
-impl<T: ?Sized> Inner<T> {
-    fn callback<F>(&self, f: F, _action: CallbackAction)
-    where
-        F: Fn(&mut T),
-    {
-        f(&mut self.value.borrow_mut());
     }
 }
 

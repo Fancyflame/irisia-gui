@@ -12,6 +12,7 @@ pub use component::{Component, ComponentTemplate, RootStructureCreate};
 use irisia_backend::skia_safe::{Canvas, Region as SkRegion};
 
 mod component;
+pub mod deps;
 
 #[derive(Clone, Copy)]
 pub struct Render<'a> {

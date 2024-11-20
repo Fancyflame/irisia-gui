@@ -1,15 +1,15 @@
 use std::cell::Cell;
 
-use crate::hook::listener::CallbackAction;
+use super::CallbackAction;
 
 /// Use it when implementing a consumer
-pub struct DirtyCounter {
+pub struct DirtyCount {
     dirty_stack: Cell<u32>,
     need_update: Cell<bool>,
     allow_push: Cell<bool>,
 }
 
-impl DirtyCounter {
+impl DirtyCount {
     pub fn new() -> Self {
         Self {
             dirty_stack: Cell::new(0),

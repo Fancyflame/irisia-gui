@@ -4,11 +4,8 @@ use std::{
 };
 
 use super::{
-    listener::CallbackAction,
-    provider_group::ProviderGroup,
-    trace_cell::TraceCell,
-    utils::{DirtyCounter, ListenerList},
-    Listener, Provider, Ref,
+    listener::CallbackAction, provider_group::ProviderGroup, trace_cell::TraceCell,
+    utils::ListenerList, Listener, Provider, Ref,
 };
 
 pub struct Memo<T> {
@@ -45,7 +42,6 @@ impl<T: 'static> Memo<T> {
 
             Inner {
                 listener_list: ListenerList::new(),
-                dirty_counter: DirtyCounter::new(),
                 value: TraceCell::new(init_state),
                 update_fn: move |setter: Setter<T>| logic(setter, deps.read_many()),
             }
@@ -72,7 +68,6 @@ impl<T> Clone for Memo<T> {
 
 struct Inner<T, F> {
     listener_list: ListenerList,
-    dirty_counter: DirtyCounter,
     value: TraceCell<T>,
     update_fn: F,
 }
@@ -82,10 +77,6 @@ where
     F: Fn(Setter<T>),
 {
     fn callback(&self, action: CallbackAction) {
-        let Some(action) = self.dirty_counter.push(action) else {
-            return;
-        };
-
         match action {
             CallbackAction::RegisterDirty | CallbackAction::ClearDirty => {
                 self.listener_list.callback_all(action);
