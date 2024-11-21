@@ -1,6 +1,8 @@
 use std::{ops::Deref, rc::Rc};
 
-use super::{trace_cell::TraceCell, utils::ListenerList, Provider, Ref};
+use super::{
+    trace_cell::TraceCell, utils::ListenerList, Provider, ProviderObject, Ref, ToProviderObject,
+};
 
 pub use write_guard::WriteGuard;
 
@@ -25,6 +27,10 @@ impl<T> State<T> {
         }
     }
 
+    pub fn set(&self, value: T) {
+        *self.write() = value;
+    }
+
     pub fn write(&self) -> WriteGuard<T> {
         WriteGuard::new(
             self.inner.value.borrow_mut().unwrap(),
@@ -37,7 +43,7 @@ impl<T> Provider for Inner<T> {
     type Data = T;
 
     fn read(&self) -> Ref<Self::Data> {
-        Ref::CellRef(self.value.borrow().unwrap())
+        Ref::TraceRef(self.value.borrow().unwrap())
     }
 
     fn dependent(&self, listener: super::Listener) {
@@ -49,5 +55,30 @@ impl<T: 'static> Deref for State<T> {
     type Target = dyn Provider<Data = T>;
     fn deref(&self) -> &Self::Target {
         &*self.inner
+    }
+}
+
+impl<T> Clone for State<T> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+        }
+    }
+}
+
+impl<T: 'static> ToProviderObject for State<T> {
+    type Data = T;
+    fn to_object(&self) -> ProviderObject<Self::Data> {
+        ProviderObject(self.inner.clone())
+    }
+}
+
+impl<T> Provider for State<T> {
+    type Data = T;
+    fn read(&self) -> Ref<Self::Data> {
+        self.inner.read()
+    }
+    fn dependent(&self, listener: super::Listener) {
+        self.inner.dependent(listener);
     }
 }

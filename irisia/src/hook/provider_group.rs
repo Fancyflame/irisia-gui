@@ -29,6 +29,11 @@ where
     }
 }
 
+pub trait RefProviderGroup {
+    type ToOwned: ProviderGroup;
+    fn to_owned(self) -> Self::ToOwned;
+}
+
 impl_variadics! {
     ..=20 "T*" => {
         impl<#(#T0,)*> ProviderGroup for (#(#T0,)*)
@@ -48,9 +53,4 @@ impl_variadics! {
             }
         }
     }
-}
-
-pub trait RefDepsTuple {
-    type ToOwned: ProviderGroup;
-    fn to_owned_pg(self) -> Self::ToOwned;
 }

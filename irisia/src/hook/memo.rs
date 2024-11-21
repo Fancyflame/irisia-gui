@@ -5,7 +5,7 @@ use std::{
 
 use super::{
     listener::CallbackAction, provider_group::ProviderGroup, trace_cell::TraceCell,
-    utils::ListenerList, Listener, Provider, Ref,
+    utils::ListenerList, Listener, Provider, ProviderObject, Ref, ToProviderObject,
 };
 
 pub struct Memo<T> {
@@ -19,19 +19,24 @@ impl<T: 'static> Memo<T> {
         F: Fn(D::Data<'_>) -> T + 'static,
         D: ProviderGroup + 'static,
     {
-        Self::new_customized(
-            logic(deps.read_many()),
-            move |mut setter, data| {
-                let new_value = logic(data);
-                if *setter != new_value {
-                    *setter = new_value;
-                }
-            },
-            deps,
-        )
+        let inner = Rc::new_cyclic(|weak| {
+            let listener = Listener::new(weak.clone(), Inner::callback);
+            deps.dependent_many(listener);
+            Inner {
+                listener_list: ListenerList::new(),
+                value: TraceCell::new(logic(deps.read_many())),
+                update_fn: move |mut setter: Setter<T>| {
+                    let new_value = logic(deps.read_many());
+                    if *setter != new_value {
+                        *setter = new_value;
+                    }
+                },
+            }
+        });
+        Self { inner }
     }
 
-    pub fn new_customized<F, D>(init_state: T, logic: F, deps: D) -> Self
+    pub fn new_customized<F, D>(mut init_state: T, logic: F, deps: D) -> Self
     where
         F: Fn(Setter<'_, T>, D::Data<'_>) + 'static,
         D: ProviderGroup + 'static,
@@ -39,30 +44,20 @@ impl<T: 'static> Memo<T> {
         let inner = Rc::new_cyclic(|weak: &Weak<Inner<T, _>>| {
             let listener = Listener::new(weak.clone(), Inner::callback);
             deps.dependent_many(listener);
+            let update_fn = move |setter: Setter<T>| logic(setter, deps.read_many());
+            update_fn(Setter {
+                r: &mut init_state,
+                mutated: &mut true,
+            });
 
             Inner {
                 listener_list: ListenerList::new(),
                 value: TraceCell::new(init_state),
-                update_fn: move |setter: Setter<T>| logic(setter, deps.read_many()),
+                update_fn,
             }
         });
 
         Self { inner }
-    }
-}
-
-impl<T> Deref for Memo<T> {
-    type Target = dyn Provider<Data = T>;
-    fn deref(&self) -> &Self::Target {
-        &*self.inner
-    }
-}
-
-impl<T> Clone for Memo<T> {
-    fn clone(&self) -> Self {
-        Self {
-            inner: self.inner.clone(),
-        }
     }
 }
 
@@ -105,7 +100,7 @@ impl<T, F> Provider for Inner<T, F> {
     type Data = T;
 
     fn read(&self) -> super::Ref<Self::Data> {
-        Ref::CellRef(self.value.borrow().unwrap())
+        Ref::TraceRef(self.value.borrow().unwrap())
     }
 
     fn dependent(&self, listener: Listener) {
@@ -129,5 +124,37 @@ impl<T: ?Sized> DerefMut for Setter<'_, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         *self.mutated = true;
         self.r
+    }
+}
+
+impl<T> ToProviderObject for Memo<T> {
+    type Data = T;
+    fn to_object(&self) -> ProviderObject<Self::Data> {
+        ProviderObject(self.inner.clone())
+    }
+}
+
+impl<T> Provider for Memo<T> {
+    type Data = T;
+    fn read(&self) -> Ref<Self::Data> {
+        self.inner.read()
+    }
+    fn dependent(&self, listener: Listener) {
+        self.inner.dependent(listener);
+    }
+}
+
+impl<T> Deref for Memo<T> {
+    type Target = dyn Provider<Data = T>;
+    fn deref(&self) -> &Self::Target {
+        &*self.inner
+    }
+}
+
+impl<T> Clone for Memo<T> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+        }
     }
 }

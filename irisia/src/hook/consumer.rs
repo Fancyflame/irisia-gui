@@ -35,6 +35,14 @@ impl<T: ?Sized + 'static> Consumer<T> {
         deps.dependent_many(listener);
         self
     }
+
+    pub fn borrow(&self) -> std::cell::Ref<T> {
+        self.inner.value.borrow()
+    }
+
+    pub fn borrow_mut(&mut self) -> std::cell::RefMut<T> {
+        self.inner.value.borrow_mut()
+    }
 }
 
 impl<T: ?Sized> Clone for Consumer<T> {
