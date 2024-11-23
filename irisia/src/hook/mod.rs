@@ -7,6 +7,7 @@ pub mod consumer;
 pub mod listener;
 pub mod memo;
 pub mod provider_group;
+pub mod simple;
 pub mod state;
 pub mod trace_cell;
 pub mod utils;
@@ -18,11 +19,6 @@ pub trait Provider {
     type Data;
     fn read(&self) -> Ref<Self::Data>;
     fn dependent(&self, listener: Listener);
-}
-
-pub trait ToProviderObject {
-    type Data;
-    fn to_object(&self) -> ProviderObject<Self::Data>;
 }
 
 pub enum Ref<'a, T: ?Sized> {
@@ -52,6 +48,17 @@ impl<T> Provider for ProviderObject<T> {
     }
 }
 
+impl<T> Clone for ProviderObject<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+pub trait ToProviderObject {
+    type Data;
+    fn to_object(&self) -> ProviderObject<Self::Data>;
+}
+
 impl<T> ToProviderObject for ProviderObject<T> {
     type Data = T;
     fn to_object(&self) -> ProviderObject<T> {
@@ -59,8 +66,9 @@ impl<T> ToProviderObject for ProviderObject<T> {
     }
 }
 
-impl<T> Clone for ProviderObject<T> {
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
+impl<T: ToProviderObject> ToProviderObject for &T {
+    type Data = T::Data;
+    fn to_object(&self) -> ProviderObject<Self::Data> {
+        (**self).to_object()
     }
 }
