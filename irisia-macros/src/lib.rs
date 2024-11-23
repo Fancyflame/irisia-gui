@@ -1,5 +1,6 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
+use props2::CastProp;
 use quote::quote;
 use syn::{
     parse::{ParseStream, Parser},
@@ -11,6 +12,8 @@ mod derive_props;
 mod inner_impl_listen;
 mod main_macro;
 mod parse_incomplete;
+mod props2;
+mod split_generics;
 mod style;
 
 #[proc_macro]
@@ -47,6 +50,11 @@ pub fn user_props(attr: TokenStream, input: TokenStream) -> TokenStream {
         derive_props::DeriveProps::parse(attr.into(), parse_macro_input!(input as Item))
             .map(|x| x.compile()),
     )
+}
+
+#[proc_macro_attribute]
+pub fn props(_: TokenStream, input: TokenStream) -> TokenStream {
+    parse_macro_input!(input as CastProp).generate().into()
 }
 
 #[proc_macro]
