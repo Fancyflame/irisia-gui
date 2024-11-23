@@ -25,7 +25,7 @@ impl<T> Provider for SimpleProvider<T> {
 impl<T> SimpleProvider<T> {
     pub fn new<U, _M>(value: U) -> Self
     where
-        U: IntoSimpleProvider<_M, T>,
+        U: IntoSimpleProvider<T, _M>,
     {
         value.into_simple_provider()
     }
@@ -41,19 +41,19 @@ impl<T> SimpleProvider<T> {
     }
 }
 
-pub trait IntoSimpleProvider<_M, T> {
+pub trait IntoSimpleProvider<T, _M> {
     fn into_simple_provider(self) -> SimpleProvider<T>;
 }
 
 pub struct AsValue;
-impl<T> IntoSimpleProvider<AsValue, T> for T {
+impl<T> IntoSimpleProvider<T, AsValue> for T {
     fn into_simple_provider(self) -> SimpleProvider<T> {
         SimpleProvider::Owned(self)
     }
 }
 
 pub struct AsHook;
-impl<T> IntoSimpleProvider<AsHook, T::Data> for T
+impl<T> IntoSimpleProvider<T::Data, AsHook> for T
 where
     T: ToProviderObject,
 {

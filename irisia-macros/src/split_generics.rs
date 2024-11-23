@@ -14,8 +14,6 @@ pub struct SplittedGenerics {
     pub lifetime_type_generics: PunctuatedComma<Lifetime>,
     pub type_type_generics: PunctuatedComma<Ident>,
     pub where_clause: Option<WhereClause>,
-    pub lt_token: Option<Token![<]>,
-    pub gt_token: Option<Token![>]>,
 }
 
 #[derive(Clone)]
@@ -41,8 +39,6 @@ impl SplittedGenerics {
             lifetime_type_generics: Punctuated::new(),
             type_type_generics: Punctuated::new(),
             where_clause: generics.where_clause,
-            lt_token: generics.lt_token,
-            gt_token: generics.gt_token,
         };
 
         fn push<T>(p: &mut PunctuatedComma<T>, value: T, sep: Token![,]) {

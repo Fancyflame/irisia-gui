@@ -1,6 +1,8 @@
 use std::{ops::Deref, rc::Rc};
 
-pub use listener::Listener;
+pub use {
+    constant::Constant, consumer::Consumer, listener::Listener, memo::Memo, simple::SimpleProvider,
+};
 
 pub mod constant;
 pub mod consumer;

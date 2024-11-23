@@ -3,15 +3,14 @@ use std::time::Duration;
 use irisia::{
     application::Window,
     build,
-    data_flow::{const_wire, wire2, ReadWire, Readable, ReadableExt, RegVec, Register, ToReadWire},
+    data_flow::{Readable, RegVec, Register},
     el_model::ElementAccess,
     element::{ComponentTemplate, RootStructureCreate},
-    event::standard::{PointerDown, PointerEntered, PointerMove, PointerOut, PointerUp},
+    event::standard::{PointerDown, PointerEntered, PointerOut},
     skia_safe::Color,
-    style, wire, Result, WinitWindow,
+    wire, Result, WinitWindow,
 };
 
-use rand::Rng;
 use tokio::select;
 use window_backend::{Flex, Rectangle};
 
@@ -138,6 +137,7 @@ fn bind_rt(access: ElementAccess, height: Register<f32>) {
         }
     });
 }
+
 /*impl ElementInterfaces for App {
     type BlankProps = ();
 
