@@ -1,12 +1,10 @@
+use crate::hook::{
+    utils::{ListenerList, TraceCell},
+    Listener, Provider, ProviderObject, Ref, ToProviderObject,
+};
 use std::{ops::Deref, rc::Rc};
 
-use super::{
-    trace_cell::TraceCell, utils::ListenerList, Provider, ProviderObject, Ref, ToProviderObject,
-};
-
-pub use write_guard::WriteGuard;
-
-mod write_guard;
+use super::utils::WriteGuard;
 
 pub struct State<T> {
     inner: Rc<Inner<T>>,
@@ -46,7 +44,7 @@ impl<T> Provider for Inner<T> {
         Ref::TraceRef(self.value.borrow().unwrap())
     }
 
-    fn dependent(&self, listener: super::Listener) {
+    fn dependent(&self, listener: Listener) {
         self.listener_list.add_listener(listener)
     }
 }
@@ -78,7 +76,7 @@ impl<T> Provider for State<T> {
     fn read(&self) -> Ref<Self::Data> {
         self.inner.read()
     }
-    fn dependent(&self, listener: super::Listener) {
+    fn dependent(&self, listener: Listener) {
         self.inner.dependent(listener);
     }
 }

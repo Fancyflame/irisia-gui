@@ -9,6 +9,10 @@ edition = "2021"
 # path = "window.rs"
 
 [[example]]
+name = "hook"
+path = "hook.rs"
+
+[[example]]
 name = "props_macro"
 path = "props_macro.rs"
 

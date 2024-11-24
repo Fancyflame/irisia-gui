@@ -4,8 +4,10 @@ use std::{
 };
 
 use super::{
-    listener::CallbackAction, provider_group::ProviderGroup, trace_cell::TraceCell,
-    utils::ListenerList, Listener, Provider, ProviderObject, Ref, ToProviderObject,
+    listener::CallbackAction,
+    provider_group::ProviderGroup,
+    utils::{ListenerList, TraceCell},
+    Listener, Provider, ProviderObject, Ref, ToProviderObject,
 };
 
 pub struct Memo<T> {

@@ -14,6 +14,7 @@ pub enum CallbackAction {
 }
 
 impl Listener {
+    /// The callback ***must NOT capture hooks*** or will cause underlying memory leaks
     pub(crate) fn new<T, F>(src: Weak<T>, callback: F) -> Self
     where
         T: ?Sized + 'static,
@@ -64,5 +65,11 @@ where
 impl Clone for Listener {
     fn clone(&self) -> Self {
         Self(self.0.clone())
+    }
+}
+
+impl CallbackAction {
+    pub fn is_update(&self) -> bool {
+        matches!(self, Self::Update)
     }
 }

@@ -1,21 +1,21 @@
 use std::{ops::Deref, rc::Rc};
 
+use utils::trace_cell::TraceRef;
+
 pub use {
-    constant::Constant, consumer::Consumer, listener::Listener, memo::Memo, simple::SimpleProvider,
+    constant::Constant, consumer::Consumer, effect::Effect, listener::Listener, memo::Memo,
+    simple::SimpleProvider, state::State,
 };
 
 pub mod constant;
 pub mod consumer;
+pub mod effect;
 pub mod listener;
 pub mod memo;
 pub mod provider_group;
 pub mod simple;
 pub mod state;
-pub mod trace_cell;
 pub mod utils;
-
-#[cfg(test)]
-mod test;
 
 pub trait Provider {
     type Data;
@@ -25,7 +25,7 @@ pub trait Provider {
 
 pub enum Ref<'a, T: ?Sized> {
     Ref(&'a T),
-    TraceRef(trace_cell::TraceRef<'a, T>),
+    TraceRef(TraceRef<'a, T>),
 }
 
 impl<T: ?Sized> Deref for Ref<'_, T> {
