@@ -1,8 +1,6 @@
-use crate::element::{Component, ComponentTemplate, FromUserProps};
+use crate::element::{Component, ComponentTemplate};
 
 use crate::{data_flow::Readable, ElementInterfaces};
-
-pub type ElementPropsAlias<'a, T> = <<T as ElementInterfaces>::Props<'a> as FromUserProps>::Props;
 
 pub trait ElementTypeHelper<_T> {
     type Target: ElementInterfaces;

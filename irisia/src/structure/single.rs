@@ -1,12 +1,11 @@
 use super::{StructureCreate, VisitBy};
 use crate::{
     el_model::{EMCreateCtx, ElementAccess, ElementModel},
-    element::FromUserProps,
     ElementInterfaces,
 };
 
 pub fn single<'a, El, Cp>(
-    props: <El::Props<'a> as FromUserProps>::Props,
+    props: El::Props<'a>,
     child_props: Cp,
     slot: impl StructureCreate<El::SlotData> + 'a,
     on_create: impl FnOnce(&ElementAccess) + 'a,
@@ -16,7 +15,6 @@ where
     El: ElementInterfaces,
 {
     move |context: &EMCreateCtx| {
-        let props = <El::Props<'a> as FromUserProps>::take(props);
         let em = ElementModel::new(context, props, child_props, slot);
         on_create(em.access());
         em

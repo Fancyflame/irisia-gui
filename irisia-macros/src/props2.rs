@@ -162,7 +162,7 @@ impl CastProp {
 
         quote! {
             impl <#lifetime_impl_generics #type_impl_generics>
-                irisia::element::deps::EmptyProps
+                irisia::element::deps::AsEmptyProps
                 for #name<#lifetime_type_generics #type_type_generics>
             #where_clause
             {

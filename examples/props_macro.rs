@@ -1,7 +1,7 @@
 use std::{fmt::Display, marker::PhantomData};
 
 use irisia::{
-    element::deps::EmptyProps,
+    element::deps::AsEmptyProps,
     hook::{state::State, Memo},
 };
 

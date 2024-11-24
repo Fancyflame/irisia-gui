@@ -7,10 +7,10 @@ use crate::{
     ElementInterfaces,
 };
 
-use super::{FromUserProps, Render};
+use super::{deps::AsEmptyProps, Render};
 
 pub trait ComponentTemplate: Sized + 'static {
-    type Props<'a>: FromUserProps;
+    type Props<'a>: AsEmptyProps;
 
     fn create<Slt>(
         props: Self::Props<'_>,
