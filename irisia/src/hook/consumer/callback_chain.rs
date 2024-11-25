@@ -41,7 +41,11 @@ where
                 return;
             }
             let this = get_node(src);
-            (this.callback)(&mut src.value.borrow_mut(), this.deps.read_many());
+
+            (this.callback)(
+                &mut src.value.borrow_mut(),
+                D::deref_wrapper(&this.deps.read_many()),
+            );
         });
         self.deps.dependent_many(listener);
         self.next.listen(weak_src, move |src| &get_node(src).next);

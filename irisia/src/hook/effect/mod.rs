@@ -75,7 +75,7 @@ where
 
         self.fn_drop.set(Some((self.make_effect)(
             self.effect_state.clone(),
-            self.deps.read_many(),
+            D::deref_wrapper(&self.deps.read_many()),
         )));
     }
 }

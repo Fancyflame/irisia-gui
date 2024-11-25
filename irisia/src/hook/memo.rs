@@ -24,11 +24,14 @@ impl<T: 'static> Memo<T> {
         let inner = Rc::new_cyclic(|weak| {
             let listener = Listener::new(weak.clone(), Inner::callback);
             deps.dependent_many(listener);
+
+            let generator = move || logic(D::deref_wrapper(&deps.read_many()));
+
             Inner {
                 listener_list: ListenerList::new(),
-                value: TraceCell::new(logic(deps.read_many())),
+                value: TraceCell::new(generator()),
                 update_fn: move |mut setter: Setter<T>| {
-                    let new_value = logic(deps.read_many());
+                    let new_value = generator();
                     if *setter != new_value {
                         *setter = new_value;
                     }
@@ -46,7 +49,8 @@ impl<T: 'static> Memo<T> {
         let inner = Rc::new_cyclic(|weak: &Weak<Inner<T, _>>| {
             let listener = Listener::new(weak.clone(), Inner::callback);
             deps.dependent_many(listener);
-            let update_fn = move |setter: Setter<T>| logic(setter, deps.read_many());
+            let update_fn =
+                move |setter: Setter<T>| logic(setter, D::deref_wrapper(&deps.read_many()));
             update_fn(Setter {
                 r: &mut init_state,
                 mutated: &mut true,

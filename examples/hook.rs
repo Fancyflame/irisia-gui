@@ -1,4 +1,4 @@
-use irisia::hook::{Consumer, Effect, Memo, ProviderObject, Ref, State, ToProviderObject};
+use irisia::hook::{Consumer, Effect, Memo, ProviderObject, State, ToProviderObject};
 use std::{fmt::Write, rc::Rc, time::Duration};
 use tokio::{select, sync::Notify};
 
@@ -15,13 +15,13 @@ async fn main() {
         String::new(),
         |mut setter, (t, n)| {
             setter.clear();
-            write!(&mut *setter, "I have {} {}", *n, *t).unwrap();
+            write!(&mut *setter, "I have {n} {t}").unwrap();
         },
         (text.clone(), number.clone()),
     );
 
     let trailing_s = Memo::new(|count| if *count < 2 { "." } else { "s." }, number.clone());
-    let final_sentence = Memo::new(|(s1, s2)| format!("{}{}", *s1, *s2), (sentence, trailing_s));
+    let final_sentence = Memo::new(|(s1, s2)| format!("{s1}{s2}"), (sentence, trailing_s));
 
     let stop = Rc::new(Notify::new());
 
