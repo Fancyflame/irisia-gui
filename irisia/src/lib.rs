@@ -21,6 +21,7 @@ pub mod element;
 pub mod event;
 pub mod hook;
 pub mod log;
+pub mod model;
 pub mod primitive;
 pub mod structure;
 

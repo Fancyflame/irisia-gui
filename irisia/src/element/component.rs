@@ -3,6 +3,7 @@ use std::marker::PhantomData;
 use crate::{
     application::event_comp::IncomingPointerEvent,
     el_model::{EMCreateCtx, ElementAccess, ElementModel},
+    model::basic::ModelBasicMapper,
     structure::{ChildBox, StructureCreate},
     ElementInterfaces,
 };
@@ -33,6 +34,7 @@ where
 {
     type Props<'a> = <T as ComponentTemplate>::Props<'a>;
     type SlotData = ();
+    type AcceptModel = ModelBasicMapper;
 
     fn create<Slt>(
         props: Self::Props<'_>,

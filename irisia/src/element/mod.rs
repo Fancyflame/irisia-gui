@@ -2,8 +2,8 @@ use std::time::Duration;
 
 use crate::{
     application::event_comp::IncomingPointerEvent,
-    data_flow::{const_wire, ReadWire},
     el_model::{EMCreateCtx, ElementAccess},
+    model::{iter::ModelMapper, ModelCreateFn},
     structure::StructureCreate,
     Result,
 };
@@ -30,6 +30,7 @@ pub struct Render<'a> {
 pub trait ElementInterfaces: Sized + 'static {
     type Props<'a>: AsEmptyProps;
     type SlotData: 'static;
+    type AcceptModel: ModelMapper;
     const REQUIRE_INDEPENDENT_LAYER: bool = false;
 
     fn create<Slt>(
@@ -40,6 +41,18 @@ pub trait ElementInterfaces: Sized + 'static {
     ) -> Self
     where
         Slt: StructureCreate<Self::SlotData>;
+
+    fn create_v2<Slt>(
+        props: Self::Props<'_>,
+        slot: Slt,
+        access: ElementAccess,
+        ctx: &EMCreateCtx,
+    ) -> Self
+    where
+        Slt: ModelCreateFn<Self::AcceptModel>,
+    {
+        todo!()
+    }
 
     fn render(&mut self, args: Render) -> Result<()>;
     fn spread_event(&mut self, ipe: &IncomingPointerEvent) -> bool;
