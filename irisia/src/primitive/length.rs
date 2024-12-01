@@ -74,18 +74,21 @@ impl Length {
     #[inline]
     pub fn to_resolved(&self, access: ElementAccess) -> f32 {
         let window = access.global_content().window();
-        let Region {
-            left_top,
-            right_bottom,
-        } = access.draw_region();
 
-        const PERCENT_FACTOR: f32 = 100.0;
+        let (ew, eh) = match access.draw_region() {
+            Some(Region {
+                left_top,
+                right_bottom,
+            }) => (
+                (right_bottom.0 - left_top.0) / 100.0,
+                (right_bottom.1 - left_top.1) / 100.0,
+            ),
+            None => (0.0, 0.0),
+        };
 
         let viewport_size = window.inner_size();
-        let vw = viewport_size.width as f32 / PERCENT_FACTOR;
-        let vh = viewport_size.height as f32 / PERCENT_FACTOR;
-        let ew = (right_bottom.0 - left_top.0) / PERCENT_FACTOR;
-        let eh = (right_bottom.1 - left_top.1) / PERCENT_FACTOR;
+        let vw = viewport_size.width as f32 / 100.0;
+        let vh = viewport_size.height as f32 / 100.0;
         let dpi = window.scale_factor() as f32;
 
         self.pixel * dpi

@@ -54,11 +54,11 @@ impl RedrawScheduler {
         dirty_region.set_empty();
 
         for access in unmerged.drain(..) {
-            let (old_region, new_region) = access.reset_redraw_region_pair();
-            if let Some(old) = old_region {
-                dirty_region.op_rect(old.ceil_to_irect(), RegionOp::Union);
+            for optioned_region in access.reset_redraw_region_pair() {
+                if let Some(region) = optioned_region {
+                    dirty_region.op_rect(region.ceil_to_irect(), RegionOp::Union);
+                }
             }
-            dirty_region.op_rect(new_region.ceil_to_irect(), RegionOp::Union);
         }
 
         drop(unmerged);

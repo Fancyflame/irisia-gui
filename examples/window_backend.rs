@@ -58,7 +58,7 @@ impl ElementInterfaces for Rectangle {
         false
     }
 
-    fn on_draw_region_changed(&mut self) {}
+    fn on_draw_region_change(&mut self) {}
 
     fn render(&mut self, args: Render) -> Result<()> {
         let region = self.access.draw_region();
@@ -117,7 +117,7 @@ impl ElementInterfaces for Flex {
         self.children.emit_event(ipe)
     }
 
-    fn on_draw_region_changed(&mut self) {}
+    fn on_draw_region_change(&mut self) {}
 
     fn render(&mut self, args: Render) -> Result<()> {
         self.flex_layout()?;

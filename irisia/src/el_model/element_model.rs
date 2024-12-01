@@ -7,9 +7,10 @@ use crate::{
         content::GlobalContent,
         event_comp::{IncomingPointerEvent, NodeEventMgr},
     },
-    data_flow::{observer::Observer, Register},
+    data_flow::observer::Observer,
     element::Render,
     event::{standard::ElementAbandoned, EventDispatcher, Listen},
+    hook::State,
     primitive::Region,
     structure::StructureCreate,
     ElementInterfaces, Result,
@@ -24,13 +25,13 @@ pub struct ElementModel<El, Cp> {
     event_mgr: NodeEventMgr,
     access: ElementAccess,
     redraw_hook: Observer,
-    first_time_render: bool,
+    layouting_draw_region: Option<Region>,
 }
 
 pub(crate) struct Shared {
     interact_region: Cell<Region>,
     last_draw_region: Cell<Option<Region>>,
-    draw_region: Register<Region>,
+    draw_region: Cell<Option<Region>>,
     redraw_signal_sent: Cell<bool>,
     ed: EventDispatcher,
     gc: Rc<GlobalContent>,
@@ -39,6 +40,7 @@ pub(crate) struct Shared {
 #[derive(Clone)]
 pub struct EMCreateCtx {
     pub(crate) global_content: Rc<GlobalContent>,
+    pub(crate) model_changed: State<()>,
 }
 
 impl<El, Cp> ElementModel<El, Cp> {
@@ -129,16 +131,16 @@ where
             },
             access,
             child_props,
-            first_time_render: true,
+            layouting_draw_region: None,
         }
     }
 
-    pub(crate) fn set_draw_region(&mut self, region: Region) {
-        if region == *self.access.0.draw_region.read() {
+    pub(crate) fn set_draw_region(&mut self, region: Option<Region>) {
+        if region == self.access.0.draw_region.get() {
             return;
         }
         self.access.0.draw_region.set(region);
-        self.el.on_draw_region_changed();
+        self.el.on_draw_region_change();
     }
 
     /// returns whether this element is logically entered
@@ -152,15 +154,17 @@ where
     }
 
     pub fn render(&mut self, args: Render) -> Result<()> {
-        if !self.first_time_render
-            && !args
-                .dirty_region
-                .intersects_rect(self.access.draw_region().ceil_to_irect())
+        let Some(draw_region) = self.access.draw_region() else {
+            return Ok(());
+        };
+
+        if !args
+            .dirty_region
+            .intersects_rect(draw_region.ceil_to_irect())
         {
             return Ok(());
         }
 
-        self.first_time_render = false;
         self.access.0.redraw_signal_sent.set(false);
         self.redraw_hook.invoke(|| self.el.render(args))
     }
@@ -192,6 +196,7 @@ impl ElementAccess {
     pub fn context(&self) -> EMCreateCtx {
         EMCreateCtx {
             global_content: self.0.gc.clone(),
+            model_changed: todo!(),
         }
     }
 
@@ -211,18 +216,20 @@ impl ElementAccess {
         self.0.redraw_signal_sent.set(true);
     }
 
-    pub(crate) fn reset_redraw_region_pair(&self) -> (Option<Region>, Region) {
+    pub(crate) fn reset_redraw_region_pair(&self) -> [Option<Region>; 2] {
+        let mut old_region = self.0.last_draw_region.get();
         let new_region = self.draw_region();
-        let old_region = self
-            .0
-            .last_draw_region
-            .get()
-            .take_if(|old| *old != new_region);
-        self.0.last_draw_region.set(Some(new_region));
-        (old_region, new_region)
+
+        if old_region == new_region {
+            old_region = None;
+        } else {
+            self.0.last_draw_region.set(new_region);
+        }
+
+        [old_region, new_region]
     }
 
-    pub fn draw_region(&self) -> Region {
-        *self.0.draw_region.read()
+    pub fn draw_region(&self) -> Option<Region> {
+        self.0.draw_region.get()
     }
 }

@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use crate::{
     application::event_comp::IncomingPointerEvent,
     el_model::{EMCreateCtx, ElementAccess, ElementModel},
-    model::basic::ModelBasicMapper,
+    model::iter::ModelBasicMapper,
     structure::{ChildBox, StructureCreate},
     ElementInterfaces,
 };
@@ -60,11 +60,12 @@ where
         self.slot.emit_event(ipe)
     }
 
-    fn on_draw_region_changed(&mut self) {
-        let mut dr = Some(self.access.draw_region());
+    fn on_draw_region_change(&mut self) {
+        /*let mut dr = Some(self.access.draw_region());
         self.slot
             .layout(|_| dr.take())
-            .expect("unexpected layout failure");
+            .expect("unexpected layout failure");*/
+        unimplemented!()
     }
 }
 

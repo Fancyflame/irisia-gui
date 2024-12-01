@@ -11,6 +11,7 @@ use crate::{
     el_model::{EMCreateCtx, ElementModel},
     element::{ElementInterfaces, RootStructureCreate},
     event::{standard::WindowDestroyed, EventDispatcher},
+    hook::State,
     primitive::{Point, Region},
     Result,
 };
@@ -40,7 +41,8 @@ where
 
     fn on_window_event(&mut self, event: WindowEvent) {
         if let WindowEvent::Resized(size) = &event {
-            self.root.set_draw_region(window_size_to_draw_region(*size));
+            self.root
+                .set_draw_region(Some(window_size_to_draw_region(*size)));
         }
 
         if let Some(ipe) = self.gem.emit_event(event, &self.gc) {
@@ -88,9 +90,10 @@ where
 
             let mut root = root_creator.create(&EMCreateCtx {
                 global_content: gc.clone(),
+                model_changed: State::new(()),
             });
 
-            root.set_draw_region(window_size_to_draw_region(gc.window().inner_size()));
+            root.set_draw_region(Some(window_size_to_draw_region(gc.window().inner_size())));
 
             BackendRuntime {
                 gem: GlobalEventMgr::new(),

@@ -99,7 +99,7 @@ where
                 let option = (self.0)(&em.child_props);
                 match option {
                     Some(region) => {
-                        em.set_draw_region(region);
+                        em.set_draw_region(Some(region)); // FIXME
                         Ok(())
                     }
                     None => Err(anyhow!("layouter is exhausted")),

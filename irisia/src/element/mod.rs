@@ -56,5 +56,5 @@ pub trait ElementInterfaces: Sized + 'static {
 
     fn render(&mut self, args: Render) -> Result<()>;
     fn spread_event(&mut self, ipe: &IncomingPointerEvent) -> bool;
-    fn on_draw_region_changed(&mut self);
+    fn on_draw_region_change(&mut self);
 }

@@ -42,7 +42,7 @@ impl<T: 'static> Consumer<T> {
         self.inner.value.borrow()
     }
 
-    pub fn borrow_mut(&mut self) -> std::cell::RefMut<T> {
+    pub fn borrow_mut(&self) -> std::cell::RefMut<T> {
         self.inner.value.borrow_mut()
     }
 }
