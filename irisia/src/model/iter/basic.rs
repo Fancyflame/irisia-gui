@@ -3,11 +3,11 @@ use crate::{
     ElementInterfaces, Result,
 };
 
-use super::iter::{ModelMapper, ModelMapperImplements};
+use super::{ModelMapper, ModelMapperImplements};
 
 pub trait ModelBasic: 'static {
     fn dyn_render(&mut self, args: Render) -> Result<()>;
-    fn dyn_set_draw_region(&mut self, region: Region);
+    fn dyn_set_draw_region(&mut self, region: Option<Region>);
     fn dyn_on_pointer_event(&mut self, ipe: &IncomingPointerEvent) -> bool;
 }
 
@@ -19,7 +19,7 @@ where
     fn dyn_render(&mut self, args: Render) -> Result<()> {
         self.render(args)
     }
-    fn dyn_set_draw_region(&mut self, region: Region) {
+    fn dyn_set_draw_region(&mut self, region: Option<Region>) {
         self.set_draw_region(region);
     }
     fn dyn_on_pointer_event(&mut self, ipe: &IncomingPointerEvent) -> bool {
