@@ -5,6 +5,7 @@ use crate::el_model::EMCreateCtx;
 pub mod branch;
 pub mod iter;
 pub mod once;
+pub mod reactive;
 pub mod repeat;
 pub mod tuple;
 

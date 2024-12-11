@@ -24,9 +24,9 @@ where
                 b: None,
             },
             Self::B(b) => BranchModel {
+                current_is_a: false,
                 a: None,
                 b: Some(b.create(ctx)),
-                current_is_a: false,
             },
         }
     }
