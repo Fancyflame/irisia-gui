@@ -2,10 +2,11 @@ use iter::{ModelMapper, VisitModel};
 
 use crate::el_model::EMCreateCtx;
 
-pub mod cond;
+pub mod branch;
 pub mod iter;
-pub mod optioned;
+pub mod once;
 pub mod repeat;
+pub mod tuple;
 
 pub trait ModelCreateFn<M: ModelMapper>: Fn(&EMCreateCtx) -> Self::Model {
     type Model: VisitModel<M> + 'static;
@@ -18,4 +19,11 @@ where
     M: ModelMapper,
 {
     type Model = R;
+}
+
+pub trait VModel {
+    type Storage: 'static;
+
+    fn update(self, storage: &mut Self::Storage, ctx: &EMCreateCtx);
+    fn create(self, ctx: &EMCreateCtx) -> Self::Storage;
 }

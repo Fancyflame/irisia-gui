@@ -5,7 +5,7 @@ pub mod basic;
 
 pub trait VisitModel<M: ModelMapper> {
     fn visit(&self, f: &mut dyn FnMut(M::MapRef<'_>));
-    fn visit_mut(&self, f: &mut dyn FnMut(M::MapMut<'_>));
+    fn visit_mut(&mut self, f: &mut dyn FnMut(M::MapMut<'_>));
 }
 
 pub trait ModelMapper: 'static {
