@@ -3,18 +3,15 @@ use std::{ops::Deref, rc::Rc};
 use utils::trace_cell::TraceRef;
 
 pub use {
-    constant::Constant, consumer::Consumer, effect::Effect, listener::Listener, memo::Memo,
-    simple::SimpleProvider, state::State,
+    constant::Constant, effect::Effect, listener::Listener, signal::Signal, simple::SimpleProvider,
 };
 
 pub mod constant;
-pub mod consumer;
 pub mod effect;
 pub mod listener;
-pub mod memo;
 pub mod provider_group;
+pub mod signal;
 pub mod simple;
-pub mod state;
 pub mod utils;
 
 pub trait Provider {

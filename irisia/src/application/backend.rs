@@ -11,7 +11,6 @@ use crate::{
     el_model::{EMCreateCtx, ElementModel},
     element::{ElementInterfaces, RootStructureCreate},
     event::{standard::WindowDestroyed, EventDispatcher},
-    hook::State,
     primitive::{Point, Region},
     Result,
 };
@@ -90,7 +89,6 @@ where
 
             let mut root = root_creator.create(&EMCreateCtx {
                 global_content: gc.clone(),
-                model_changed: State::new(()),
             });
 
             root.set_draw_region(Some(window_size_to_draw_region(gc.window().inner_size())));

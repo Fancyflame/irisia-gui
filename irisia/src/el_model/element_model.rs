@@ -10,7 +10,6 @@ use crate::{
     data_flow::observer::Observer,
     element::Render,
     event::{standard::ElementAbandoned, EventDispatcher, Listen},
-    hook::State,
     primitive::Region,
     structure::StructureCreate,
     ElementInterfaces, Result,
@@ -40,7 +39,6 @@ pub(crate) struct Shared {
 #[derive(Clone)]
 pub struct EMCreateCtx {
     pub(crate) global_content: Rc<GlobalContent>,
-    pub(crate) model_changed: State<()>,
 }
 
 impl<El, Cp> ElementModel<El, Cp> {
@@ -196,7 +194,6 @@ impl ElementAccess {
     pub fn context(&self) -> EMCreateCtx {
         EMCreateCtx {
             global_content: self.0.gc.clone(),
-            model_changed: todo!(),
         }
     }
 

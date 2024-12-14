@@ -1,6 +1,6 @@
 use crate::{
     el_model::EMCreateCtx,
-    hook::{provider_group::ProviderGroup, Consumer},
+    hook::{provider_group::ProviderGroup, Signal},
 };
 
 use super::VModel;
@@ -32,7 +32,7 @@ impl<T> Packer<'_, T> {
     }
 }
 
-pub fn reactive<F, T, D>(model_maker: F, ctx: &EMCreateCtx, deps: D) -> Consumer<T>
+pub fn reactive<F, T, D>(model_maker: F, ctx: &EMCreateCtx, deps: D) -> Signal<T>
 where
     T: 'static,
     F: Fn(Packer<T>, D::Data<'_>) + 'static,
@@ -51,17 +51,18 @@ where
     };
 
     let ctx = ctx.clone();
-    Consumer::new(
-        init,
-        move |place, data| {
-            model_maker(
-                Packer {
-                    ctx: &ctx,
-                    storage: Storage::Update(place),
-                },
-                data,
-            );
-        },
-        deps,
-    )
+    Signal::builder(init)
+        .dep(
+            move |mut place, data| {
+                model_maker(
+                    Packer {
+                        ctx: &ctx,
+                        storage: Storage::Update(&mut place),
+                    },
+                    data,
+                );
+            },
+            deps,
+        )
+        .build()
 }
