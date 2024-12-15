@@ -1,8 +1,6 @@
 use std::rc::{Rc, Weak};
 
-use dirty_count::DirtyCount;
-
-mod dirty_count;
+use super::utils::DirtyCount;
 
 pub struct Listener(Rc<dyn Callback>);
 

@@ -1,6 +1,6 @@
 use std::cell::Cell;
 
-use super::CallbackAction;
+use crate::hook::listener::CallbackAction;
 
 /// Use it when implementing a consumer
 pub struct DirtyCount {
