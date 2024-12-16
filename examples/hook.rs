@@ -9,7 +9,7 @@ async fn main() {
 
     let text = Signal::state("apple".to_string());
     let factor = Signal::state(1);
-    let number = self_increment(factor.to_object());
+    let (number, _effect) = self_increment(factor.to_object());
 
     let sentence = Signal::builder(String::new())
         .dep(
@@ -54,31 +54,29 @@ async fn main() {
     }
 }
 
-fn self_increment(factor: ProviderObject<u32>) -> Effect<u32> {
-    Effect::new(
-        0u32,
-        |state, factor| {
+fn self_increment(factor: ProviderObject<u32>) -> (Signal<u32>, Effect) {
+    let out_number = Signal::state(0);
+    let number = out_number.clone();
+    let effect = Effect::new(
+        move |factor| {
             let factor = *factor;
+            let number = number.clone();
             let handle = tokio::task::spawn_local(async move {
                 let mut interval = tokio::time::interval(Duration::from_secs(1));
                 interval.tick().await;
 
                 loop {
                     interval.tick().await;
-                    let continue_ = state.update(|mut n| {
-                        *n += factor;
-                        true
-                    });
-                    if continue_ != Some(true) {
-                        break;
-                    }
+                    *number.write() += factor;
                 }
             });
 
             move || {
+                println!("previous task canceled");
                 handle.abort();
             }
         },
         factor,
-    )
+    );
+    (out_number, effect)
 }

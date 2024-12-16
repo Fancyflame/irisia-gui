@@ -2,13 +2,14 @@ use crate::{coerce_signal, hook::provider_group::ProviderGroup};
 
 use super::Signal;
 
+#[must_use = "if `Effect` drops immediately then the background runtime stops as well. \
+    please consider using `let _effect = ...` to keep it alive or drop it manually."]
 #[derive(Clone)]
 pub struct Effect {
     _keep_alive: Signal<dyn Noop>,
 }
 
-struct Inner<T, F, Fd: FnOnce()> {
-    state: T,
+struct Inner<F, Fd: FnOnce()> {
     make_effect: F,
     drop_guard: DropGuard<Fd>,
 }
@@ -26,36 +27,40 @@ impl<Fd: FnOnce()> Drop for DropGuard<Fd> {
 }
 
 impl Effect {
-    pub fn effect<T, F, Fd, D>(mut init_state: T, make_effect: F, deps: D) -> Self
+    pub fn new<F, Fd, D>(mut make_effect: F, deps: D) -> Self
     where
-        T: 'static,
-        F: Fn(&mut T, D::Data<'_>) -> Fd + 'static,
+        F: FnMut(D::Data<'_>) -> Fd + 'static,
         Fd: FnOnce() + 'static,
         D: ProviderGroup + 'static,
     {
-        let drop_guard = DropGuard(Some(make_effect(
-            &mut init_state,
-            D::deref_wrapper(&deps.read_many()),
-        )));
+        let drop_guard = DropGuard(Some(make_effect(D::deref_wrapper(&deps.read_many()))));
 
-        let signal = Signal::builder(Inner {
-            state: init_state,
+        let effect = Signal::builder(Inner {
             make_effect,
             drop_guard,
         })
         .dep(
             move |mut this, data| {
-                let refm = &mut *this;
-                refm.drop_guard.0.take().unwrap()(); // run dropper
-                let new_dropper = (refm.make_effect)(&mut refm.state, data);
-                refm.drop_guard.0 = Some(new_dropper);
+                let Inner {
+                    make_effect,
+                    drop_guard,
+                } = &mut *this;
+                drop_guard.0.take().unwrap()(); // run dropper
+                let new_dropper = make_effect(data);
+                drop_guard.0 = Some(new_dropper);
             },
             deps,
         )
         .build();
 
         Effect {
-            _keep_alive: coerce_signal!(signal),
+            _keep_alive: coerce_signal!(effect),
+        }
+    }
+
+    pub fn new_empty() -> Self {
+        Effect {
+            _keep_alive: coerce_signal!(Signal::state(())),
         }
     }
 }
