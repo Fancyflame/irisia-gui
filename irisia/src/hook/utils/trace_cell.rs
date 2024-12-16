@@ -8,7 +8,7 @@ use std::{
 
 use anyhow::Result;
 
-pub struct TraceCell<T> {
+pub struct TraceCell<T: ?Sized> {
     borrow_traces: RefCell<BorrowTraces>,
     value: RefCell<T>,
 }
@@ -18,8 +18,11 @@ struct BorrowTraces {
     next_id: u32,
 }
 
-impl<T> TraceCell<T> {
-    pub fn new(value: T) -> Self {
+impl<T: ?Sized> TraceCell<T> {
+    pub fn new(value: T) -> Self
+    where
+        T: Sized,
+    {
         Self {
             value: RefCell::new(value),
             borrow_traces: RefCell::new(BorrowTraces {
@@ -29,7 +32,10 @@ impl<T> TraceCell<T> {
         }
     }
 
-    pub fn into_inner(self) -> T {
+    pub fn into_inner(self) -> T
+    where
+        T: Sized,
+    {
         self.value.into_inner()
     }
 

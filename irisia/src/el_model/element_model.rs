@@ -109,7 +109,7 @@ where
         slot: ProviderObject<Slt>,
     ) -> Self
     where
-        Slt: DesiredVModel<El::AcceptChild>,
+        Slt: DesiredVModel<El::AcceptChild> + 'static,
     {
         let ed = EventDispatcher::new();
 

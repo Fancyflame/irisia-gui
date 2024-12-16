@@ -4,16 +4,16 @@ use crate::hook::{listener::CallbackAction, provider_group::ProviderGroup, Liste
 
 use super::{Inner, Setter};
 
-pub trait CallbackChain<T, C> {
-    fn listen<F>(&self, src: Weak<Inner<T, C>>, get_node: F)
+pub trait CallbackChain<T> {
+    fn listen<F>(&self, src: Weak<Inner<T>>, get_node: F)
     where
-        F: Fn(&Inner<T, C>) -> &Self + Copy + 'static;
+        F: Fn(&Inner<T>) -> &Self + Copy + 'static;
 }
 
-impl<T, C> CallbackChain<T, C> for () {
-    fn listen<F>(&self, _: Weak<Inner<T, C>>, _: F)
+impl<T> CallbackChain<T> for () {
+    fn listen<F>(&self, _: Weak<Inner<T>>, _: F)
     where
-        F: Fn(&Inner<T, C>) -> &Self + Copy + 'static,
+        F: Fn(&Inner<T>) -> &Self + Copy + 'static,
     {
     }
 }
@@ -24,21 +24,20 @@ pub struct CallbackNode<F, D, Next> {
     pub(super) next: Next,
 }
 
-impl<T, C, F, D, Next> CallbackChain<T, C> for CallbackNode<F, D, Next>
+impl<T, F, D, Next> CallbackChain<T> for CallbackNode<F, D, Next>
 where
     T: 'static,
-    C: 'static,
     D: ProviderGroup + 'static,
     F: Fn(Setter<T>, D::Data<'_>) + 'static,
-    Next: CallbackChain<T, C>,
+    Next: CallbackChain<T>,
 {
-    fn listen<Fg>(&self, weak_src: Weak<Inner<T, C>>, get_node: Fg)
+    fn listen<Fg>(&self, weak_src: Weak<Inner<T>>, get_node: Fg)
     where
-        Fg: Fn(&Inner<T, C>) -> &Self + Copy + 'static,
+        Fg: Fn(&Inner<T>) -> &Self + Copy + 'static,
     {
         let listener = Listener::new(weak_src.clone(), move |src, action| {
             if !action.is_update() {
-                src.listeners.callback_all(action);
+                src.push_action(action);
                 return;
             }
 
@@ -46,14 +45,11 @@ where
             let mut mutated = false;
 
             (this.callback)(
-                Setter {
-                    r: &mut src.value.borrow_mut().unwrap(),
-                    mutated: &mut mutated,
-                },
+                Setter::new(&mut src.value.borrow_mut().unwrap(), &mut mutated),
                 D::deref_wrapper(&this.deps.read_many()),
             );
 
-            src.listeners.callback_all(if mutated {
+            src.push_action(if mutated {
                 CallbackAction::Update
             } else {
                 CallbackAction::ClearDirty

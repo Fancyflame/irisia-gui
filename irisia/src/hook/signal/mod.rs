@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use builder::SignalBuilder;
+use builder::{Setter, SignalBuilder};
 
 use super::{
     provider_group::ProviderGroup, utils::WriteGuard, Provider, ProviderObject, Ref,
@@ -9,9 +9,10 @@ use super::{
 use inner::Inner;
 
 mod builder;
+mod coerce;
 mod inner;
 
-pub struct Signal<T> {
+pub struct Signal<T: ?Sized> {
     inner: Rc<Inner<T>>,
 }
 
@@ -46,7 +47,9 @@ impl<T: 'static> Signal<T> {
             callbacks: (),
         }
     }
+}
 
+impl<T: ?Sized> Signal<T> {
     pub fn write(&self) -> WriteGuard<T> {
         WriteGuard::new(
             self.inner.value.borrow_mut().unwrap(),
@@ -55,7 +58,7 @@ impl<T: 'static> Signal<T> {
     }
 }
 
-impl<T> Clone for Signal<T> {
+impl<T: ?Sized> Clone for Signal<T> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
@@ -63,7 +66,7 @@ impl<T> Clone for Signal<T> {
     }
 }
 
-impl<T> Provider for Signal<T> {
+impl<T: ?Sized> Provider for Signal<T> {
     type Data = T;
     fn read(&self) -> Ref<Self::Data> {
         self.inner.read()
@@ -73,9 +76,9 @@ impl<T> Provider for Signal<T> {
     }
 }
 
-impl<T> ToProviderObject for Signal<T> {
+impl<T: ?Sized> ToProviderObject for Signal<T> {
     type Data = T;
     fn to_object(&self) -> super::ProviderObject<Self::Data> {
-        ProviderObject(self.inner.as_provider.upgrade().unwrap())
+        ProviderObject(self.clone())
     }
 }

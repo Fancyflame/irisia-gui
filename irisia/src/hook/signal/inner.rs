@@ -1,20 +1,21 @@
-use std::rc::Weak;
+use std::any::Any;
 
 use crate::hook::{
-    utils::{ListenerList, TraceCell},
+    listener::CallbackAction,
+    utils::{DirtyCount, ListenerList, TraceCell},
     Listener, Provider, Ref,
 };
 
-pub struct Inner<T, C: ?Sized = dyn Noop> {
-    pub(super) value: TraceCell<T>,
+pub struct Inner<T: ?Sized> {
     pub(super) listeners: ListenerList,
-    pub(super) as_provider: Weak<dyn Provider<Data = T>>,
-    pub(super) callbacks: C,
+    pub(super) global_dirty_count: DirtyCount,
+    pub(super) callback_chain_storage: Box<dyn Any>,
+    pub(super) value: TraceCell<T>,
 }
 
-impl<T, C> Provider for Inner<T, C>
+impl<T> Provider for Inner<T>
 where
-    C: ?Sized,
+    T: ?Sized,
 {
     type Data = T;
     fn read(&self) -> Ref<Self::Data> {
@@ -25,5 +26,10 @@ where
     }
 }
 
-pub trait Noop {}
-impl<T> Noop for T {}
+impl<T: ?Sized> Inner<T> {
+    pub(super) fn push_action(&self, action: CallbackAction) {
+        if let Some(action) = self.global_dirty_count.push(action) {
+            self.listeners.callback_all(action);
+        };
+    }
+}

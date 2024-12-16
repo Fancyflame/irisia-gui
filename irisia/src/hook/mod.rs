@@ -2,11 +2,8 @@ use std::{ops::Deref, rc::Rc};
 
 use utils::trace_cell::TraceRef;
 
-pub use {
-    constant::Constant, effect::Effect, listener::Listener, signal::Signal, simple::SimpleProvider,
-};
+pub use {effect::Effect, listener::Listener, signal::Signal, simple::SimpleProvider};
 
-pub mod constant;
 pub mod effect;
 pub mod listener;
 pub mod provider_group;
@@ -15,7 +12,7 @@ pub mod simple;
 pub mod utils;
 
 pub trait Provider {
-    type Data;
+    type Data: ?Sized;
     fn read(&self) -> Ref<Self::Data>;
     fn dependent(&self, listener: Listener);
 }
@@ -35,9 +32,9 @@ impl<T: ?Sized> Deref for Ref<'_, T> {
     }
 }
 
-pub struct ProviderObject<T>(Rc<dyn Provider<Data = T>>);
+pub struct ProviderObject<T: ?Sized>(Signal<T>);
 
-impl<T> Provider for ProviderObject<T> {
+impl<T: ?Sized> Provider for ProviderObject<T> {
     type Data = T;
     fn dependent(&self, listener: Listener) {
         self.0.dependent(listener);
@@ -47,14 +44,14 @@ impl<T> Provider for ProviderObject<T> {
     }
 }
 
-impl<T> Clone for ProviderObject<T> {
+impl<T: ?Sized> Clone for ProviderObject<T> {
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
 }
 
 pub trait ToProviderObject {
-    type Data;
+    type Data: ?Sized;
     fn to_object(&self) -> ProviderObject<Self::Data>;
 }
 

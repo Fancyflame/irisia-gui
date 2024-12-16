@@ -1,4 +1,4 @@
-use super::{constant::Constant, Provider, ProviderObject, Ref, ToProviderObject};
+use super::{Provider, ProviderObject, Ref, Signal, ToProviderObject};
 
 #[derive(Clone)]
 pub enum SimpleProvider<T> {
@@ -36,7 +36,7 @@ impl<T> SimpleProvider<T> {
     {
         match self {
             Self::Hook(h) => h,
-            Self::Owned(v) => Constant::new(v).to_object(),
+            Self::Owned(v) => Signal::state(v).to_object(),
         }
     }
 }
@@ -56,6 +56,7 @@ pub struct AsHook;
 impl<T> IntoSimpleProvider<T::Data, AsHook> for T
 where
     T: ToProviderObject,
+    T::Data: Sized,
 {
     fn into_simple_provider(self) -> SimpleProvider<T::Data> {
         SimpleProvider::Hook(self.to_object())

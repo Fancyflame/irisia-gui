@@ -2,8 +2,9 @@ use std::marker::PhantomData;
 
 use crate::{
     application::event_comp::IncomingPointerEvent,
+    coerce_signal,
     el_model::{EMCreateCtx, ElementAccess},
-    hook::ProviderObject,
+    hook::{Provider, ProviderObject, Signal},
     model::{
         iter::{basic::ModelBasicMapper, VisitModel},
         DesiredVModel, VModel,
@@ -20,15 +21,14 @@ pub trait ComponentTemplate: Sized + 'static {
         props: &Self::Props,
         access: ElementAccess,
         slot: ProviderObject<Slt>,
-    ) -> impl DesiredVModel<ModelBasicMapper>
+    ) -> ProviderObject<impl DesiredVModel<ModelBasicMapper> + 'static>
     where
-        Slt: DesiredVModel<ModelBasicMapper>;
+        Slt: DesiredVModel<ModelBasicMapper> + 'static;
 }
 
 pub struct Component<T> {
     _el: PhantomData<T>,
-    access: ElementAccess,
-    slot: Box<dyn VisitModel<ModelBasicMapper>>,
+    slot: Signal<dyn VisitModel<ModelBasicMapper>>,
 }
 
 impl<T> ElementInterfaces for Component<T>
@@ -45,22 +45,32 @@ where
         ctx: &EMCreateCtx,
     ) -> Self
     where
-        Slt: crate::model::DesiredVModel<Self::AcceptChild>,
+        Slt: DesiredVModel<Self::AcceptChild> + 'static,
     {
         let vmodel = T::create(props, access.clone(), slot);
+        let ctx_cloned = ctx.clone();
+        let slot = Signal::builder(vmodel.read().create(ctx));
+        let slot = slot
+            .dep(
+                move |mut slot, vmodel| {
+                    vmodel.update(&mut *slot, &ctx_cloned);
+                },
+                vmodel,
+            )
+            .build();
+
         Component {
-            slot: Box::new(vmodel.create(ctx)),
-            access,
+            slot: coerce_signal!(slot),
             _el: PhantomData,
         }
     }
 
     fn render(&mut self, args: Render) -> crate::Result<()> {
-        self.slot.as_mut().render(args)
+        self.slot.write().render(args)
     }
 
     fn spread_event(&mut self, ipe: &IncomingPointerEvent) -> bool {
-        self.slot.as_mut().emit_event(ipe)
+        self.slot.write().emit_event(ipe)
     }
 
     fn on_draw_region_change(&mut self) {

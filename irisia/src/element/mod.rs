@@ -40,7 +40,7 @@ pub trait ElementInterfaces: Sized + 'static {
         ctx: &EMCreateCtx,
     ) -> Self
     where
-        Slt: DesiredVModel<Self::AcceptChild>;
+        Slt: DesiredVModel<Self::AcceptChild> + 'static;
 
     fn render(&mut self, args: Render) -> Result<()>;
     fn spread_event(&mut self, ipe: &IncomingPointerEvent) -> bool;
