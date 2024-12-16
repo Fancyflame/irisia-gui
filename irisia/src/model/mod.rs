@@ -25,6 +25,6 @@ where
 pub trait VModel {
     type Storage: 'static;
 
-    fn update(self, storage: &mut Self::Storage, ctx: &EMCreateCtx);
-    fn create(self, ctx: &EMCreateCtx) -> Self::Storage;
+    fn update(&self, storage: &mut Self::Storage, ctx: &EMCreateCtx);
+    fn create(&self, ctx: &EMCreateCtx) -> Self::Storage;
 }

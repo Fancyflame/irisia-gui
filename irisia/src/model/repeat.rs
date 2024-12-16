@@ -19,19 +19,19 @@ struct Item<T> {
 
 impl<I, K, T> VModel for Repeat<I>
 where
-    I: Iterator<Item = (K, T)>,
+    I: Iterator<Item = (K, T)> + Clone,
     K: Hash + Eq + Clone + 'static,
     T: VModel,
 {
     type Storage = RepeatModel<K, T::Storage>;
-    fn create(self, ctx: &EMCreateCtx) -> Self::Storage {
+    fn create(&self, ctx: &EMCreateCtx) -> Self::Storage {
         let size_hint = self.0.size_hint().0;
         let mut this = RepeatModel {
             map: HashMap::with_capacity(size_hint),
             order: Vec::with_capacity(size_hint),
         };
 
-        for (key, vmodel) in self.0 {
+        for (key, vmodel) in self.0.clone() {
             match this.map.entry(key.clone()) {
                 Entry::Vacant(vac) => {
                     vac.insert(Item {
@@ -50,9 +50,9 @@ where
         this
     }
 
-    fn update(self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
+    fn update(&self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
         storage.order.clear();
-        for (key, vmodel) in self.0 {
+        for (key, vmodel) in self.0.clone() {
             match storage.map.entry(key.clone()) {
                 Entry::Vacant(vac) => {
                     vac.insert(Item {

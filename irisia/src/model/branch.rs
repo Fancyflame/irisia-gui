@@ -16,7 +16,7 @@ where
     B: VModel,
 {
     type Storage = BranchModel<A::Storage, B::Storage>;
-    fn create(self, ctx: &EMCreateCtx) -> Self::Storage {
+    fn create(&self, ctx: &EMCreateCtx) -> Self::Storage {
         match self {
             Self::A(a) => BranchModel {
                 current_is_a: true,
@@ -30,7 +30,7 @@ where
             },
         }
     }
-    fn update(self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
+    fn update(&self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
         match self {
             Self::A(a) => {
                 storage.current_is_a = true;
