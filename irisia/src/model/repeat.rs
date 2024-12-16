@@ -75,6 +75,24 @@ where
     }
 }
 
+fn vec_to_repeat<K: Clone, T>(vec: &Vec<(K, T)>) -> Repeat<impl Iterator<Item = (K, &T)> + Clone> {
+    Repeat(vec.iter().map(|(k, v)| (k.clone(), v)))
+}
+
+impl<K, T> VModel for Vec<(K, T)>
+where
+    K: Hash + Eq + Clone + 'static,
+    T: VModel,
+{
+    type Storage = RepeatModel<K, T::Storage>;
+    fn create(&self, ctx: &EMCreateCtx) -> Self::Storage {
+        vec_to_repeat(self).create(ctx)
+    }
+    fn update(&self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
+        vec_to_repeat(self).update(storage, ctx);
+    }
+}
+
 pub struct RepeatModel<K, T> {
     map: HashMap<K, Item<T>>,
     order: Vec<K>,

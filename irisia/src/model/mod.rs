@@ -28,3 +28,16 @@ pub trait VModel {
     fn update(&self, storage: &mut Self::Storage, ctx: &EMCreateCtx);
     fn create(&self, ctx: &EMCreateCtx) -> Self::Storage;
 }
+
+impl<T> VModel for &T
+where
+    T: VModel,
+{
+    type Storage = T::Storage;
+    fn create(&self, ctx: &EMCreateCtx) -> Self::Storage {
+        (*self).create(ctx)
+    }
+    fn update(&self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
+        (*self).update(storage, ctx);
+    }
+}

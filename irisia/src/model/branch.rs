@@ -50,6 +50,26 @@ where
     }
 }
 
+fn opt_to_branch<T>(opt: &Option<T>) -> Branch<&T, ()> {
+    match opt {
+        Some(v) => Branch::A(v),
+        None => Branch::B(()),
+    }
+}
+
+impl<T> VModel for Option<T>
+where
+    T: VModel,
+{
+    type Storage = BranchModel<T::Storage, ()>;
+    fn create(&self, ctx: &EMCreateCtx) -> Self::Storage {
+        opt_to_branch(self).create(ctx)
+    }
+    fn update(&self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
+        opt_to_branch(self).update(storage, ctx);
+    }
+}
+
 pub struct BranchModel<A, B> {
     a: Option<A>,
     b: Option<B>,
