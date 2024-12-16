@@ -47,3 +47,15 @@ where
         model
     }
 }
+
+impl<'a> AsRef<dyn ModelBasic + 'a> for &(dyn ModelBasic + 'a) {
+    fn as_ref(&self) -> &(dyn ModelBasic + 'a) {
+        *self
+    }
+}
+
+impl<'a> AsMut<dyn ModelBasic + 'a> for &mut (dyn ModelBasic + 'a) {
+    fn as_mut(&mut self) -> &mut (dyn ModelBasic + 'a) {
+        *self
+    }
+}

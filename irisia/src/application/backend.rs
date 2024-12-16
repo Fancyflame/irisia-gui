@@ -9,8 +9,9 @@ use irisia_backend::{
 
 use crate::{
     el_model::{EMCreateCtx, ElementModel},
-    element::{ElementInterfaces, RootStructureCreate},
+    element::ElementInterfaces,
     event::{standard::WindowDestroyed, EventDispatcher},
+    model::{iter::basic::ModelBasicMapper, RootDesiredModel},
     primitive::{Point, Region},
     Result,
 };
@@ -68,7 +69,7 @@ pub(super) async fn new_window<F>(
     root_creator: F,
 ) -> Result<Window>
 where
-    F: RootStructureCreate + Send + 'static,
+    F: RootDesiredModel<ModelBasicMapper, RootCp = ()> + Send + 'static,
 {
     let ev_disp = EventDispatcher::new();
 

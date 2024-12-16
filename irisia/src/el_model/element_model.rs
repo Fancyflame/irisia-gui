@@ -10,8 +10,9 @@ use crate::{
     data_flow::observer::Observer,
     element::Render,
     event::{standard::ElementAbandoned, EventDispatcher, Listen},
+    hook::ProviderObject,
+    model::DesiredVModel,
     primitive::Region,
-    structure::StructureCreate,
     ElementInterfaces, Result,
 };
 
@@ -42,6 +43,10 @@ pub struct EMCreateCtx {
 }
 
 impl<El, Cp> ElementModel<El, Cp> {
+    pub fn child_data(&self) -> &Cp {
+        &self.child_props
+    }
+
     /// Get event dispatcher of this element.
     pub fn event_dispatcher(&self) -> &EventDispatcher {
         self.access.event_dispatcher()
@@ -99,12 +104,12 @@ where
 {
     pub(crate) fn new<Slt>(
         context: &EMCreateCtx,
-        props: El::Props<'_>,
+        props: &El::Props,
         child_props: Cp,
-        slot: Slt,
+        slot: ProviderObject<Slt>,
     ) -> Self
     where
-        Slt: StructureCreate<El::SlotData>,
+        Slt: DesiredVModel<El::AcceptChild>,
     {
         let ed = EventDispatcher::new();
 
@@ -118,7 +123,7 @@ where
         }));
 
         ElementModel {
-            el: El::create(props, slot, access.clone(), &context),
+            el: El::create(props, access.clone(), slot, &context),
             event_mgr: NodeEventMgr::new(ed.clone()).into(),
             redraw_hook: {
                 let access = access.clone();

@@ -1,6 +1,9 @@
 use iter::{ModelMapper, VisitModel};
 
-use crate::el_model::EMCreateCtx;
+use crate::{
+    el_model::{EMCreateCtx, ElementModel},
+    ElementInterfaces,
+};
 
 pub mod branch;
 pub mod iter;
@@ -8,19 +11,6 @@ pub mod once;
 pub mod reactive;
 pub mod repeat;
 pub mod tuple;
-
-pub trait ModelCreateFn<M: ModelMapper>: Fn(&EMCreateCtx) -> Self::Model {
-    type Model: VisitModel<M> + 'static;
-}
-
-impl<F, R, M> ModelCreateFn<M> for F
-where
-    F: Fn(&EMCreateCtx) -> R,
-    R: VisitModel<M> + 'static,
-    M: ModelMapper,
-{
-    type Model = R;
-}
 
 pub trait VModel {
     type Storage: 'static;
@@ -40,4 +30,31 @@ where
     fn update(&self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
         (*self).update(storage, ctx);
     }
+}
+
+pub trait DesiredVModel<M: ModelMapper>: VModel<Storage: VisitModel<M>> {}
+
+impl<M, T> DesiredVModel<M> for T
+where
+    M: ModelMapper,
+    T: VModel<Storage: VisitModel<M>>,
+{
+}
+
+pub trait RootDesiredModel<M: ModelMapper>:
+    DesiredVModel<M, Storage = ElementModel<Self::RootEl, Self::RootCp>>
+{
+    type RootEl: ElementInterfaces;
+    type RootCp;
+}
+
+impl<M, T, El, Cp> RootDesiredModel<M> for T
+where
+    M: ModelMapper,
+    El: ElementInterfaces,
+    Self: VModel<Storage = ElementModel<El, Cp>>,
+    Self::Storage: VisitModel<M>,
+{
+    type RootEl = El;
+    type RootCp = Cp;
 }

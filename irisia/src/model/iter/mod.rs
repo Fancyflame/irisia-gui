@@ -1,5 +1,5 @@
 use crate::el_model::ElementModel;
-pub use basic::{ModelBasic, ModelBasicMapper};
+pub use basic::ModelBasic;
 
 pub mod basic;
 
@@ -9,8 +9,8 @@ pub trait VisitModel<M: ModelMapper> {
 }
 
 pub trait ModelMapper: 'static {
-    type MapRef<'a>;
-    type MapMut<'a>;
+    type MapRef<'a>: AsRef<dyn ModelBasic>;
+    type MapMut<'a>: AsMut<dyn ModelBasic>;
 }
 
 pub trait ModelMapperImplements<El, Cp>: ModelMapper {

@@ -3,8 +3,8 @@ use std::sync::Weak;
 use irisia_backend::{winit::window::WindowAttributes, WinitWindow};
 
 use crate::{
-    element::RootStructureCreate,
     event::{standard::WindowDestroyed, EventDispatcher},
+    model::{iter::basic::ModelBasicMapper, RootDesiredModel},
     Result,
 };
 
@@ -28,7 +28,7 @@ pub struct Window {
 impl Window {
     pub async fn new<T>(wa: WindowAttributes, dom: T) -> Result<Self>
     where
-        T: RootStructureCreate + Send + 'static,
+        T: RootDesiredModel<ModelBasicMapper, RootCp = ()> + Send + 'static,
     {
         new_window(wa, dom).await
     }

@@ -3,15 +3,16 @@ use std::time::Duration;
 use crate::{
     application::event_comp::IncomingPointerEvent,
     el_model::{EMCreateCtx, ElementAccess},
-    model::{iter::ModelMapper, ModelCreateFn},
-    structure::StructureCreate,
+    hook::ProviderObject,
+    model::{iter::ModelMapper, DesiredVModel},
     Result,
 };
 
-pub use component::{Component, ComponentTemplate, RootStructureCreate};
+pub use component::{Component, ComponentTemplate};
 use deps::AsEmptyProps;
 use irisia_backend::skia_safe::{Canvas, Region as SkRegion};
 
+pub mod children_utils;
 mod component;
 pub mod deps;
 
@@ -28,31 +29,18 @@ pub struct Render<'a> {
 /// component maker, please using exist elements or macros to
 /// customize one.
 pub trait ElementInterfaces: Sized + 'static {
-    type Props<'a>: AsEmptyProps;
-    type SlotData: 'static;
-    type AcceptModel: ModelMapper;
+    type Props: AsEmptyProps;
+    type AcceptChild: ModelMapper;
     const REQUIRE_INDEPENDENT_LAYER: bool = false;
 
     fn create<Slt>(
-        props: Self::Props<'_>,
-        slot: Slt,
+        props: &Self::Props,
         access: ElementAccess,
+        slot: ProviderObject<Slt>,
         ctx: &EMCreateCtx,
     ) -> Self
     where
-        Slt: StructureCreate<Self::SlotData>;
-
-    fn create_v2<Slt>(
-        props: Self::Props<'_>,
-        slot: Slt,
-        access: ElementAccess,
-        ctx: &EMCreateCtx,
-    ) -> Self
-    where
-        Slt: ModelCreateFn<Self::AcceptModel>,
-    {
-        todo!()
-    }
+        Slt: DesiredVModel<Self::AcceptChild>;
 
     fn render(&mut self, args: Render) -> Result<()>;
     fn spread_event(&mut self, ipe: &IncomingPointerEvent) -> bool;

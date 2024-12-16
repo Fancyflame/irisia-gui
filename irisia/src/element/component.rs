@@ -2,62 +2,65 @@ use std::marker::PhantomData;
 
 use crate::{
     application::event_comp::IncomingPointerEvent,
-    el_model::{EMCreateCtx, ElementAccess, ElementModel},
-    model::iter::ModelBasicMapper,
-    structure::{ChildBox, StructureCreate},
+    el_model::{EMCreateCtx, ElementAccess},
+    hook::ProviderObject,
+    model::{
+        iter::{basic::ModelBasicMapper, VisitModel},
+        DesiredVModel, VModel,
+    },
     ElementInterfaces,
 };
 
-use super::{deps::AsEmptyProps, Render};
+use super::{children_utils::ChildrenUtils, deps::AsEmptyProps, Render};
 
 pub trait ComponentTemplate: Sized + 'static {
-    type Props<'a>: AsEmptyProps;
+    type Props: AsEmptyProps;
 
     fn create<Slt>(
-        props: Self::Props<'_>,
-        slot: Slt,
+        props: &Self::Props,
         access: ElementAccess,
-    ) -> impl RootStructureCreate
+        slot: ProviderObject<Slt>,
+    ) -> impl DesiredVModel<ModelBasicMapper>
     where
-        Slt: StructureCreate<()>;
+        Slt: DesiredVModel<ModelBasicMapper>;
 }
 
 pub struct Component<T> {
     _el: PhantomData<T>,
     access: ElementAccess,
-    slot: ChildBox<()>,
+    slot: Box<dyn VisitModel<ModelBasicMapper>>,
 }
 
 impl<T> ElementInterfaces for Component<T>
 where
     T: ComponentTemplate,
 {
-    type Props<'a> = <T as ComponentTemplate>::Props<'a>;
-    type SlotData = ();
-    type AcceptModel = ModelBasicMapper;
+    type Props = <T as ComponentTemplate>::Props;
+    type AcceptChild = ModelBasicMapper;
 
     fn create<Slt>(
-        props: Self::Props<'_>,
-        slot: Slt,
+        props: &Self::Props,
         access: ElementAccess,
+        slot: crate::hook::ProviderObject<Slt>,
         ctx: &EMCreateCtx,
     ) -> Self
     where
-        Slt: StructureCreate<()>,
+        Slt: crate::model::DesiredVModel<Self::AcceptChild>,
     {
+        let vmodel = T::create(props, access.clone(), slot);
         Component {
-            slot: ChildBox::new(T::create(props, slot, access.clone()), ctx),
+            slot: Box::new(vmodel.create(ctx)),
             access,
             _el: PhantomData,
         }
     }
 
     fn render(&mut self, args: Render) -> crate::Result<()> {
-        self.slot.render(args)
+        self.slot.as_mut().render(args)
     }
 
     fn spread_event(&mut self, ipe: &IncomingPointerEvent) -> bool {
-        self.slot.emit_event(ipe)
+        self.slot.as_mut().emit_event(ipe)
     }
 
     fn on_draw_region_change(&mut self) {
@@ -67,18 +70,4 @@ where
             .expect("unexpected layout failure");*/
         unimplemented!()
     }
-}
-
-pub trait RootStructureCreate:
-    StructureCreate<(), Target = ElementModel<Self::Element, ()>>
-{
-    type Element: ElementInterfaces;
-}
-
-impl<T, El> RootStructureCreate for T
-where
-    T: StructureCreate<(), Target = ElementModel<El, ()>>,
-    El: ElementInterfaces,
-{
-    type Element = El;
 }
