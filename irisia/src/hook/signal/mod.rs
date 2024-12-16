@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use builder::{Setter, SignalBuilder};
+use builder::SignalBuilder;
 
 use super::{
     provider_group::ProviderGroup, utils::WriteGuard, Provider, ProviderObject, Ref,

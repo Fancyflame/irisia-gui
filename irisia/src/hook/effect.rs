@@ -3,7 +3,9 @@ use crate::{coerce_signal, hook::provider_group::ProviderGroup};
 use super::Signal;
 
 #[derive(Clone)]
-pub struct Effect(Signal<dyn Noop>);
+pub struct Effect {
+    _keep_alive: Signal<dyn Noop>,
+}
 
 struct Inner<T, F, Fd: FnOnce()> {
     state: T,
@@ -52,6 +54,8 @@ impl Effect {
         )
         .build();
 
-        Effect(coerce_signal!(signal))
+        Effect {
+            _keep_alive: coerce_signal!(signal),
+        }
     }
 }

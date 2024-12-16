@@ -7,10 +7,10 @@ use crate::{
 
 pub mod branch;
 pub mod iter;
-pub mod once;
 pub mod reactive;
 pub mod repeat;
 pub mod tuple;
+pub mod unit;
 
 pub trait VModel {
     type Storage: 'static;
@@ -32,12 +32,12 @@ where
     }
 }
 
-pub trait DesiredVModel<M: ModelMapper>: VModel<Storage: VisitModel<M>> {}
+pub trait DesiredVModel<M: ModelMapper>: VModel<Storage: VisitModel<M>> + 'static {}
 
 impl<M, T> DesiredVModel<M> for T
 where
     M: ModelMapper,
-    T: VModel<Storage: VisitModel<M>>,
+    T: VModel<Storage: VisitModel<M>> + 'static,
 {
 }
 
@@ -52,7 +52,7 @@ impl<M, T, El, Cp> RootDesiredModel<M> for T
 where
     M: ModelMapper,
     El: ElementInterfaces,
-    Self: VModel<Storage = ElementModel<El, Cp>>,
+    Self: VModel<Storage = ElementModel<El, Cp>> + 'static,
     Self::Storage: VisitModel<M>,
 {
     type RootEl = El;

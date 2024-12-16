@@ -1,4 +1,4 @@
-use std::{ops::Deref, rc::Rc};
+use std::ops::Deref;
 
 use utils::trace_cell::TraceRef;
 

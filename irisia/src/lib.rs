@@ -23,7 +23,6 @@ pub mod hook;
 pub mod log;
 pub mod model;
 pub mod primitive;
-// pub mod structure;
 
 pub use application::Window;
 pub use element::ElementInterfaces;
