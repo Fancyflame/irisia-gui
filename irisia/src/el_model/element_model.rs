@@ -7,7 +7,6 @@ use crate::{
         content::GlobalContent,
         event_comp::{IncomingPointerEvent, NodeEventMgr},
     },
-    data_flow::observer::Observer,
     element::Render,
     event::{standard::ElementAbandoned, EventDispatcher, Listen},
     hook::ProviderObject,
@@ -24,7 +23,6 @@ pub struct ElementModel<El, Cp> {
     pub(crate) child_props: Cp,
     event_mgr: NodeEventMgr,
     access: ElementAccess,
-    redraw_hook: Observer,
     layouting_draw_region: Option<Region>,
 }
 
@@ -125,13 +123,6 @@ where
         ElementModel {
             el: El::create(props, access.clone(), slot, &context),
             event_mgr: NodeEventMgr::new(ed.clone()).into(),
-            redraw_hook: {
-                let access = access.clone();
-                Observer::new(move || {
-                    access.request_redraw();
-                    true
-                })
-            },
             access,
             child_props,
             layouting_draw_region: None,
@@ -169,7 +160,7 @@ where
         }
 
         self.access.0.redraw_signal_sent.set(false);
-        self.redraw_hook.invoke(|| self.el.render(args))
+        self.el.render(args)
     }
 }
 
