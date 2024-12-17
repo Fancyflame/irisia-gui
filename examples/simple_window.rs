@@ -3,12 +3,13 @@ use std::time::Duration;
 use irisia::{
     application::Window,
     build,
-    data_flow::{Readable, RegVec, Register},
     el_model::ElementAccess,
-    element::{ComponentTemplate, RootStructureCreate},
+    element::{get_empty_props, Component, ComponentTemplate},
     event::standard::{PointerDown, PointerEntered, PointerOut},
+    hook::{Provider, ProviderObject, Signal, ToProviderObject},
+    model::{unit::Unit, RootDesiredModel},
     skia_safe::Color,
-    wire, Result, WinitWindow,
+    ElementInterfaces, Result, WinitWindow,
 };
 
 use tokio::select;
@@ -20,7 +21,12 @@ mod window_backend;
 async fn main() -> Result<()> {
     Window::new(
         WinitWindow::default_attributes().with_title("hello irisia"),
-        build!(App;),
+        || Unit::<Component<App>, _, _, _> {
+            props: (),
+            child_data: (),
+            slot: (),
+            on_create: |_| {},
+        },
     )
     .await
     .unwrap()
@@ -31,13 +37,17 @@ async fn main() -> Result<()> {
 struct App;
 
 impl ComponentTemplate for App {
-    type Props<'a> = ();
+    type Props = ();
 
-    fn create<Slt>(_: Self::Props<'_>, _: Slt, _: ElementAccess) -> impl RootStructureCreate
+    fn create<Slt>(
+        props: &Self::Props,
+        access: ElementAccess,
+        slot: ProviderObject<Slt>,
+    ) -> ProviderObject<impl irisia::model::DesiredVModel<()> + 'static>
     where
-        Slt: irisia::structure::StructureCreate<()>,
+        Slt: irisia::model::DesiredVModel<()> + 'static,
     {
-        let vec = Register::new(
+        let vec = Signal::state(
             [
                 Color::RED,
                 Color::YELLOW,
@@ -46,21 +56,29 @@ impl ComponentTemplate for App {
                 Color::BLACK,
             ]
             .into_iter()
-            .enumerate()
-            .map(|(i, x)| Register::new((i, Some(x))))
             .collect::<Vec<_>>(),
         );
 
-        let children = structure(&vec);
+        let children = Signal::builder(structure(&vec))
+            .dep(
+                {
+                    let vec = vec.clone();
+                    move |mut setter, _| {
+                        *setter = structure(&vec);
+                    }
+                },
+                vec.clone(),
+            )
+            .build()
+            .to_object();
 
         tokio::task::spawn_local({
             async move {
                 loop {
                     tokio::time::sleep(Duration::from_secs(1)).await;
-                    if vec.read().len() < 5 {
+                    if vec.read().len() < 6 {
                         let mut w = vec.write();
-                        let len = w.len();
-                        w.push(Register::new((len, Some(Color::RED))));
+                        w.push(Color::RED);
                     }
                 }
             }
@@ -70,42 +88,73 @@ impl ComponentTemplate for App {
     }
 }
 
-fn structure(rects: &RegVec<(usize, Option<Color>)>) -> impl RootStructureCreate {
-    build! {
-        input rects;
-
-        Flex {
-            for (index, item) in rects.clone() {
-                if let Some(color) = item.clone() {
-                    let height = Register::new(40.0);
-                    Rectangle {
-                        color: {
-                            let c = color.clone();
-                            std::mem::forget(c);
-                            wire!(Color::RED)
-                        },
-                        height: wire!(Some(*height.read()); height),
-                        @on_create: move |access| {
-                            bind_rt(access.clone(), height.clone());
+fn structure(rects: &Signal<Vec<Color>>) -> impl RootDesiredModel<()> {
+    let repeat: Vec<_> = rects
+        .read()
+        .iter()
+        .enumerate()
+        .map(|(index, color)| {
+            let height = Signal::state(Some(40.0));
+            (
+                index,
+                Unit::<Rectangle, _, _, _> {
+                    props: get_empty_props::<Rectangle>()
+                        .color(Some(color.clone()))
+                        .height(height.clone()),
+                    child_data: (),
+                    slot: (),
+                    on_create: {
+                        let rects = rects.clone();
+                        move |access: &ElementAccess| {
+                            let rects = rects.clone();
                             access.listen().spawn(move |_: PointerDown| {
-                                rects.write().remove(*index.read());
-                                reset_index(&rects);
+                                rects.write().remove(index);
                             });
-                        },
-                    }
-                }
-            }
-        }
+                        }
+                    },
+                },
+            )
+        })
+        .collect();
+
+    Unit::<Flex, _, _, _> {
+        props: (),
+        child_data: (),
+        slot: repeat,
+        on_create: |_| {},
     }
 }
 
-fn reset_index(rects: &RegVec<(usize, Option<Color>)>) {
-    for (i, reg) in rects.read().iter().enumerate() {
-        reg.write().0 = i;
-    }
-}
+// fn structure(rects: &RegVec<(usize, Option<Color>)>) -> impl RootStructureCreate {
+//     build! {
+//         input rects;
 
-fn bind_rt(access: ElementAccess, height: Register<f32>) {
+//         Flex {
+//             for (index, item) in rects.clone() {
+//                 if let Some(color) = item.clone() {
+//                     let height = Register::new(40.0);
+//                     Rectangle {
+//                         color: {
+//                             let c = color.clone();
+//                             std::mem::forget(c);
+//                             wire!(Color::RED)
+//                         },
+//                         height: wire!(Some(*height.read()); height),
+//                         @on_create: move |access| {
+//                             bind_rt(access.clone(), height.clone());
+//                             access.listen().spawn(move |_: PointerDown| {
+//                                 rects.write().remove(*index.read());
+//                                 reset_index(&rects);
+//                             });
+//                         },
+//                     }
+//                 }
+//             }
+//         }
+//     }
+// }
+
+fn bind_rt(access: ElementAccess, height: Signal<f32>) {
     let access2 = access.clone();
     access2.listen().spawn(move |_: PointerEntered| {
         let access = access.clone();

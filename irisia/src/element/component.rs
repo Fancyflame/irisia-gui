@@ -5,10 +5,7 @@ use crate::{
     coerce_signal,
     el_model::{EMCreateCtx, ElementAccess},
     hook::{Provider, ProviderObject, Signal},
-    model::{
-        iter::{basic::ModelBasicMapper, VisitModel},
-        DesiredVModel, VModel,
-    },
+    model::{iter::VisitModel, DesiredVModel, VModel},
     ElementInterfaces,
 };
 
@@ -21,14 +18,15 @@ pub trait ComponentTemplate: Sized + 'static {
         props: &Self::Props,
         access: ElementAccess,
         slot: ProviderObject<Slt>,
-    ) -> ProviderObject<impl DesiredVModel<ModelBasicMapper> + 'static>
+    ) -> ProviderObject<impl DesiredVModel<()> + 'static>
     where
-        Slt: DesiredVModel<ModelBasicMapper> + 'static;
+        Slt: DesiredVModel<()> + 'static;
 }
 
 pub struct Component<T> {
     _el: PhantomData<T>,
-    slot: Signal<dyn VisitModel<ModelBasicMapper>>,
+    access: ElementAccess,
+    slot: Signal<dyn VisitModel<()>>,
 }
 
 impl<T> ElementInterfaces for Component<T>
@@ -36,7 +34,7 @@ where
     T: ComponentTemplate,
 {
     type Props = <T as ComponentTemplate>::Props;
-    type AcceptChild = ModelBasicMapper;
+    type ChildMapper = ();
 
     fn create<Slt>(
         props: &Self::Props,
@@ -45,7 +43,7 @@ where
         ctx: &EMCreateCtx,
     ) -> Self
     where
-        Slt: DesiredVModel<Self::AcceptChild> + 'static,
+        Slt: DesiredVModel<Self::ChildMapper> + 'static,
     {
         let vmodel = T::create(props, access.clone(), slot);
         let ctx_cloned = ctx.clone();
@@ -61,6 +59,7 @@ where
 
         Component {
             slot: coerce_signal!(slot),
+            access,
             _el: PhantomData,
         }
     }
@@ -74,10 +73,7 @@ where
     }
 
     fn on_draw_region_change(&mut self) {
-        /*let mut dr = Some(self.access.draw_region());
-        self.slot
-            .layout(|_| dr.take())
-            .expect("unexpected layout failure");*/
-        unimplemented!()
+        let mut dr = self.access.draw_region();
+        self.slot.write().layout(|_| dr.take());
     }
 }

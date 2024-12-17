@@ -2,6 +2,7 @@ use crate::{
     application::event_comp::IncomingPointerEvent,
     element::Render,
     model::iter::{ModelMapper, VisitModel},
+    primitive::Region,
     Result,
 };
 
@@ -24,6 +25,16 @@ where
             childern_entered |= basic.as_mut().dyn_on_pointer_event(ipe);
         });
         childern_entered
+    }
+
+    fn layout<F>(&mut self, mut layout: F)
+    where
+        F: FnMut(&M::MapMut<'_>) -> Option<Region>,
+    {
+        self.visit_mut(&mut |mut refm| {
+            let region = layout(&refm);
+            refm.as_mut().dyn_layout(region);
+        });
     }
 
     fn compute_len(&self) -> usize {

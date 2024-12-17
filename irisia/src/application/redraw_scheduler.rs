@@ -42,7 +42,7 @@ impl RedrawScheduler {
 
     pub fn redraw<Root>(
         &self,
-        root: &mut ElementModel<Root, ()>,
+        root: &mut ElementModel<Root, (), ()>,
         canvas: &Canvas,
         interval: Duration,
     ) -> Result<()>
@@ -56,7 +56,10 @@ impl RedrawScheduler {
         for access in unmerged.drain(..) {
             for optioned_region in access.reset_redraw_region_pair() {
                 if let Some(region) = optioned_region {
-                    dirty_region.op_rect(region.ceil_to_irect(), RegionOp::Union);
+                    dirty_region.op_region(
+                        &SkRegion::from_rect(region.ceil_to_irect()),
+                        RegionOp::Union,
+                    );
                 }
             }
         }
@@ -64,12 +67,12 @@ impl RedrawScheduler {
         drop(unmerged);
         self.redraw_req_sent.set(false);
         canvas.save();
-        canvas.clip_region(&dirty_region, ClipOp::Max_EnumValue);
+        //canvas.clip_region(&dirty_region, ClipOp::Intersect);
         canvas.clear(Color::WHITE);
         let res = root.render(Render {
             canvas,
             interval,
-            dirty_region: &dirty_region,
+            dirty_region: None,
         });
         canvas.restore();
         res

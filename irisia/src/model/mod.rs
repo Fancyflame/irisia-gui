@@ -42,19 +42,21 @@ where
 }
 
 pub trait RootDesiredModel<M: ModelMapper>:
-    DesiredVModel<M, Storage = ElementModel<Self::RootEl, Self::RootCp>>
+    DesiredVModel<M, Storage = ElementModel<Self::RootEl, Self::RootCp, Self::RootSlt>>
 {
     type RootEl: ElementInterfaces;
     type RootCp;
+    type RootSlt;
 }
 
-impl<M, T, El, Cp> RootDesiredModel<M> for T
+impl<M, T, El, Cp, Slt> RootDesiredModel<M> for T
 where
     M: ModelMapper,
     El: ElementInterfaces,
-    Self: VModel<Storage = ElementModel<El, Cp>> + 'static,
+    Self: VModel<Storage = ElementModel<El, Cp, Slt>> + 'static,
     Self::Storage: VisitModel<M>,
 {
     type RootEl = El;
     type RootCp = Cp;
+    type RootSlt = Slt;
 }

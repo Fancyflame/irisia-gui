@@ -47,6 +47,10 @@ impl<T: 'static> Signal<T> {
             callbacks: (),
         }
     }
+
+    pub fn set(&self, data: T) {
+        *self.write() = data;
+    }
 }
 
 impl<T: ?Sized> Signal<T> {

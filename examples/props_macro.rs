@@ -1,9 +1,6 @@
 use std::{fmt::Display, marker::PhantomData};
 
-use irisia::{
-    element::deps::AsEmptyProps,
-    hook::{state::State, Memo},
-};
+use irisia::{element::deps::AsEmptyProps, hook::Signal};
 
 #[irisia::props]
 struct Foo<'a, T: Display + ?Sized> {
@@ -22,13 +19,13 @@ struct Foo<'a, T: Display + ?Sized> {
 
 fn main() {
     // only if all required fields initialized, the type will be `Foo<_>`
-    let a: Foo<str> = Foo::empty_props().req1(10).v(State::new("b"));
+    let a: Foo<str> = Foo::empty_props().req1(10).v(Signal::state("b"));
 
     // initialize optional fields doesn't affect the type
     let _: Foo<str> = a.optional("a".to_string());
 
     let _: Foo<str> = Foo::empty_props()
         .v("text") // comment this will cause a compile error
-        .optional(Memo::new(|()| format!("www"), ()))
+        .optional(Signal::memo(|()| format!("www"), ()))
         .req1(2);
 }

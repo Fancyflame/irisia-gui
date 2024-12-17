@@ -13,7 +13,7 @@ pub trait ModelMapper: 'static {
     type MapMut<'a>: AsMut<dyn ModelBasic>;
 }
 
-pub trait ModelMapperImplements<El, Cp>: ModelMapper {
-    fn map_ref(model: &ElementModel<El, Cp>) -> Self::MapRef<'_>;
-    fn map_mut(model: &mut ElementModel<El, Cp>) -> Self::MapMut<'_>;
+pub trait ModelMapperImplements<El, Cp, Slt>: ModelMapper {
+    fn map_ref(model: &ElementModel<El, Cp, Slt>) -> Self::MapRef<'_>;
+    fn map_mut(model: &mut ElementModel<El, Cp, Slt>) -> Self::MapMut<'_>;
 }

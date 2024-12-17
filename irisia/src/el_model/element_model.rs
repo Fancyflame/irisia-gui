@@ -9,7 +9,7 @@ use crate::{
     },
     element::Render,
     event::{standard::ElementAbandoned, EventDispatcher, Listen},
-    hook::ProviderObject,
+    hook::{provider_group::ProviderGroup, Effect, Signal, ToProviderObject},
     model::DesiredVModel,
     primitive::Region,
     ElementInterfaces, Result,
@@ -18,9 +18,10 @@ use crate::{
 #[derive(Clone)]
 pub struct ElementAccess(Rc<Shared>);
 
-pub struct ElementModel<El, Cp> {
+pub struct ElementModel<El, Cp, Slt> {
     pub(crate) el: El,
     pub(crate) child_props: Cp,
+    pub(crate) slot: Signal<Slt>,
     event_mgr: NodeEventMgr,
     access: ElementAccess,
     layouting_draw_region: Option<Region>,
@@ -31,6 +32,7 @@ pub(crate) struct Shared {
     last_draw_region: Cell<Option<Region>>,
     draw_region: Cell<Option<Region>>,
     redraw_signal_sent: Cell<bool>,
+    redraw_hook: Cell<Option<Effect>>,
     ed: EventDispatcher,
     gc: Rc<GlobalContent>,
 }
@@ -40,7 +42,7 @@ pub struct EMCreateCtx {
     pub(crate) global_content: Rc<GlobalContent>,
 }
 
-impl<El, Cp> ElementModel<El, Cp> {
+impl<El, Cp, Slt> ElementModel<El, Cp, Slt> {
     pub fn child_data(&self) -> &Cp {
         &self.child_props
     }
@@ -96,18 +98,13 @@ impl<El, Cp> ElementModel<El, Cp> {
     }
 }
 
-impl<El, Cp> ElementModel<El, Cp>
+impl<El, Cp, Slt> ElementModel<El, Cp, Slt>
 where
     El: ElementInterfaces,
 {
-    pub(crate) fn new<Slt>(
-        context: &EMCreateCtx,
-        props: &El::Props,
-        child_props: Cp,
-        slot: ProviderObject<Slt>,
-    ) -> Self
+    pub(crate) fn new(context: &EMCreateCtx, props: &El::Props, child_props: Cp, slot: Slt) -> Self
     where
-        Slt: DesiredVModel<El::AcceptChild> + 'static,
+        Slt: DesiredVModel<El::ChildMapper> + 'static,
     {
         let ed = EventDispatcher::new();
 
@@ -118,11 +115,14 @@ where
             redraw_signal_sent: Cell::new(false),
             ed: ed.clone(),
             gc: context.global_content.clone(),
+            redraw_hook: Cell::new(None),
         }));
 
+        let slot = Signal::state(slot);
         ElementModel {
-            el: El::create(props, access.clone(), slot, &context),
+            el: El::create(props, access.clone(), slot.to_object(), &context),
             event_mgr: NodeEventMgr::new(ed.clone()).into(),
+            slot,
             access,
             child_props,
             layouting_draw_region: None,
@@ -148,15 +148,14 @@ where
     }
 
     pub fn render(&mut self, args: Render) -> Result<()> {
-        let Some(draw_region) = self.access.draw_region() else {
-            return Ok(());
-        };
+        if let Some(dirty_region) = args.dirty_region {
+            let Some(draw_region) = self.access.draw_region() else {
+                return Ok(());
+            };
 
-        if !args
-            .dirty_region
-            .intersects_rect(draw_region.ceil_to_irect())
-        {
-            return Ok(());
+            if !dirty_region.intersects_rect(draw_region.ceil_to_irect()) {
+                return Ok(());
+            }
         }
 
         self.access.0.redraw_signal_sent.set(false);
@@ -164,7 +163,7 @@ where
     }
 }
 
-impl<El, Cp> Drop for ElementModel<El, Cp> {
+impl<El, Cp, Slt> Drop for ElementModel<El, Cp, Slt> {
     fn drop(&mut self) {
         self.event_dispatcher().emit_trusted(ElementAbandoned)
     }
@@ -224,5 +223,20 @@ impl ElementAccess {
 
     pub fn draw_region(&self) -> Option<Region> {
         self.0.draw_region.get()
+    }
+
+    pub fn redraw_when<D>(&self, deps: D)
+    where
+        D: ProviderGroup + 'static,
+    {
+        let this = self.clone();
+        let effect = Effect::new(
+            move |_| {
+                this.request_redraw();
+                || {}
+            },
+            deps,
+        );
+        self.0.redraw_hook.set(Some(effect));
     }
 }

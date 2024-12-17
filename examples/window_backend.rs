@@ -1,55 +1,66 @@
 use irisia::{
     application::IncomingPointerEvent,
-    data_flow::Register,
+    coerce_signal,
     el_model::{EMCreateCtx, ElementAccess},
-    element::{ElementInterfaces, Render},
+    element::{children_utils::ChildrenUtils, ComponentTemplate, ElementInterfaces, Render},
     event::standard::{PointerEntered, PointerOut},
+    hook::{Effect, Provider, Signal},
+    model::{iter::VisitModel, reactive::reactive},
     primitive::{Point, Region},
     skia_safe::{Color, Color4f, Paint, Rect},
-    structure::ChildBox,
-    user_props, Event, Result,
+    Event, Result,
 };
 
 pub struct Rectangle {
-    is_force: Register<bool>,
+    is_force: Signal<bool>,
     props: RectProps,
     access: ElementAccess,
 }
 
-#[user_props(name = "AAA")]
+#[derive(Clone)]
+#[irisia::props]
 pub struct RectProps {
-    #[props(optioned)]
-    pub color: Color,
-
     #[props(default)]
+    pub color: Option<Color>,
     pub height: Option<f32>,
 }
 
 impl ElementInterfaces for Rectangle {
-    type Props<'a> = RectProps;
-    type SlotData = ();
+    type Props = RectProps;
+    type ChildMapper = ();
     const REQUIRE_INDEPENDENT_LAYER: bool = false;
 
-    fn create<Slt>(props: Self::Props<'_>, _: Slt, access: ElementAccess, _: &EMCreateCtx) -> Self
+    fn create<Slt>(
+        props: &Self::Props,
+        access: ElementAccess,
+        _: irisia::hook::ProviderObject<Slt>,
+        _: &EMCreateCtx,
+    ) -> Self
     where
-        Slt: irisia::structure::StructureCreate<()>,
+        Slt: irisia::model::DesiredVModel<Self::ChildMapper> + 'static,
     {
-        let is_force_reg = Register::new(false);
+        let is_force_sig = Signal::state(false);
 
-        let is_force = is_force_reg.clone();
+        let is_force = is_force_sig.clone();
         access.listen().trusted().spawn(move |_: PointerEntered| {
             println!("entered");
             is_force.set(true);
         });
 
-        let is_force = is_force_reg.clone();
+        let is_force = is_force_sig.clone();
         access.listen().trusted().spawn(move |_: PointerOut| {
             is_force.set(false);
         });
 
+        access.redraw_when((
+            is_force_sig.clone(),
+            props.color.clone(),
+            props.height.clone(),
+        ));
+
         Self {
-            is_force: Register::new(false),
-            props,
+            is_force: is_force_sig,
+            props: props.clone(),
             access,
         }
     }
@@ -61,7 +72,7 @@ impl ElementInterfaces for Rectangle {
     fn on_draw_region_change(&mut self) {}
 
     fn render(&mut self, args: Render) -> Result<()> {
-        let region = self.access.draw_region();
+        let region = self.access.draw_region().unwrap_or_default();
 
         let height = self.props.height.read().unwrap_or(50.0);
         let end_point = Point(region.left_top.0 + 80.0, region.left_top.1 + height);
@@ -80,7 +91,7 @@ impl ElementInterfaces for Rectangle {
 
         let mut color = Color::GREEN;
         if !*self.is_force.read() {
-            if let Some(props_color) = self.props.color.as_ref().map(|color| *color.read()) {
+            if let Some(props_color) = self.props.color.read().as_ref().cloned() {
                 color = props_color;
             }
         }
@@ -95,33 +106,46 @@ impl ElementInterfaces for Rectangle {
 pub struct MyRequestClose;
 
 pub struct Flex {
-    children: ChildBox,
+    children: Signal<dyn VisitModel<()>>,
     access: ElementAccess,
 }
 
 impl ElementInterfaces for Flex {
-    type Props<'a> = ();
-    type SlotData = ();
+    type Props = ();
+    type ChildMapper = ();
 
-    fn create<Slt>(_: Self::Props<'_>, slot: Slt, access: ElementAccess, ctx: &EMCreateCtx) -> Self
+    fn create<Slt>(
+        props: &Self::Props,
+        access: ElementAccess,
+        slot: irisia::hook::ProviderObject<Slt>,
+        ctx: &EMCreateCtx,
+    ) -> Self
     where
-        Slt: irisia::structure::StructureCreate<()>,
+        Slt: irisia::model::DesiredVModel<Self::ChildMapper> + 'static,
     {
-        Self {
-            children: ChildBox::new(slot, ctx),
+        access.redraw_when(slot.clone());
+        let r = reactive(
+            |packer, slot| {
+                packer.apply_model(slot);
+            },
+            ctx,
+            slot,
+        );
+        Flex {
+            children: coerce_signal!(r),
             access,
         }
     }
 
     fn spread_event(&mut self, ipe: &IncomingPointerEvent) -> bool {
-        self.children.emit_event(ipe)
+        self.children.write().emit_event(ipe)
     }
 
     fn on_draw_region_change(&mut self) {}
 
     fn render(&mut self, args: Render) -> Result<()> {
         self.flex_layout()?;
-        self.children.render(args)
+        self.children.write().render(args)
     }
 }
 
@@ -130,14 +154,14 @@ impl Flex {
         let Region {
             left_top: start,
             right_bottom: end,
-        } = self.access.draw_region();
+        } = self.access.draw_region().unwrap_or_default();
 
         let abs = end - start;
-        let len = self.children.len();
+        let len = self.children.read().compute_len();
         let width = abs.0 / len as f32;
 
         let mut index = 0;
-        self.children.layout(|_| {
+        self.children.write().layout(|_| {
             if index >= len {
                 return None;
             }
@@ -148,6 +172,7 @@ impl Flex {
             );
             index += 1;
             Some(region)
-        })
+        });
+        Ok(())
     }
 }

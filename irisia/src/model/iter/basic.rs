@@ -9,12 +9,14 @@ pub trait ModelBasic: 'static {
     fn dyn_render(&mut self, args: Render) -> Result<()>;
     fn dyn_set_draw_region(&mut self, region: Option<Region>);
     fn dyn_on_pointer_event(&mut self, ipe: &IncomingPointerEvent) -> bool;
+    fn dyn_layout(&mut self, region: Option<Region>);
 }
 
-impl<El, Cp> ModelBasic for ElementModel<El, Cp>
+impl<El, Cp, Slt> ModelBasic for ElementModel<El, Cp, Slt>
 where
     El: ElementInterfaces,
     Cp: 'static,
+    Slt: 'static,
 {
     fn dyn_render(&mut self, args: Render) -> Result<()> {
         self.render(args)
@@ -25,25 +27,27 @@ where
     fn dyn_on_pointer_event(&mut self, ipe: &IncomingPointerEvent) -> bool {
         self.on_pointer_event(ipe)
     }
+    fn dyn_layout(&mut self, region: Option<Region>) {
+        self.set_draw_region(region);
+    }
 }
 
-pub struct ModelBasicMapper;
-
-impl ModelMapper for ModelBasicMapper {
+impl ModelMapper for () {
     type MapRef<'a> = &'a dyn ModelBasic;
     type MapMut<'a> = &'a mut dyn ModelBasic;
 }
 
-impl<El, Cp> ModelMapperImplements<El, Cp> for ModelBasicMapper
+impl<El, Cp, Slt> ModelMapperImplements<El, Cp, Slt> for ()
 where
     El: ElementInterfaces,
     Cp: 'static,
+    Slt: 'static,
 {
-    fn map_ref(model: &ElementModel<El, Cp>) -> Self::MapRef<'_> {
+    fn map_ref(model: &ElementModel<El, Cp, Slt>) -> Self::MapRef<'_> {
         model
     }
 
-    fn map_mut(model: &mut ElementModel<El, Cp>) -> Self::MapMut<'_> {
+    fn map_mut(model: &mut ElementModel<El, Cp, Slt>) -> Self::MapMut<'_> {
         model
     }
 }

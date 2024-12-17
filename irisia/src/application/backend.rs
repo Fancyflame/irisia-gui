@@ -11,7 +11,7 @@ use crate::{
     el_model::{EMCreateCtx, ElementModel},
     element::ElementInterfaces,
     event::{standard::WindowDestroyed, EventDispatcher},
-    model::{iter::basic::ModelBasicMapper, RootDesiredModel},
+    model::RootDesiredModel,
     primitive::{Point, Region},
     Result,
 };
@@ -26,7 +26,7 @@ use super::{
 pub(super) struct BackendRuntime<El> {
     gem: GlobalEventMgr,
     gc: Rc<GlobalContent>,
-    root: ElementModel<El, ()>,
+    root: ElementModel<El, (), ()>,
 }
 
 impl<El> AppWindow for BackendRuntime<El>
@@ -64,12 +64,13 @@ fn window_size_to_draw_region(size: PhysicalSize<u32>) -> Region {
     }
 }
 
-pub(super) async fn new_window<F>(
+pub(super) async fn new_window<F, T>(
     window_attributes: WindowAttributes,
     root_creator: F,
 ) -> Result<Window>
 where
-    F: RootDesiredModel<ModelBasicMapper, RootCp = ()> + Send + 'static,
+    F: FnOnce() -> T + Send + 'static,
+    T: RootDesiredModel<(), RootCp = (), RootSlt = ()>,
 {
     let ev_disp = EventDispatcher::new();
 
@@ -88,7 +89,7 @@ where
                 user_close: Cell::new(true),
             });
 
-            let mut root = root_creator.create(&EMCreateCtx {
+            let mut root = root_creator().create(&EMCreateCtx {
                 global_content: gc.clone(),
             });
 

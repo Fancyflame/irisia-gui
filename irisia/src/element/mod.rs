@@ -20,9 +20,8 @@ pub mod deps;
 pub struct Render<'a> {
     pub canvas: &'a Canvas,
     pub interval: Duration,
-    pub dirty_region: &'a SkRegion,
+    pub dirty_region: Option<&'a SkRegion>,
 }
-
 /// Element is a thing can draw itself on the given canvas,
 /// according to its properties, styles and given drawing region.
 /// This trait is close to the native rendering, if you are not a
@@ -30,7 +29,7 @@ pub struct Render<'a> {
 /// customize one.
 pub trait ElementInterfaces: Sized + 'static {
     type Props: AsEmptyProps;
-    type AcceptChild: ModelMapper;
+    type ChildMapper: ModelMapper;
     const REQUIRE_INDEPENDENT_LAYER: bool = false;
 
     fn create<Slt>(
@@ -40,9 +39,16 @@ pub trait ElementInterfaces: Sized + 'static {
         ctx: &EMCreateCtx,
     ) -> Self
     where
-        Slt: DesiredVModel<Self::AcceptChild> + 'static;
+        Slt: DesiredVModel<Self::ChildMapper> + 'static;
 
     fn render(&mut self, args: Render) -> Result<()>;
     fn spread_event(&mut self, ipe: &IncomingPointerEvent) -> bool;
     fn on_draw_region_change(&mut self);
+}
+
+pub fn get_empty_props<El>() -> <El::Props as AsEmptyProps>::AsEmpty
+where
+    El: ElementInterfaces,
+{
+    <El::Props as AsEmptyProps>::empty_props()
 }
