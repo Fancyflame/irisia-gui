@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 winit = { version = "0.30", features = ["android-native-activity", "rwh_05"] }
 pixels = "0.14"
-skia-safe = { version = "0.78", features = ["textlayout", "binary-cache"] }
+skia-safe = { version = "0.80", features = ["textlayout", "binary-cache"] }
 tokio = { version = "1.40", features = ["rt-multi-thread"] }
 anyhow = "1"
 lazy_static = "1"
