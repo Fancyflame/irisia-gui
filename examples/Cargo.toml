@@ -24,6 +24,10 @@ path = "style_macro.rs"
 name = "simple_window"
 path = "simple_window.rs"
 
+[[example]]
+name = "simple_window2"
+path = "simple_window2.rs"
+
 [dev-dependencies]
 tokio = { version = "1.40", features = ["sync", "rt-multi-thread", "macros"] }
 irisia = { path = "../irisia" }

@@ -200,12 +200,12 @@ impl ElementAccess {
     }
 
     pub fn request_redraw(&self) {
-        if self.0.redraw_signal_sent.get() {
-            return;
-        }
+        // if self.0.redraw_signal_sent.get() {
+        //     return;
+        // }
 
-        self.0.gc.request_redraw(self.clone());
-        self.0.redraw_signal_sent.set(true);
+        // self.0.gc.request_redraw(self.clone());
+        // self.0.redraw_signal_sent.set(true);
     }
 
     pub(crate) fn reset_redraw_region_pair(&self) -> [Option<Region>; 2] {

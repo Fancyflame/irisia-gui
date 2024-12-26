@@ -3,42 +3,35 @@ use std::{
     hash::Hash,
 };
 
-use crate::el_model::EMCreateCtx;
+use crate::{el_model::EMCreateCtx, prim_element::Element};
 
-use super::{
-    iter::{ModelMapper, VisitModel},
-    VModel,
-};
-
-pub struct Repeat<I>(pub I);
+use super::{Model, VModel};
 
 struct Item<T> {
     used: bool,
     value: T,
 }
 
-impl<I, K, T> VModel for Repeat<I>
+impl<K, T> VModel for Vec<(K, T)>
 where
-    I: Iterator<Item = (K, T)>,
     K: Hash + Eq + Clone + 'static,
     T: VModel,
 {
     type Storage = RepeatModel<K, T::Storage>;
-    fn create(self, ctx: &EMCreateCtx) -> Self::Storage {
-        let size_hint = self.0.size_hint().0;
+    fn create(&self, ctx: &EMCreateCtx) -> Self::Storage {
         let mut this = RepeatModel {
-            map: HashMap::with_capacity(size_hint),
-            order: Vec::with_capacity(size_hint),
+            map: HashMap::with_capacity(self.len()),
+            order: Vec::with_capacity(self.len()),
         };
 
-        for (key, vmodel) in self.0 {
+        for (key, vmodel) in self {
             match this.map.entry(key.clone()) {
                 Entry::Vacant(vac) => {
                     vac.insert(Item {
                         value: vmodel.create(ctx),
                         used: false,
                     });
-                    this.order.push(key);
+                    this.order.push(key.clone());
                 }
                 Entry::Occupied(_) => {
                     #[cfg(debug_assertions)]
@@ -50,9 +43,9 @@ where
         this
     }
 
-    fn update(self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
+    fn update(&self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
         storage.order.clear();
-        for (key, vmodel) in self.0 {
+        for (key, vmodel) in self {
             match storage.map.entry(key.clone()) {
                 Entry::Vacant(vac) => {
                     vac.insert(Item {
@@ -66,7 +59,7 @@ where
                     vmodel.update(&mut item.value, ctx);
                 }
             };
-            storage.order.push(key);
+            storage.order.push(key.clone());
         }
 
         storage
@@ -75,43 +68,19 @@ where
     }
 }
 
-fn vec_to_repeat<K, T>(vec: Vec<(K, T)>) -> Repeat<impl Iterator<Item = (K, T)>> {
-    Repeat(vec.into_iter())
-}
-
-impl<K, T> VModel for Vec<(K, T)>
-where
-    K: Hash + Eq + Clone + 'static,
-    T: VModel,
-{
-    type Storage = RepeatModel<K, T::Storage>;
-    fn create(self, ctx: &EMCreateCtx) -> Self::Storage {
-        vec_to_repeat(self).create(ctx)
-    }
-    fn update(self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
-        vec_to_repeat(self).update(storage, ctx);
-    }
-}
-
 pub struct RepeatModel<K, T> {
     map: HashMap<K, Item<T>>,
     order: Vec<K>,
 }
 
-impl<M, K, T> VisitModel<M> for RepeatModel<K, T>
+impl<K, T> Model for RepeatModel<K, T>
 where
-    M: ModelMapper,
-    K: Hash + Eq,
-    T: VisitModel<M>,
+    K: Hash + Eq + 'static,
+    T: Model,
 {
-    fn visit(&self, f: &mut dyn FnMut(<M as ModelMapper>::MapRef<'_>)) {
+    fn visit(&self, f: &mut dyn FnMut(Element)) {
         for key in &self.order {
             self.map[key].value.visit(f);
-        }
-    }
-    fn visit_mut(&mut self, f: &mut dyn FnMut(<M as ModelMapper>::MapMut<'_>)) {
-        for key in &self.order {
-            self.map.get_mut(key).unwrap().value.visit_mut(f);
         }
     }
 }

@@ -12,6 +12,8 @@ use crate::{
     element::ElementInterfaces,
     event::{standard::WindowDestroyed, EventDispatcher},
     model::RootDesiredModel,
+    model2::VNode,
+    prim_element::{GetElement, RenderArgs},
     primitive::{Point, Region},
     Result,
 };
@@ -23,33 +25,43 @@ use super::{
     Window,
 };
 
-pub(super) struct BackendRuntime<El> {
+pub(super) struct BackendRuntime<T> {
     gem: GlobalEventMgr,
     gc: Rc<GlobalContent>,
-    root: ElementModel<El, (), ()>,
+    root_model: T,
 }
 
-impl<El> AppWindow for BackendRuntime<El>
+impl<T> AppWindow for BackendRuntime<T>
 where
-    El: ElementInterfaces,
+    T: GetElement + 'static,
 {
-    fn on_redraw(&mut self, canvas: &Canvas, interval: Duration) -> Result<()> {
-        self.gc
-            .redraw_scheduler
-            .redraw(&mut self.root, canvas, interval)
+    fn on_redraw(
+        &mut self,
+        canvas: &Canvas,
+        interval: Duration,
+        window_inner_size: PhysicalSize<u32>,
+    ) -> Result<()> {
+        self.gc.redraw_scheduler.redraw(
+            &mut self.root_model.get_element(),
+            canvas,
+            interval,
+            window_size_to_draw_region(window_inner_size),
+        );
+        Ok(())
     }
 
     fn on_window_event(&mut self, event: WindowEvent) {
-        if let WindowEvent::Resized(size) = &event {
-            self.root
-                .set_draw_region(Some(window_size_to_draw_region(*size)));
-        }
+        // TODO
+        // if let WindowEvent::Resized(size) = &event {
+        //     self.root
+        //         .set_draw_region(Some(window_size_to_draw_region(*size)));
+        // }
 
-        if let Some(ipe) = self.gem.emit_event(event, &self.gc) {
-            if !self.root.on_pointer_event(&ipe) {
-                ipe.focus_on(None);
-            }
-        }
+        // if let Some(ipe) = self.gem.emit_event(event, &self.gc) {
+        //     if !self.root.on_pointer_event(&ipe) {
+        //         ipe.focus_on(None);
+        //     }
+        // }
     }
 
     fn on_destroy(&mut self) {
@@ -70,7 +82,7 @@ pub(super) async fn new_window<F, T>(
 ) -> Result<Window>
 where
     F: FnOnce() -> T + Send + 'static,
-    T: RootDesiredModel<(), RootCp = (), RootSlt = ()>,
+    T: VNode,
 {
     let ev_disp = EventDispatcher::new();
 
@@ -89,16 +101,17 @@ where
                 user_close: Cell::new(true),
             });
 
-            let mut root = root_creator().create(&EMCreateCtx {
+            let root_model = root_creator().create(&EMCreateCtx {
                 global_content: gc.clone(),
             });
 
-            root.set_draw_region(Some(window_size_to_draw_region(gc.window().inner_size())));
+            //root.set_draw_region(Some(window_size_to_draw_region(gc.window().inner_size())));
+            // root.
 
             BackendRuntime {
                 gem: GlobalEventMgr::new(),
                 gc,
-                root,
+                root_model,
             }
         }
     };

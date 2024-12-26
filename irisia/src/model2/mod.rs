@@ -1,15 +1,23 @@
-use crate::el_model::EMCreateCtx;
+use crate::{
+    el_model::EMCreateCtx,
+    prim_element::{Element, GetElement},
+};
 
 pub mod branch;
-pub mod iter;
-pub mod reactive;
 pub mod repeat;
 pub mod tuple;
-pub mod unit;
 
-pub trait VModel {
-    type Storage: 'static;
+pub trait VModel: 'static {
+    type Storage: Model;
 
-    fn update(self, storage: &mut Self::Storage, ctx: &EMCreateCtx);
-    fn create(self, ctx: &EMCreateCtx) -> Self::Storage;
+    fn update(&self, storage: &mut Self::Storage, ctx: &EMCreateCtx);
+    fn create(&self, ctx: &EMCreateCtx) -> Self::Storage;
 }
+
+pub trait Model: 'static {
+    fn visit(&self, f: &mut dyn FnMut(Element));
+}
+
+pub trait VNode: VModel<Storage: GetElement> {}
+
+impl<T> VNode for T where T: VModel<Storage: GetElement> {}

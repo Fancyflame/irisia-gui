@@ -4,19 +4,25 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
+use super::schedule_rerun::ScheduleRerun;
+
 type CreateVec<'a> = &'a RefCell<Vec<Option<Box<dyn Any>>>>;
 
 pub struct HookStorage {
     hooks: Vec<Box<dyn Any>>,
+    rerun: ScheduleRerun,
 }
 
 impl HookStorage {
-    pub fn new<F, R>(logic: F) -> (Self, R)
+    pub(super) fn new<F, R>(rerun: ScheduleRerun, logic: F) -> (Self, R)
     where
         F: FnOnce(UseHook) -> R,
     {
         let hooks = RefCell::new(Vec::new());
-        let r = logic(UseHook(UseHookInner::Create(&hooks)));
+        let r = logic(UseHook {
+            inner: UseHookInner::Create(&hooks),
+            rerun: &rerun,
+        });
         (
             Self {
                 hooks: hooks
@@ -24,17 +30,24 @@ impl HookStorage {
                     .into_iter()
                     .map(|opt| opt.unwrap())
                     .collect(),
+                rerun,
             },
             r,
         )
     }
 
     pub fn call(&mut self) -> UseHook {
-        UseHook(UseHookInner::Reuse(self.hooks.iter_mut()))
+        UseHook {
+            inner: UseHookInner::Reuse(self.hooks.iter_mut()),
+            rerun: &self.rerun,
+        }
     }
 }
 
-pub struct UseHook<'a>(UseHookInner<'a>);
+pub struct UseHook<'a> {
+    inner: UseHookInner<'a>,
+    rerun: &'a ScheduleRerun,
+}
 
 enum UseHookInner<'a> {
     Create(CreateVec<'a>),
@@ -47,7 +60,7 @@ impl<'a> UseHook<'a> {
         T: 'static,
         F: FnOnce() -> T,
     {
-        match &mut self.0 {
+        match &mut self.inner {
             UseHookInner::Create(vec) => {
                 let mut vec_ref = vec.borrow_mut();
                 let index = vec_ref.len();
@@ -68,6 +81,10 @@ impl<'a> UseHook<'a> {
                 ))
             }
         }
+    }
+
+    pub fn get_rerun_scheduler(&self) -> ScheduleRerun {
+        self.rerun.clone()
     }
 }
 

@@ -43,7 +43,7 @@ impl RenderWindow {
 
         if let Err(err) = self
             .renderer
-            .render(|canvas| self.app.on_redraw(canvas, delta))
+            .render(|canvas| self.app.on_redraw(canvas, delta, self.window.inner_size()))
         {
             eprintln!("render error: {err}");
         }

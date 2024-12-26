@@ -5,20 +5,22 @@ use std::{
 };
 
 use irisia_backend::{
-    skia_safe::{region::RegionOp, Canvas, ClipOp, Color, Region as SkRegion},
+    skia_safe::{region::RegionOp, Canvas, Color, Region as SkRegion},
     WinitWindow,
 };
 
 use crate::{
-    el_model::{ElementAccess, ElementModel},
+    el_model::ElementModel,
     element::Render,
+    prim_element::{Element, RenderArgs, RenderTree},
+    primitive::Region,
     ElementInterfaces, Result,
 };
 
 pub(super) struct RedrawScheduler {
     window: Arc<WinitWindow>,
-    dirty_regions: RefCell<Vec<ElementAccess>>,
-    redrawing: RefCell<SkRegion>,
+    dirty_region: RefCell<SkRegion>,
+    redrawing_dirty_region: RefCell<SkRegion>,
     redraw_req_sent: Cell<bool>,
 }
 
@@ -26,55 +28,49 @@ impl RedrawScheduler {
     pub fn new(window: Arc<WinitWindow>) -> Self {
         Self {
             window,
-            dirty_regions: RefCell::new(Vec::new()),
-            redrawing: RefCell::new(SkRegion::new()),
+            dirty_region: RefCell::new(SkRegion::new()),
+            redrawing_dirty_region: RefCell::new(SkRegion::new()),
             redraw_req_sent: Cell::new(false),
         }
     }
 
-    pub fn request_redraw(&self, access: ElementAccess) {
+    pub fn request_redraw(&self, dirty_region: Region) {
         if !self.redraw_req_sent.get() {
             self.redraw_req_sent.set(true);
             self.window.request_redraw();
         }
-        self.dirty_regions.borrow_mut().push(access);
+        self.dirty_region.borrow_mut().op_region(
+            &SkRegion::from_rect(dirty_region.ceil_to_irect()),
+            RegionOp::Union,
+        );
     }
 
-    pub fn redraw<Root>(
+    pub fn redraw(
         &self,
-        root: &mut ElementModel<Root, (), ()>,
+        root: &mut Element,
         canvas: &Canvas,
         interval: Duration,
-    ) -> Result<()>
-    where
-        Root: ElementInterfaces,
-    {
-        let mut dirty_region = self.redrawing.borrow_mut();
-        let mut unmerged = self.dirty_regions.borrow_mut();
-        dirty_region.set_empty();
+        root_draw_region: Region,
+    ) {
+        let mut redrawing_dirty_region = self.redrawing_dirty_region.borrow_mut();
+        redrawing_dirty_region.set_empty();
+        std::mem::swap(
+            &mut *redrawing_dirty_region,
+            &mut *self.dirty_region.borrow_mut(),
+        );
 
-        for access in unmerged.drain(..) {
-            for optioned_region in access.reset_redraw_region_pair() {
-                if let Some(region) = optioned_region {
-                    dirty_region.op_region(
-                        &SkRegion::from_rect(region.ceil_to_irect()),
-                        RegionOp::Union,
-                    );
-                }
-            }
-        }
-
-        drop(unmerged);
         self.redraw_req_sent.set(false);
         canvas.save();
         //canvas.clip_region(&dirty_region, ClipOp::Intersect);
         canvas.clear(Color::WHITE);
-        let res = root.render(Render {
-            canvas,
-            interval,
-            dirty_region: None,
-        });
+        root.render(
+            RenderArgs {
+                canvas,
+                interval,
+                dirty_region: None,
+            },
+            root_draw_region,
+        );
         canvas.restore();
-        res
     }
 }

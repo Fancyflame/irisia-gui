@@ -4,7 +4,7 @@ use irisia_backend::{winit::window::WindowAttributes, WinitWindow};
 
 use crate::{
     event::{standard::WindowDestroyed, EventDispatcher},
-    model::RootDesiredModel,
+    model2::VNode,
     Result,
 };
 
@@ -29,7 +29,7 @@ impl Window {
     pub async fn new<F, T>(wa: WindowAttributes, dom: F) -> Result<Self>
     where
         F: FnOnce() -> T + Send + 'static,
-        T: RootDesiredModel<(), RootCp = (), RootSlt = ()>,
+        T: VNode,
     {
         new_window(wa, dom).await
     }
