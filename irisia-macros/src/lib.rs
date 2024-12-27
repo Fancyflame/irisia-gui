@@ -12,6 +12,7 @@ mod derive_props;
 mod inner_impl_listen;
 mod main_macro;
 mod parse_incomplete;
+mod partial_eq;
 mod props2;
 mod split_generics;
 mod style;
@@ -74,4 +75,9 @@ fn result_into_stream(result: Result<TokenStream2>) -> TokenStream {
 #[proc_macro]
 pub fn __inner_impl_listen(_: TokenStream) -> TokenStream {
     inner_impl_listen::impl_listen().into()
+}
+
+#[proc_macro_derive(PartialEq, attributes(partial_eq))]
+pub fn derive_partial_eq(input: TokenStream) -> TokenStream {
+    partial_eq::derive_partial_eq(input)
 }

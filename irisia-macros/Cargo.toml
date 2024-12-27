@@ -19,6 +19,7 @@ quote = "1.0"
 proc-macro2 = "1.0"
 case = "1.0"
 attr-parser-fn = { git = "https://github.com/Fancyflame/attr-parser-fn.git" }
+darling = "0.20"
 
 [features]
 default = ["macro-dep-guessing"]
