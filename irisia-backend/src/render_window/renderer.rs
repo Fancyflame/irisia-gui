@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::{anyhow, Result};
 use pixels::{wgpu::BlendState, Pixels, PixelsBuilder, SurfaceTexture};
-use skia_safe::{Canvas, Color, ColorSpace, ColorType, ImageInfo, Surface};
+use skia_safe::{Canvas, ColorSpace, ColorType, ImageInfo, Surface};
 use winit::dpi::PhysicalSize;
 
 use crate::WinitWindow;

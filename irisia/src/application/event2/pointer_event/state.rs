@@ -19,7 +19,7 @@ impl PointerState {
         }
     }
 
-    pub fn next(&self, event: &WindowEvent) -> Self {
+    pub fn next(&self, event: &WindowEvent) -> Option<Self> {
         let mut new_pressing = self.pressing;
 
         let mut new_position: Option<Point> = match &event {
@@ -70,13 +70,13 @@ impl PointerState {
                 new_pressing = false;
             }
 
-            _ => {}
+            _ => return None,
         }
 
-        PointerState {
+        Some(PointerState {
             cursor_position: new_position,
             pressing: new_pressing,
-        }
+        })
     }
 
     fn pointer_inside(&self, region: Region) -> bool {

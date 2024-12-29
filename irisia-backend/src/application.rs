@@ -11,6 +11,6 @@ pub trait AppWindow: 'static {
         delta: Duration,
         window_inner_size: PhysicalSize<u32>,
     ) -> Result<()>;
-    fn on_window_event(&mut self, event: WindowEvent);
+    fn on_window_event(&mut self, event: WindowEvent, window_inner_size: PhysicalSize<u32>);
     fn on_destroy(&mut self);
 }

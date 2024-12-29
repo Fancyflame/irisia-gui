@@ -10,11 +10,8 @@ use irisia_backend::{
 };
 
 use crate::{
-    el_model::ElementModel,
-    element::Render,
     prim_element::{Element, RenderArgs, RenderTree},
     primitive::Region,
-    ElementInterfaces, Result,
 };
 
 pub(super) struct RedrawScheduler {

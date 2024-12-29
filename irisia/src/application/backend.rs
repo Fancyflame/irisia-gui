@@ -8,12 +8,9 @@ use irisia_backend::{
 };
 
 use crate::{
-    el_model::{EMCreateCtx, ElementModel},
-    element::ElementInterfaces,
     event::{standard::WindowDestroyed, EventDispatcher},
-    model::RootDesiredModel,
     model2::VNode,
-    prim_element::{GetElement, RenderArgs},
+    prim_element::{EMCreateCtx, GetElement, RenderTree},
     primitive::{Point, Region},
     Result,
 };
@@ -21,7 +18,7 @@ use crate::{
 use super::{
     content::GlobalContent,
     event2::pointer_event::{PointerState, PointerStateDelta},
-    event_comp::{global::focusing::Focusing, GlobalEventMgr},
+    event_comp::global::focusing::Focusing,
     redraw_scheduler::RedrawScheduler,
     Window,
 };
@@ -51,14 +48,22 @@ where
         Ok(())
     }
 
-    fn on_window_event(&mut self, event: WindowEvent) {
-        let next = self.pointer_state.next(&event);
-        let delta = PointerStateDelta {
+    fn on_window_event(&mut self, event: WindowEvent, window_inner_size: PhysicalSize<u32>) {
+        let Some(next) = self.pointer_state.next(&event) else {
+            // TODO
+            return;
+        };
+
+        let mut delta = PointerStateDelta {
             prev: self.pointer_state,
             next,
             cursor_may_over: true,
         };
         self.pointer_state = next;
+
+        self.root_model
+            .get_element()
+            .emit_event(&mut delta, window_size_to_draw_region(window_inner_size));
         // TODO
         // if let WindowEvent::Resized(size) = &event {
         //     self.root

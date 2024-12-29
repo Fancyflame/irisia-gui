@@ -5,26 +5,32 @@ use std::{
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
 };
 
-use crate::{el_model::ElementAccess, primitive::Region};
+use irisia_backend::winit::dpi::PhysicalSize;
+
+use crate::primitive::Region;
+
+pub struct LengthStandard {
+    pub dpi: f32,
+    pub viewport_size: PhysicalSize<u32>,
+    pub draw_region: Option<Region>,
+}
 
 macro_rules! create_length {
-    {$($name:ident $short:ident,)*} => {
+    {$($name:ident $UNIT:ident,)*} => {
         #[derive(Clone, Copy, PartialEq, PartialOrd)]
         pub struct Length {
             $(pub $name: f32,)*
         }
 
-        impl Length {
-            $(
-                #[doc = concat!("create a length with given value in unit `", stringify!($short), "`")]
-                pub const fn $short(value: f32) -> Self {
-                    Self {
-                        $name: value,
-                        ..Self::zero()
-                    }
-                }
-            )*
+        $(
+            #[doc = stringify!(1 $UNIT)]
+            pub const $UNIT: Length = Length {
+                $name: 1.0,
+                ..Length::zero()
+            };
+        )*
 
+        impl Length {
             /// Create a zero length.
             pub const fn zero() -> Self {
                 Self {
@@ -57,25 +63,29 @@ macro_rules! create_length {
 }
 
 create_length! {
-    pixel           px,
-    viewport_width  vw,
-    viewport_height vh,
-    viewport_min    vmin,
-    viewport_max    vmax,
-    parent_width    pw,
-    parent_height   ph,
-    parent_min      pmin,
-    parent_max      pmax,
+    pixel           PX,
+    viewport_width  VW,
+    viewport_height VH,
+    viewport_min    VMIN,
+    viewport_max    VMAX,
+    parent_width    PW,
+    parent_height   PH,
+    parent_min      PMIN,
+    parent_max      PMAX,
 }
 
 impl Length {
     /// Convert the relative length to physical length of the screen with a window.
     /// The resolved value can be used directly to draw something.
     #[inline]
-    pub fn to_resolved(&self, access: ElementAccess) -> f32 {
-        let window = access.global_content().window();
+    pub fn to_resolved(&self, standard: LengthStandard) -> f32 {
+        let LengthStandard {
+            dpi,
+            viewport_size,
+            draw_region,
+        } = standard;
 
-        let (ew, eh) = match access.draw_region() {
+        let (ew, eh) = match draw_region {
             Some(Region {
                 left_top,
                 right_bottom,
@@ -86,10 +96,8 @@ impl Length {
             None => (0.0, 0.0),
         };
 
-        let viewport_size = window.inner_size();
         let vw = viewport_size.width as f32 / 100.0;
         let vh = viewport_size.height as f32 / 100.0;
-        let dpi = window.scale_factor() as f32;
 
         self.pixel * dpi
             + self.viewport_width * vw
@@ -112,9 +120,24 @@ impl Default for Length {
 impl Mul<f32> for Length {
     type Output = Self;
 
-    #[inline]
     fn mul(self, rhs: f32) -> Self::Output {
         self.mul(rhs)
+    }
+}
+
+impl Mul<Length> for u32 {
+    type Output = Length;
+
+    fn mul(self, rhs: Length) -> Self::Output {
+        rhs.mul(self as _)
+    }
+}
+
+impl Mul<Length> for f32 {
+    type Output = Length;
+
+    fn mul(self, rhs: Length) -> Self::Output {
+        rhs.mul(self)
     }
 }
 

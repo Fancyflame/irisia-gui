@@ -50,7 +50,7 @@ impl RenderWindow {
     }
 
     pub fn handle_event(&mut self, event: WindowEvent) {
-        self.app.on_window_event(event);
+        self.app.on_window_event(event, self.window.inner_size());
     }
 }
 
