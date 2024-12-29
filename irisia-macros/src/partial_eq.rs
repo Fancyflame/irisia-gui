@@ -32,6 +32,17 @@ pub fn derive_partial_eq(input: TokenStream) -> TokenStream {
 
     let (impl_g, type_g, where_clause) = generics.split_for_impl();
 
+    return quote! {
+        impl #impl_g ::core::cmp::PartialEq for #struct_ident #type_g
+        #where_clause
+        {
+            fn eq(&self, other: &Self) -> bool {
+                false
+            }
+        }
+    }
+    .into();
+
     let mut where_clause = match where_clause {
         Some(wc) => wc.clone(),
         None => WhereClause {

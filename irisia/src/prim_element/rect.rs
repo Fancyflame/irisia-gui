@@ -1,15 +1,31 @@
-use std::{cell::RefCell, rc::Rc};
-
 use irisia_backend::skia_safe::{Color, Color4f, Paint, RRect, Rect as SkRect};
 
-use crate::{el_model::EMCreateCtx, model2::VModel, primitive::Region};
+use crate::{application::event2::pointer_event::PointerStateDelta, primitive::Region};
 
-use super::{Element, GetElement, Handle, RenderTree};
+use super::{redraw_guard::RedrawGuard, Common, EMCreateCtx, EventCallback, RenderTree};
 
 pub struct RenderRect {
     rect: Rect,
-    // ctx: EMCreateCtx,
-    prev_draw_region: Option<Region>,
+    common: Common,
+}
+
+#[derive(Default, PartialEq, Clone)]
+pub struct Rect {
+    pub color: Color,
+    pub border_radius: [f32; 4],
+}
+
+impl RenderRect {
+    pub fn new(style: Rect, event_callback: EventCallback, ctx: &EMCreateCtx) -> Self {
+        Self {
+            rect: style,
+            common: Common::new(event_callback, ctx),
+        }
+    }
+
+    pub fn update_rect(&mut self) -> RedrawGuard<Rect> {
+        RedrawGuard::new(&mut self.rect, &mut self.common)
+    }
 }
 
 impl RenderTree for RenderRect {
@@ -18,7 +34,7 @@ impl RenderTree for RenderRect {
             return;
         }
 
-        self.prev_draw_region = Some(draw_region);
+        self.common.prev_draw_region = Some(draw_region);
         let border_radius = self.rect.border_radius;
         let rrect = RRect::new_nine_patch(
             SkRect {
@@ -36,48 +52,12 @@ impl RenderTree for RenderRect {
 
         args.canvas.draw_rrect(rrect, &paint);
     }
-}
 
-#[derive(Default, PartialEq, Clone)]
-pub struct Rect {
-    pub color: Color,
-    pub border_radius: [f32; 4],
-}
-
-pub struct RectModel {
-    node: Handle<RenderRect>,
-}
-
-impl VModel for Rect {
-    type Storage = RectModel;
-    fn create(&self, _: &crate::el_model::EMCreateCtx) -> Self::Storage {
-        let render = RenderRect {
-            rect: self.clone(),
-            // ctx: ctx.clone(),
-            prev_draw_region: None,
-        };
-
-        RectModel {
-            node: Rc::new(RefCell::new(render)),
-        }
+    fn emit_event(&mut self, delta: &mut PointerStateDelta, draw_region: Region) {
+        self.common.use_callback(delta, draw_region);
     }
 
-    fn update(&self, storage: &mut Self::Storage, ctx: &crate::el_model::EMCreateCtx) {
-        let mut node = storage.node.borrow_mut();
-
-        if node.rect == *self {
-            return;
-        }
-
-        node.rect = self.clone();
-        if let Some(dr) = node.prev_draw_region.take() {
-            ctx.global_content.request_redraw(dr);
-        }
-    }
-}
-
-impl GetElement for RectModel {
-    fn get_element(&self) -> super::Element {
-        Element::Rect(self.node.clone())
+    fn set_callback(&mut self, callback: EventCallback) {
+        self.common.event_callback = callback;
     }
 }

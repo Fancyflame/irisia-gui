@@ -10,6 +10,7 @@ use crate::{
 
 mod backend;
 pub(crate) mod content;
+pub(crate) mod event2;
 pub(crate) mod event_comp;
 pub(crate) mod redraw_scheduler;
 

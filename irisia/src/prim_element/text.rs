@@ -1,33 +1,16 @@
-use std::{cell::RefCell, rc::Rc};
-
 use irisia_backend::skia_safe::{
     textlayout::{FontCollection, Paragraph, ParagraphBuilder, ParagraphStyle, TextStyle},
     Color, FontMgr,
 };
 
-use crate::{model2::VModel, primitive::Region};
+use crate::{application::event2::pointer_event::PointerStateDelta, primitive::Region};
 
-use super::{Element, GetElement, Handle, RenderTree};
+use super::{redraw_guard::RedrawGuard, Common, EMCreateCtx, EventCallback, RenderTree};
 
 pub struct RenderText {
-    prop: Text,
+    text: Text,
     paragraph: Option<Paragraph>,
-    prev_draw_region: Option<Region>,
-}
-
-impl RenderTree for RenderText {
-    fn render(&mut self, args: super::RenderArgs, draw_region: crate::primitive::Region) {
-        if !args.needs_redraw(draw_region) {
-            return;
-        }
-
-        self.prev_draw_region = Some(draw_region);
-        let para = self
-            .paragraph
-            .get_or_insert_with(|| self.prop.build_paragraph());
-        para.layout(draw_region.right_bottom.0 - draw_region.left_top.0);
-        para.paint(args.canvas, draw_region.left_top);
-    }
+    common: Common,
 }
 
 #[derive(PartialEq, Default, Clone)]
@@ -37,29 +20,41 @@ pub struct Text {
     pub font_color: Color,
 }
 
-pub struct TextModel {
-    node: Handle<RenderText>,
-}
-
-impl VModel for Text {
-    type Storage = TextModel;
-    fn create(&self, _: &crate::el_model::EMCreateCtx) -> Self::Storage {
-        TextModel {
-            node: Rc::new(RefCell::new(RenderText {
-                prop: self.clone(),
-                paragraph: None,
-                prev_draw_region: None,
-            })),
+impl RenderText {
+    pub fn new(text: Text, event_callback: EventCallback, ctx: &EMCreateCtx) -> Self {
+        Self {
+            text,
+            paragraph: None,
+            common: Common::new(event_callback, ctx),
         }
     }
-    fn update(&self, storage: &mut Self::Storage, ctx: &crate::el_model::EMCreateCtx) {
-        let mut node = storage.node.borrow_mut();
-        if *self != node.prop {
-            node.paragraph = None;
-            if let Some(dr) = node.prev_draw_region.take() {
-                ctx.global_content.request_redraw(dr);
-            }
+
+    pub fn update_text(&mut self) -> RedrawGuard<Text> {
+        self.paragraph = None;
+        RedrawGuard::new(&mut self.text, &mut self.common)
+    }
+}
+
+impl RenderTree for RenderText {
+    fn render(&mut self, args: super::RenderArgs, draw_region: crate::primitive::Region) {
+        if !args.needs_redraw(draw_region) {
+            return;
         }
+
+        self.common.prev_draw_region = Some(draw_region);
+        let para = self
+            .paragraph
+            .get_or_insert_with(|| self.text.build_paragraph());
+        para.layout(draw_region.right_bottom.0 - draw_region.left_top.0);
+        para.paint(args.canvas, draw_region.left_top);
+    }
+
+    fn emit_event(&mut self, delta: &mut PointerStateDelta, draw_region: Region) {
+        self.common.use_callback(delta, draw_region);
+    }
+
+    fn set_callback(&mut self, callback: EventCallback) {
+        self.common.event_callback = callback;
     }
 }
 
@@ -76,11 +71,5 @@ impl Text {
             )
             .add_text(&self.text)
             .build()
-    }
-}
-
-impl GetElement for TextModel {
-    fn get_element(&self) -> super::Element {
-        Element::Text(self.node.clone())
     }
 }

@@ -20,13 +20,14 @@ use crate::{
 
 use super::{
     content::GlobalContent,
+    event2::pointer_event::{PointerState, PointerStateDelta},
     event_comp::{global::focusing::Focusing, GlobalEventMgr},
     redraw_scheduler::RedrawScheduler,
     Window,
 };
 
 pub(super) struct BackendRuntime<T> {
-    gem: GlobalEventMgr,
+    pointer_state: PointerState,
     gc: Rc<GlobalContent>,
     root_model: T,
 }
@@ -51,6 +52,13 @@ where
     }
 
     fn on_window_event(&mut self, event: WindowEvent) {
+        let next = self.pointer_state.next(&event);
+        let delta = PointerStateDelta {
+            prev: self.pointer_state,
+            next,
+            cursor_may_over: true,
+        };
+        self.pointer_state = next;
         // TODO
         // if let WindowEvent::Resized(size) = &event {
         //     self.root
@@ -109,7 +117,7 @@ where
             // root.
 
             BackendRuntime {
-                gem: GlobalEventMgr::new(),
+                pointer_state: PointerState::new(),
                 gc,
                 root_model,
             }

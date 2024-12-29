@@ -5,13 +5,22 @@ use irisia_backend::skia_safe::{Canvas, Region as SkRegion};
 use rect::RenderRect;
 use text::RenderText;
 
-use crate::{application::content::GlobalContent, model2::Model, primitive::Region};
+use crate::{
+    application::{
+        content::GlobalContent,
+        event2::pointer_event::{PointerEvent, PointerStateDelta},
+    },
+    model2::Model,
+    primitive::Region,
+};
 
 pub mod block;
 pub mod rect;
+mod redraw_guard;
 pub mod text;
 
 type Handle<T> = Rc<RefCell<T>>;
+type EventCallback = Box<dyn Fn(PointerEvent)>;
 
 #[derive(Clone)]
 pub struct EMCreateCtx {
@@ -20,6 +29,8 @@ pub struct EMCreateCtx {
 
 pub trait RenderTree: Any {
     fn render(&mut self, args: RenderArgs, draw_region: Region);
+    fn emit_event(&mut self, delta: &mut PointerStateDelta, draw_region: Region);
+    fn set_callback(&mut self, callback: EventCallback);
 }
 
 #[derive(Clone, Copy)]
@@ -51,13 +62,34 @@ pub enum Element {
     Text(Handle<RenderText>),
 }
 
+macro_rules! for_el {
+    ($self: ident, $el:ident, $stmt:stmt) => {
+        match $self {
+            Self::Block(el) => {
+                let mut $el = el.borrow_mut();
+                $stmt
+            }
+            Self::Rect(el) => {
+                let mut $el = el.borrow_mut();
+                $stmt
+            }
+            Self::Text(el) => {
+                let mut $el = el.borrow_mut();
+                $stmt
+            }
+        }
+    };
+}
+
 impl RenderTree for Element {
     fn render(&mut self, args: RenderArgs, draw_region: Region) {
-        match self {
-            Self::Block(el) => el.borrow_mut().render(args, draw_region),
-            Self::Rect(el) => el.borrow_mut().render(args, draw_region),
-            Self::Text(el) => el.borrow_mut().render(args, draw_region),
-        }
+        for_el!(self, el, el.render(args, draw_region))
+    }
+    fn emit_event(&mut self, delta: &mut PointerStateDelta, draw_region: Region) {
+        for_el!(self, el, el.emit_event(delta, draw_region))
+    }
+    fn set_callback(&mut self, callback: EventCallback) {
+        for_el!(self, el, el.set_callback(callback))
     }
 }
 
@@ -75,6 +107,31 @@ where
 }
 
 struct Common {
+    prev_cursor_over: bool,
+    event_callback: EventCallback,
+    prev_draw_region: Option<Region>,
     ctx: EMCreateCtx,
-    prev_redraw_region: Option<Region>,
+}
+
+impl Common {
+    fn new(event_callback: EventCallback, ctx: &EMCreateCtx) -> Common {
+        Self {
+            prev_cursor_over: false,
+            event_callback,
+            prev_draw_region: None,
+            ctx: ctx.clone(),
+        }
+    }
+
+    fn use_callback(&mut self, delta: &mut PointerStateDelta, draw_region: Region) {
+        delta
+            .get_event(draw_region, &mut self.prev_cursor_over)
+            .for_each(&self.event_callback);
+    }
+
+    fn request_redraw(&mut self) {
+        if let Some(dr) = self.prev_draw_region.take() {
+            self.ctx.global_content.request_redraw(dr);
+        }
+    }
 }
