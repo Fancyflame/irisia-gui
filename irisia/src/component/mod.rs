@@ -4,8 +4,8 @@ use hooks::{HookStorage, UseHook};
 use schedule_rerun::ScheduleRerun;
 
 use crate::{
+    model::{VModel, VNode},
     prim_element::EMCreateCtx,
-    model2::{VModel, VNode},
     prim_element::GetElement,
 };
 

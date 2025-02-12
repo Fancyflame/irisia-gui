@@ -4,7 +4,7 @@ use irisia_backend::{winit::window::WindowAttributes, WinitWindow};
 
 use crate::{
     event::{standard::WindowDestroyed, EventDispatcher},
-    model2::VNode,
+    model::VNode,
     Result,
 };
 

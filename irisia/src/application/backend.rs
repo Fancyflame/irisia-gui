@@ -9,7 +9,7 @@ use irisia_backend::{
 
 use crate::{
     event::{standard::WindowDestroyed, EventDispatcher},
-    model2::VNode,
+    model::VNode,
     prim_element::{EMCreateCtx, GetElement, RenderTree},
     primitive::{Point, Region},
     Result,

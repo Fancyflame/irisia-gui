@@ -10,7 +10,7 @@ use crate::{
         content::GlobalContent,
         event2::pointer_event::{PointerEvent, PointerStateDelta},
     },
-    model2::Model,
+    model::Model,
     primitive::Region,
 };
 

@@ -1,6 +1,6 @@
 use irisia::{
     component::{hooks::UseHook, Comp, Component},
-    model2::{VModel, VNode},
+    model::{VModel, VNode},
     prim_element::{block::vmodel::Block, rect::Rect, text::Text},
     primitive::{Point, Region},
     skia_safe::Color,

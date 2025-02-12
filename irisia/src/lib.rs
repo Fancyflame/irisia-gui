@@ -16,12 +16,10 @@ macro_rules! inner_error {
 
 pub mod application;
 pub mod component;
-// pub mod el_model;
-// pub mod element;
+
 pub mod event;
-pub mod hook;
 pub mod log;
-pub mod model2;
+pub mod model;
 pub mod prim_element;
 pub mod primitive;
 
