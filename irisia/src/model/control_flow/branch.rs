@@ -8,12 +8,13 @@ pub enum Branch<A, B> {
     B(B),
 }
 
-impl<A, B> Branch<&A, &B>
+impl<A, B> VModel for Branch<A, B>
 where
     A: VModel,
     B: VModel,
 {
-    fn create_ref(&self, ctx: &EMCreateCtx) -> BranchModel<A::Storage, B::Storage> {
+    type Storage = BranchModel<A::Storage, B::Storage>;
+    fn create(self, ctx: &EMCreateCtx) -> Self::Storage {
         match self {
             Self::A(a) => BranchModel {
                 current_is_a: true,
@@ -27,7 +28,7 @@ where
             },
         }
     }
-    fn update_ref(&self, storage: &mut BranchModel<A::Storage, B::Storage>, ctx: &EMCreateCtx) {
+    fn update(self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
         match self {
             Self::A(a) => {
                 storage.current_is_a = true;
@@ -44,49 +45,6 @@ where
                 }
             }
         }
-    }
-}
-
-impl<A, B> VModel for Branch<A, B>
-where
-    A: VModel,
-    B: VModel,
-{
-    type Storage = BranchModel<A::Storage, B::Storage>;
-    fn create(&self, ctx: &EMCreateCtx) -> Self::Storage {
-        (match self {
-            Branch::A(a) => Branch::A(a),
-            Branch::B(b) => Branch::B(b),
-        })
-        .create_ref(ctx)
-    }
-    fn update(&self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
-        (match self {
-            Branch::A(a) => Branch::A(a),
-            Branch::B(b) => Branch::B(b),
-        })
-        .update_ref(storage, ctx);
-    }
-}
-
-impl<T> VModel for Option<T>
-where
-    T: VModel,
-{
-    type Storage = BranchModel<T::Storage, ()>;
-    fn create(&self, ctx: &EMCreateCtx) -> Self::Storage {
-        (match self {
-            Some(v) => Branch::A(v),
-            None => Branch::B(&()),
-        })
-        .create_ref(ctx)
-    }
-    fn update(&self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
-        (match self {
-            Some(v) => Branch::A(v),
-            None => Branch::B(&()),
-        })
-        .update_ref(storage, ctx);
     }
 }
 

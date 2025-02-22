@@ -5,13 +5,14 @@ use crate::{
 
 pub mod branch;
 pub mod repeat;
+pub mod slot;
 pub mod tuple;
 
-pub trait VModel: 'static {
+pub trait VModel {
     type Storage: Model;
 
-    fn update(&self, storage: &mut Self::Storage, ctx: &EMCreateCtx);
-    fn create(&self, ctx: &EMCreateCtx) -> Self::Storage;
+    fn update(self, storage: &mut Self::Storage, ctx: &EMCreateCtx);
+    fn create(self, ctx: &EMCreateCtx) -> Self::Storage;
 }
 
 pub trait Model: 'static {

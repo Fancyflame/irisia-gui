@@ -7,24 +7,33 @@ use crate::{prim_element::EMCreateCtx, prim_element::Element};
 
 use super::{Model, VModel};
 
+pub struct Repeat<I, F> {
+    pub iter: I,
+    pub key_fn: F,
+}
+
 struct Item<T> {
     used: bool,
     value: T,
 }
 
-impl<K, T> VModel for Vec<(K, T)>
+impl<I, T, K, F> VModel for Repeat<I, F>
 where
-    K: Hash + Eq + Clone + 'static,
+    I: Iterator<Item = T>,
     T: VModel,
+    K: Hash + Eq + Clone + 'static,
+    F: Fn(&T) -> K,
 {
     type Storage = RepeatModel<K, T::Storage>;
-    fn create(&self, ctx: &EMCreateCtx) -> Self::Storage {
+    fn create(self, ctx: &EMCreateCtx) -> Self::Storage {
+        let capacity = self.iter.size_hint().0;
         let mut this = RepeatModel {
-            map: HashMap::with_capacity(self.len()),
-            order: Vec::with_capacity(self.len()),
+            map: HashMap::with_capacity(capacity),
+            order: Vec::with_capacity(capacity),
         };
 
-        for (key, vmodel) in self {
+        for vmodel in self.iter {
+            let key = (self.key_fn)(&vmodel);
             match this.map.entry(key.clone()) {
                 Entry::Vacant(vac) => {
                     vac.insert(Item {
@@ -43,9 +52,10 @@ where
         this
     }
 
-    fn update(&self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
+    fn update(self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
         storage.order.clear();
-        for (key, vmodel) in self {
+        for vmodel in self.iter {
+            let key = (self.key_fn)(&vmodel);
             match storage.map.entry(key.clone()) {
                 Entry::Vacant(vac) => {
                     vac.insert(Item {
