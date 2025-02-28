@@ -1,5 +1,7 @@
+use std::ops::BitOrAssign;
+
 #[derive(Clone, Copy)]
-pub struct DirtySet<const N: usize = 12>([u8; N]);
+pub(super) struct DirtySet<const N: usize = 12>([u8; N]);
 
 impl<const N: usize> DirtySet<N> {
     pub fn new() -> Self {
@@ -24,7 +26,7 @@ impl<const N: usize> DirtySet<N> {
 }
 
 #[derive(Clone)]
-pub struct DirtySetIter<'a> {
+pub(super) struct DirtySetIter<'a> {
     bits_offset: usize,
     current: u8,
     rest: std::slice::Iter<'a, u8>,
@@ -41,6 +43,14 @@ impl Iterator for DirtySetIter<'_> {
         let shifts = self.current.trailing_zeros();
         self.current &= !(1 << shifts);
         Some(self.bits_offset + shifts as usize)
+    }
+}
+
+impl<const N: usize> BitOrAssign<Self> for DirtySet<N> {
+    fn bitor_assign(&mut self, rhs: Self) {
+        for (lhs, rhs) in self.0.iter_mut().zip(rhs.0.into_iter()) {
+            *lhs |= rhs;
+        }
     }
 }
 

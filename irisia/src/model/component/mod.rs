@@ -1,4 +1,4 @@
-pub mod dirty_flag;
+pub mod field;
 
 pub trait ComponentArgs: Sized {
     type Model: Component<Self>;
