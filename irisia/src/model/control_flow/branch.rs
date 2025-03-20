@@ -1,4 +1,7 @@
-use crate::{prim_element::EMCreateCtx, prim_element::Element};
+use crate::{
+    model::optional_update::DirtyPoints,
+    prim_element::{EMCreateCtx, Element},
+};
 
 use super::{Model, VModel};
 
@@ -13,57 +16,45 @@ where
     A: VModel,
     B: VModel,
 {
-    type Storage = BranchModel<A::Storage, B::Storage>;
-    fn create(self, ctx: &EMCreateCtx) -> Self::Storage {
+    const EXECUTE_POINTS: usize = A::EXECUTE_POINTS + B::EXECUTE_POINTS;
+    type Storage = Branch<A::Storage, B::Storage>;
+
+    fn create(self, exec_point_offset: usize, ctx: &EMCreateCtx) -> Self::Storage {
         match self {
-            Self::A(a) => BranchModel {
-                current_is_a: true,
-                a: Some(a.create(ctx)),
-                b: None,
-            },
-            Self::B(b) => BranchModel {
-                current_is_a: false,
-                a: None,
-                b: Some(b.create(ctx)),
-            },
+            Self::A(upd) => Branch::A(upd.create(exec_point_offset, ctx)),
+            Self::B(upd) => Branch::B(upd.create(exec_point_offset, ctx)),
         }
     }
-    fn update(self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
+
+    fn update(self, storage: &mut Self::Storage, dp: DirtyPoints, ctx: &EMCreateCtx) {
         match self {
-            Self::A(a) => {
-                storage.current_is_a = true;
-                match &mut storage.a {
-                    Some(cache) => a.update(cache, ctx),
-                    cache @ None => *cache = Some(a.create(ctx)),
+            Self::A(upd) => {
+                if let Branch::A(cache) = storage {
+                    upd.update(cache, dp, ctx);
+                } else {
+                    *storage = Branch::A(upd.create(dp.offset(), ctx));
                 }
             }
-            Self::B(b) => {
-                storage.current_is_a = false;
-                match &mut storage.b {
-                    Some(cache) => b.update(cache, ctx),
-                    cache @ None => *cache = Some(b.create(ctx)),
+            Self::B(upd) => {
+                if let Branch::B(cache) = storage {
+                    upd.update(cache, dp, ctx);
+                } else {
+                    *storage = Branch::B(upd.create(dp.offset() + A::EXECUTE_POINTS, ctx));
                 }
             }
         }
     }
 }
 
-pub struct BranchModel<A, B> {
-    a: Option<A>,
-    b: Option<B>,
-    current_is_a: bool,
-}
-
-impl<A, B> Model for BranchModel<A, B>
+impl<A, B> Model for Branch<A, B>
 where
     A: Model,
     B: Model,
 {
     fn visit(&self, f: &mut dyn FnMut(Element)) {
-        if self.current_is_a {
-            self.a.as_ref().unwrap().visit(f);
-        } else {
-            self.b.as_ref().unwrap().visit(f);
+        match self {
+            Self::A(a) => a.visit(f),
+            Self::B(b) => b.visit(f),
         }
     }
 }

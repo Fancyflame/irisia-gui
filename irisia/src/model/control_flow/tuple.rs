@@ -1,4 +1,7 @@
-use crate::{prim_element::EMCreateCtx, prim_element::Element};
+use crate::{
+    model::optional_update::DirtyPoints,
+    prim_element::{EMCreateCtx, Element},
+};
 
 use super::{Model, VModel};
 
@@ -7,13 +10,18 @@ where
     A: VModel,
     B: VModel,
 {
+    const EXECUTE_POINTS: usize = A::EXECUTE_POINTS + B::EXECUTE_POINTS;
     type Storage = (A::Storage, B::Storage);
-    fn create(self, ctx: &EMCreateCtx) -> Self::Storage {
-        (self.0.create(ctx), self.1.create(ctx))
+    fn create(self, exec_point_offset: usize, ctx: &EMCreateCtx) -> Self::Storage {
+        (
+            self.0.create(exec_point_offset, ctx),
+            self.1.create(exec_point_offset + A::EXECUTE_POINTS, ctx),
+        )
     }
-    fn update(self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
-        self.0.update(&mut storage.0, ctx);
-        self.1.update(&mut storage.1, ctx);
+    fn update(self, storage: &mut Self::Storage, mut dp: DirtyPoints, ctx: &EMCreateCtx) {
+        self.0.update(&mut storage.0, dp.nested(0), ctx);
+        self.1
+            .update(&mut storage.1, dp.nested(A::EXECUTE_POINTS), ctx);
     }
 }
 
@@ -29,9 +37,11 @@ where
 }
 
 impl VModel for () {
+    const EXECUTE_POINTS: usize = 0;
     type Storage = ();
-    fn create(self, _ctx: &EMCreateCtx) -> Self::Storage {}
-    fn update(self, _storage: &mut Self::Storage, _ctx: &EMCreateCtx) {}
+
+    fn create(self, _exec_point_offset: usize, _ctx: &EMCreateCtx) -> Self::Storage {}
+    fn update(self, _storage: &mut Self::Storage, _dp: DirtyPoints, _ctx: &EMCreateCtx) {}
 }
 
 impl Model for () {

@@ -1,34 +1,36 @@
-use std::{cell::RefCell, iter::Peekable};
-
 pub use control_flow::{Model, VModel, VNode};
-use dirty_set::DirtySetIter;
 
-pub mod component;
+// pub mod component;
 pub mod control_flow;
-mod dirty_set;
+pub mod optional_update;
 
-thread_local! {
-    static UPDATE_POINT_STACK: RefCell<Vec<usize>> = RefCell::new(Vec::new());
-}
+mod test {
+    use super::optional_update::DirtyPoints;
 
-struct UpdatePoints<'r, 's> {
-    iter: &'r mut Peekable<DirtySetIter<'s>>,
-    offset: usize,
-}
+    fn test(p: DirtyPoints) {
+        test! {
+            foo<'a> {
+                a: f32,
+                s: &'a str -> String,
+                b1: f32 -> .,
+                c1: . -> f32,
+                c2: . -> f32,
+            } {
+                Foo {
+                    a: a,
+                    b: b,
 
-impl<'s> UpdatePoints<'_, 's> {
-    pub fn peek(&mut self) -> Option<usize> {
-        self.iter.peek().map(|pos| *pos - self.offset)
-    }
+                    if a + b == 2 {
+                        Bar1 {
 
-    pub fn step(&mut self) {
-        self.iter.next();
-    }
-
-    pub fn nest<'r2>(&'r2 mut self, next_offset: usize) -> UpdatePoints<'r2, 's> {
-        UpdatePoints {
-            iter: self.iter,
-            offset: self.offset + next_offset,
+                        }
+                    } else {
+                        Bar2 {
+                            for
+                        }
+                    }
+                }
+            }
         }
     }
 }

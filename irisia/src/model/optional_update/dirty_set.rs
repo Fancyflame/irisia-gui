@@ -1,7 +1,7 @@
 use std::ops::BitOrAssign;
 
 #[derive(Clone, Copy)]
-pub(super) struct DirtySet<const N: usize = 12>([u8; N]);
+pub(crate) struct DirtySet<const N: usize = 12>([u8; N]);
 
 impl<const N: usize> DirtySet<N> {
     pub fn new() -> Self {

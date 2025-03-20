@@ -3,16 +3,20 @@ use crate::{
     prim_element::{Element, GetElement},
 };
 
+use super::optional_update::DirtyPoints;
+
 pub mod branch;
+mod execute;
 pub mod repeat;
 pub mod slot;
 pub mod tuple;
 
 pub trait VModel {
+    const EXECUTE_POINTS: usize;
     type Storage: Model;
 
-    fn update(self, storage: &mut Self::Storage, ctx: &EMCreateCtx);
-    fn create(self, ctx: &EMCreateCtx) -> Self::Storage;
+    fn create(self, exec_point_offset: usize, ctx: &EMCreateCtx) -> Self::Storage;
+    fn update(self, storage: &mut Self::Storage, dirty_points: DirtyPoints, ctx: &EMCreateCtx);
 }
 
 pub trait Model: 'static {

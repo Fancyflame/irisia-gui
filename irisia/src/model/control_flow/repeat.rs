@@ -3,7 +3,10 @@ use std::{
     hash::Hash,
 };
 
-use crate::{prim_element::EMCreateCtx, prim_element::Element};
+use crate::{
+    model::optional_update::DirtyPoints,
+    prim_element::{EMCreateCtx, Element},
+};
 
 use super::{Model, VModel};
 
@@ -24,8 +27,10 @@ where
     K: Hash + Eq + Clone + 'static,
     F: Fn(&T) -> K,
 {
+    const EXECUTE_POINTS: usize = T::EXECUTE_POINTS;
     type Storage = RepeatModel<K, T::Storage>;
-    fn create(self, ctx: &EMCreateCtx) -> Self::Storage {
+
+    fn create(self, exec_point_offset: usize, ctx: &EMCreateCtx) -> Self::Storage {
         let capacity = self.iter.size_hint().0;
         let mut this = RepeatModel {
             map: HashMap::with_capacity(capacity),
@@ -37,7 +42,7 @@ where
             match this.map.entry(key.clone()) {
                 Entry::Vacant(vac) => {
                     vac.insert(Item {
-                        value: vmodel.create(ctx),
+                        value: vmodel.create(exec_point_offset, ctx),
                         used: false,
                     });
                     this.order.push(key.clone());
@@ -52,25 +57,27 @@ where
         this
     }
 
-    fn update(self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
+    fn update(self, storage: &mut Self::Storage, mut dp: DirtyPoints, ctx: &EMCreateCtx) {
         storage.order.clear();
         for vmodel in self.iter {
             let key = (self.key_fn)(&vmodel);
             match storage.map.entry(key.clone()) {
                 Entry::Vacant(vac) => {
                     vac.insert(Item {
-                        value: vmodel.create(ctx),
+                        value: vmodel.create(dp.offset(), ctx),
                         used: true,
                     });
                 }
                 Entry::Occupied(mut occ) => {
                     let item = occ.get_mut();
                     item.used = true;
-                    vmodel.update(&mut item.value, ctx);
+                    vmodel.update(&mut item.value, dp.fork(), ctx);
                 }
             };
             storage.order.push(key.clone());
         }
+
+        dp.consume(T::EXECUTE_POINTS);
 
         storage
             .map
