@@ -1,5 +1,5 @@
 use crate::{
-    model::optional_update::DirtyPoints,
+    model::tools::DirtyPoints,
     prim_element::{EMCreateCtx, Element},
 };
 

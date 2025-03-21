@@ -3,7 +3,7 @@ use crate::{
     prim_element::{Element, GetElement},
 };
 
-use super::optional_update::DirtyPoints;
+use super::tools::DirtyPoints;
 
 pub mod branch;
 mod execute;

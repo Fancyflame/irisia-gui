@@ -1,5 +1,5 @@
 use crate::{
-    model::optional_update::{caller_stack, DirtyPoints},
+    model::tools::{caller_stack, DirtyPoints},
     prim_element::EMCreateCtx,
 };
 

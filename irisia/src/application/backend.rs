@@ -114,9 +114,12 @@ where
                 user_close: Cell::new(true),
             });
 
-            let root_model = root_creator().create(&EMCreateCtx {
-                global_content: gc.clone(),
-            });
+            let root_model = root_creator().create(
+                0,
+                &EMCreateCtx {
+                    global_content: gc.clone(),
+                },
+            );
 
             //root.set_draw_region(Some(window_size_to_draw_region(gc.window().inner_size())));
             // root.
