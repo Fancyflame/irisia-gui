@@ -1,3 +1,4 @@
+pub(crate) use dirty_set::DirtySet;
 use dirty_set::DirtySetIter;
 use std::{
     iter::Peekable,
@@ -52,8 +53,8 @@ impl<'a> DirtyPoints<'_, 'a> {
         self.offset
     }
 
-    pub fn fork(&self) -> Self {
-        Self {
+    pub fn fork<'r>(&self) -> DirtyPoints<'r, 'a> {
+        DirtyPoints {
             iter: MaybeOwned::Owned(self.iter.clone()),
             offset: self.offset,
         }

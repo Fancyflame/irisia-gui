@@ -6,6 +6,7 @@ use crate::{
 use super::tools::DirtyPoints;
 
 pub mod branch;
+pub mod component;
 mod execute;
 pub mod repeat;
 pub mod slot;

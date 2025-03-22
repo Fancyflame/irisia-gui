@@ -1,10 +1,12 @@
-pub mod field;
+use super::{tools::DirtyPoints, VModel};
 
-pub trait ComponentArgs: Sized {
-    type Model: Component<Self>;
+pub mod field;
+pub mod vmodel_builder;
+
+pub trait Component {
+    type Proxy: VModel;
 }
 
-pub trait Component<Args> {
-    fn create(args: Args) -> Self;
-    fn update(&mut self, args: Args);
+pub trait ComponentProxy {
+    type Input<'a>;
 }

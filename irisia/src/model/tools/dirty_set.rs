@@ -1,7 +1,7 @@
 use std::ops::BitOrAssign;
 
 #[derive(Clone, Copy)]
-pub(crate) struct DirtySet<const N: usize = 12>([u8; N]);
+pub struct DirtySet<const N: usize = 12>([u8; N]);
 
 impl<const N: usize> DirtySet<N> {
     pub fn new() -> Self {
@@ -26,7 +26,7 @@ impl<const N: usize> DirtySet<N> {
 }
 
 #[derive(Clone)]
-pub(super) struct DirtySetIter<'a> {
+pub struct DirtySetIter<'a> {
     bits_offset: usize,
     current: u8,
     rest: std::slice::Iter<'a, u8>,

@@ -3,7 +3,7 @@ use std::hash::Hash;
 use control_flow::{branch::Branch, repeat::Repeat};
 pub use control_flow::{Model, VModel, VNode};
 
-// pub mod component;
+pub mod component;
 pub mod control_flow;
 pub mod tools;
 
