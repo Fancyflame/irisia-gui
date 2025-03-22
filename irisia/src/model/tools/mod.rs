@@ -1,61 +1,39 @@
 pub(crate) use dirty_set::DirtySet;
 use dirty_set::DirtySetIter;
-use std::{
-    iter::Peekable,
-    ops::{Deref, DerefMut},
-};
+use std::ops::{Deref, DerefMut};
 
 pub(crate) mod caller_stack;
 mod dirty_set;
 
-pub struct DirtyPoints<'i, 'a> {
-    iter: MaybeOwned<'i, Peekable<DirtySetIter<'a>>>,
+pub struct DirtyPoints<'a> {
+    iter: DirtySetIter<'a>,
     offset: usize,
 }
 
-impl<'a> DirtyPoints<'_, 'a> {
+impl<'a> DirtyPoints<'a> {
     pub(crate) fn new(iter: DirtySetIter<'a>) -> Self {
-        Self {
-            iter: MaybeOwned::Owned(iter.peekable()),
-            offset: 0,
-        }
+        Self { iter, offset: 0 }
     }
 
-    pub fn check_range(&mut self, upper_bound: usize) -> bool {
+    pub fn check_range(&self, upper_bound: usize) -> bool {
         match self.iter.peek() {
-            Some(p) => (self.offset..self.offset + upper_bound).contains(p),
+            Some(p) => p < self.offset + upper_bound,
             None => false,
         }
     }
 
     pub fn consume(&mut self, upper_bound: usize) {
-        loop {
-            self.iter.next_if(|&p| p < self.offset + upper_bound);
-        }
-    }
-
-    pub fn nested(&mut self, offset: usize) -> DirtyPoints<'_, 'a> {
-        let next = self.iter.peek().copied();
-        let new_offset = self.offset + offset;
-
-        debug_assert!(
-            !matches!(next, Some(n) if n < new_offset),
-            "invalid offset: there still points not consumed before offset"
-        );
-
-        DirtyPoints {
-            iter: MaybeOwned::RefMut(&mut *self.iter),
-            offset: new_offset,
-        }
+        self.offset += upper_bound;
+        self.iter.set_cursor(self.offset);
     }
 
     pub fn offset(&self) -> usize {
         self.offset
     }
 
-    pub fn fork<'r>(&self) -> DirtyPoints<'r, 'a> {
+    pub fn fork(&self) -> Self {
         DirtyPoints {
-            iter: MaybeOwned::Owned(self.iter.clone()),
+            iter: self.iter.clone(),
             offset: self.offset,
         }
     }

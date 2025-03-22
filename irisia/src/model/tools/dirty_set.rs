@@ -16,33 +16,11 @@ impl<const N: usize> DirtySet<N> {
     }
 
     pub fn iter(&self) -> DirtySetIter {
-        let mut iter = self.0.iter();
         DirtySetIter {
-            bits_offset: 0,
-            current: iter.next().copied().unwrap_or(0),
-            rest: iter,
+            data: &self.0,
+            cursor_byte: 0,
+            cursor_bits: 0,
         }
-    }
-}
-
-#[derive(Clone)]
-pub struct DirtySetIter<'a> {
-    bits_offset: usize,
-    current: u8,
-    rest: std::slice::Iter<'a, u8>,
-}
-
-impl Iterator for DirtySetIter<'_> {
-    type Item = usize;
-    fn next(&mut self) -> Option<Self::Item> {
-        while self.current == 0 {
-            self.bits_offset += 8;
-            self.current = *self.rest.next()?;
-        }
-
-        let shifts = self.current.trailing_zeros();
-        self.current &= !(1 << shifts);
-        Some(self.bits_offset + shifts as usize)
     }
 }
 
@@ -51,6 +29,54 @@ impl<const N: usize> BitOrAssign<Self> for DirtySet<N> {
         for (lhs, rhs) in self.0.iter_mut().zip(rhs.0.into_iter()) {
             *lhs |= rhs;
         }
+    }
+}
+
+#[derive(Clone)]
+pub struct DirtySetIter<'a> {
+    cursor_byte: usize,
+    cursor_bits: u32,
+    data: &'a [u8],
+}
+
+impl Iterator for DirtySetIter<'_> {
+    type Item = usize;
+    fn next(&mut self) -> Option<Self::Item> {
+        let byte = loop {
+            let mut byte = self.data.get(self.cursor_byte).copied()?;
+            byte &= !0 << self.cursor_bits;
+
+            if byte == 0 {
+                self.cursor_byte += 1;
+                self.cursor_bits = 0;
+            } else {
+                break byte;
+            }
+        };
+
+        let shifts = byte.trailing_zeros();
+        self.cursor_bits = shifts + 1;
+
+        Some(self.cursor_byte * 8 + shifts as usize)
+    }
+}
+
+impl DirtySetIter<'_> {
+    pub fn new_empty() -> Self {
+        Self {
+            cursor_byte: 0,
+            cursor_bits: 0,
+            data: &[],
+        }
+    }
+
+    pub fn peek(&self) -> Option<usize> {
+        self.clone().next()
+    }
+
+    pub fn set_cursor(&mut self, new_position: usize) {
+        self.cursor_byte = new_position % 8;
+        self.cursor_bits = (new_position / 8) as _;
     }
 }
 

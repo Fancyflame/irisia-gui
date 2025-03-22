@@ -65,8 +65,8 @@ where
 pub trait VModelBuilderNode<'dp, T> {
     const EXECUTE_POINTS: usize;
 
-    fn create_build(self, src: &mut T, exec_point_offset: usize);
-    fn update_build(self, src: &mut T, dp: DirtyPoints<'_, 'dp>);
+    fn create_build(self, src: &mut T, dp: &mut DirtyPoints<'dp>);
+    fn update_build(self, src: &mut T, dp: &mut DirtyPoints<'dp>);
 }
 
 impl<'dp, T, F1, F2> VModelBuilderNode<'dp, T> for (F1, F2)
@@ -75,11 +75,13 @@ where
     F2: VModelBuilderNode<'dp, T>,
 {
     const EXECUTE_POINTS: usize = F1::EXECUTE_POINTS + F2::EXECUTE_POINTS;
+
     fn create_build(self, src: &mut T, exec_point_offset: usize) {
         self.0.create_build(src, exec_point_offset);
         self.1
             .create_build(src, exec_point_offset + F1::EXECUTE_POINTS);
     }
+
     fn update_build(self, src: &mut T, mut dp: DirtyPoints<'_, 'dp>) {
         self.0.update_build(src, dp.nested(0));
         self.1.update_build(src, dp.nested(F1::EXECUTE_POINTS));

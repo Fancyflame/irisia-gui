@@ -27,18 +27,21 @@ where
     const EXECUTE_POINTS: usize = 1 + R::EXECUTE_POINTS;
     type Storage = R::Storage;
 
-    fn create(self, exec_point_offset: usize, ctx: &EMCreateCtx) -> Self::Storage {
-        caller_stack::with_caller(exec_point_offset, self.updator)
-            .create(exec_point_offset + 1, ctx)
+    fn create(self, dp: &mut DirtyPoints, ctx: &EMCreateCtx) -> Self::Storage {
+        let result = caller_stack::with_caller(dp.offset(), self.updator);
+        dp.consume(1);
+        result.create(dp, ctx)
     }
 
-    fn update(self, storage: &mut Self::Storage, mut dp: DirtyPoints, ctx: &EMCreateCtx) {
+    fn update(self, storage: &mut Self::Storage, dp: &mut DirtyPoints, ctx: &EMCreateCtx) {
         let is_dirty = dp.check_range(Self::EXECUTE_POINTS);
-
-        if is_dirty {
-            let vmodel = caller_stack::with_caller(dp.offset(), self.updator);
-            dp.consume(1);
-            vmodel.update(storage, dp.nested(1), ctx);
+        if !is_dirty {
+            dp.consume(Self::EXECUTE_POINTS);
+            return;
         }
+
+        let vmodel = caller_stack::with_caller(dp.offset(), self.updator);
+        dp.consume(1);
+        vmodel.update(storage, dp, ctx);
     }
 }

@@ -30,7 +30,7 @@ where
     const EXECUTE_POINTS: usize = T::EXECUTE_POINTS;
     type Storage = RepeatModel<K, T::Storage>;
 
-    fn create(self, exec_point_offset: usize, ctx: &EMCreateCtx) -> Self::Storage {
+    fn create(self, dp: &mut DirtyPoints, ctx: &EMCreateCtx) -> Self::Storage {
         let capacity = self.iter.size_hint().0;
         let mut this = RepeatModel {
             map: HashMap::with_capacity(capacity),
@@ -42,7 +42,7 @@ where
             match this.map.entry(key.clone()) {
                 Entry::Vacant(vac) => {
                     vac.insert(Item {
-                        value: vmodel.create(exec_point_offset, ctx),
+                        value: vmodel.create(&mut dp.fork(), ctx),
                         used: false,
                     });
                     this.order.push(key.clone());
@@ -54,34 +54,34 @@ where
             };
         }
 
+        dp.consume(Self::EXECUTE_POINTS);
         this
     }
 
-    fn update(self, storage: &mut Self::Storage, mut dp: DirtyPoints, ctx: &EMCreateCtx) {
+    fn update(self, storage: &mut Self::Storage, dp: &mut DirtyPoints, ctx: &EMCreateCtx) {
         storage.order.clear();
         for vmodel in self.iter {
             let key = (self.key_fn)(&vmodel);
             match storage.map.entry(key.clone()) {
                 Entry::Vacant(vac) => {
                     vac.insert(Item {
-                        value: vmodel.create(dp.offset(), ctx),
+                        value: vmodel.create(&mut dp.fork(), ctx),
                         used: true,
                     });
                 }
                 Entry::Occupied(mut occ) => {
                     let item = occ.get_mut();
                     item.used = true;
-                    vmodel.update(&mut item.value, dp.fork(), ctx);
+                    vmodel.update(&mut item.value, &mut dp.fork(), ctx);
                 }
             };
             storage.order.push(key.clone());
         }
 
-        dp.consume(T::EXECUTE_POINTS);
-
         storage
             .map
             .retain(|_, item| std::mem::replace(&mut item.used, false));
+        dp.consume(Self::EXECUTE_POINTS);
     }
 }
 

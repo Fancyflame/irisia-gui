@@ -19,27 +19,36 @@ where
     const EXECUTE_POINTS: usize = A::EXECUTE_POINTS + B::EXECUTE_POINTS;
     type Storage = Branch<A::Storage, B::Storage>;
 
-    fn create(self, exec_point_offset: usize, ctx: &EMCreateCtx) -> Self::Storage {
+    fn create(self, dp: &mut DirtyPoints, ctx: &EMCreateCtx) -> Self::Storage {
         match self {
-            Self::A(upd) => Branch::A(upd.create(exec_point_offset, ctx)),
-            Self::B(upd) => Branch::B(upd.create(exec_point_offset, ctx)),
+            Self::A(upd) => {
+                let storage = Branch::A(upd.create(dp, ctx));
+                dp.consume(B::EXECUTE_POINTS);
+                storage
+            }
+            Self::B(upd) => {
+                dp.consume(A::EXECUTE_POINTS);
+                Branch::B(upd.create(dp, ctx))
+            }
         }
     }
 
-    fn update(self, storage: &mut Self::Storage, dp: DirtyPoints, ctx: &EMCreateCtx) {
+    fn update(self, storage: &mut Self::Storage, dp: &mut DirtyPoints, ctx: &EMCreateCtx) {
         match self {
             Self::A(upd) => {
                 if let Branch::A(cache) = storage {
                     upd.update(cache, dp, ctx);
                 } else {
-                    *storage = Branch::A(upd.create(dp.offset(), ctx));
+                    *storage = Branch::A(upd.create(dp, ctx));
                 }
+                dp.consume(B::EXECUTE_POINTS);
             }
             Self::B(upd) => {
+                dp.consume(A::EXECUTE_POINTS);
                 if let Branch::B(cache) = storage {
                     upd.update(cache, dp, ctx);
                 } else {
-                    *storage = Branch::B(upd.create(dp.offset() + A::EXECUTE_POINTS, ctx));
+                    *storage = Branch::B(upd.create(dp, ctx));
                 }
             }
         }

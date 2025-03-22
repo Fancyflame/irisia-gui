@@ -6,7 +6,6 @@ use crate::{
 use super::tools::DirtyPoints;
 
 pub mod branch;
-pub mod component;
 mod execute;
 pub mod repeat;
 pub mod slot;
@@ -16,8 +15,8 @@ pub trait VModel {
     const EXECUTE_POINTS: usize;
     type Storage: Model;
 
-    fn create(self, exec_point_offset: usize, ctx: &EMCreateCtx) -> Self::Storage;
-    fn update(self, storage: &mut Self::Storage, dirty_points: DirtyPoints, ctx: &EMCreateCtx);
+    fn create(self, dirty_points: &mut DirtyPoints, ctx: &EMCreateCtx) -> Self::Storage;
+    fn update(self, storage: &mut Self::Storage, dirty_points: &mut DirtyPoints, ctx: &EMCreateCtx);
 }
 
 pub trait Model: 'static {
