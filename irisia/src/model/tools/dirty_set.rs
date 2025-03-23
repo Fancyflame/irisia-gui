@@ -1,5 +1,3 @@
-use std::ops::BitOrAssign;
-
 #[derive(Clone, Copy)]
 pub struct DirtySet<const N: usize = 12>([u8; N]);
 
@@ -15,68 +13,53 @@ impl<const N: usize> DirtySet<N> {
         *byte |= 1 << shifts;
     }
 
-    pub fn iter(&self) -> DirtySetIter {
-        DirtySetIter {
-            data: &self.0,
-            cursor_byte: 0,
-            cursor_bits: 0,
-        }
+    pub fn data(&self) -> [u8; N] {
+        self.0
     }
-}
 
-impl<const N: usize> BitOrAssign<Self> for DirtySet<N> {
-    fn bitor_assign(&mut self, rhs: Self) {
-        for (lhs, rhs) in self.0.iter_mut().zip(rhs.0.into_iter()) {
-            *lhs |= rhs;
+    pub fn union(&mut self, rhs: Self) {
+        for (a, b) in self.0.iter_mut().zip(rhs.0.into_iter()) {
+            *a |= b;
         }
     }
 }
 
 #[derive(Clone)]
-pub struct DirtySetIter<'a> {
-    cursor_byte: usize,
-    cursor_bits: u32,
-    data: &'a [u8],
+pub struct Cursor {
+    bytes: usize,
+    bits: u32,
 }
 
-impl Iterator for DirtySetIter<'_> {
-    type Item = usize;
-    fn next(&mut self) -> Option<Self::Item> {
+impl Cursor {
+    pub(super) fn new(offset: usize) -> Self {
+        Self {
+            bytes: offset / 8,
+            bits: (offset % 8) as _,
+        }
+    }
+
+    pub(super) fn offset(&self) -> usize {
+        self.bytes * 8 + self.bits as usize
+    }
+
+    pub fn next<'a>(&mut self, data: &'a [u8]) -> Option<usize> {
         let byte = loop {
-            let mut byte = self.data.get(self.cursor_byte).copied()?;
-            byte &= !0 << self.cursor_bits;
+            let mut byte = data.get(self.bytes).copied()?;
+            byte &= !0 << self.bits;
 
             if byte == 0 {
-                self.cursor_byte += 1;
-                self.cursor_bits = 0;
+                self.bytes += 1;
+                self.bits = 0;
             } else {
                 break byte;
             }
         };
+        self.bits = byte.trailing_zeros();
 
-        let shifts = byte.trailing_zeros();
-        self.cursor_bits = shifts + 1;
+        let result = self.offset();
+        self.bits += 1;
 
-        Some(self.cursor_byte * 8 + shifts as usize)
-    }
-}
-
-impl DirtySetIter<'_> {
-    pub fn new_empty() -> Self {
-        Self {
-            cursor_byte: 0,
-            cursor_bits: 0,
-            data: &[],
-        }
-    }
-
-    pub fn peek(&self) -> Option<usize> {
-        self.clone().next()
-    }
-
-    pub fn set_cursor(&mut self, new_position: usize) {
-        self.cursor_byte = new_position % 8;
-        self.cursor_bits = (new_position / 8) as _;
+        Some(result)
     }
 }
 
@@ -87,6 +70,9 @@ fn test() {
     for input in inputs {
         set.mark(input);
     }
-    let vec: Vec<usize> = set.iter().collect();
+
+    let mut cursor = Cursor::new(0);
+    let data = set.data();
+    let vec: Vec<usize> = std::iter::from_fn(|| cursor.next(&data)).collect();
     assert_eq!(&*vec, &inputs);
 }

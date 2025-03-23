@@ -1,74 +1,66 @@
 use crate::{
-    model::{tools::DirtyPoints, VModel},
+    model::{
+        tools::{Cursor, DirtyPoints},
+        VModel,
+    },
     prim_element::EMCreateCtx,
 };
 
 use super::VModelBuilderNode;
 
 pub struct DefineSlot<S, F> {
-    pub(crate) slot: S,
-    pub(crate) applicator: F,
+    pub(super) slot: S,
+    pub(super) applicator: F,
 }
 
-impl<'dp, T, S, F> VModelBuilderNode<'dp, T> for DefineSlot<S, F>
+impl<T, S, F> VModelBuilderNode<T> for DefineSlot<S, F>
 where
     S: VModel,
-    F: Fn(&mut T, PackedSlot<'dp, S>),
+    F: Fn(&mut T, PackedSlot<S>),
 {
     const EXECUTE_POINTS: usize = S::EXECUTE_POINTS;
 
-    fn create_build(self, src: &mut T, exec_point_offset: usize) {
+    fn create_build(self, src: &mut T, dp: &mut DirtyPoints) {
         (self.applicator)(
             src,
             PackedSlot {
-                meta: PackedSlotMeta::ExecPointOffset(exec_point_offset),
+                dp_cursor: dp.cursor.clone(),
                 slot: self.slot,
             },
         );
-    }
-
-    fn update_build(self, src: &mut T, mut dp: DirtyPoints<'_, 'dp>) {
-        let static_dp = dp.fork();
         dp.consume(S::EXECUTE_POINTS);
+    }
 
-        (self.applicator)(
-            src,
-            PackedSlot {
-                meta: PackedSlotMeta::DirtyPoints(static_dp),
-                slot: self.slot,
-            },
-        );
+    fn update_build(self, src: &mut T, dp: &mut DirtyPoints) {
+        self.create_build(src, dp);
     }
 }
 
-pub(crate) enum PackedSlotMeta<'a> {
-    ExecPointOffset(usize),
-    DirtyPoints(DirtyPoints<'a, 'a>),
-}
-
-pub struct PackedSlot<'a, S> {
-    meta: PackedSlotMeta<'a>,
+pub struct PackedSlot<S> {
     slot: S,
+    dp_cursor: Cursor,
 }
 
-impl<S> VModel for PackedSlot<'_, S>
+impl<S> VModel for PackedSlot<S>
 where
     S: VModel,
 {
     type Storage = S::Storage;
     const EXECUTE_POINTS: usize = 0;
 
-    fn create(self, _: usize, ctx: &EMCreateCtx) -> Self::Storage {
-        match self.meta {
-            PackedSlotMeta::ExecPointOffset(offset) => self.slot.create(offset, ctx),
-            PackedSlotMeta::DirtyPoints(dp) => self.slot.create(dp.offset(), ctx),
-        }
+    fn create(self, dp: &mut DirtyPoints, ctx: &EMCreateCtx) -> Self::Storage {
+        self.slot.create(&mut patch_cursor(dp, self.dp_cursor), ctx)
     }
 
-    fn update(self, storage: &mut Self::Storage, _: DirtyPoints, ctx: &EMCreateCtx) {
-        match self.meta {
-            PackedSlotMeta::ExecPointOffset(_) => panic!("should be meta for updating"),
-            PackedSlotMeta::DirtyPoints(dp) => self.slot.update(storage, dp, ctx),
-        }
+    fn update(self, storage: &mut Self::Storage, dp: &mut DirtyPoints, ctx: &EMCreateCtx) {
+        self.slot
+            .update(storage, &mut patch_cursor(dp, self.dp_cursor), ctx);
+    }
+}
+
+fn patch_cursor<'r>(old: &'r mut DirtyPoints, cursor: Cursor) -> DirtyPoints<'r> {
+    DirtyPoints {
+        cursor,
+        data: old.data,
     }
 }

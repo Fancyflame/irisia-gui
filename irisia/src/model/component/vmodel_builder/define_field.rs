@@ -4,7 +4,7 @@ use super::VModelBuilderNode;
 
 pub struct DefineField<F>(pub(super) F);
 
-impl<T, F> VModelBuilderNode<'_, T> for DefineField<F>
+impl<T, F> VModelBuilderNode<T> for DefineField<F>
 where
     F: FnOnce(&mut T),
 {

@@ -1,4 +1,4 @@
-use super::{tools::DirtyPoints, VModel};
+use super::VModel;
 
 pub mod field;
 pub mod vmodel_builder;

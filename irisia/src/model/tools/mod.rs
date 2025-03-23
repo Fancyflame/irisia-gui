@@ -1,40 +1,42 @@
-pub(crate) use dirty_set::DirtySet;
-use dirty_set::DirtySetIter;
+pub(crate) use dirty_set::{Cursor, DirtySet};
 use std::ops::{Deref, DerefMut};
 
 pub(crate) mod caller_stack;
 mod dirty_set;
 
 pub struct DirtyPoints<'a> {
-    iter: DirtySetIter<'a>,
-    offset: usize,
+    pub(crate) cursor: Cursor,
+    pub(crate) data: &'a mut [u8],
 }
 
 impl<'a> DirtyPoints<'a> {
-    pub(crate) fn new(iter: DirtySetIter<'a>) -> Self {
-        Self { iter, offset: 0 }
+    pub(crate) fn new(data: &'a mut [u8]) -> Self {
+        Self {
+            cursor: Cursor::new(0),
+            data,
+        }
     }
 
     pub fn check_range(&self, upper_bound: usize) -> bool {
-        match self.iter.peek() {
-            Some(p) => p < self.offset + upper_bound,
+        let peeked = self.cursor.clone().next(&self.data);
+        match peeked {
+            Some(p) => p < self.offset() + upper_bound,
             None => false,
         }
     }
 
     pub fn consume(&mut self, upper_bound: usize) {
-        self.offset += upper_bound;
-        self.iter.set_cursor(self.offset);
+        self.cursor = Cursor::new(self.cursor.offset() + upper_bound);
     }
 
     pub fn offset(&self) -> usize {
-        self.offset
+        self.cursor.offset()
     }
 
-    pub fn fork(&self) -> Self {
+    pub fn fork(&mut self) -> DirtyPoints {
         DirtyPoints {
-            iter: self.iter.clone(),
-            offset: self.offset,
+            cursor: self.cursor.clone(),
+            data: self.data,
         }
     }
 }

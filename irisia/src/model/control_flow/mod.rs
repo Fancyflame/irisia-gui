@@ -15,7 +15,8 @@ pub trait VModel {
     const EXECUTE_POINTS: usize;
     type Storage: Model;
 
-    fn create(self, dirty_points: &mut DirtyPoints, ctx: &EMCreateCtx) -> Self::Storage;
+    fn create(self, dp: &mut DirtyPoints, ctx: &EMCreateCtx) -> Self::Storage;
+
     fn update(self, storage: &mut Self::Storage, dirty_points: &mut DirtyPoints, ctx: &EMCreateCtx);
 }
 

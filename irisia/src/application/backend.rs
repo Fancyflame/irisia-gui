@@ -9,7 +9,7 @@ use irisia_backend::{
 
 use crate::{
     event::{standard::WindowDestroyed, EventDispatcher},
-    model::VNode,
+    model::{tools::DirtyPoints, VNode},
     prim_element::{EMCreateCtx, GetElement, RenderTree},
     primitive::{Point, Region},
     Result,
@@ -115,7 +115,7 @@ where
             });
 
             let root_model = root_creator().create(
-                0,
+                &mut DirtyPoints::new(&mut []),
                 &EMCreateCtx {
                     global_content: gc.clone(),
                 },
