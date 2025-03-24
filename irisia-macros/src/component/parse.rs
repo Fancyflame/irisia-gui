@@ -10,7 +10,10 @@ use syn::{
 };
 
 mod kw {
-    syn::custom_keyword!(model);
+    use syn::custom_keyword;
+
+    custom_keyword!(model);
+    custom_keyword!(key);
 }
 
 impl Parse for DomMacro {
@@ -162,10 +165,19 @@ fn parse_for_stmt(input: ParseStream) -> Result<ForStmt> {
     let pattern = input.call(Pat::parse_multi_with_leading_vert)?;
     input.parse::<Token![in]>()?;
     let expr = input.call(Expr::parse_without_eager_brace)?;
+    let key_fn = if input.peek(Token![,]) {
+        input.parse::<Token![,]>()?;
+        input.parse::<kw::key>()?;
+        input.parse::<Token![=]>()?;
+        Some(input.call(Expr::parse_without_eager_brace)?)
+    } else {
+        None
+    };
 
     Ok(ForStmt {
         pattern,
         expr,
+        key_fn,
         body: parse_block(input)?,
     })
 }
