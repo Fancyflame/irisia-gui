@@ -1,16 +1,31 @@
 pub(crate) use dirty_set::{Cursor, DirtySet};
-use std::ops::{Deref, DerefMut};
+use std::{
+    cell::RefCell,
+    ops::{Deref, DerefMut},
+};
 
 pub(crate) mod caller_stack;
 mod dirty_set;
 
+pub struct DirtyPointsSrc<const D_CAP: usize>(RefCell<[u8; D_CAP]>);
+
+impl<const D_CAP: usize> DirtyPointsSrc<D_CAP> {
+    pub fn new(ds: DirtySet<D_CAP>) -> Self {
+        Self(RefCell::new(ds.data()))
+    }
+
+    pub fn to_dp(&self) -> DirtyPoints {
+        DirtyPoints::new(&self.0)
+    }
+}
+
 pub struct DirtyPoints<'a> {
     pub(crate) cursor: Cursor,
-    pub(crate) data: &'a mut [u8],
+    pub(crate) data: &'a RefCell<[u8]>,
 }
 
 impl<'a> DirtyPoints<'a> {
-    pub(crate) fn new(data: &'a mut [u8]) -> Self {
+    fn new(data: &'a RefCell<[u8]>) -> Self {
         Self {
             cursor: Cursor::new(0),
             data,
@@ -18,7 +33,7 @@ impl<'a> DirtyPoints<'a> {
     }
 
     pub fn check_range(&self, upper_bound: usize) -> bool {
-        let peeked = self.cursor.clone().next(&self.data);
+        let peeked = self.cursor.clone().next(&self.data.borrow());
         match peeked {
             Some(p) => p < self.offset() + upper_bound,
             None => false,
@@ -33,7 +48,7 @@ impl<'a> DirtyPoints<'a> {
         self.cursor.offset()
     }
 
-    pub fn fork(&mut self) -> DirtyPoints {
+    pub fn fork(&self) -> DirtyPoints {
         DirtyPoints {
             cursor: self.cursor.clone(),
             data: self.data,

@@ -5,6 +5,8 @@ use crate::{
     prim_element::EMCreateCtx,
 };
 
+pub use self::define_slot::{MergedPackedSlot, PackedSlot};
+
 mod define_field;
 mod define_slot;
 

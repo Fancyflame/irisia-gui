@@ -41,26 +41,35 @@ pub struct PackedSlot<S> {
     dp_cursor: Cursor,
 }
 
-impl<S> VModel for PackedSlot<S>
+impl<S> PackedSlot<S> {
+    pub fn merge<'a>(self, dp: &DirtyPoints<'a>) -> MergedPackedSlot<'a, S> {
+        MergedPackedSlot {
+            slot: self.slot,
+            dp: DirtyPoints {
+                cursor: self.dp_cursor,
+                data: dp.data,
+            },
+        }
+    }
+}
+
+pub struct MergedPackedSlot<'a, S> {
+    slot: S,
+    dp: DirtyPoints<'a>,
+}
+
+impl<S> VModel for MergedPackedSlot<'_, S>
 where
     S: VModel,
 {
     type Storage = S::Storage;
     const EXECUTE_POINTS: usize = 0;
 
-    fn create(self, dp: &mut DirtyPoints, ctx: &EMCreateCtx) -> Self::Storage {
-        self.slot.create(&mut patch_cursor(dp, self.dp_cursor), ctx)
+    fn create(mut self, _: &mut DirtyPoints, ctx: &EMCreateCtx) -> Self::Storage {
+        self.slot.create(&mut self.dp, ctx)
     }
 
-    fn update(self, storage: &mut Self::Storage, dp: &mut DirtyPoints, ctx: &EMCreateCtx) {
-        self.slot
-            .update(storage, &mut patch_cursor(dp, self.dp_cursor), ctx);
-    }
-}
-
-fn patch_cursor<'r>(old: &'r mut DirtyPoints, cursor: Cursor) -> DirtyPoints<'r> {
-    DirtyPoints {
-        cursor,
-        data: old.data,
+    fn update(mut self, storage: &mut Self::Storage, _: &mut DirtyPoints, ctx: &EMCreateCtx) {
+        self.slot.update(storage, &mut self.dp, ctx);
     }
 }

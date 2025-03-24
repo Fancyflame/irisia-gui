@@ -7,39 +7,13 @@ pub mod component;
 pub mod control_flow;
 pub mod tools;
 
-pub fn branch<A, B>(b: Branch<A, B>) -> impl VModel
-where
-    A: VModel,
-    B: VModel,
-{
-    b
-}
-
-pub fn repeat<I, F, K>(iter: I, key_fn: F) -> impl VModel
-where
-    I: Iterator,
-    I::Item: VModel,
-    K: Hash + Eq + Clone + 'static,
-    F: Fn(&I::Item) -> K,
-{
-    Repeat { iter, key_fn }
-}
-
-pub fn execute<F, R>(f: F) -> impl VModel
-where
-    F: FnOnce() -> R,
-    R: VModel,
-{
-    Execute::new(f)
-}
-
 mod test {
     use irisia_macros::component;
 
+    use crate::model::control_flow::branch::Branch;
+
     use super::{
-        branch,
-        control_flow::{branch::Branch, execute::Execute},
-        execute, repeat,
+        control_flow::{branch, execute, repeat},
         tools::DirtyPoints,
         VModel,
     };
@@ -61,7 +35,7 @@ mod test {
                     a: a,
                     b: b,
                     model slot: match c1 {
-                        Some((a, b)) if 1 + 1 == 3 => {},
+                        Some((a, b)) if 1 + 1 == 3 => children,
                         None => {},
                     },
 
