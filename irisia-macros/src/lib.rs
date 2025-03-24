@@ -1,3 +1,4 @@
+use component::DomMacro;
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use props2::CastProp;
@@ -8,6 +9,7 @@ use syn::{
 };
 
 mod build_macro;
+mod component;
 mod derive_props;
 mod inner_impl_listen;
 mod main_macro;
@@ -80,4 +82,10 @@ pub fn __inner_impl_listen(_: TokenStream) -> TokenStream {
 #[proc_macro_derive(PartialEq, attributes(partial_eq))]
 pub fn derive_partial_eq(input: TokenStream) -> TokenStream {
     partial_eq::derive_partial_eq(input)
+}
+
+#[proc_macro]
+pub fn component(input: TokenStream) -> TokenStream {
+    let dm = parse_macro_input!(input as DomMacro);
+    TokenStream::new()
 }

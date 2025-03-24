@@ -34,6 +34,8 @@ where
 }
 
 mod test {
+    use irisia_macros::component;
+
     use super::{
         branch,
         control_flow::{branch::Branch, execute::Execute},
@@ -46,25 +48,35 @@ mod test {
     }
 
     fn test() {
-        test! {
-            foo<'a> {
+        component! {
+            Foo<'a> {
                 a: f32,
-                s: &'a str -> String,
-                b1: f32 -> .,
-                c1: . -> f32,
-                c2: . -> f32,
-            } {
+                s: &'a str => String,
+                b: f32 => _,
+                c1: _ => f32,
+                c2: _ => f32,
+                model children,
+
                 Foo {
                     a: a,
                     b: b,
+                    model slot: match c1 {
+                        Some((a, b)) if 1 + 1 == 3 => {},
+                        None => {},
+                    },
 
+                    children;
                     if a + b == 2 {
                         Bar1 {
+                            field1: "Aaa",
+                            field2: 123,
 
                         }
                     } else {
                         Bar2 {
-                            for
+                            for a in 0..10 {
+
+                            }
                         }
                     }
                 }
