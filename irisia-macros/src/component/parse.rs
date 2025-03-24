@@ -73,13 +73,12 @@ fn parse_field_def(input: ParseStream, prefix: FieldIdentPrefix) -> Result<Field
 fn parse_stmts(input: ParseStream) -> Result<Vec<Stmt>> {
     let mut stmts = Vec::new();
     while !input.is_empty() {
-        let stmt = parse_stmt(input)?;
-        stmts.push(stmt);
+        stmts.push(parse_stmt(input, true)?);
     }
     Ok(stmts)
 }
 
-fn parse_stmt(input: ParseStream) -> Result<Stmt> {
+fn parse_stmt(input: ParseStream, multiple_mode: bool) -> Result<Stmt> {
     if input.peek(Token![if]) {
         Ok(Stmt::If(parse_if_stmt(input)?))
     } else if input.peek(Token![match]) {
@@ -88,12 +87,18 @@ fn parse_stmt(input: ParseStream) -> Result<Stmt> {
         Ok(Stmt::For(parse_for_stmt(input)?))
     } else if input.peek(Token![while]) {
         Ok(Stmt::While(parse_while_stmt(input)?))
-    } else if input.peek(Ident) && input.peek2(Token![;]) {
-        Ok(Stmt::Slot(parse_slot(input)?))
     } else if input.peek(Brace) {
         Ok(Stmt::Block(parse_block(input)?))
     } else {
-        Ok(Stmt::Component(parse_component(input)?))
+        let path: syn::Path = input.parse()?;
+        if let (Some(ident), true) = (path.get_ident(), !input.peek(Brace)) {
+            if multiple_mode {
+                input.parse::<Token![;]>()?;
+            }
+            Ok(Stmt::Slot(UseSlot { var: ident.clone() }))
+        } else {
+            Ok(Stmt::Component(parse_component(input, path)?))
+        }
     }
 }
 
@@ -144,7 +149,7 @@ fn parse_match_stmt(input: ParseStream) -> Result<MatchStmt> {
             },
             body: {
                 content.parse::<Token![=>]>()?;
-                parse_block(&content)?
+                parse_stmt(&content, false)?
             },
         });
         content.parse::<Token![,]>()?;
@@ -173,14 +178,7 @@ fn parse_while_stmt(input: ParseStream) -> Result<WhileStmt> {
     })
 }
 
-fn parse_slot(input: ParseStream) -> Result<UseSlot> {
-    let var = input.parse()?;
-    input.parse::<Token![;]>()?;
-    Ok(UseSlot { var })
-}
-
-fn parse_component(input: ParseStream) -> Result<Component> {
-    let path: syn::Path = input.parse()?;
+fn parse_component(input: ParseStream, path: syn::Path) -> Result<Component> {
     let content;
     braced!(content in input);
 
@@ -188,15 +186,14 @@ fn parse_component(input: ParseStream) -> Result<Component> {
 
     while let Some(prefix) = parse_field_prefix(&content)? {
         content.parse::<Token![:]>()?;
-
         let fa = match prefix {
             FieldIdentPrefix::Value(name) => FieldAssignment::Value {
-                name,
                 value: content.parse()?,
+                name,
             },
             FieldIdentPrefix::Model(name) => FieldAssignment::Model {
                 name,
-                tree: parse_stmt(&content)?,
+                tree: parse_stmt(&content, false)?,
             },
         };
         content.parse::<Token![,]>()?;

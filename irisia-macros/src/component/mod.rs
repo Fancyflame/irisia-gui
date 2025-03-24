@@ -44,7 +44,7 @@ struct MatchStmt {
 struct MatchArm {
     pattern: syn::Pat,
     guard: Option<Expr>,
-    body: BlockStmt,
+    body: Stmt,
 }
 
 struct ForStmt {
