@@ -6,7 +6,7 @@ use crate::{
 use super::tools::DirtyPoints;
 
 pub mod branch;
-mod execute;
+pub mod execute;
 pub mod repeat;
 pub mod slot;
 pub mod tuple;
