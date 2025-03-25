@@ -4,9 +4,7 @@ pub mod field;
 pub mod vmodel_builder;
 
 pub trait Component {
-    type Proxy: VModel;
+    type Proxy: ComponentProxy;
 }
 
-pub trait ComponentProxy {
-    type Input<'a>;
-}
+pub trait ComponentProxy {}

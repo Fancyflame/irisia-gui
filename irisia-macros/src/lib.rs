@@ -8,6 +8,29 @@ use syn::{
     parse_macro_input, DeriveInput, Item, Result,
 };
 
+macro_rules! const_quote {
+    (
+        $(
+            $vis:vis const $Name:ident = {
+                $($tt:tt)*
+            };
+        )*
+    ) => {
+        $(
+            #[doc = "## expand to"]
+            #[doc = stringify!($($tt)*)]
+            #[allow(non_camel_case_types)]
+            $vis struct $Name;
+
+            impl quote::ToTokens for $Name {
+                fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+                    quote! { $($tt)* }.to_tokens(tokens)
+                }
+            }
+        )*
+    };
+}
+
 mod build_macro;
 mod component;
 mod derive_props;

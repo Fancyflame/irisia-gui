@@ -63,7 +63,7 @@ mod test {
         let expr = 10;
         let vm = execute(|| {
             if expr == 10 {
-                branch(Branch::A(execute(|| repeat((0..10).map(|_| ()), |t| ()))))
+                branch(Branch::A(execute(|| repeat((0..10).map(|idx| (idx, ()))))))
             } else {
                 branch(Branch::B(execute(|| ())))
             }

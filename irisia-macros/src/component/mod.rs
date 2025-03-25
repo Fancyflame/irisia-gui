@@ -50,7 +50,7 @@ struct MatchArm {
 struct ForStmt {
     pattern: syn::Pat,
     expr: syn::Expr,
-    key_fn: Option<syn::Expr>,
+    get_key: Option<syn::Expr>,
     body: BlockStmt,
 }
 

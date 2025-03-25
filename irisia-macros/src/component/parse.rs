@@ -165,7 +165,7 @@ fn parse_for_stmt(input: ParseStream) -> Result<ForStmt> {
     let pattern = input.call(Pat::parse_multi_with_leading_vert)?;
     input.parse::<Token![in]>()?;
     let expr = input.call(Expr::parse_without_eager_brace)?;
-    let key_fn = if input.peek(Token![,]) {
+    let get_key = if input.peek(Token![,]) {
         input.parse::<Token![,]>()?;
         input.parse::<kw::key>()?;
         input.parse::<Token![=]>()?;
@@ -177,7 +177,7 @@ fn parse_for_stmt(input: ParseStream) -> Result<ForStmt> {
     Ok(ForStmt {
         pattern,
         expr,
-        key_fn,
+        get_key,
         body: parse_block(input)?,
     })
 }

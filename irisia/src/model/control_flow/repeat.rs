@@ -10,9 +10,8 @@ use crate::{
 
 use super::{Model, VModel};
 
-pub struct Repeat<I, F> {
+pub struct Repeat<I> {
     pub iter: I,
-    pub key_fn: F,
 }
 
 struct Item<T> {
@@ -20,12 +19,11 @@ struct Item<T> {
     value: T,
 }
 
-impl<I, T, K, F> VModel for Repeat<I, F>
+impl<I, T, K> VModel for Repeat<I>
 where
-    I: Iterator<Item = T>,
-    T: VModel,
+    I: Iterator<Item = (K, T)>,
     K: Hash + Eq + Clone + 'static,
-    F: Fn(&T) -> K,
+    T: VModel,
 {
     const EXECUTE_POINTS: usize = T::EXECUTE_POINTS;
     type Storage = RepeatModel<K, T::Storage>;
@@ -37,8 +35,7 @@ where
             order: Vec::with_capacity(capacity),
         };
 
-        for vmodel in self.iter {
-            let key = (self.key_fn)(&vmodel);
+        for (key, vmodel) in self.iter {
             match this.map.entry(key.clone()) {
                 Entry::Vacant(vac) => {
                     vac.insert(Item {
@@ -60,8 +57,7 @@ where
 
     fn update(self, storage: &mut Self::Storage, dp: &mut DirtyPoints, ctx: &EMCreateCtx) {
         storage.order.clear();
-        for vmodel in self.iter {
-            let key = (self.key_fn)(&vmodel);
+        for (key, vmodel) in self.iter {
             match storage.map.entry(key.clone()) {
                 Entry::Vacant(vac) => {
                     vac.insert(Item {

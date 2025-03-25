@@ -41,14 +41,13 @@ where
     b
 }
 
-pub fn repeat<I, F, K>(iter: I, key_fn: F) -> impl VModel
+pub fn repeat<I, K, T>(iter: I) -> impl VModel
 where
-    I: Iterator,
-    I::Item: VModel,
+    I: Iterator<Item = (K, T)>,
     K: Hash + Eq + Clone + 'static,
-    F: Fn(&I::Item) -> K,
+    T: VModel,
 {
-    Repeat { iter, key_fn }
+    Repeat { iter }
 }
 
 pub fn execute<F, R>(f: F) -> impl VModel
