@@ -1,11 +1,12 @@
 use std::collections::VecDeque;
 
 use proc_macro2::TokenStream;
-use quote::quote;
+use quote::{format_ident, quote};
+use syn::Ident;
 
 use crate::component::{
     codegen::{PATH_CONTROL_FLOW, VAR_INPUT_DP},
-    ForStmt, IfStmt, Stmt, UseSlot,
+    Component, FieldAssignment, ForStmt, IfStmt, Stmt, UseSlot,
 };
 
 impl Stmt {
@@ -15,9 +16,7 @@ impl Stmt {
             Stmt::Slot(slot) => gen_slot(slot),
             Stmt::For(for_stmt) => gen_for(for_stmt),
             Stmt::If(if_stmt) => gen_if(if_stmt),
-            Stmt::Component(comp) => {
-                todo!()
-            }
+            Stmt::Component(comp) => gen_component(comp),
             _ => todo!(),
         }
     }
@@ -27,7 +26,7 @@ impl Stmt {
     }
 }
 
-fn gen_chained(stmts: &[Stmt]) -> TokenStream {
+pub(super) fn gen_chained(stmts: &[Stmt]) -> TokenStream {
     match stmts {
         [] => quote! {()},
         [one] => one.gen_code(),
@@ -98,5 +97,42 @@ fn gen_if(
                 )
             }
         })
+    }
+}
+
+fn gen_component(Component { path, fields, body }: &Component) -> TokenStream {
+    let proxy_type = quote! {
+        <#path as irisia::model::component::Component>::Proxy
+    };
+
+    let def_slot = |name: &Ident, tree_tokens| {
+        quote! {
+            .def_slot(|__irisia_comp, __irisia_packed_slot| {
+                __irisia_comp.#name = __irisia_packed_slot;
+            }, #tree_tokens)
+        }
+    };
+
+    let definitions = fields.iter().map(|field| match field {
+        FieldAssignment::Value { name, value } => quote! {
+            .def_field(|__irisia_comp| __irisia_comp.#name = #value )
+        },
+        FieldAssignment::Model { name, tree } => def_slot(name, tree.gen_code()),
+    });
+
+    let def_children = if !body.is_empty() {
+        Some(def_slot(&format_ident!("children"), gen_chained(&body)))
+    } else {
+        None
+    };
+
+    quote! {
+        {
+            irisia::model::component::vmodel_builder::VModelBuilder::new(
+                #proxy_type::blank_prop
+            )
+                #(#definitions)*
+                #def_children
+        }
     }
 }

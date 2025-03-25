@@ -109,6 +109,5 @@ pub fn derive_partial_eq(input: TokenStream) -> TokenStream {
 
 #[proc_macro]
 pub fn component(input: TokenStream) -> TokenStream {
-    let dm = parse_macro_input!(input as DomMacro);
-    TokenStream::new()
+    parse_macro_input!(input as DomMacro).gen_code().into()
 }

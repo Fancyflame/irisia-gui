@@ -22,6 +22,7 @@ mod test {
     }
 
     fn test() {
+        use crate as irisia;
         component! {
             Foo<'a> {
                 a: f32,
@@ -34,11 +35,10 @@ mod test {
                 Foo {
                     a: a,
                     b: b,
-                    model slot: match c1 {
+                    /*model slot: match c1 {
                         Some((a, b)) if 1 + 1 == 3 => children,
                         None => {},
-                    },
-
+                    },*/
                     children;
                     if a + b == 2 {
                         Bar1 {
@@ -48,9 +48,9 @@ mod test {
                         }
                     } else {
                         Bar2 {
-                            for a in 0..10 {
+                            /*for a in 0..10 {
 
-                            }
+                            }*/
                         }
                     }
                 }

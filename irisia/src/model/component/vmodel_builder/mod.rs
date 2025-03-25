@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use crate::{
     model::{tools::DirtyPoints, VModel},
     prim_element::EMCreateCtx,
@@ -10,44 +8,44 @@ pub use self::define_slot::{MergedPackedSlot, PackedSlot};
 mod define_field;
 mod define_slot;
 
-pub struct VModelBuilder<T, F> {
-    _default_src: PhantomData<T>,
-    definitions: F,
+pub struct VModelBuilder<T, D> {
+    create_blank_prop: fn() -> T,
+    definitions: D,
 }
 
-impl<T> VModelBuilder<T, ()>
-where
-    T: Default,
-{
-    pub fn new() -> Self {
+impl<T> VModelBuilder<T, ()> {
+    pub fn new(f: fn() -> T) -> Self {
         Self {
-            _default_src: PhantomData,
+            create_blank_prop: f,
             definitions: (),
         }
     }
 }
 
-impl<T, F> VModelBuilder<T, F> {
+impl<T, D> VModelBuilder<T, D> {
     pub fn def_field<F2>(
         self,
         field_definer: F2,
-    ) -> VModelBuilder<T, (F, define_field::DefineField<F2>)>
+    ) -> VModelBuilder<T, (D, define_field::DefineField<F2>)>
     where
         F2: FnOnce(&mut T),
     {
         VModelBuilder {
-            _default_src: self._default_src,
+            create_blank_prop: self.create_blank_prop,
             definitions: (self.definitions, define_field::DefineField(field_definer)),
         }
     }
 
     pub fn def_slot<S, F2>(
         self,
-        slot: S,
         applicator: F2,
-    ) -> VModelBuilder<T, (F, define_slot::DefineSlot<S, F2>)> {
+        slot: S,
+    ) -> VModelBuilder<T, (D, define_slot::DefineSlot<S, F2>)>
+    where
+        F2: FnOnce(&mut T, PackedSlot<S>),
+    {
         VModelBuilder {
-            _default_src: self._default_src,
+            create_blank_prop: self.create_blank_prop,
             definitions: (
                 self.definitions,
                 define_slot::DefineSlot { slot, applicator },
@@ -67,13 +65,13 @@ where
     type Storage = T::Storage;
 
     fn create(self, dp: &mut DirtyPoints, ctx: &EMCreateCtx) -> Self::Storage {
-        let mut src = T::default();
+        let mut src = (self.create_blank_prop)();
         self.definitions.create_build(&mut src, dp);
         src.create(dp, ctx)
     }
 
     fn update(self, storage: &mut Self::Storage, dp: &mut DirtyPoints, ctx: &EMCreateCtx) {
-        let mut src = T::default();
+        let mut src = (self.create_blank_prop)();
         self.definitions.update_build(&mut src, dp);
         src.update(storage, dp, ctx);
     }
