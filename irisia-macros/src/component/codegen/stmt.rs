@@ -5,7 +5,7 @@ use quote::{format_ident, quote};
 use syn::Ident;
 
 use crate::component::{
-    codegen::{PATH_CONTROL_FLOW, VAR_INPUT_DP},
+    codegen::{PATH_COMPONENT, PATH_CONTROL_FLOW, VAR_INPUT_DP},
     Component, FieldAssignment, ForStmt, IfStmt, Stmt, UseSlot,
 };
 
@@ -102,7 +102,7 @@ fn gen_if(
 
 fn gen_component(Component { path, fields, body }: &Component) -> TokenStream {
     let proxy_type = quote! {
-        <#path as irisia::model::component::Component>::Proxy
+        <#path as #PATH_COMPONENT::Component>::Proxy
     };
 
     let def_slot = |name: &Ident, tree_tokens| {
@@ -128,7 +128,7 @@ fn gen_component(Component { path, fields, body }: &Component) -> TokenStream {
 
     quote! {
         {
-            irisia::model::component::vmodel_builder::VModelBuilder::new(
+            #PATH_COMPONENT::vmodel_builder::VModelBuilder::new(
                 #proxy_type::blank_prop
             )
                 #(#definitions)*

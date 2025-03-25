@@ -8,6 +8,7 @@ pub mod control_flow;
 pub mod tools;
 
 mod test {
+    use crate as irisia;
     use irisia_macros::component;
 
     use crate::model::control_flow::branch::Branch;
@@ -22,7 +23,6 @@ mod test {
     }
 
     fn test() {
-        use crate as irisia;
         component! {
             Foo<'a> {
                 a: f32,
@@ -48,9 +48,9 @@ mod test {
                         }
                     } else {
                         Bar2 {
-                            /*for a in 0..10 {
+                            for a in 0..10 {
 
-                            }*/
+                            }
                         }
                     }
                 }

@@ -1,5 +1,6 @@
 use super::VModel;
 
+pub mod child_box;
 pub mod field;
 pub mod vmodel_builder;
 
