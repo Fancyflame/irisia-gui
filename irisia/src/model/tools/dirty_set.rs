@@ -1,3 +1,5 @@
+use super::mark_bit;
+
 #[derive(Clone, Copy)]
 pub struct DirtySet<const N: usize = 12>([u8; N]);
 
@@ -7,18 +9,15 @@ impl<const N: usize> DirtySet<N> {
     }
 
     pub fn mark(&mut self, position: usize) {
-        let index = position / 8;
-        let shifts = position % 8;
-        let byte = self.0.get_mut(index).expect("position out of limit");
-        *byte |= 1 << shifts;
+        mark_bit(&mut self.0, position);
     }
 
-    pub fn data(&self) -> [u8; N] {
-        self.0
+    pub fn data(&self) -> &[u8; N] {
+        &self.0
     }
 
-    pub fn union(&mut self, rhs: Self) {
-        for (a, b) in self.0.iter_mut().zip(rhs.0.into_iter()) {
+    pub(crate) fn union(&mut self, rhs: &[u8; N]) {
+        for (a, &b) in self.0.iter_mut().zip(rhs.iter()) {
             *a |= b;
         }
     }
@@ -73,6 +72,6 @@ fn test() {
 
     let mut cursor = Cursor::new(0);
     let data = set.data();
-    let vec: Vec<usize> = std::iter::from_fn(|| cursor.next(&data)).collect();
+    let vec: Vec<usize> = std::iter::from_fn(|| cursor.next(data)).collect();
     assert_eq!(&*vec, &inputs);
 }

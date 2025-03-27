@@ -5,19 +5,9 @@ use std::{
 };
 
 pub(crate) mod caller_stack;
+pub mod dependent_grid;
 mod dirty_set;
-
-pub struct DirtyPointsSrc<const D_CAP: usize>(RefCell<[u8; D_CAP]>);
-
-impl<const D_CAP: usize> DirtyPointsSrc<D_CAP> {
-    pub fn new(ds: DirtySet<D_CAP>) -> Self {
-        Self(RefCell::new(ds.data()))
-    }
-
-    pub fn to_dp(&self) -> DirtyPoints {
-        DirtyPoints::new(&self.0)
-    }
-}
+pub mod watcher;
 
 pub struct DirtyPoints<'a> {
     pub(crate) cursor: Cursor,
@@ -78,4 +68,11 @@ impl<T> DerefMut for MaybeOwned<'_, T> {
             Self::RefMut(t) => t,
         }
     }
+}
+
+fn mark_bit(data: &mut [u8], position: usize) {
+    let index = position / 8;
+    let shifts = position % 8;
+    let byte = data.get_mut(index).expect("position out of limit");
+    *byte |= 1 << shifts;
 }

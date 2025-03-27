@@ -24,7 +24,7 @@ mod test {
 
     fn test() {
         component! {
-            Foo<'a> {
+            Foo {
                 a: f32,
                 s: &'a str => String,
                 b: f32 => _,

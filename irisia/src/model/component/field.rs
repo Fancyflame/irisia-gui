@@ -22,7 +22,7 @@ impl<T, const D_CAP: usize> FieldHook<T, D_CAP> {
             return;
         }
 
-        target.union(std::mem::replace(this.dirty_set.get_mut(), DirtySet::new()));
+        target.union(std::mem::replace(this.dirty_set.get_mut(), DirtySet::new()).data());
         this.value = value;
     }
 }
