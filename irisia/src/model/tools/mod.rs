@@ -1,8 +1,6 @@
+use dependent_grid::DependentGrid;
 pub(crate) use dirty_set::{Cursor, DirtySet};
-use std::{
-    cell::RefCell,
-    ops::{Deref, DerefMut},
-};
+use std::ops::{Deref, DerefMut};
 
 pub(crate) mod caller_stack;
 pub mod dependent_grid;
@@ -10,20 +8,22 @@ mod dirty_set;
 pub mod watcher;
 
 pub struct DirtyPoints<'a> {
-    pub(crate) cursor: Cursor,
-    pub(crate) data: &'a RefCell<[u8]>,
+    cursor: Cursor,
+    data: &'a [u8],
+    grid: &'a DependentGrid,
 }
 
 impl<'a> DirtyPoints<'a> {
-    fn new(data: &'a RefCell<[u8]>) -> Self {
+    fn new(data: &'a [u8], dep_grid: &'a DependentGrid) -> Self {
         Self {
             cursor: Cursor::new(0),
             data,
+            grid: dep_grid,
         }
     }
 
     pub fn check_range(&self, upper_bound: usize) -> bool {
-        let peeked = self.cursor.clone().next(&self.data.borrow());
+        let peeked = self.cursor.clone().next(&self.data);
         match peeked {
             Some(p) => p < self.offset() + upper_bound,
             None => false,
@@ -38,11 +38,16 @@ impl<'a> DirtyPoints<'a> {
         self.cursor.offset()
     }
 
-    pub fn fork(&self) -> DirtyPoints {
+    pub(crate) fn fork(&self) -> DirtyPoints {
         DirtyPoints {
             cursor: self.cursor.clone(),
             data: self.data,
+            grid: self.grid,
         }
+    }
+
+    pub(crate) fn dep_grid(&self) -> &DependentGrid {
+        self.grid
     }
 }
 

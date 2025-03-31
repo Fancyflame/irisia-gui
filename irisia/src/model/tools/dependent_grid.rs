@@ -10,13 +10,13 @@ pub struct DependentGrid {
 }
 
 impl DependentGrid {
-    pub fn new<T>(_: &T) -> Self
+    pub fn new<'a, T>(_: &T) -> Self
     where
-        T: VModel,
+        T: VModel<'a>,
     {
         let width = T::EXECUTE_POINTS;
         Self {
-            grid: vec![0u8; width * width].into(),
+            grid: vec![0u8; width * width.div_ceil(8)].into(),
             width,
         }
     }
@@ -26,7 +26,7 @@ impl DependentGrid {
         input: &DirtySet<D_CAP>,
         dst: &mut DirtySet<D_CAP>,
     ) {
-        assert_eq!(D_CAP, self.width);
+        assert_eq!(D_CAP, self.width.div_ceil(8));
 
         let mut new_ds: DirtySet<D_CAP> = DirtySet::new();
         new_ds.union(input.data());
@@ -34,6 +34,7 @@ impl DependentGrid {
 
         while let Some(point) = cursor.next(new_ds.data()) {
             dst.mark(point);
+
             let row: &mut [u8; D_CAP] = (&mut self.grid.get_mut()
                 [point * D_CAP..(point + 1) * D_CAP])
                 .try_into()

@@ -5,6 +5,7 @@ pub use control_flow::{Model, VModel, VNode};
 
 pub mod component;
 pub mod control_flow;
+pub mod execute;
 pub mod tools;
 
 mod test {
