@@ -1,4 +1,4 @@
-use std::{cell::Cell, rc::Rc, sync::Arc, time::Duration};
+use std::{any::Any, cell::Cell, rc::Rc, sync::Arc, time::Duration};
 
 use irisia_backend::{
     skia_safe::Canvas,
@@ -10,8 +10,8 @@ use irisia_backend::{
 use crate::{
     event::{standard::WindowDestroyed, EventDispatcher},
     model::{
-        tools::{DirtyPointsSrc, DirtySet},
-        VNode,
+        tools::{dependent_grid::DependentGrid, DirtyPoints, DirtySet},
+        VModel, VNode,
     },
     prim_element::{EMCreateCtx, GetElement, RenderTree},
     primitive::{Point, Region},
@@ -98,7 +98,7 @@ pub(super) async fn new_window<F, T>(
 ) -> Result<Window>
 where
     F: FnOnce() -> T + Send + 'static,
-    T: VNode,
+    T: for<'a> VNode<'a>,
 {
     let ev_disp = EventDispatcher::new();
 
@@ -117,8 +117,10 @@ where
                 user_close: Cell::new(true),
             });
 
-            let root_model = root_creator().create(
-                &mut DirtyPointsSrc::new(DirtySet::<0>::new()).to_dp(),
+            let root_vnode = root_creator();
+            let dep_grid = DependentGrid::new(&root_vnode);
+            let root_model = root_vnode.create(
+                &mut DirtyPoints::new(&[], &dep_grid),
                 &EMCreateCtx {
                     global_content: gc.clone(),
                 },
@@ -130,7 +132,7 @@ where
             BackendRuntime {
                 pointer_state: PointerState::new(),
                 gc,
-                root_model,
+                root_model: force_type_cast::<_, <T as VModel<'static>>::Storage>(root_model),
             }
         }
     };
@@ -145,4 +147,17 @@ where
         close_handle,
         event_dispatcher: ev_disp,
     })
+}
+
+fn force_type_cast<T, U>(from: T) -> U
+where
+    T: 'static,
+    U: 'static,
+{
+    let mut option = Some(from);
+    (&mut option as &mut dyn Any)
+        .downcast_mut::<Option<U>>()
+        .expect("type cast failed")
+        .take()
+        .unwrap()
 }

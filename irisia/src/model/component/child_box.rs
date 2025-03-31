@@ -21,18 +21,18 @@ pub struct ChildBox(Box<dyn AnyModel>);
 
 pub struct ChildBoxWrapper<T>(pub T);
 
-impl<T> VModel for ChildBoxWrapper<T>
+impl<'a, T> VModel<'a> for ChildBoxWrapper<T>
 where
-    T: VModel,
+    T: VModel<'a>,
 {
     const EXECUTE_POINTS: usize = T::EXECUTE_POINTS;
     type Storage = ChildBox;
 
-    fn create(self, dp: &mut DirtyPoints, ctx: &EMCreateCtx) -> Self::Storage {
+    fn create(self, dp: &mut DirtyPoints<'a>, ctx: &EMCreateCtx) -> Self::Storage {
         ChildBox(Box::new(self.0.create(dp, ctx)))
     }
 
-    fn update(self, storage: &mut Self::Storage, dp: &mut DirtyPoints, ctx: &EMCreateCtx) {
+    fn update(self, storage: &mut Self::Storage, dp: &mut DirtyPoints<'a>, ctx: &EMCreateCtx) {
         match storage.0.as_any_mut().downcast_mut::<T::Storage>() {
             Some(inner_storage) => self.0.update(inner_storage, dp, ctx),
             None => {

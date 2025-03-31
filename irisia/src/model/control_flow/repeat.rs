@@ -19,16 +19,16 @@ struct Item<T> {
     value: T,
 }
 
-impl<I, T, K> VModel for Repeat<I>
+impl<'a, I, T, K> VModel<'a> for Repeat<I>
 where
     I: Iterator<Item = (K, T)>,
     K: Hash + Eq + Clone + 'static,
-    T: VModel,
+    T: VModel<'a>,
 {
     const EXECUTE_POINTS: usize = T::EXECUTE_POINTS;
     type Storage = RepeatModel<K, T::Storage>;
 
-    fn create(self, dp: &mut DirtyPoints, ctx: &EMCreateCtx) -> Self::Storage {
+    fn create(self, dp: &mut DirtyPoints<'a>, ctx: &EMCreateCtx) -> Self::Storage {
         let capacity = self.iter.size_hint().0;
         let mut this = RepeatModel {
             map: HashMap::with_capacity(capacity),
@@ -55,7 +55,7 @@ where
         this
     }
 
-    fn update(self, storage: &mut Self::Storage, dp: &mut DirtyPoints, ctx: &EMCreateCtx) {
+    fn update(self, storage: &mut Self::Storage, dp: &mut DirtyPoints<'a>, ctx: &EMCreateCtx) {
         storage.order.clear();
         for (key, vmodel) in self.iter {
             match storage.map.entry(key.clone()) {

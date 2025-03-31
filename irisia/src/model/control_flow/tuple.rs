@@ -5,17 +5,19 @@ use crate::{
 
 use super::{Model, VModel};
 
-impl<A, B> VModel for (A, B)
+impl<'a, A, B> VModel<'a> for (A, B)
 where
-    A: VModel,
-    B: VModel,
+    A: VModel<'a>,
+    B: VModel<'a>,
 {
     const EXECUTE_POINTS: usize = A::EXECUTE_POINTS + B::EXECUTE_POINTS;
     type Storage = (A::Storage, B::Storage);
-    fn create(self, dp: &mut DirtyPoints, ctx: &EMCreateCtx) -> Self::Storage {
+
+    fn create(self, dp: &mut DirtyPoints<'a>, ctx: &EMCreateCtx) -> Self::Storage {
         (self.0.create(dp, ctx), self.1.create(dp, ctx))
     }
-    fn update(self, storage: &mut Self::Storage, dp: &mut DirtyPoints, ctx: &EMCreateCtx) {
+
+    fn update(self, storage: &mut Self::Storage, dp: &mut DirtyPoints<'a>, ctx: &EMCreateCtx) {
         self.0.update(&mut storage.0, dp, ctx);
         self.1.update(&mut storage.1, dp, ctx);
     }
@@ -32,7 +34,7 @@ where
     }
 }
 
-impl VModel for () {
+impl VModel<'_> for () {
     const EXECUTE_POINTS: usize = 0;
     type Storage = ();
 

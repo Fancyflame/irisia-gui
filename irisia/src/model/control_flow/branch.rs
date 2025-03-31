@@ -11,15 +11,15 @@ pub enum Branch<A, B> {
     B(B),
 }
 
-impl<A, B> VModel for Branch<A, B>
+impl<'a, A, B> VModel<'a> for Branch<A, B>
 where
-    A: VModel,
-    B: VModel,
+    A: VModel<'a>,
+    B: VModel<'a>,
 {
     const EXECUTE_POINTS: usize = A::EXECUTE_POINTS + B::EXECUTE_POINTS;
     type Storage = Branch<A::Storage, B::Storage>;
 
-    fn create(self, dp: &mut DirtyPoints, ctx: &EMCreateCtx) -> Self::Storage {
+    fn create(self, dp: &mut DirtyPoints<'a>, ctx: &EMCreateCtx) -> Self::Storage {
         match self {
             Self::A(upd) => {
                 let storage = Branch::A(upd.create(dp, ctx));
@@ -33,7 +33,7 @@ where
         }
     }
 
-    fn update(self, storage: &mut Self::Storage, dp: &mut DirtyPoints, ctx: &EMCreateCtx) {
+    fn update(self, storage: &mut Self::Storage, dp: &mut DirtyPoints<'a>, ctx: &EMCreateCtx) {
         match self {
             Self::A(upd) => {
                 if let Branch::A(cache) = storage {

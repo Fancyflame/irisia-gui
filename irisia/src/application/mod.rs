@@ -30,7 +30,7 @@ impl Window {
     pub async fn new<F, T>(wa: WindowAttributes, dom: F) -> Result<Self>
     where
         F: FnOnce() -> T + Send + 'static,
-        T: VNode,
+        T: for<'a> VNode<'a>,
     {
         new_window(wa, dom).await
     }

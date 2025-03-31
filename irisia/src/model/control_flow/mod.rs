@@ -16,44 +16,45 @@ pub mod execute;
 pub mod repeat;
 pub mod tuple;
 
-pub trait VModel {
+pub trait VModel<'a> {
     const EXECUTE_POINTS: usize;
     type Storage: Model;
 
-    fn create(self, dp: &mut DirtyPoints, ctx: &EMCreateCtx) -> Self::Storage;
+    fn create(self, dp: &mut DirtyPoints<'a>, ctx: &EMCreateCtx) -> Self::Storage;
 
-    fn update(self, storage: &mut Self::Storage, dirty_points: &mut DirtyPoints, ctx: &EMCreateCtx);
+    fn update(
+        self,
+        storage: &mut Self::Storage,
+        dirty_points: &mut DirtyPoints<'a>,
+        ctx: &EMCreateCtx,
+    );
 }
 
 pub trait Model: 'static {
     fn visit(&self, f: &mut dyn FnMut(Element));
 }
 
-pub trait VNode: VModel<Storage: GetElement> {}
+pub trait VNode<'a>: VModel<'a, Storage: GetElement> {}
 
-impl<T> VNode for T where T: VModel<Storage: GetElement> {}
+impl<'a, T> VNode<'a> for T where T: VModel<'a, Storage: GetElement> {}
 
-pub fn branch<A, B>(b: Branch<A, B>) -> impl VModel
+pub fn branch<'a, A, B>(b: Branch<A, B>) -> Branch<A, B>
 where
-    A: VModel,
-    B: VModel,
+    Branch<A, B>: VModel<'a>,
 {
     b
 }
 
-pub fn repeat<I, K, T>(iter: I) -> impl VModel
+pub fn repeat<'a, I>(iter: I) -> Repeat<I>
 where
-    I: Iterator<Item = (K, T)>,
-    K: Hash + Eq + Clone + 'static,
-    T: VModel,
+    Repeat<I>: VModel<'a>,
 {
     Repeat { iter }
 }
 
-pub fn execute<F, R>(f: F) -> impl VModel
+pub fn execute<'a, F>(f: F) -> Execute<F>
 where
-    F: FnOnce() -> R,
-    R: VModel,
+    Execute<F>: VModel<'a>,
 {
-    Execute::new(f)
+    Execute { updator: f }
 }

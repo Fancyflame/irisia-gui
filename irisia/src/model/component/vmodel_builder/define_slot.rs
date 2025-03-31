@@ -1,8 +1,5 @@
 use crate::{
-    model::{
-        tools::{Cursor, DirtyPoints},
-        VModel,
-    },
+    model::{tools::DirtyPoints, VModel},
     prim_element::EMCreateCtx,
 };
 
@@ -13,54 +10,37 @@ pub struct DefineSlot<S, F> {
     pub(super) applicator: F,
 }
 
-impl<T, S, F> VModelBuilderNode<T> for DefineSlot<S, F>
+impl<'a, T, S, F> VModelBuilderNode<'a, T> for DefineSlot<S, F>
 where
-    S: VModel,
-    F: Fn(&mut T, PackedSlot<S>),
+    S: VModel<'a>,
+    F: Fn(&mut T, PackedSlot<'a, S>),
 {
     const EXECUTE_POINTS: usize = S::EXECUTE_POINTS;
 
-    fn create_build(self, src: &mut T, dp: &mut DirtyPoints) {
+    fn create_build(self, src: &mut T, dp: &mut DirtyPoints<'a>) {
         (self.applicator)(
             src,
             PackedSlot {
-                dp_cursor: dp.cursor.clone(),
+                dp: dp.fork(),
                 slot: self.slot,
             },
         );
         dp.consume(S::EXECUTE_POINTS);
     }
 
-    fn update_build(self, src: &mut T, dp: &mut DirtyPoints) {
+    fn update_build(self, src: &mut T, dp: &mut DirtyPoints<'a>) {
         self.create_build(src, dp);
     }
 }
 
-pub struct PackedSlot<S> {
-    slot: S,
-    dp_cursor: Cursor,
-}
-
-impl<S> PackedSlot<S> {
-    pub fn merge<'a>(self, dp: &DirtyPoints<'a>) -> MergedPackedSlot<'a, S> {
-        MergedPackedSlot {
-            slot: self.slot,
-            dp: DirtyPoints {
-                cursor: self.dp_cursor,
-                data: dp.data,
-            },
-        }
-    }
-}
-
-pub struct MergedPackedSlot<'a, S> {
+pub struct PackedSlot<'a, S> {
     slot: S,
     dp: DirtyPoints<'a>,
 }
 
-impl<S> VModel for MergedPackedSlot<'_, S>
+impl<'a, S> VModel<'_> for PackedSlot<'a, S>
 where
-    S: VModel,
+    S: VModel<'a>,
 {
     type Storage = S::Storage;
     const EXECUTE_POINTS: usize = 0;

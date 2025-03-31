@@ -44,10 +44,6 @@ impl DependentGrid {
         }
     }
 
-    pub(crate) fn make_watcher<T>(&self, id: usize, value: T) -> Watcher<T> {
-        Watcher::from_temp_var(self, id, value)
-    }
-
     pub(super) fn mark(&self, dependent: usize, dependency: usize) {
         let mut borrowed = self.grid.borrow_mut();
         let row = &mut borrowed[dependent * self.width..(dependent + 1) * self.width];

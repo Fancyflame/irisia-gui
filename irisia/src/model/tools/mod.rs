@@ -14,7 +14,7 @@ pub struct DirtyPoints<'a> {
 }
 
 impl<'a> DirtyPoints<'a> {
-    fn new(data: &'a [u8], dep_grid: &'a DependentGrid) -> Self {
+    pub fn new(data: &'a [u8], dep_grid: &'a DependentGrid) -> Self {
         Self {
             cursor: Cursor::new(0),
             data,
@@ -38,7 +38,7 @@ impl<'a> DirtyPoints<'a> {
         self.cursor.offset()
     }
 
-    pub(crate) fn fork(&self) -> DirtyPoints {
+    pub(crate) fn fork(&self) -> Self {
         DirtyPoints {
             cursor: self.cursor.clone(),
             data: self.data,
@@ -46,7 +46,7 @@ impl<'a> DirtyPoints<'a> {
         }
     }
 
-    pub(crate) fn dep_grid(&self) -> &DependentGrid {
+    pub(crate) fn dep_grid(&self) -> &'a DependentGrid {
         self.grid
     }
 }

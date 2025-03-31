@@ -5,7 +5,6 @@ pub use control_flow::{Model, VModel, VNode};
 
 pub mod component;
 pub mod control_flow;
-pub mod execute;
 pub mod tools;
 
 mod test {
@@ -62,17 +61,17 @@ mod test {
     #[test]
     fn foo() {
         let expr = 10;
-        let vm = execute(|| {
+        let vm = execute(|_| {
             if expr == 10 {
-                branch(Branch::A(execute(|| repeat((0..10).map(|idx| (idx, ()))))))
+                branch(Branch::A(execute(|_| repeat((0..10).map(|idx| (idx, ()))))))
             } else {
-                branch(Branch::B(execute(|| ())))
+                branch(Branch::B(execute(|_| ())))
             }
         });
         assert_eq!(get_exec_point(&vm), 3);
     }
 
-    fn get_exec_point<T: VModel>(_: &T) -> usize {
+    fn get_exec_point<'a, T: VModel<'a>>(_: &T) -> usize {
         T::EXECUTE_POINTS
     }
 }

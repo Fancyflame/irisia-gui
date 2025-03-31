@@ -3,7 +3,7 @@ use crate::{
     prim_element::EMCreateCtx,
 };
 
-pub use self::define_slot::{MergedPackedSlot, PackedSlot};
+pub use self::define_slot::PackedSlot;
 
 mod define_field;
 mod define_slot;
@@ -54,55 +54,55 @@ impl<T, D> VModelBuilder<T, D> {
     }
 }
 
-impl<T, F> VModel for VModelBuilder<T, F>
+impl<'a, T, F> VModel<'a> for VModelBuilder<T, F>
 where
-    T: Default + VModel,
-    F: VModelBuilderNode<T>,
+    T: Default + VModel<'a>,
+    F: VModelBuilderNode<'a, T>,
 {
     // In most cases and from design principle, `T` should have no execute points.
     const EXECUTE_POINTS: usize = T::EXECUTE_POINTS + F::EXECUTE_POINTS;
 
     type Storage = T::Storage;
 
-    fn create(self, dp: &mut DirtyPoints, ctx: &EMCreateCtx) -> Self::Storage {
+    fn create(self, dp: &mut DirtyPoints<'a>, ctx: &EMCreateCtx) -> Self::Storage {
         let mut src = (self.create_blank_prop)();
         self.definitions.create_build(&mut src, dp);
         src.create(dp, ctx)
     }
 
-    fn update(self, storage: &mut Self::Storage, dp: &mut DirtyPoints, ctx: &EMCreateCtx) {
+    fn update(self, storage: &mut Self::Storage, dp: &mut DirtyPoints<'a>, ctx: &EMCreateCtx) {
         let mut src = (self.create_blank_prop)();
         self.definitions.update_build(&mut src, dp);
         src.update(storage, dp, ctx);
     }
 }
 
-pub trait VModelBuilderNode<T> {
+pub trait VModelBuilderNode<'a, T> {
     const EXECUTE_POINTS: usize;
 
-    fn create_build(self, src: &mut T, dp: &mut DirtyPoints);
-    fn update_build(self, src: &mut T, dp: &mut DirtyPoints);
+    fn create_build(self, src: &mut T, dp: &mut DirtyPoints<'a>);
+    fn update_build(self, src: &mut T, dp: &mut DirtyPoints<'a>);
 }
 
-impl<T, F1, F2> VModelBuilderNode<T> for (F1, F2)
+impl<'a, T, F1, F2> VModelBuilderNode<'a, T> for (F1, F2)
 where
-    F1: VModelBuilderNode<T>,
-    F2: VModelBuilderNode<T>,
+    F1: VModelBuilderNode<'a, T>,
+    F2: VModelBuilderNode<'a, T>,
 {
     const EXECUTE_POINTS: usize = F1::EXECUTE_POINTS + F2::EXECUTE_POINTS;
 
-    fn create_build(self, src: &mut T, dp: &mut DirtyPoints) {
+    fn create_build(self, src: &mut T, dp: &mut DirtyPoints<'a>) {
         self.0.create_build(src, dp);
         self.1.create_build(src, dp);
     }
 
-    fn update_build(self, src: &mut T, dp: &mut DirtyPoints) {
+    fn update_build(self, src: &mut T, dp: &mut DirtyPoints<'a>) {
         self.0.update_build(src, dp);
         self.1.update_build(src, dp);
     }
 }
 
-impl<T> VModelBuilderNode<T> for () {
+impl<T> VModelBuilderNode<'_, T> for () {
     const EXECUTE_POINTS: usize = 0;
     fn create_build(self, _src: &mut T, _dp: &mut DirtyPoints) {}
     fn update_build(self, _src: &mut T, _dp: &mut DirtyPoints) {}
