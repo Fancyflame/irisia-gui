@@ -2,8 +2,8 @@ use std::any::Any;
 
 use crate::hook::{
     listener::CallbackAction,
-    utils::{DirtyCount, ListenerList, TraceCell},
-    Listener, Provider, Ref,
+    utils::{trace_cell::TraceRef, DirtyCount, ListenerList, TraceCell},
+    Listener,
 };
 
 pub struct Inner<T: ?Sized> {
@@ -13,15 +13,15 @@ pub struct Inner<T: ?Sized> {
     pub(super) value: TraceCell<T>,
 }
 
-impl<T> Provider for Inner<T>
+impl<T> Inner<T>
 where
     T: ?Sized,
 {
-    type Data = T;
-    fn read(&self) -> Ref<Self::Data> {
-        Ref::TraceRef(self.value.borrow().unwrap())
+    pub fn read(&self) -> TraceRef<T> {
+        self.value.borrow().unwrap()
     }
-    fn dependent(&self, listener: Listener) {
+
+    pub fn dependent(&self, listener: Listener) {
         self.listeners.add_listener(listener);
     }
 }

@@ -1,8 +1,6 @@
 use std::rc::Rc;
 
-use crate::hook::ProviderObject;
-
-use super::{inner::Inner, Signal};
+use super::{inner::Inner, Signal, WriteSignal};
 
 #[macro_export]
 macro_rules! coerce_signal {
@@ -15,13 +13,14 @@ type CoerceFn<T, U> = fn(Rc<Inner<T>>) -> Rc<Inner<U>>;
 
 impl<T: ?Sized> Signal<T> {
     #[doc(hidden)]
-    pub fn __irisia_coerce_unsized<U>(&self, map: CoerceFn<T, U>) -> Signal<U>
+    pub fn __irisia_coerce_unsized<U>(self, map: CoerceFn<T, U>) -> Signal<U>
     where
         U: ?Sized,
     {
-        let new = map(self.inner.clone());
+        let prev_ptr = Rc::as_ptr(&self.inner);
+        let new = map(self.inner);
         assert_eq!(
-            Rc::as_ptr(&self.inner) as *const _ as *const (),
+            prev_ptr as *const _ as *const (),
             Rc::as_ptr(&new) as *const _ as *const (),
             "the returned Rc pointer address is not equal to the input Rc"
         );
@@ -30,12 +29,12 @@ impl<T: ?Sized> Signal<T> {
     }
 }
 
-impl<T: ?Sized> ProviderObject<T> {
+impl<T: ?Sized> WriteSignal<T> {
     #[doc(hidden)]
-    pub fn __irisia_coerce_unsized<U>(&self, map: CoerceFn<T, U>) -> ProviderObject<U>
+    pub fn __irisia_coerce_unsized<U>(self, map: CoerceFn<T, U>) -> WriteSignal<U>
     where
         U: ?Sized,
     {
-        ProviderObject(self.0.__irisia_coerce_unsized(map))
+        WriteSignal(self.0.__irisia_coerce_unsized(map))
     }
 }

@@ -9,10 +9,7 @@ use irisia_backend::{
 
 use crate::{
     event::{standard::WindowDestroyed, EventDispatcher},
-    model::{
-        tools::{DirtyPointsSrc, DirtySet},
-        VNode,
-    },
+    model::VNode,
     prim_element::{EMCreateCtx, GetElement, RenderTree},
     primitive::{Point, Region},
     Result,
@@ -117,12 +114,9 @@ where
                 user_close: Cell::new(true),
             });
 
-            let root_model = root_creator().create(
-                &mut DirtyPointsSrc::new(DirtySet::<0>::new()).to_dp(),
-                &EMCreateCtx {
-                    global_content: gc.clone(),
-                },
-            );
+            let root_model = root_creator().create(&EMCreateCtx {
+                global_content: gc.clone(),
+            });
 
             //root.set_draw_region(Some(window_size_to_draw_region(gc.window().inner_size())));
             // root.

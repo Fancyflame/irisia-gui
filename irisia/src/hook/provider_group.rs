@@ -1,6 +1,6 @@
 use impl_variadics::impl_variadics;
 
-use super::{Listener, Provider, Ref};
+use super::{utils::trace_cell::TraceRef, Listener, Signal};
 
 pub trait ProviderGroup {
     type DataWrapper<'a>
@@ -18,17 +18,17 @@ pub trait ProviderGroup {
     fn dependent_many(&self, _listener: Listener);
 }
 
-impl<T> ProviderGroup for T
+impl<T> ProviderGroup for Signal<T>
 where
-    T: Provider,
+    T: ?Sized,
 {
     type DataWrapper<'a>
-        = Ref<'a, T::Data>
+        = TraceRef<'a, T>
     where
         Self: 'a;
 
     type Data<'a>
-        = &'a <T as Provider>::Data
+        = &'a T
     where
         Self: 'a;
 

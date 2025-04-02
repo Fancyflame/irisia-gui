@@ -3,8 +3,9 @@ use std::rc::Rc;
 use builder::SignalBuilder;
 
 use super::{
-    provider_group::ProviderGroup, utils::WriteGuard, Provider, ProviderObject, Ref,
-    ToProviderObject,
+    provider_group::ProviderGroup,
+    utils::{trace_cell::TraceRef, WriteGuard},
+    Listener,
 };
 use inner::Inner;
 
@@ -20,8 +21,8 @@ pub struct Signal<T: ?Sized> {
 }
 
 impl<T: 'static> Signal<T> {
-    pub fn state(value: T) -> Self {
-        Self::builder(value).build()
+    pub fn state(value: T) -> WriteSignal<T> {
+        WriteSignal(Self::builder(value).build())
     }
 
     pub fn memo<F, D>(generator: F, deps: D) -> Self
@@ -50,9 +51,15 @@ impl<T: 'static> Signal<T> {
             callbacks: (),
         }
     }
+}
 
-    pub fn set(&self, data: T) {
-        *self.write() = data;
+impl<T: ?Sized> Signal<T> {
+    pub fn read(&self) -> TraceRef<T> {
+        self.inner.read()
+    }
+
+    pub fn dependent(&self, l: Listener) {
+        self.inner.dependent(l);
     }
 
     pub(crate) fn addr(&self) -> *const () {
@@ -60,12 +67,29 @@ impl<T: 'static> Signal<T> {
     }
 }
 
-impl<T: ?Sized> Signal<T> {
+pub struct WriteSignal<T: ?Sized>(Signal<T>);
+
+impl<T: ?Sized> WriteSignal<T> {
     pub fn write(&self) -> WriteGuard<T> {
         WriteGuard::new(
-            self.inner.value.borrow_mut().unwrap(),
-            &self.inner.listeners,
+            self.0.inner.value.borrow_mut().unwrap(),
+            &self.0.inner.listeners,
         )
+    }
+
+    pub fn set(&self, data: T)
+    where
+        T: Sized,
+    {
+        *self.write() = data;
+    }
+
+    pub fn read(&self) -> TraceRef<T> {
+        self.0.read()
+    }
+
+    pub fn signal(&self) -> &Signal<T> {
+        &self.0
     }
 }
 
@@ -77,19 +101,8 @@ impl<T: ?Sized> Clone for Signal<T> {
     }
 }
 
-impl<T: ?Sized> Provider for Signal<T> {
-    type Data = T;
-    fn read(&self) -> Ref<Self::Data> {
-        self.inner.read()
-    }
-    fn dependent(&self, listener: super::Listener) {
-        self.inner.dependent(listener);
-    }
-}
-
-impl<T: ?Sized> ToProviderObject for Signal<T> {
-    type Data = T;
-    fn to_object(&self) -> super::ProviderObject<Self::Data> {
-        ProviderObject(self.clone())
+impl<T: ?Sized> Clone for WriteSignal<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
     }
 }
