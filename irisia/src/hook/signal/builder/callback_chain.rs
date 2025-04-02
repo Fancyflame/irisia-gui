@@ -1,6 +1,6 @@
 use std::rc::Weak;
 
-use crate::hook::{listener::CallbackAction, provider_group::ProviderGroup, Listener};
+use crate::hook::{provider_group::ProviderGroup, utils::CallbackAction, Listener};
 
 use super::{Inner, Setter};
 
@@ -35,25 +35,34 @@ where
     where
         Fg: Fn(&Inner<T>) -> &Self + Copy + 'static,
     {
-        let listener = Listener::new(weak_src.clone(), move |src, action| {
-            if !action.is_update() {
-                src.push_action(action);
-                return;
+        let listener = Listener::new({
+            let weak_src = weak_src.clone();
+            move |action| {
+                let Some(src) = weak_src.upgrade() else {
+                    return false;
+                };
+
+                if !action.is_update() {
+                    src.push_action(action);
+                    return true;
+                }
+
+                let this = get_node(&src);
+                let mut mutated = false;
+
+                (this.callback)(
+                    Setter::new(&mut src.value.borrow_mut().unwrap(), &mut mutated),
+                    D::deref_wrapper(&this.deps.read_many()),
+                );
+
+                src.push_action(if mutated {
+                    CallbackAction::Update
+                } else {
+                    CallbackAction::ClearDirty
+                });
+
+                true
             }
-
-            let this = get_node(src);
-            let mut mutated = false;
-
-            (this.callback)(
-                Setter::new(&mut src.value.borrow_mut().unwrap(), &mut mutated),
-                D::deref_wrapper(&this.deps.read_many()),
-            );
-
-            src.push_action(if mutated {
-                CallbackAction::Update
-            } else {
-                CallbackAction::ClearDirty
-            });
         });
         self.deps.dependent_many(listener);
         self.next.listen(weak_src, move |src| &get_node(src).next);

@@ -1,7 +1,7 @@
 use smallvec::SmallVec;
 use std::cell::RefCell;
 
-use crate::hook::{listener::CallbackAction, Listener};
+use crate::hook::{utils::CallbackAction, Listener};
 
 /// Use it when implementing a provider
 #[derive(Default)]

@@ -4,6 +4,8 @@ pub mod trace_cell;
 pub mod write_guard;
 
 pub use {
-    dirty_count::DirtyCount, listener_list::ListenerList, trace_cell::TraceCell,
+    dirty_count::{CallbackAction, DirtyCount},
+    listener_list::ListenerList,
+    trace_cell::TraceCell,
     write_guard::WriteGuard,
 };

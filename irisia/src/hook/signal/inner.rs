@@ -1,8 +1,7 @@
 use std::any::Any;
 
 use crate::hook::{
-    listener::CallbackAction,
-    utils::{trace_cell::TraceRef, DirtyCount, ListenerList, TraceCell},
+    utils::{trace_cell::TraceRef, CallbackAction, DirtyCount, ListenerList, TraceCell},
     Listener,
 };
 

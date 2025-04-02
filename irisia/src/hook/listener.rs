@@ -1,63 +1,35 @@
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 
-use super::utils::DirtyCount;
+use super::utils::{CallbackAction, DirtyCount};
 
-pub struct Listener(Rc<dyn Callback>);
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum CallbackAction {
-    Update,
-    RegisterDirty,
-    ClearDirty,
-}
+pub struct Listener(Rc<Inner<dyn Fn(CallbackAction) -> bool>>);
 
 impl Listener {
     /// The callback ***must NOT capture hooks*** or will cause underlying memory leaks
-    pub(crate) fn new<T, F>(src: Weak<T>, callback: F) -> Self
+    pub(crate) fn new<F>(callback: F) -> Self
     where
-        T: ?Sized + 'static,
-        F: Fn(&T, CallbackAction) + 'static,
+        F: Fn(CallbackAction) -> bool + 'static,
     {
         let inner = Inner {
-            src,
-            callback,
             dirty_count: DirtyCount::new(),
+            callback,
         };
-        Listener(Rc::new(inner))
+
+        Listener(Rc::new(inner) as _)
     }
 
     pub(crate) fn callback(&self, action: CallbackAction) -> bool {
-        self.0.callback(action)
+        if let Some(spread_action) = self.0.dirty_count.push(action) {
+            (self.0.callback)(spread_action)
+        } else {
+            true
+        }
     }
 }
 
-struct Inner<T: ?Sized, F> {
-    src: Weak<T>,
-    callback: F,
+struct Inner<F: ?Sized> {
     dirty_count: DirtyCount,
-}
-
-trait Callback {
-    fn callback(&self, action: CallbackAction) -> bool;
-}
-
-impl<T, F> Callback for Inner<T, F>
-where
-    T: ?Sized + 'static,
-    F: Fn(&T, CallbackAction) + 'static,
-{
-    fn callback(&self, action: CallbackAction) -> bool {
-        let rc = match self.src.upgrade() {
-            Some(rc) => rc,
-            None => return false,
-        };
-
-        if let Some(spread_action) = self.dirty_count.push(action) {
-            (self.callback)(&rc, spread_action);
-        };
-
-        true
-    }
+    callback: F,
 }
 
 impl Clone for Listener {

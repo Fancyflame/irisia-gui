@@ -1,12 +1,17 @@
 use std::cell::Cell;
 
-use crate::hook::listener::CallbackAction;
-
 /// Use it when implementing a consumer
 pub struct DirtyCount {
     dirty_stack: Cell<u32>,
     need_update: Cell<bool>,
     allow_push: Cell<bool>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum CallbackAction {
+    Update,
+    RegisterDirty,
+    ClearDirty,
 }
 
 impl DirtyCount {
