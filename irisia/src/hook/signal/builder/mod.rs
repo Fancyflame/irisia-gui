@@ -3,7 +3,7 @@ use std::{
     rc::Rc,
 };
 
-use super::{Inner, Signal};
+use super::{Inner, Signal, WriteSignal};
 use crate::hook::{
     provider_group::ProviderGroup,
     utils::{DirtyCount, ListenerList, TraceCell},
@@ -12,13 +12,17 @@ use callback_chain::{CallbackChain, CallbackNode};
 
 mod callback_chain;
 
-pub struct SignalBuilder<T, C> {
+pub struct SignalBuilder<T, C, W> {
     pub(super) value: T,
     pub(super) callbacks: C,
+    pub(super) writable: W,
 }
 
-impl<T: 'static, C> SignalBuilder<T, C> {
-    pub fn dep<F, D>(self, callback: F, deps: D) -> SignalBuilder<T, CallbackNode<F, D, C>>
+impl<T, C, W> SignalBuilder<T, C, W>
+where
+    T: 'static,
+{
+    pub fn dep<F, D>(self, callback: F, deps: D) -> SignalBuilder<T, CallbackNode<F, D, C>, W>
     where
         F: Fn(Setter<T>, D::Data<'_>) + 'static,
         D: ProviderGroup + 'static,
@@ -30,6 +34,15 @@ impl<T: 'static, C> SignalBuilder<T, C> {
                 callback,
                 next: self.callbacks,
             },
+            writable: self.writable,
+        }
+    }
+
+    pub fn writable(self) -> SignalBuilder<T, C, WriteMode> {
+        SignalBuilder {
+            value: self.value,
+            callbacks: self.callbacks,
+            writable: WriteMode,
         }
     }
 
@@ -38,7 +51,7 @@ impl<T: 'static, C> SignalBuilder<T, C> {
         callback: F,
         deps: D,
         enable: bool,
-    ) -> SignalBuilder<T, CallbackNode<F, D, C>>
+    ) -> SignalBuilder<T, CallbackNode<F, D, C>, W>
     where
         F: Fn(Setter<T>, D::Data<'_>) + 'static,
         D: ProviderGroup + 'static,
@@ -55,8 +68,25 @@ impl<T: 'static, C> SignalBuilder<T, C> {
 
         self.dep(callback, deps)
     }
+}
 
+impl<T, C> SignalBuilder<T, C, ()>
+where
+    T: 'static,
+{
     pub fn build(self) -> Signal<T>
+    where
+        C: CallbackChain<T> + 'static,
+    {
+        self.writable().build().0
+    }
+}
+
+impl<T, C> SignalBuilder<T, C, WriteMode>
+where
+    T: 'static,
+{
+    pub fn build(self) -> WriteSignal<T>
     where
         C: CallbackChain<T> + 'static,
     {
@@ -74,7 +104,8 @@ impl<T: 'static, C> SignalBuilder<T, C> {
                 listeners: ListenerList::new(),
             }
         });
-        Signal { inner }
+
+        WriteSignal(Signal { inner })
     }
 }
 
@@ -102,3 +133,5 @@ impl<'a, T> Setter<'a, T> {
         Self { r, mutated }
     }
 }
+
+pub struct WriteMode;
