@@ -16,6 +16,7 @@ macro_rules! inner_error {
 
 pub mod application;
 pub mod event;
+pub mod hook;
 pub mod log;
 pub mod model;
 pub mod prim_element;
