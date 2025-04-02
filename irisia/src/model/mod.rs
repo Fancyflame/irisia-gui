@@ -1,23 +1,31 @@
 use std::hash::Hash;
 
-use control_flow::{branch::Branch, execute::Execute, repeat::Repeat};
-pub use control_flow::{Model, VModel, VNode};
+use crate::prim_element::{EMCreateCtx, Element, GetElement};
 
-pub mod component;
+// pub mod component;
 pub mod control_flow;
-pub mod tools;
 
+pub trait VModel {
+    type Storage: Model;
+
+    fn create(self, ctx: &EMCreateCtx) -> Self::Storage;
+    fn update(self, storage: &mut Self::Storage, ctx: &EMCreateCtx);
+}
+
+pub trait Model: 'static {
+    fn visit(&self, f: &mut dyn FnMut(Element));
+}
+
+pub trait VNode: VModel<Storage: GetElement> {}
+
+impl<T> VNode for T where T: VModel<Storage: GetElement> {}
+
+#[cfg(disable)]
 mod test {
     use crate as irisia;
     use irisia_macros::component;
 
-    use crate::model::control_flow::branch::Branch;
-
-    use super::{
-        control_flow::{branch, execute, repeat},
-        tools::DirtyPoints,
-        VModel,
-    };
+    use super::VModel;
     macro_rules! test {
         ($($tt:tt)*) => {};
     }
@@ -56,22 +64,5 @@ mod test {
                 }
             }
         }
-    }
-
-    #[test]
-    fn foo() {
-        let expr = 10;
-        let vm = execute(|| {
-            if expr == 10 {
-                branch(Branch::A(execute(|| repeat((0..10).map(|idx| (idx, ()))))))
-            } else {
-                branch(Branch::B(execute(|| ())))
-            }
-        });
-        assert_eq!(get_exec_point(&vm), 3);
-    }
-
-    fn get_exec_point<T: VModel>(_: &T) -> usize {
-        T::EXECUTE_POINTS
     }
 }

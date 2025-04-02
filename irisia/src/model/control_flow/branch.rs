@@ -1,9 +1,5 @@
-use crate::{
-    model::tools::DirtyPoints,
-    prim_element::{EMCreateCtx, Element},
-};
-
-use super::{Model, VModel};
+use crate::model::{Model, VModel};
+use crate::prim_element::{EMCreateCtx, Element};
 
 #[derive(PartialEq)]
 pub enum Branch<A, B> {
@@ -16,39 +12,32 @@ where
     A: VModel,
     B: VModel,
 {
-    const EXECUTE_POINTS: usize = A::EXECUTE_POINTS + B::EXECUTE_POINTS;
     type Storage = Branch<A::Storage, B::Storage>;
 
-    fn create(self, dp: &mut DirtyPoints, ctx: &EMCreateCtx) -> Self::Storage {
+    fn create(self, ctx: &EMCreateCtx) -> Self::Storage {
         match self {
             Self::A(upd) => {
-                let storage = Branch::A(upd.create(dp, ctx));
-                dp.consume(B::EXECUTE_POINTS);
+                let storage = Branch::A(upd.create(ctx));
                 storage
             }
-            Self::B(upd) => {
-                dp.consume(A::EXECUTE_POINTS);
-                Branch::B(upd.create(dp, ctx))
-            }
+            Self::B(upd) => Branch::B(upd.create(ctx)),
         }
     }
 
-    fn update(self, storage: &mut Self::Storage, dp: &mut DirtyPoints, ctx: &EMCreateCtx) {
+    fn update(self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
         match self {
             Self::A(upd) => {
                 if let Branch::A(cache) = storage {
-                    upd.update(cache, dp, ctx);
+                    upd.update(cache, ctx);
                 } else {
-                    *storage = Branch::A(upd.create(dp, ctx));
+                    *storage = Branch::A(upd.create(ctx));
                 }
-                dp.consume(B::EXECUTE_POINTS);
             }
             Self::B(upd) => {
-                dp.consume(A::EXECUTE_POINTS);
                 if let Branch::B(cache) = storage {
-                    upd.update(cache, dp, ctx);
+                    upd.update(cache, ctx);
                 } else {
-                    *storage = Branch::B(upd.create(dp, ctx));
+                    *storage = Branch::B(upd.create(ctx));
                 }
             }
         }

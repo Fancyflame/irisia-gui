@@ -3,12 +3,9 @@ use std::{
     hash::Hash,
 };
 
-use crate::{
-    model::tools::DirtyPoints,
-    prim_element::{EMCreateCtx, Element},
-};
+use crate::prim_element::{EMCreateCtx, Element};
 
-use super::{Model, VModel};
+use crate::model::{Model, VModel};
 
 pub struct Repeat<I> {
     pub iter: I,
@@ -25,10 +22,9 @@ where
     K: Hash + Eq + Clone + 'static,
     T: VModel,
 {
-    const EXECUTE_POINTS: usize = T::EXECUTE_POINTS;
     type Storage = RepeatModel<K, T::Storage>;
 
-    fn create(self, dp: &mut DirtyPoints, ctx: &EMCreateCtx) -> Self::Storage {
+    fn create(self, ctx: &EMCreateCtx) -> Self::Storage {
         let capacity = self.iter.size_hint().0;
         let mut this = RepeatModel {
             map: HashMap::with_capacity(capacity),
@@ -39,7 +35,7 @@ where
             match this.map.entry(key.clone()) {
                 Entry::Vacant(vac) => {
                     vac.insert(Item {
-                        value: vmodel.create(&mut dp.fork(), ctx),
+                        value: vmodel.create(ctx),
                         used: false,
                     });
                     this.order.push(key.clone());
@@ -51,24 +47,23 @@ where
             };
         }
 
-        dp.consume(Self::EXECUTE_POINTS);
         this
     }
 
-    fn update(self, storage: &mut Self::Storage, dp: &mut DirtyPoints, ctx: &EMCreateCtx) {
+    fn update(self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
         storage.order.clear();
         for (key, vmodel) in self.iter {
             match storage.map.entry(key.clone()) {
                 Entry::Vacant(vac) => {
                     vac.insert(Item {
-                        value: vmodel.create(&mut dp.fork(), ctx),
+                        value: vmodel.create(ctx),
                         used: true,
                     });
                 }
                 Entry::Occupied(mut occ) => {
                     let item = occ.get_mut();
                     item.used = true;
-                    vmodel.update(&mut item.value, &mut dp.fork(), ctx);
+                    vmodel.update(&mut item.value, ctx);
                 }
             };
             storage.order.push(key.clone());
@@ -77,7 +72,6 @@ where
         storage
             .map
             .retain(|_, item| std::mem::replace(&mut item.used, false));
-        dp.consume(Self::EXECUTE_POINTS);
     }
 }
 
