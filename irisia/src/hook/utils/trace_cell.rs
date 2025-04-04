@@ -55,11 +55,15 @@ impl<T: ?Sized> TraceCell<T> {
         })
     }
 
-    pub fn borrow_mut(&self) -> Result<TraceMut<T>> {
-        Ok(TraceMut {
-            inner_ref: self.value.try_borrow_mut().map_err(|_| self.get_error())?,
+    pub fn try_borrow_mut(&self) -> Option<TraceMut<T>> {
+        Some(TraceMut {
+            inner_ref: self.value.try_borrow_mut().ok()?,
             trace: DropTrace::record(&self.borrow_traces),
         })
+    }
+
+    pub fn borrow_mut(&self) -> Result<TraceMut<T>> {
+        self.try_borrow_mut().ok_or_else(|| self.get_error())
     }
 }
 

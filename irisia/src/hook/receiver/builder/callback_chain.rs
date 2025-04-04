@@ -1,23 +1,26 @@
 use std::rc::Weak;
 
-use crate::hook::{provider_group::ProviderGroup, utils::CallbackAction, Listener};
+use crate::hook::{provider_group::ProviderGroup, Listener};
 
-use super::{Inner, Setter};
+use super::Inner;
 
 pub trait CallbackChain<T> {
-    fn listen<F>(&self, src: Weak<Inner<T>>, get_node: F)
+    type Storage;
+
+    fn listen<F>(&self, src: Weak<Inner<T>>, get_node: F) -> Self::Storage
     where
         F: Fn(&Inner<T>) -> &Self + Copy + 'static;
 }
 
 impl<T> CallbackChain<T> for () {
-    fn listen<F>(&self, _: Weak<Inner<T>>, _: F)
+    type Storage = ();
+
+    fn listen<F>(&self, _: Weak<Inner<T>>, _: F) -> Self::Storage
     where
         F: Fn(&Inner<T>) -> &Self + Copy + 'static,
     {
     }
 }
-
 pub struct CallbackNode<F, D, Next> {
     pub(super) deps: D,
     pub(super) callback: F,
@@ -28,10 +31,12 @@ impl<T, F, D, Next> CallbackChain<T> for CallbackNode<F, D, Next>
 where
     T: 'static,
     D: ProviderGroup + 'static,
-    F: Fn(Setter<T>, D::Data<'_>) + 'static,
+    F: Fn(&mut T, D::Data<'_>) + 'static,
     Next: CallbackChain<T>,
 {
-    fn listen<Fg>(&self, weak_src: Weak<Inner<T>>, get_node: Fg)
+    type Storage = CallbackNode<F, (), Next::Storage>;
+
+    fn listen<Fg>(&self, weak_src: Weak<Inner<T>>, get_node: Fg) -> Self::Storage
     where
         Fg: Fn(&Inner<T>) -> &Self + Copy + 'static,
     {
@@ -43,26 +48,14 @@ where
                 };
 
                 if !action.is_update() {
-                    src.push_action(action);
                     return true;
                 }
 
                 let this = get_node(&src);
-                let mut mutated = false;
 
-                (this.callback)(
-                    Setter::new(
-                        &mut src.value.borrow_mut().expect("failed updating signal"),
-                        &mut mutated,
-                    ),
-                    D::deref_wrapper(&this.deps.read_many()),
-                );
-
-                src.push_action(if mutated {
-                    CallbackAction::Update
-                } else {
-                    CallbackAction::ClearDirty
-                });
+                if let Some(mut src_mut) = src.value.try_borrow_mut() {
+                    (this.callback)(&mut src_mut, D::deref_wrapper(&this.deps.read_many()));
+                }
 
                 true
             }
