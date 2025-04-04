@@ -62,3 +62,9 @@ impl DirtyCount {
         }
     }
 }
+
+impl CallbackAction {
+    pub fn is_update(&self) -> bool {
+        matches!(self, Self::Update)
+    }
+}

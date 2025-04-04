@@ -37,9 +37,3 @@ impl Clone for Listener {
         Self(self.0.clone())
     }
 }
-
-impl CallbackAction {
-    pub fn is_update(&self) -> bool {
-        matches!(self, Self::Update)
-    }
-}
