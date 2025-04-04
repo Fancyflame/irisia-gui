@@ -3,7 +3,7 @@ use std::rc::Rc;
 use builder::SignalBuilder;
 
 use super::{
-    provider_group::ProviderGroup,
+    signal_group::SignalGroup,
     utils::{trace_cell::TraceRef, WriteGuard},
     Listener,
 };
@@ -29,7 +29,7 @@ impl<T: 'static> Signal<T> {
     where
         T: PartialEq<T>,
         F: Fn(D::Data<'_>) -> T + 'static,
-        D: ProviderGroup + 'static,
+        D: SignalGroup + 'static,
     {
         let builder = Self::builder(generator(D::deref_wrapper(&deps.read_many())));
         builder

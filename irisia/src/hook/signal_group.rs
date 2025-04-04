@@ -2,7 +2,7 @@ use impl_variadics::impl_variadics;
 
 use super::{utils::trace_cell::TraceRef, Listener, Signal};
 
-pub trait ProviderGroup {
+pub trait SignalGroup {
     type DataWrapper<'a>
     where
         Self: 'a;
@@ -18,7 +18,7 @@ pub trait ProviderGroup {
     fn dependent_many(&self, _listener: Listener);
 }
 
-impl<T> ProviderGroup for Signal<T>
+impl<T> SignalGroup for Signal<T>
 where
     T: ?Sized,
 {
@@ -48,9 +48,9 @@ where
     }
 }
 
-impl<T> ProviderGroup for Option<T>
+impl<T> SignalGroup for Option<T>
 where
-    T: ProviderGroup,
+    T: SignalGroup,
 {
     type DataWrapper<'a>
         = Option<T::DataWrapper<'a>>
@@ -81,21 +81,21 @@ where
 }
 
 pub trait RefProviderGroup {
-    type ToOwned: ProviderGroup;
+    type ToOwned: SignalGroup;
     fn to_owned(self) -> Self::ToOwned;
 }
 
 impl_variadics! {
     ..=20 "T*" => {
-        impl<#(#T0,)*> ProviderGroup for (#(#T0,)*)
+        impl<#(#T0,)*> SignalGroup for (#(#T0,)*)
         where
-            #(#T0: ProviderGroup,)*
+            #(#T0: SignalGroup,)*
         {
-            type DataWrapper<'a> = (#(<#T0 as ProviderGroup>::DataWrapper<'a>,)*)
+            type DataWrapper<'a> = (#(<#T0 as SignalGroup>::DataWrapper<'a>,)*)
             where
                 Self: 'a;
 
-            type Data<'a> = (#(<#T0 as ProviderGroup>::Data<'a>,)*)
+            type Data<'a> = (#(<#T0 as SignalGroup>::Data<'a>,)*)
             where
                 Self: 'a;
 
@@ -107,7 +107,7 @@ impl_variadics! {
             where
                 Self: 'b
             {
-                (#(<#T0 as ProviderGroup>::deref_wrapper(&_wrapper.#index),)*)
+                (#(<#T0 as SignalGroup>::deref_wrapper(&_wrapper.#index),)*)
             }
 
             fn dependent_many(&self, _listener: Listener) {

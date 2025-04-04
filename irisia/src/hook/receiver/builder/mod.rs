@@ -4,7 +4,7 @@ use std::{
 };
 
 use super::{Inner, Receiver};
-use crate::hook::{provider_group::ProviderGroup, utils::TraceCell};
+use crate::hook::{signal_group::SignalGroup, utils::TraceCell};
 use callback_chain::{CallbackChain, CallbackNode};
 
 mod callback_chain;
@@ -21,7 +21,7 @@ where
     pub fn dep<F, D>(self, callback: F, deps: D) -> ReceiverBuilder<T, CallbackNode<F, D, C>>
     where
         F: Fn(&mut T, D::Data<'_>) + 'static,
-        D: ProviderGroup + 'static,
+        D: SignalGroup + 'static,
     {
         ReceiverBuilder {
             value: self.value,
@@ -41,7 +41,7 @@ where
     ) -> ReceiverBuilder<T, CallbackNode<F, D, C>>
     where
         F: Fn(&mut T, D::Data<'_>) + 'static,
-        D: ProviderGroup + 'static,
+        D: SignalGroup + 'static,
     {
         if enable {
             callback(&mut self.value, D::deref_wrapper(&deps.read_many()));

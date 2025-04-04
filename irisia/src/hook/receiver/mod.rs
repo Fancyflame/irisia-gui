@@ -4,7 +4,7 @@ use anyhow::Result;
 use builder::ReceiverBuilder;
 
 use super::{
-    provider_group::ProviderGroup,
+    signal_group::SignalGroup,
     utils::{
         trace_cell::{TraceMut, TraceRef},
         WriteGuard,

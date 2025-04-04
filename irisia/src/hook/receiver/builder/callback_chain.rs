@@ -1,6 +1,6 @@
 use std::rc::Weak;
 
-use crate::hook::{provider_group::ProviderGroup, Listener};
+use crate::hook::{signal_group::SignalGroup, Listener};
 
 use super::Inner;
 
@@ -30,7 +30,7 @@ pub struct CallbackNode<F, D, Next> {
 impl<T, F, D, Next> CallbackChain<T> for CallbackNode<F, D, Next>
 where
     T: 'static,
-    D: ProviderGroup + 'static,
+    D: SignalGroup + 'static,
     F: Fn(&mut T, D::Data<'_>) + 'static,
     Next: CallbackChain<T>,
 {

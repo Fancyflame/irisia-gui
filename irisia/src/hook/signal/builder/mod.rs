@@ -5,7 +5,7 @@ use std::{
 
 use super::{Inner, Signal, WriteSignal};
 use crate::hook::{
-    provider_group::ProviderGroup,
+    signal_group::SignalGroup,
     utils::{DirtyCount, ListenerList, TraceCell},
 };
 use callback_chain::{CallbackChain, CallbackNode};
@@ -25,7 +25,7 @@ where
     pub fn dep<F, D>(self, callback: F, deps: D) -> SignalBuilder<T, CallbackNode<F, D, C>, W>
     where
         F: Fn(Setter<T>, D::Data<'_>) + 'static,
-        D: ProviderGroup + 'static,
+        D: SignalGroup + 'static,
     {
         SignalBuilder {
             value: self.value,
@@ -54,7 +54,7 @@ where
     ) -> SignalBuilder<T, CallbackNode<F, D, C>, W>
     where
         F: Fn(Setter<T>, D::Data<'_>) + 'static,
-        D: ProviderGroup + 'static,
+        D: SignalGroup + 'static,
     {
         if enable {
             callback(
