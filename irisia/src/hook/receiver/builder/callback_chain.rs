@@ -5,17 +5,13 @@ use crate::hook::{signal_group::SignalGroup, Listener};
 use super::Inner;
 
 pub trait CallbackChain<T> {
-    type Storage;
-
-    fn listen<F>(&self, src: Weak<Inner<T>>, get_node: F) -> Self::Storage
+    fn listen<F>(&self, src: Weak<Inner<T>>, get_node: F)
     where
         F: Fn(&Inner<T>) -> &Self + Copy + 'static;
 }
 
 impl<T> CallbackChain<T> for () {
-    type Storage = ();
-
-    fn listen<F>(&self, _: Weak<Inner<T>>, _: F) -> Self::Storage
+    fn listen<F>(&self, _: Weak<Inner<T>>, _: F)
     where
         F: Fn(&Inner<T>) -> &Self + Copy + 'static,
     {
@@ -34,9 +30,7 @@ where
     F: Fn(&mut T, D::Data<'_>) + 'static,
     Next: CallbackChain<T>,
 {
-    type Storage = CallbackNode<F, (), Next::Storage>;
-
-    fn listen<Fg>(&self, weak_src: Weak<Inner<T>>, get_node: Fg) -> Self::Storage
+    fn listen<Fg>(&self, weak_src: Weak<Inner<T>>, get_node: Fg)
     where
         Fg: Fn(&Inner<T>) -> &Self + Copy + 'static,
     {

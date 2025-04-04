@@ -1,7 +1,4 @@
-use std::{
-    ops::{Deref, DerefMut},
-    rc::Rc,
-};
+use std::rc::Rc;
 
 use super::{Inner, Receiver};
 use crate::hook::{signal_group::SignalGroup, utils::TraceCell};

@@ -1,16 +1,8 @@
 use std::rc::Rc;
 
-use anyhow::Result;
 use builder::ReceiverBuilder;
 
-use super::{
-    signal_group::SignalGroup,
-    utils::{
-        trace_cell::{TraceMut, TraceRef},
-        WriteGuard,
-    },
-    Listener,
-};
+use super::utils::trace_cell::{TraceMut, TraceRef};
 use inner::Inner;
 
 mod builder;
