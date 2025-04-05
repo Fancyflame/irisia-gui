@@ -4,7 +4,7 @@ use crate::hook::{signal_group::SignalGroup, Listener};
 
 use super::Inner;
 
-pub trait CallbackChain<T> {
+pub trait CallbackChain<T>: 'static {
     fn listen<F>(&self, src: Weak<Inner<T>>, get_node: F)
     where
         F: Fn(&Inner<T>) -> &Self + Copy + 'static;
@@ -17,6 +17,7 @@ impl<T> CallbackChain<T> for () {
     {
     }
 }
+
 pub struct CallbackNode<F, D, Next> {
     pub(super) deps: D,
     pub(super) callback: RefCell<F>,
@@ -37,7 +38,7 @@ where
         let listener = Listener::new({
             let weak_src = weak_src.clone();
             move |action| {
-                let Some(src) = weak_src.upgrade() else {
+                let Some(inner) = weak_src.upgrade() else {
                     return false;
                 };
 
@@ -45,13 +46,26 @@ where
                     return true;
                 }
 
-                let this = get_node(&src);
+                let this = get_node(&inner);
 
-                if let (Some(mut src_mut), Ok(mut callback)) =
-                    (src.value.try_borrow_mut(), this.callback.try_borrow_mut())
-                {
-                    callback(&mut src_mut, D::deref_wrapper(&this.deps.read_many()));
-                }
+                // if value is already borrowed, then add the callback to the queue
+                let Some(mut value) = inner.value.try_borrow_mut() else {
+                    inner
+                        .delay_callbacks
+                        .borrow_mut()
+                        .push_back(Box::new(move |inner, value| {
+                            let this = get_node(&inner);
+                            this.callback.borrow_mut()(
+                                value,
+                                D::deref_wrapper(&this.deps.read_many()),
+                            );
+                        }));
+                    return true;
+                };
+
+                let mut callback = this.callback.borrow_mut();
+                callback(&mut value, D::deref_wrapper(&this.deps.read_many()));
+                inner.recall_delayed_callback(&mut value);
 
                 true
             }

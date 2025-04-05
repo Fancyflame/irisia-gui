@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{collections::VecDeque, rc::Rc};
 
 use super::{Inner, Reactive};
 use crate::hook::{signal_group::SignalGroup, utils::TraceCell};
@@ -6,21 +6,30 @@ use callback_chain::{CallbackChain, CallbackNode};
 
 mod callback_chain;
 
-pub struct ReceiverBuilder<T, C> {
-    pub(super) value: T,
-    pub(super) callbacks: C,
+pub struct ReactiveBuilder<T, C> {
+    value: T,
+    callbacks: C,
 }
 
-impl<T, C> ReceiverBuilder<T, C>
+impl<T> Reactive<T> {
+    pub fn builder(value: T) -> ReactiveBuilder<T, ()> {
+        ReactiveBuilder {
+            value,
+            callbacks: (),
+        }
+    }
+}
+
+impl<T, C> ReactiveBuilder<T, C>
 where
     T: 'static,
 {
-    pub fn dep<F, D>(self, callback: F, deps: D) -> ReceiverBuilder<T, CallbackNode<F, D, C>>
+    pub fn dep<F, D>(self, callback: F, deps: D) -> ReactiveBuilder<T, CallbackNode<F, D, C>>
     where
         F: FnMut(&mut T, D::Data<'_>) + 'static,
         D: SignalGroup + 'static,
     {
-        ReceiverBuilder {
+        ReactiveBuilder {
             value: self.value,
             callbacks: CallbackNode {
                 deps,
@@ -35,7 +44,7 @@ where
         mut callback: F,
         deps: D,
         enable: bool,
-    ) -> ReceiverBuilder<T, CallbackNode<F, D, C>>
+    ) -> ReactiveBuilder<T, CallbackNode<F, D, C>>
     where
         F: FnMut(&mut T, D::Data<'_>) + 'static,
         D: SignalGroup + 'static,
@@ -60,6 +69,7 @@ where
             });
             Inner {
                 value: TraceCell::new(self.value),
+                delay_callbacks: VecDeque::new().into(),
                 callback_chain_storage: Box::new(self.callbacks),
             }
         });
