@@ -17,14 +17,14 @@ where
 {
     pub fn dep<F, D>(self, callback: F, deps: D) -> ReceiverBuilder<T, CallbackNode<F, D, C>>
     where
-        F: Fn(&mut T, D::Data<'_>) + 'static,
+        F: FnMut(&mut T, D::Data<'_>) + 'static,
         D: SignalGroup + 'static,
     {
         ReceiverBuilder {
             value: self.value,
             callbacks: CallbackNode {
                 deps,
-                callback,
+                callback: callback.into(),
                 next: self.callbacks,
             },
         }
@@ -32,12 +32,12 @@ where
 
     pub fn dep_call<F, D>(
         mut self,
-        callback: F,
+        mut callback: F,
         deps: D,
         enable: bool,
     ) -> ReceiverBuilder<T, CallbackNode<F, D, C>>
     where
-        F: Fn(&mut T, D::Data<'_>) + 'static,
+        F: FnMut(&mut T, D::Data<'_>) + 'static,
         D: SignalGroup + 'static,
     {
         if enable {

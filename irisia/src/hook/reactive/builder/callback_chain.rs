@@ -1,4 +1,4 @@
-use std::rc::Weak;
+use std::{cell::RefCell, rc::Weak};
 
 use crate::hook::{signal_group::SignalGroup, Listener};
 
@@ -19,7 +19,7 @@ impl<T> CallbackChain<T> for () {
 }
 pub struct CallbackNode<F, D, Next> {
     pub(super) deps: D,
-    pub(super) callback: F,
+    pub(super) callback: RefCell<F>,
     pub(super) next: Next,
 }
 
@@ -27,7 +27,7 @@ impl<T, F, D, Next> CallbackChain<T> for CallbackNode<F, D, Next>
 where
     T: 'static,
     D: SignalGroup + 'static,
-    F: Fn(&mut T, D::Data<'_>) + 'static,
+    F: FnMut(&mut T, D::Data<'_>) + 'static,
     Next: CallbackChain<T>,
 {
     fn listen<Fg>(&self, weak_src: Weak<Inner<T>>, get_node: Fg)
@@ -47,8 +47,10 @@ where
 
                 let this = get_node(&src);
 
-                if let Some(mut src_mut) = src.value.try_borrow_mut() {
-                    (this.callback)(&mut src_mut, D::deref_wrapper(&this.deps.read_many()));
+                if let (Some(mut src_mut), Ok(mut callback)) =
+                    (src.value.try_borrow_mut(), this.callback.try_borrow_mut())
+                {
+                    callback(&mut src_mut, D::deref_wrapper(&this.deps.read_many()));
                 }
 
                 true
