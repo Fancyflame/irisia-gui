@@ -14,7 +14,7 @@ where
 {
     type Storage = Branch<A::Storage, B::Storage>;
 
-    fn create(self, ctx: &EMCreateCtx) -> Self::Storage {
+    fn create(&self, ctx: &EMCreateCtx) -> Self::Storage {
         match self {
             Self::A(upd) => {
                 let storage = Branch::A(upd.create(ctx));
@@ -24,7 +24,7 @@ where
         }
     }
 
-    fn update(self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
+    fn update(&self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
         match self {
             Self::A(upd) => {
                 if let Branch::A(cache) = storage {

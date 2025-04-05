@@ -7,31 +7,20 @@ use crate::prim_element::{EMCreateCtx, Element};
 
 use crate::model::{Model, VModel};
 
-pub struct Repeat<I> {
-    pub iter: I,
-}
-
-struct Item<T> {
-    used: bool,
-    value: T,
-}
-
-impl<I, T, K> VModel for Repeat<I>
+impl<K, T> VModel for Vec<(K, T)>
 where
-    I: Iterator<Item = (K, T)>,
     K: Hash + Eq + Clone + 'static,
     T: VModel,
 {
     type Storage = RepeatModel<K, T::Storage>;
 
-    fn create(self, ctx: &EMCreateCtx) -> Self::Storage {
-        let capacity = self.iter.size_hint().0;
+    fn create(&self, ctx: &EMCreateCtx) -> Self::Storage {
         let mut this = RepeatModel {
-            map: HashMap::with_capacity(capacity),
-            order: Vec::with_capacity(capacity),
+            map: HashMap::with_capacity(self.len()),
+            order: Vec::with_capacity(self.len()),
         };
 
-        for (key, vmodel) in self.iter {
+        for (key, vmodel) in self.iter() {
             match this.map.entry(key.clone()) {
                 Entry::Vacant(vac) => {
                     vac.insert(Item {
@@ -50,9 +39,9 @@ where
         this
     }
 
-    fn update(self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
+    fn update(&self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
         storage.order.clear();
-        for (key, vmodel) in self.iter {
+        for (key, vmodel) in self.iter() {
             match storage.map.entry(key.clone()) {
                 Entry::Vacant(vac) => {
                     vac.insert(Item {
@@ -78,6 +67,11 @@ where
 pub struct RepeatModel<K, T> {
     map: HashMap<K, Item<T>>,
     order: Vec<K>,
+}
+
+struct Item<T> {
+    used: bool,
+    value: T,
 }
 
 impl<K, T> Model for RepeatModel<K, T>

@@ -1,5 +1,3 @@
-use std::hash::Hash;
-
 use crate::prim_element::{EMCreateCtx, Element, GetElement};
 
 // pub mod component;
@@ -8,8 +6,8 @@ pub mod control_flow;
 pub trait VModel {
     type Storage: Model;
 
-    fn create(self, ctx: &EMCreateCtx) -> Self::Storage;
-    fn update(self, storage: &mut Self::Storage, ctx: &EMCreateCtx);
+    fn create(&self, ctx: &EMCreateCtx) -> Self::Storage;
+    fn update(&self, storage: &mut Self::Storage, ctx: &EMCreateCtx);
 }
 
 pub trait Model: 'static {
