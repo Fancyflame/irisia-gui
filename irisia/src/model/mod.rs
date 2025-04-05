@@ -1,6 +1,6 @@
 use crate::prim_element::{EMCreateCtx, Element, GetElement};
 
-// pub mod component;
+pub mod component;
 pub mod control_flow;
 
 pub trait VModel {

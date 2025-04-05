@@ -1,4 +1,6 @@
-use crate::{hook::Signal, prim_element::EMCreateCtx};
+use common_vmodel::CommonVModel;
+
+use crate::{coerce_hook, hook::Signal, prim_element::EMCreateCtx};
 
 pub use self::branch::Branch;
 
@@ -36,5 +38,14 @@ where
 
     fn update(&self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
         (**self).update(storage, ctx);
+    }
+}
+
+impl<T> From<Signal<T>> for Signal<dyn CommonVModel>
+where
+    T: VModel + 'static,
+{
+    fn from(value: Signal<T>) -> Self {
+        coerce_hook!(value)
     }
 }
