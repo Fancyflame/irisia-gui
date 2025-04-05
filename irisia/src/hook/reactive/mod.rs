@@ -6,13 +6,14 @@ use super::utils::trace_cell::{TraceMut, TraceRef};
 use inner::Inner;
 
 mod builder;
+mod coerce;
 mod inner;
 
-pub struct Receiver<T: ?Sized> {
+pub struct Reactive<T: ?Sized> {
     inner: Rc<Inner<T>>,
 }
 
-impl<T: 'static> Receiver<T> {
+impl<T: 'static> Reactive<T> {
     pub fn builder(value: T) -> ReceiverBuilder<T, ()> {
         ReceiverBuilder {
             value,
@@ -21,7 +22,7 @@ impl<T: 'static> Receiver<T> {
     }
 }
 
-impl<T: ?Sized> Receiver<T> {
+impl<T: ?Sized> Reactive<T> {
     pub fn read(&self) -> TraceRef<T> {
         self.inner
             .value
@@ -37,7 +38,7 @@ impl<T: ?Sized> Receiver<T> {
     }
 }
 
-impl<T: ?Sized> Clone for Receiver<T> {
+impl<T: ?Sized> Clone for Reactive<T> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),

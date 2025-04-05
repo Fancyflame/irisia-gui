@@ -9,11 +9,8 @@ use super::{
 };
 use inner::Inner;
 
-#[path = "coerce.rs"]
-#[doc(hidden)]
-pub mod __coerce;
-
 mod builder;
+mod coerce;
 mod inner;
 
 pub struct Signal<T: ?Sized> {

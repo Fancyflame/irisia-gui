@@ -1,6 +1,6 @@
 use irisia::{
     application::IncomingPointerEvent,
-    coerce_signal,
+    coerce_hook,
     el_model::{EMCreateCtx, ElementAccess},
     element::{children_utils::ChildrenUtils, ComponentTemplate, ElementInterfaces, Render},
     event::standard::{PointerEntered, PointerOut},
@@ -132,7 +132,7 @@ impl ElementInterfaces for Flex {
             slot,
         );
         Flex {
-            children: coerce_signal!(r),
+            children: coerce_hook!(r),
             access,
         }
     }

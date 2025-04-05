@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use super::{Inner, Receiver};
+use super::{Inner, Reactive};
 use crate::hook::{signal_group::SignalGroup, utils::TraceCell};
 use callback_chain::{CallbackChain, CallbackNode};
 
@@ -47,7 +47,7 @@ where
         self.dep(callback, deps)
     }
 
-    pub fn build(self) -> Receiver<T>
+    pub fn build(self) -> Reactive<T>
     where
         C: CallbackChain<T> + 'static,
     {
@@ -64,6 +64,6 @@ where
             }
         });
 
-        Receiver { inner }
+        Reactive { inner }
     }
 }
