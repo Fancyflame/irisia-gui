@@ -6,7 +6,6 @@ use super::utils::trace_cell::TraceRef;
 use inner::Inner;
 
 mod builder;
-mod coerce;
 mod inner;
 mod write_guard;
 
