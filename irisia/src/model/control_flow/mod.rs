@@ -1,5 +1,3 @@
-use std::hash::Hash;
-
 use branch::Branch;
 use execute::Execute;
 use repeat::Repeat;

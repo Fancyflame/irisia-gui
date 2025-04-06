@@ -19,8 +19,8 @@ impl<'a> CompStorage<'a> {
         let mut user_data = HashMap::new();
         for field in d.fields.iter() {
             match &field.field_type {
-                FieldType::Value { to_ty, .. } if !matches!(to_ty, Type::Infer(_)) => {
-                    user_data.insert(&field.name, to_ty);
+                FieldType::Value(ty) => {
+                    user_data.insert(&field.name, ty);
                 }
                 _ => {}
             }
@@ -35,7 +35,7 @@ impl<'a> CompStorage<'a> {
         let user_data_fields = self.user_data.iter().map(|(name, ty)| {
             let name = user_data_key(name);
             quote! {
-                #name: #PATH_COMPONENT::field::FieldHook<#ty>,
+                #name: #PATH_COMPONENT::field::Field<#ty>,
             }
         });
 
@@ -43,7 +43,7 @@ impl<'a> CompStorage<'a> {
             pub struct #STRUCT_STORAGE #generics {
                 #(#user_data_fields)*
                 child_box: #PATH_COMPONENT::child_box::ChildBox,
-                dependent_grid: #PATH_COMPONENT::DependentGrid,
+                deps: #PATH_COMPONENT::DepManager,
             }
         }
     }

@@ -1,6 +1,4 @@
-use super::VModel;
-
-pub use super::tools::dependent_grid::DependentGrid;
+pub use super::tools::DepManager;
 
 pub mod child_box;
 pub mod field;

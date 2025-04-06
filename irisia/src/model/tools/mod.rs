@@ -1,7 +1,7 @@
 use dependent_grid::DependentGrid;
 use dirty_set::bitset_create;
 use field_deps::FieldDeps;
-use iter::DirtyPoints;
+pub use iter::DirtyPoints;
 
 use super::VModel;
 

@@ -26,10 +26,10 @@ mod test {
         component! {
             Foo {
                 a: f32,
-                s: &'a str => String,
-                b: f32 => _,
-                c1: _ => f32,
-                c2: _ => f32,
+                s: String,
+                b: f32,
+                c1: f32,
+                c2: f32,
                 model children,
 
                 Foo {

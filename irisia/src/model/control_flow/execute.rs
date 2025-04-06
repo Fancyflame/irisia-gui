@@ -1,5 +1,5 @@
 use crate::{
-    model::tools::{caller_stack, dependent_grid::DependentGrid, watcher::Watcher, DirtyPoints},
+    model::tools::{caller_stack, watcher::Watcher, DirtyPoints},
     prim_element::EMCreateCtx,
 };
 
@@ -19,11 +19,11 @@ where
 
     fn create(self, dp: &mut DirtyPoints<'a>, ctx: &EMCreateCtx) -> Self::Storage {
         let wm = WatcherMaker {
-            dep_grid: dp.dep_grid(),
+            dp: dp.fork(),
             id: dp.offset(),
         };
-
         dp.consume(1);
+
         caller_stack::with_caller(dp.offset(), || (self.updator)(wm).create(dp, ctx))
     }
 
@@ -35,7 +35,7 @@ where
         }
 
         let wm = WatcherMaker {
-            dep_grid: dp.dep_grid(),
+            dp: dp.fork(),
             id: dp.offset(),
         };
         dp.consume(1);
@@ -44,16 +44,12 @@ where
 }
 
 pub struct WatcherMaker<'a> {
-    dep_grid: &'a DependentGrid,
+    dp: DirtyPoints<'a>,
     id: usize,
 }
 
 impl<'a> WatcherMaker<'a> {
     pub fn make<T>(&self, value: T) -> Watcher<'a, T> {
-        Watcher {
-            dep_grid: self.dep_grid,
-            exec_point_id: self.id,
-            value,
-        }
+        self.dp.watch_temp_var(self.id, value)
     }
 }

@@ -70,7 +70,12 @@ where
         src.create(dp, ctx)
     }
 
-    fn update(self, storage: &mut Self::Storage, dp: &mut DirtyPoints<'a>, ctx: &EMCreateCtx) {
+    fn update(
+        self,
+        storage: &mut Self::Storage,
+        dp: &mut DirtyPoints<'a>,
+        ctx: &EMCreateCtx,
+    ) {
         let mut src = (self.create_blank_prop)();
         self.definitions.update_build(&mut src, dp);
         src.update(storage, dp, ctx);

@@ -1,4 +1,5 @@
 use super::{
+    caller_stack,
     cursor::Cursor,
     watcher::{Watcher, WatcherType},
     DepManager,
@@ -40,17 +41,13 @@ impl<'a> DirtyPoints<'a> {
         }
     }
 
-    pub fn watch_field<T>(&self, src: usize, value: T) -> Watcher<'_, T> {
-        Watcher {
-            wt: WatcherType::Field {
-                field_deps: &self.mgr.field_deps,
-                id: src,
-            },
-            value,
+    pub fn watch_field<T>(&self, src: usize) {
+        if let Some(caller) = caller_stack::get_caller() {
+            self.mgr.field_deps.mark(src, caller);
         }
     }
 
-    pub fn watch_temp_var<T>(&self, exec_point: usize, value: T) -> Watcher<'_, T> {
+    pub fn watch_temp_var<T>(&self, exec_point: usize, value: T) -> Watcher<'a, T> {
         Watcher {
             wt: WatcherType::TempVar {
                 grid: &self.mgr.grid,

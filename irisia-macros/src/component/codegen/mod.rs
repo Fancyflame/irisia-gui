@@ -73,7 +73,7 @@ impl<'a> Codegen<'a> {
             .filter_map(|FieldDefinition { name, field_type }| {
                 let ty = match field_type {
                     FieldType::Model => return None,
-                    FieldType::Value { to_ty, .. } => to_ty,
+                    FieldType::Value(ty) => ty,
                 };
                 Some(quote! { #name: #ty, })
             });

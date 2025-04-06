@@ -16,7 +16,7 @@ struct FieldDefinition {
 }
 
 enum FieldType {
-    Value { from_ty: Type, to_ty: Type },
+    Value(Type),
     Model,
 }
 

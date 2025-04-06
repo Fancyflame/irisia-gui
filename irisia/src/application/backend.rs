@@ -9,10 +9,7 @@ use irisia_backend::{
 
 use crate::{
     event::{standard::WindowDestroyed, EventDispatcher},
-    model::{
-        tools::{dependent_grid::DependentGrid, DirtyPoints, DirtySet},
-        VModel, VNode,
-    },
+    model::{tools::DepManager, VModel, VNode},
     prim_element::{EMCreateCtx, GetElement, RenderTree},
     primitive::{Point, Region},
     Result,
@@ -118,9 +115,8 @@ where
             });
 
             let root_vnode = root_creator();
-            let dep_grid = DependentGrid::new(&root_vnode);
             let root_model = root_vnode.create(
-                &mut DirtyPoints::new(&[], &dep_grid),
+                &mut DepManager::new(0, &()).iter_builder().build(),
                 &EMCreateCtx {
                     global_content: gc.clone(),
                 },

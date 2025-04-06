@@ -6,7 +6,7 @@ use syn::{
     braced,
     parse::{Parse, ParseStream},
     token::Brace,
-    Error, Expr, Generics, Ident, Pat, Result, Token, Type,
+    Expr, Generics, Ident, Pat, Result, Token, Type,
 };
 
 mod kw {
@@ -45,25 +45,11 @@ fn parse_field_def(input: ParseStream, prefix: FieldIdentPrefix) -> Result<Field
     match prefix {
         FieldIdentPrefix::Value(name) => {
             input.parse::<Token![:]>()?;
-
-            let from_ty: Type = input.parse()?;
-            let to_ty = if input.peek(Token![=>]) {
-                input.parse::<Token![=>]>()?;
-                input.parse()?
-            } else {
-                from_ty.clone()
-            };
-
-            if let (Type::Infer(_), Type::Infer(_)) = (&from_ty, &to_ty) {
-                return Err(Error::new(
-                    input.span(),
-                    "at least one type of from-position or to-position must be given",
-                ));
-            }
+            let ty: Type = input.parse()?;
 
             Ok(FieldDefinition {
                 name,
-                field_type: FieldType::Value { from_ty, to_ty },
+                field_type: FieldType::Value(ty),
             })
         }
         FieldIdentPrefix::Model(name) => Ok(FieldDefinition {
