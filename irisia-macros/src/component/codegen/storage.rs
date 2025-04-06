@@ -43,6 +43,7 @@ impl<'a> CompStorage<'a> {
             pub struct #STRUCT_STORAGE #generics {
                 #(#user_data_fields)*
                 child_box: #PATH_COMPONENT::child_box::ChildBox,
+                dependent_grid: #PATH_COMPONENT::DependentGrid,
             }
         }
     }
@@ -50,8 +51,4 @@ impl<'a> CompStorage<'a> {
 
 pub fn user_data_key(i: &Ident) -> Ident {
     format_ident!("user_data_{i}")
-}
-
-pub fn child_box_key() -> Ident {
-    format_ident!("child_box")
 }

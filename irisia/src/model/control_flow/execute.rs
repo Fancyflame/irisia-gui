@@ -50,6 +50,10 @@ pub struct WatcherMaker<'a> {
 
 impl<'a> WatcherMaker<'a> {
     pub fn make<T>(&self, value: T) -> Watcher<'a, T> {
-        Watcher::from_temp_var(self.dep_grid, self.id, value)
+        Watcher {
+            dep_grid: self.dep_grid,
+            exec_point_id: self.id,
+            value,
+        }
     }
 }
