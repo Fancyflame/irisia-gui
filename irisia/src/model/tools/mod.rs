@@ -1,83 +1,53 @@
 use dependent_grid::DependentGrid;
-pub(crate) use dirty_set::{Cursor, DirtySet};
-use std::ops::{Deref, DerefMut};
+use dirty_set::bitset_create;
+use field_deps::FieldDeps;
+use iter::DirtyPoints;
+
+use super::VModel;
 
 pub(crate) mod caller_stack;
-pub mod dependent_grid;
+pub mod cursor;
+mod dependent_grid;
 mod dirty_set;
+mod field_deps;
+pub mod iter;
 pub mod watcher;
 
-pub struct DirtyPoints<'a> {
-    cursor: Cursor,
-    data: &'a [u8],
-    grid: &'a DependentGrid,
+pub struct DepManager {
+    current_dp: Box<[u8]>,
+    field_deps: FieldDeps,
+    grid: DependentGrid,
 }
 
-impl<'a> DirtyPoints<'a> {
-    pub fn new(data: &'a [u8], dep_grid: &'a DependentGrid) -> Self {
+impl DepManager {
+    pub fn new<'a, T>(field_count: usize, _vmodel: &T) -> Self
+    where
+        T: VModel<'a>,
+    {
+        let width = T::EXECUTE_POINTS;
         Self {
-            cursor: Cursor::new(0),
-            data,
-            grid: dep_grid,
+            current_dp: bitset_create(width),
+            field_deps: FieldDeps::new(field_count, width),
+            grid: DependentGrid::new(width),
         }
     }
 
-    pub fn check_range(&self, upper_bound: usize) -> bool {
-        let peeked = self.cursor.clone().next(&self.data);
-        match peeked {
-            Some(p) => p < self.offset() + upper_bound,
-            None => false,
-        }
-    }
-
-    pub fn consume(&mut self, upper_bound: usize) {
-        self.cursor = Cursor::new(self.cursor.offset() + upper_bound);
-    }
-
-    pub fn offset(&self) -> usize {
-        self.cursor.offset()
-    }
-
-    pub(crate) fn fork(&self) -> Self {
-        DirtyPoints {
-            cursor: self.cursor.clone(),
-            data: self.data,
-            grid: self.grid,
-        }
-    }
-
-    pub(crate) fn dep_grid(&self) -> &'a DependentGrid {
-        self.grid
+    pub fn iter_builder(&mut self) -> DpBuilder {
+        self.current_dp.fill(0);
+        DpBuilder { mgr: self }
     }
 }
 
-enum MaybeOwned<'a, T> {
-    Owned(T),
-    RefMut(&'a mut T),
+pub struct DpBuilder<'a> {
+    mgr: &'a mut DepManager,
 }
 
-impl<T> Deref for MaybeOwned<'_, T> {
-    type Target = T;
-    fn deref(&self) -> &Self::Target {
-        match self {
-            Self::Owned(t) => t,
-            Self::RefMut(t) => t,
-        }
+impl<'a> DpBuilder<'a> {
+    pub fn set_updated_field(&mut self, id: usize) {
+        self.mgr.field_deps.take(&mut self.mgr.current_dp, id);
     }
-}
 
-impl<T> DerefMut for MaybeOwned<'_, T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        match self {
-            Self::Owned(t) => t,
-            Self::RefMut(t) => t,
-        }
+    pub fn build(self) -> DirtyPoints<'a> {
+        DirtyPoints::new(self.mgr)
     }
-}
-
-fn mark_bit(data: &mut [u8], position: usize) {
-    let index = position / 8;
-    let shifts = position % 8;
-    let byte = data.get_mut(index).expect("position out of limit");
-    *byte |= 1 << shifts;
 }

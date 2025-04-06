@@ -1,77 +1,17 @@
-use super::mark_bit;
-
-#[derive(Clone, Copy)]
-pub struct DirtySet<const N: usize = 12>([u8; N]);
-
-impl<const N: usize> DirtySet<N> {
-    pub fn new() -> Self {
-        Self([0; N])
-    }
-
-    pub fn mark(&mut self, position: usize) {
-        mark_bit(&mut self.0, position);
-    }
-
-    pub fn data(&self) -> &[u8; N] {
-        &self.0
-    }
-
-    pub(crate) fn union(&mut self, rhs: &[u8; N]) {
-        for (a, &b) in self.0.iter_mut().zip(rhs.iter()) {
-            *a |= b;
-        }
-    }
+pub fn bitset_create(size: usize) -> Box<[u8]> {
+    vec![0; size.div_ceil(8)].into_boxed_slice()
 }
 
-#[derive(Clone)]
-pub struct Cursor {
-    bytes: usize,
-    bits: u32,
+pub fn bitset_mark(data: &mut [u8], position: usize) {
+    let index = position / 8;
+    let shifts = position % 8;
+    let byte = data.get_mut(index).expect("position out of limit");
+    *byte |= 1 << shifts;
 }
 
-impl Cursor {
-    pub(super) fn new(offset: usize) -> Self {
-        Self {
-            bytes: offset / 8,
-            bits: (offset % 8) as _,
-        }
+pub fn bitset_union(dst: &mut [u8], src: &[u8]) {
+    assert_eq!(dst.len(), src.len());
+    for (a, &b) in dst.iter_mut().zip(src.iter()) {
+        *a |= b;
     }
-
-    pub(super) fn offset(&self) -> usize {
-        self.bytes * 8 + self.bits as usize
-    }
-
-    pub fn next<'a>(&mut self, data: &'a [u8]) -> Option<usize> {
-        let byte = loop {
-            let mut byte = data.get(self.bytes).copied()?;
-            byte &= !0 << self.bits;
-
-            if byte == 0 {
-                self.bytes += 1;
-                self.bits = 0;
-            } else {
-                break byte;
-            }
-        };
-        self.bits = byte.trailing_zeros();
-
-        let result = self.offset();
-        self.bits += 1;
-
-        Some(result)
-    }
-}
-
-#[test]
-fn test() {
-    let mut set = DirtySet::<5>::new();
-    let inputs = [0, 10, 11, 39];
-    for input in inputs {
-        set.mark(input);
-    }
-
-    let mut cursor = Cursor::new(0);
-    let data = set.data();
-    let vec: Vec<usize> = std::iter::from_fn(|| cursor.next(data)).collect();
-    assert_eq!(&*vec, &inputs);
 }

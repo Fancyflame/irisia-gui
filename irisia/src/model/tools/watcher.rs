@@ -1,33 +1,34 @@
-use crate::model::tools::{caller_stack, DirtySet};
-use std::{
-    cell::Cell,
-    ops::{Deref, DerefMut},
-};
+use crate::model::tools::caller_stack;
+use std::ops::{Deref, DerefMut};
 
-use super::dependent_grid::DependentGrid;
+use super::{dependent_grid::DependentGrid, field_deps::FieldDeps};
 
 pub struct Watcher<'a, T: ?Sized> {
-    pub(crate) dep_grid: &'a DependentGrid,
-    pub(crate) exec_point_id: usize,
-    pub(crate) value: T,
+    pub(super) wt: WatcherType<'a>,
+    pub(super) value: T,
 }
 
-trait MarkDirtySet {
-    fn mark(&self, pos: usize);
-}
-
-impl<const DCAP: usize> MarkDirtySet for Cell<DirtySet<DCAP>> {
-    fn mark(&self, pos: usize) {
-        let mut ds = self.get();
-        ds.mark(pos);
-        self.set(ds);
-    }
+pub(super) enum WatcherType<'a> {
+    Field {
+        field_deps: &'a FieldDeps,
+        id: usize,
+    },
+    TempVar {
+        grid: &'a DependentGrid,
+        exec_point: usize,
+    },
 }
 
 impl<T: ?Sized> Watcher<'_, T> {
     fn mark_dirty(&self) {
         if let Some(pos) = caller_stack::get_caller() {
-            self.dep_grid.mark(self.exec_point_id, pos)
+            match self.wt {
+                WatcherType::Field { field_deps, id } => field_deps.mark(id, pos),
+                WatcherType::TempVar {
+                    grid,
+                    exec_point: exec_point_id,
+                } => grid.mark(exec_point_id, pos),
+            }
         }
     }
 }
