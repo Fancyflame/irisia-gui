@@ -31,6 +31,13 @@ impl<T: ?Sized> Reactive<T> {
             inner: &self.inner,
         }
     }
+
+    pub fn into_inner(self) -> Option<T>
+    where
+        T: Sized,
+    {
+        Rc::into_inner(self.inner).map(|inner| inner.value.into_inner())
+    }
 }
 
 impl<T: ?Sized> Clone for Reactive<T> {
