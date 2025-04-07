@@ -1,9 +1,14 @@
+use definition::Definition;
+
 use crate::hook::{reactive::Reactive, Signal};
 
 use super::{
     control_flow::common_vmodel::{BoxedModel, CommonVModel},
     Model, VModel,
 };
+
+pub mod check_eq_helper;
+pub mod definition;
 
 pub struct UseComponent<F, D> {
     pub create_fn: F,
@@ -16,24 +21,17 @@ pub trait Component {
     fn create(self) -> (Self::Created, Signal<dyn CommonVModel>);
 }
 
-pub trait Definition {
-    type Storage: 'static;
-
-    fn create(&self) -> Self::Storage;
-    fn update(&self, storage: &mut Self::Storage);
-}
-
 impl<F, T, D> VModel for UseComponent<F, D>
 where
-    F: Fn(&D::Storage) -> T,
+    F: Fn(&D::Value) -> T,
     T: Component,
     D: Definition,
 {
     type Storage = UseComponentModel<T::Created, D::Storage>;
 
     fn create(&self, ctx: &crate::prim_element::EMCreateCtx) -> Self::Storage {
-        let defs = self.defs.create();
-        let (component, vmodel) = (self.create_fn)(&defs).create();
+        let (def_storages, def_values) = self.defs.create();
+        let (component, vmodel) = (self.create_fn)(&def_values).create();
 
         let ctx = ctx.clone();
         let model = Reactive::builder(vmodel.create(&ctx))
@@ -48,7 +46,7 @@ where
         UseComponentModel {
             _component: component,
             model,
-            defs,
+            defs: def_storages,
         }
     }
 

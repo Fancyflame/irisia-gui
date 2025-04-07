@@ -86,8 +86,8 @@ impl<T: ?Sized> WriteSignal<T> {
         self.0.read()
     }
 
-    pub fn signal(&self) -> &Signal<T> {
-        &self.0
+    pub fn to_signal(&self) -> Signal<T> {
+        self.0.clone()
     }
 }
 
