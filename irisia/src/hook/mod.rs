@@ -10,7 +10,10 @@ pub mod utils;
 #[macro_export]
 macro_rules! coerce_hook {
     ($signal:expr) => {
-        (($signal).__irisia_coerce_unsized(|inner| inner as _))
+        $crate::coerce_hook!($signal, _)
+    };
+    ($signal:expr, $TargetType:ty) => {
+        (($signal).__irisia_coerce_unsized::<$TargetType>(|inner| inner as _))
     };
 }
 

@@ -1,6 +1,22 @@
 use crate::model::{Model, VModel};
 use crate::prim_element::{EMCreateCtx, Element};
 
+pub fn branch_a<A, B>(value: A) -> Branch<A, B>
+where
+    A: VModel,
+    B: VModel,
+{
+    Branch::A(value)
+}
+
+pub fn branch_b<A, B>(value: B) -> Branch<A, B>
+where
+    A: VModel,
+    B: VModel,
+{
+    Branch::B(value)
+}
+
 #[derive(PartialEq)]
 pub enum Branch<A, B> {
     A(A),

@@ -1,75 +1,25 @@
+use crate::component::FieldAssignMethod;
+
 use super::{
-    BlockStmt, Component, DomMacro, FieldAssignment, FieldDefinition, FieldType, ForStmt, IfStmt,
-    MatchArm, MatchStmt, Stmt, UseSlot, WhileStmt,
+    BlockStmt, BuildMacro, Component, FieldAssignment, ForStmt, IfStmt, MatchArm, MatchStmt, Stmt,
+    WhileStmt,
 };
 use syn::{
     braced,
     parse::{Parse, ParseStream},
     token::Brace,
-    Error, Expr, Generics, Ident, Pat, Result, Token, Type,
+    Expr, Ident, Pat, Result, Token,
 };
 
 mod kw {
     use syn::custom_keyword;
 
-    custom_keyword!(model);
     custom_keyword!(key);
 }
 
-impl Parse for DomMacro {
+impl Parse for BuildMacro {
     fn parse(input: ParseStream) -> Result<Self> {
-        let name: Ident = input.parse()?;
-        let generics: Generics = input.parse()?;
-
-        let content;
-        braced!(content in input);
-
-        let mut fields: Vec<FieldDefinition> = Vec::new();
-        while let Some(prefix) = parse_field_prefix(&content)? {
-            fields.push(parse_field_def(&content, prefix)?);
-            content.parse::<Token![,]>()?;
-        }
-
-        let body = parse_stmts(&content)?;
-
-        Ok(DomMacro {
-            name,
-            generics,
-            fields,
-            body,
-        })
-    }
-}
-
-fn parse_field_def(input: ParseStream, prefix: FieldIdentPrefix) -> Result<FieldDefinition> {
-    match prefix {
-        FieldIdentPrefix::Value(name) => {
-            input.parse::<Token![:]>()?;
-
-            let from_ty: Type = input.parse()?;
-            let to_ty = if input.peek(Token![=>]) {
-                input.parse::<Token![=>]>()?;
-                input.parse()?
-            } else {
-                from_ty.clone()
-            };
-
-            if let (Type::Infer(_), Type::Infer(_)) = (&from_ty, &to_ty) {
-                return Err(Error::new(
-                    input.span(),
-                    "at least one type of from-position or to-position must be given",
-                ));
-            }
-
-            Ok(FieldDefinition {
-                name,
-                field_type: FieldType::Value { from_ty, to_ty },
-            })
-        }
-        FieldIdentPrefix::Model(name) => Ok(FieldDefinition {
-            name,
-            field_type: FieldType::Model,
-        }),
+        parse_stmts(input).map(Self)
     }
 }
 
@@ -93,15 +43,7 @@ fn parse_stmt(input: ParseStream, multiple_mode: bool) -> Result<Stmt> {
     } else if input.peek(Brace) {
         Ok(Stmt::Block(parse_block(input)?))
     } else {
-        let path: syn::Path = input.parse()?;
-        if let (Some(ident), true) = (path.get_ident(), !input.peek(Brace)) {
-            if multiple_mode {
-                input.parse::<Token![;]>()?;
-            }
-            Ok(Stmt::Slot(UseSlot { var: ident.clone() }))
-        } else {
-            Ok(Stmt::Component(parse_component(input, path)?))
-        }
+        Ok(Stmt::Component(parse_component(input)?))
     }
 }
 
@@ -190,51 +132,40 @@ fn parse_while_stmt(input: ParseStream) -> Result<WhileStmt> {
     })
 }
 
-fn parse_component(input: ParseStream, path: syn::Path) -> Result<Component> {
+fn parse_component(input: ParseStream) -> Result<Component> {
+    let type_path = input.parse()?;
+
     let content;
     braced!(content in input);
 
     let mut fields = Vec::new();
 
-    while let Some(prefix) = parse_field_prefix(&content)? {
+    while content.peek(Ident) && content.peek2(Token![:]) {
+        let name = content.parse()?;
         content.parse::<Token![:]>()?;
-        let fa = match prefix {
-            FieldIdentPrefix::Value(name) => FieldAssignment::Value {
-                value: content.parse()?,
-                name,
-            },
-            FieldIdentPrefix::Model(name) => FieldAssignment::Model {
-                name,
-                tree: parse_stmt(&content, false)?,
-            },
+
+        let method = if content.peek(Token![=]) {
+            content.parse::<Token![=]>()?;
+            FieldAssignMethod::Direct
+        } else {
+            FieldAssignMethod::HostingSignal
         };
+
+        let value = content.parse()?;
         content.parse::<Token![,]>()?;
-        fields.push(fa);
+
+        fields.push(FieldAssignment {
+            name,
+            value,
+            method,
+        });
     }
 
     Ok(Component {
-        path,
+        type_path,
         fields,
         body: parse_stmts(&content)?,
     })
-}
-
-enum FieldIdentPrefix {
-    Value(Ident),
-    Model(Ident),
-}
-
-fn parse_field_prefix(input: ParseStream) -> Result<Option<FieldIdentPrefix>> {
-    if input.peek(kw::model) && input.peek2(Ident) {
-        input.parse::<kw::model>()?;
-        let name = input.parse()?;
-        Ok(Some(FieldIdentPrefix::Model(name)))
-    } else if input.peek(Ident) && input.peek2(Token![:]) {
-        let name = input.parse()?;
-        Ok(Some(FieldIdentPrefix::Value(name)))
-    } else {
-        Ok(None)
-    }
 }
 
 fn parse_block(input: ParseStream) -> Result<BlockStmt> {

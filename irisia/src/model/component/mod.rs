@@ -2,13 +2,10 @@ use std::marker::PhantomData;
 
 use definition::Definition;
 
-use crate::{hook::Signal, prim_element::EMCreateCtx};
+use crate::prim_element::EMCreateCtx;
 
 use super::{
-    control_flow::{
-        common_vmodel::{BoxedModel, CommonVModel},
-        signal::SignalModel,
-    },
+    control_flow::common_vmodel::{BoxedModel, CommonVModel},
     Model, VModel,
 };
 
@@ -24,7 +21,7 @@ pub struct UseComponent<T, F, D> {
 impl<T, F, D> UseComponent<T, F, D>
 where
     T: Component,
-    F: Fn(&D::Value) -> T::Props,
+    F: Fn(D::Value) -> T::Props,
     D: Definition,
 {
     pub fn new(create_fn: F, defs: D) -> Self {
@@ -36,16 +33,18 @@ where
     }
 }
 
+pub type PropsAlias<T> = <T as Component>::Props;
+
 pub trait Component: 'static {
     type Props;
 
     fn create(props: Self::Props) -> Self;
-    fn render(&self) -> Signal<dyn CommonVModel>;
+    fn render(&self) -> impl VModel;
 }
 
 impl<T, F, D> VModel for UseComponent<T, F, D>
 where
-    F: Fn(&D::Value) -> T::Props,
+    F: Fn(D::Value) -> T::Props,
     T: Component,
     D: Definition,
 {
@@ -53,11 +52,12 @@ where
 
     fn create(&self, ctx: &EMCreateCtx) -> Self::Storage {
         let (def_storages, def_values) = self.defs.create();
-        let component = T::create((self.create_fn)(&def_values));
+        let component = T::create((self.create_fn)(def_values));
 
+        let model = component.render().common_create(ctx);
         UseComponentModel {
             defs: def_storages,
-            model: component.render().create(ctx),
+            model,
             _component: component,
         }
     }
@@ -70,7 +70,7 @@ where
 pub struct UseComponentModel<T, D> {
     _component: T,
     defs: D,
-    model: SignalModel<BoxedModel>,
+    model: BoxedModel,
 }
 
 impl<T, D> Model for UseComponentModel<T, D>

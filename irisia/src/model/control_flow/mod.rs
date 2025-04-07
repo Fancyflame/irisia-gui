@@ -1,8 +1,7 @@
-use common_vmodel::CommonVModel;
-
 use crate::{coerce_hook, hook::Signal, prim_element::EMCreateCtx};
+use std::rc::Rc;
 
-pub use self::branch::Branch;
+pub use self::common_vmodel::CommonVModel;
 
 use super::VModel;
 
@@ -17,11 +16,22 @@ where
     T: VModel + ?Sized,
 {
     type Storage = T::Storage;
-
     fn create(&self, ctx: &EMCreateCtx) -> Self::Storage {
         (**self).create(ctx)
     }
+    fn update(&self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
+        (**self).update(storage, ctx);
+    }
+}
 
+impl<T> VModel for Rc<T>
+where
+    T: VModel + ?Sized,
+{
+    type Storage = T::Storage;
+    fn create(&self, ctx: &EMCreateCtx) -> Self::Storage {
+        (**self).create(ctx)
+    }
     fn update(&self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
         (**self).update(storage, ctx);
     }

@@ -1,14 +1,9 @@
 use syn::{Expr, Ident, Type};
 
-mod codegen;
 mod parse;
+mod to_tokens;
 
-pub struct DomMacro {
-    name: Ident,
-    generics: syn::Generics,
-    fields: Vec<FieldDefinition>,
-    body: Vec<Stmt>,
-}
+pub struct BuildMacro(Vec<Stmt>);
 
 struct FieldDefinition {
     name: Ident,
@@ -25,7 +20,6 @@ enum Stmt {
     Match(MatchStmt),
     For(ForStmt),
     While(WhileStmt),
-    Slot(UseSlot),
     Component(Component),
     Block(BlockStmt),
 }
@@ -59,21 +53,23 @@ struct WhileStmt {
     body: BlockStmt,
 }
 
-struct UseSlot {
-    var: Ident,
-}
-
 struct BlockStmt {
     stmts: Vec<Stmt>,
 }
 
 struct Component {
-    path: syn::Path,
+    type_path: syn::Path,
     fields: Vec<FieldAssignment>,
     body: Vec<Stmt>,
 }
 
-enum FieldAssignment {
-    Value { name: Ident, value: syn::Expr },
-    Model { name: Ident, tree: Stmt },
+struct FieldAssignment {
+    name: Ident,
+    value: Expr,
+    method: FieldAssignMethod,
+}
+
+enum FieldAssignMethod {
+    HostingSignal,
+    Direct,
 }

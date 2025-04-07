@@ -18,49 +18,55 @@ pub trait VNode: VModel<Storage: GetElement> {}
 
 impl<T> VNode for T where T: VModel<Storage: GetElement> {}
 
-#[cfg(disable)]
 mod test {
-    use crate as irisia;
-    use irisia_macros::component;
+    use crate::{self as irisia, hook::Signal};
+    use irisia_macros::build2;
 
-    use super::VModel;
-    macro_rules! test {
-        ($($tt:tt)*) => {};
+    use super::{component::Component, control_flow::common_vmodel::CommonVModel};
+
+    struct Foo;
+
+    #[derive(Default)]
+    struct FooProps {
+        a: Option<Signal<i32>>,
+        children: Option<Signal<dyn CommonVModel>>,
+        c2: Option<Signal<dyn CommonVModel>>,
+    }
+
+    impl Component for Foo {
+        type Props = FooProps;
+        fn create(_props: Self::Props) -> Self {
+            Foo
+        }
+        fn render(&self) -> impl super::VModel {
+            ()
+        }
     }
 
     fn test() {
-        component! {
-            Foo<'a> {
-                a: f32,
-                s: &'a str => String,
-                b: f32 => _,
-                c1: _ => f32,
-                c2: _ => f32,
-                model children,
+        build2! {
+            Foo {
+                a: 2,
+                c2: build2! {
+                    for i in 0..2,
+                        key = i
+                    {}
+                },
+                //children;
+                if 1 + 2 == 2 {
+                    /*Bar1 {
+                        field1: "Aaa",
+                        field2: 123,
 
-                Foo {
-                    a: a,
-                    b: b,
-                    /*model slot: match c1 {
-                        Some((a, b)) if 1 + 1 == 3 => children,
-                        None => {},
-                    },*/
-                    children;
-                    if a + b == 2 {
-                        Bar1 {
-                            field1: "Aaa",
-                            field2: 123,
+                    }*/
+                } /*else {
+                    Bar2 {
+                        for a in 0..10 {
 
-                        }
-                    } else {
-                        Bar2 {
-                            for a in 0..10 {
-
-                            }
                         }
                     }
-                }
+                }*/
             }
-        }
+        };
     }
 }
