@@ -12,13 +12,28 @@ use super::{
     Model, VModel,
 };
 
-pub mod check_eq_helper;
 pub mod definition;
+pub mod proxy_signal_helper;
 
 pub struct UseComponent<T, F, D> {
-    pub _comp: PhantomData<T>,
-    pub create_fn: F,
-    pub defs: D,
+    _comp: PhantomData<T>,
+    create_fn: F,
+    defs: D,
+}
+
+impl<T, F, D> UseComponent<T, F, D>
+where
+    T: Component,
+    F: Fn(&D::Value) -> T::Props,
+    D: Definition,
+{
+    pub fn new(create_fn: F, defs: D) -> Self {
+        Self {
+            _comp: PhantomData,
+            create_fn,
+            defs,
+        }
+    }
 }
 
 pub trait Component: 'static {

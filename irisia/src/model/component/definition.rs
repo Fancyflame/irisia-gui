@@ -9,8 +9,8 @@ pub trait Definition {
 }
 
 pub struct SignalProxied<T> {
-    pub value: T,
-    pub eq_fn: fn(&T, &T) -> bool,
+    pub(super) value: T,
+    pub(super) eq_fn: fn(&T, &T) -> bool,
 }
 
 pub struct SignalHoster<T> {
@@ -39,7 +39,7 @@ impl<T: Clone + 'static> Definition for SignalProxied<T> {
     }
 }
 
-pub struct DirectAssign<T>(pub T);
+pub struct DirectAssign<T: Clone>(pub T);
 
 impl<T: Clone> Definition for DirectAssign<T> {
     type Value = T;
