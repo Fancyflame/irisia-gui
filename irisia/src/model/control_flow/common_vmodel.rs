@@ -47,7 +47,7 @@ impl Model for BoxedModel {
     }
 }
 
-impl VModel for dyn CommonVModel {
+impl VModel for dyn CommonVModel + '_ {
     type Storage = BoxedModel;
 
     fn create(&self, ctx: &EMCreateCtx) -> Self::Storage {

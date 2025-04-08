@@ -21,7 +21,7 @@ pub struct UseComponent<T, F, D> {
 impl<T, F, D> UseComponent<T, F, D>
 where
     T: Component,
-    F: Fn(D::Value) -> T::Props,
+    F: Fn(D::Value) -> T,
     D: Definition,
 {
     pub fn new(create_fn: F, defs: D) -> Self {
@@ -33,28 +33,25 @@ where
     }
 }
 
-pub type PropsAlias<T> = <T as Component>::Props;
+pub trait Component: Sized + 'static {
+    type Created: 'static;
 
-pub trait Component: 'static {
-    type Props;
-
-    fn create(props: Self::Props) -> Self;
-    fn render(&self) -> impl VModel;
+    fn create(self) -> (Self::Created, impl VModel);
 }
 
 impl<T, F, D> VModel for UseComponent<T, F, D>
 where
-    F: Fn(D::Value) -> T::Props,
+    F: Fn(D::Value) -> T,
     T: Component,
     D: Definition,
 {
-    type Storage = UseComponentModel<T, D::Storage>;
+    type Storage = UseComponentModel<T::Created, D::Storage>;
 
     fn create(&self, ctx: &EMCreateCtx) -> Self::Storage {
         let (def_storages, def_values) = self.defs.create();
-        let component = T::create((self.create_fn)(def_values));
+        let (component, vmodel) = T::create((self.create_fn)(def_values));
 
-        let model = component.render().common_create(ctx);
+        let model = vmodel.common_create(ctx);
         UseComponentModel {
             defs: def_storages,
             model,

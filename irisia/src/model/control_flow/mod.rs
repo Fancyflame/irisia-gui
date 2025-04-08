@@ -11,32 +11,6 @@ pub mod repeat;
 pub mod signal;
 pub mod tuple;
 
-impl<T> VModel for Box<T>
-where
-    T: VModel + ?Sized,
-{
-    type Storage = T::Storage;
-    fn create(&self, ctx: &EMCreateCtx) -> Self::Storage {
-        (**self).create(ctx)
-    }
-    fn update(&self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
-        (**self).update(storage, ctx);
-    }
-}
-
-impl<T> VModel for Rc<T>
-where
-    T: VModel + ?Sized,
-{
-    type Storage = T::Storage;
-    fn create(&self, ctx: &EMCreateCtx) -> Self::Storage {
-        (**self).create(ctx)
-    }
-    fn update(&self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
-        (**self).update(storage, ctx);
-    }
-}
-
 impl<T> From<Signal<T>> for Signal<dyn CommonVModel>
 where
     T: VModel + 'static,
@@ -45,3 +19,24 @@ where
         coerce_hook!(value)
     }
 }
+
+macro_rules! impl_vmodel_for_refs {
+    ($($T:ty),*) => {
+        $(
+            impl<T> VModel for $T
+            where
+                T: VModel + ?Sized,
+            {
+                type Storage = T::Storage;
+                fn create(&self, ctx: &EMCreateCtx) -> Self::Storage {
+                    (**self).create(ctx)
+                }
+                fn update(&self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
+                    (**self).update(storage, ctx);
+                }
+            }
+        )*
+    };
+}
+
+impl_vmodel_for_refs!(Box<T>, Rc<T>, &T);

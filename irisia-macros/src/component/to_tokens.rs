@@ -156,7 +156,7 @@ fn gen_component(
 
     let create_fn = quote! {
         |#names_tuple| {
-            #PATH_COMPONENT::PropsAlias::<#type_path> {
+            #type_path {
                 #(#assignments)*
                 ..::core::default::Default::default()
             }

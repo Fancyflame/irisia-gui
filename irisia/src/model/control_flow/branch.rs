@@ -23,6 +23,27 @@ pub enum Branch<A, B> {
     B(B),
 }
 
+impl<T> VModel for Option<T>
+where
+    T: VModel,
+{
+    type Storage = Branch<T::Storage, ()>;
+    fn create(&self, ctx: &EMCreateCtx) -> Self::Storage {
+        match self {
+            Some(v) => Branch::A(v),
+            None => Branch::B(()),
+        }
+        .create(ctx)
+    }
+    fn update(&self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
+        match self {
+            Some(v) => Branch::A(v),
+            None => Branch::B(()),
+        }
+        .update(storage, ctx);
+    }
+}
+
 impl<A, B> VModel for Branch<A, B>
 where
     A: VModel,

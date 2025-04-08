@@ -3,9 +3,12 @@ use crate::{
     primitive::{Point, Region},
 };
 
-use super::{redraw_guard::RedrawGuard, Common, EMCreateCtx, Element, EventCallback, RenderTree};
+use super::{
+    redraw_guard::RedrawGuard, Common, EMCreateCtx, Element, EventCallback, GetElement, Handle,
+    RenderTree,
+};
 
-pub type LayoutFn = fn(Point, &Vec<Element>, &mut Vec<Region>);
+pub type LayoutFn = fn(Point, &[Element], &mut Vec<Region>);
 
 pub struct RenderBlock {
     tree: Tree,
@@ -13,9 +16,10 @@ pub struct RenderBlock {
     common: Common,
 }
 
+#[derive(Clone)]
 pub struct Tree {
-    layout_fn: LayoutFn,
-    children: Vec<Element>,
+    pub layout_fn: LayoutFn,
+    pub children: Vec<Element>,
 }
 
 impl RenderBlock {
@@ -80,5 +84,11 @@ impl RenderTree for RenderBlock {
 
     fn set_callback(&mut self, callback: EventCallback) {
         self.common.event_callback = callback;
+    }
+}
+
+impl GetElement for Handle<RenderBlock> {
+    fn get_element(&self) -> Element {
+        Element::Block(self.clone())
     }
 }

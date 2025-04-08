@@ -2,6 +2,7 @@ use crate::prim_element::{EMCreateCtx, Element, GetElement};
 
 pub mod component;
 pub mod control_flow;
+pub mod prim_element;
 
 pub trait VModel {
     type Storage: Model;
@@ -18,39 +19,52 @@ pub trait VNode: VModel<Storage: GetElement> {}
 
 impl<T> VNode for T where T: VModel<Storage: GetElement> {}
 
+pub struct ModelCreateCtx {
+    em_ctx: EMCreateCtx,
+    parent: (),
+}
+
 mod test {
-    use crate::{self as irisia, hook::Signal};
+    use crate::{
+        self as irisia, hook::Signal, model::prim_element::block::default_layout_fn,
+        prim_element::block::LayoutFn,
+    };
     use irisia_macros::build2;
 
-    use super::{component::Component, control_flow::common_vmodel::CommonVModel};
-
-    struct Foo;
+    use super::{
+        component::Component, control_flow::common_vmodel::CommonVModel, prim_element::block::Block,
+    };
 
     #[derive(Default)]
-    struct FooProps {
+    struct Foo {
         a: Option<Signal<i32>>,
         children: Option<Signal<dyn CommonVModel>>,
         c2: Option<Signal<dyn CommonVModel>>,
+        b: Option<Signal<String>>,
     }
 
     impl Component for Foo {
-        type Props = FooProps;
-        fn create(_props: Self::Props) -> Self {
-            Foo
-        }
-        fn render(&self) -> impl super::VModel {
-            ()
+        type Created = ();
+        fn create(self) -> (Self::Created, impl super::VModel) {
+            ((), self.children)
         }
     }
 
     fn test() {
+        let s = Signal::state("a".to_string()).to_signal();
+
         build2! {
             Foo {
                 a: 2,
+                b:= s,
                 c2: build2! {
                     for i in 0..2,
                         key = i
-                    {}
+                    {
+                        Block {
+                            layout_fn: default_layout_fn as LayoutFn,
+                        }
+                    }
                 },
                 //children;
                 if 1 + 2 == 2 {
