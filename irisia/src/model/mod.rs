@@ -26,14 +26,13 @@ pub struct ModelCreateCtx {
 
 mod test {
     use crate::{
-        self as irisia, hook::Signal, model::prim_element::block::default_layout_fn,
-        prim_element::block::LayoutFn,
+        self as irisia,
+        hook::Signal,
+        model::prim_element::{Block, DEFAULT_LAYOUT_FN},
     };
     use irisia_macros::build2;
 
-    use super::{
-        component::Component, control_flow::common_vmodel::CommonVModel, prim_element::block::Block,
-    };
+    use super::{component::Component, control_flow::common_vmodel::CommonVModel};
 
     #[derive(Default)]
     struct Foo {
@@ -62,7 +61,7 @@ mod test {
                         key = i
                     {
                         Block {
-                            layout_fn: default_layout_fn as LayoutFn,
+                            layout_fn: DEFAULT_LAYOUT_FN,
                         }
                     }
                 },

@@ -1,8 +1,14 @@
-use crate::hook::reactive::Reactive;
+use crate::hook::{reactive::Reactive, Signal};
 
 use super::Model;
 
-pub mod block;
+pub use self::{
+    block::{Block, DEFAULT_LAYOUT_FN},
+    rect::Rect,
+};
+
+mod block;
+mod rect;
 
 impl<T> Model for Reactive<T>
 where
@@ -14,3 +20,10 @@ where
 }
 
 struct PrimitiveVModelWrapper<T>(T);
+
+fn read_or_default<T: Clone>(signal: &Option<Signal<T>>, default: T) -> T {
+    match signal {
+        Some(sig) => sig.read().clone(),
+        None => default,
+    }
+}

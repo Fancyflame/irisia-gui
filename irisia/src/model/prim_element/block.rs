@@ -14,18 +14,18 @@ use crate::{
     primitive::{Point, Region},
 };
 
-use super::PrimitiveVModelWrapper;
-
-pub struct BlockModel {
-    el: Rc<RefCell<RenderBlock>>,
-    children: BoxedModel,
-    ctx: EMCreateCtx,
-}
+use super::{read_or_default, PrimitiveVModelWrapper};
 
 #[derive(Default)]
 pub struct Block {
     pub layout_fn: Option<Signal<LayoutFn>>,
     pub children: Option<Signal<dyn CommonVModel>>,
+}
+
+pub struct BlockModel {
+    el: Rc<RefCell<RenderBlock>>,
+    children: BoxedModel,
+    ctx: EMCreateCtx,
 }
 
 impl Component for Block {
@@ -41,7 +41,7 @@ impl VModel for PrimitiveVModelWrapper<Block> {
     fn create(&self, ctx: &crate::prim_element::EMCreateCtx) -> Self::Storage {
         let prim_block = Rc::new(RefCell::new(RenderBlock::new(
             Tree {
-                layout_fn: default_layout_fn,
+                layout_fn: read_or_default(&self.0.layout_fn, DEFAULT_LAYOUT_FN),
                 children: vec![],
             },
             Box::new(|_| {}),
@@ -55,7 +55,7 @@ impl VModel for PrimitiveVModelWrapper<Block> {
         };
 
         Reactive::builder(init_state)
-            .dep_call(BlockModel::update_layout_fn, self.0.layout_fn.clone(), true)
+            .dep(BlockModel::update_layout_fn, self.0.layout_fn.clone())
             .dep_call(BlockModel::update_children, self.0.children.clone(), true)
             .build()
     }
@@ -65,7 +65,8 @@ impl VModel for PrimitiveVModelWrapper<Block> {
     }
 }
 
-pub fn default_layout_fn(size: Point, elements: &[Element], region_buffer: &mut Vec<Region>) {
+pub const DEFAULT_LAYOUT_FN: LayoutFn = default_layout_fn;
+fn default_layout_fn(size: Point, elements: &[Element], region_buffer: &mut Vec<Region>) {
     region_buffer.resize(
         elements.len(),
         Region {

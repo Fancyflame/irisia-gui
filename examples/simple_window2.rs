@@ -1,7 +1,7 @@
 use irisia::{
     component::{hooks::UseHook, Comp, Component},
     model::{VModel, VNode},
-    prim_element::{block::vmodel::Block, rect::Rect, text::Text},
+    prim_element::{block::vmodel::Block, rect::RectStyle, text::Text},
     primitive::{Point, Region},
     skia_safe::Color,
     Result, Window, WinitWindow,
@@ -33,7 +33,7 @@ impl Component for App {
                 children: (
                     Vec::from_iter(
                         std::iter::repeat_n(
-                            Rect {
+                            RectStyle {
                                 color: Color::GRAY,
                                 border_radius: [50.0; 4],
                             },

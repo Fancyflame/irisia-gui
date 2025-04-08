@@ -2,28 +2,31 @@ use irisia_backend::skia_safe::{Color, Color4f, Paint, RRect, Rect as SkRect};
 
 use crate::{application::event2::pointer_event::PointerStateDelta, primitive::Region};
 
-use super::{redraw_guard::RedrawGuard, Common, EMCreateCtx, EventCallback, RenderTree};
+use super::{
+    redraw_guard::RedrawGuard, Common, EMCreateCtx, Element, EventCallback, GetElement, Handle,
+    RenderTree,
+};
 
 pub struct RenderRect {
-    rect: Rect,
+    rect: RectStyle,
     common: Common,
 }
 
 #[derive(Default, PartialEq, Clone)]
-pub struct Rect {
+pub struct RectStyle {
     pub color: Color,
     pub border_radius: [f32; 4],
 }
 
 impl RenderRect {
-    pub fn new(style: Rect, event_callback: EventCallback, ctx: &EMCreateCtx) -> Self {
+    pub fn new(style: RectStyle, event_callback: EventCallback, ctx: &EMCreateCtx) -> Self {
         Self {
             rect: style,
             common: Common::new(event_callback, ctx),
         }
     }
 
-    pub fn update_rect(&mut self) -> RedrawGuard<Rect> {
+    pub fn update_rect(&mut self) -> RedrawGuard<RectStyle> {
         RedrawGuard::new(&mut self.rect, &mut self.common)
     }
 }
@@ -59,5 +62,11 @@ impl RenderTree for RenderRect {
 
     fn set_callback(&mut self, callback: EventCallback) {
         self.common.event_callback = callback;
+    }
+}
+
+impl GetElement for Handle<RenderRect> {
+    fn get_element(&self) -> super::Element {
+        Element::Rect(self.clone())
     }
 }
