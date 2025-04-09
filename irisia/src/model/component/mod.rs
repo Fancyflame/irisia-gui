@@ -33,7 +33,7 @@ where
     }
 }
 
-pub trait Component: Sized + 'static {
+pub trait Component: Default + 'static {
     type Created: 'static;
 
     fn create(self) -> (Self::Created, impl VModel);

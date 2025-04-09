@@ -39,10 +39,15 @@ impl VModel for PrimitiveVModelWrapper<Block> {
     type Storage = Reactive<BlockModel>;
 
     fn create(&self, ctx: &crate::prim_element::EMCreateCtx) -> Self::Storage {
+        let children = match &self.0.children {
+            Some(sig) => sig.common_create(ctx),
+            None => ().common_create(ctx),
+        };
+
         let prim_block = Rc::new(RefCell::new(RenderBlock::new(
             Tree {
                 layout_fn: read_or_default(&self.0.layout_fn, DEFAULT_LAYOUT_FN),
-                children: vec![],
+                children: visit_into_vec(&children),
             },
             Box::new(|_| {}),
             &ctx,
@@ -50,19 +55,25 @@ impl VModel for PrimitiveVModelWrapper<Block> {
 
         let init_state = BlockModel {
             el: prim_block,
-            children: ().common_create(&ctx),
+            children,
             ctx: ctx.clone(),
         };
 
         Reactive::builder(init_state)
             .dep(BlockModel::update_layout_fn, self.0.layout_fn.clone())
-            .dep_call(BlockModel::update_children, self.0.children.clone(), true)
+            .dep(BlockModel::update_children, self.0.children.clone())
             .build()
     }
 
     fn update(&self, _: &mut Self::Storage, _: &crate::prim_element::EMCreateCtx) {
         unreachable!("primitive v-model never updates");
     }
+}
+
+fn visit_into_vec<T: Model>(model: &T) -> Vec<Element> {
+    let mut vec = Vec::new();
+    model.visit(&mut |el| vec.push(el));
+    vec
 }
 
 pub const DEFAULT_LAYOUT_FN: LayoutFn = default_layout_fn;
@@ -84,9 +95,7 @@ impl Model for BlockModel {
 
 impl BlockModel {
     fn update_layout_fn(&mut self, layout_fn: Option<&LayoutFn>) {
-        if let Some(layout_fn) = layout_fn {
-            self.el.borrow_mut().update_tree().layout_fn = *layout_fn;
-        }
+        self.el.borrow_mut().update_tree().layout_fn = *layout_fn.unwrap();
     }
 
     fn update_children(&mut self, children: Option<&(dyn CommonVModel + '_)>) {

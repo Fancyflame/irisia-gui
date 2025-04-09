@@ -57,8 +57,7 @@ mod test {
                 a: 2,
                 b:= s,
                 c2: build2! {
-                    for i in 0..2,
-                        key = i
+                    for i in 0..2, key = i
                     {
                         Block {
                             layout_fn: DEFAULT_LAYOUT_FN,

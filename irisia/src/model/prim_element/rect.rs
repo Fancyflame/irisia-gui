@@ -11,6 +11,7 @@ use crate::{
 
 use super::{read_or_default, PrimitiveVModelWrapper};
 
+#[derive(Default)]
 pub struct Rect {
     pub style: Option<Signal<RectStyle>>,
 }

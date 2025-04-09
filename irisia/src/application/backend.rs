@@ -9,8 +9,8 @@ use irisia_backend::{
 
 use crate::{
     event::{standard::WindowDestroyed, EventDispatcher},
-    model::VNode,
-    prim_element::{EMCreateCtx, GetElement, RenderTree},
+    model::{Model, VModel, VNode},
+    prim_element::{EMCreateCtx, Element, GetElement, RenderTree},
     primitive::{Point, Region},
     Result,
 };
@@ -29,9 +29,18 @@ pub(super) struct BackendRuntime<T> {
     root_model: T,
 }
 
+fn assert_root_model<T: Model>(root_model: &T) -> Element {
+    let mut root = None;
+    root_model.visit(&mut |element| match root {
+        Some(_) => panic!("only 1 element is permitted"),
+        None => root = Some(element),
+    });
+    root.expect("one element is needed")
+}
+
 impl<T> AppWindow for BackendRuntime<T>
 where
-    T: GetElement + 'static,
+    T: Model + 'static,
 {
     fn on_redraw(
         &mut self,
@@ -40,7 +49,7 @@ where
         window_inner_size: PhysicalSize<u32>,
     ) -> Result<()> {
         self.gc.redraw_scheduler.redraw(
-            &mut self.root_model.get_element(),
+            &mut assert_root_model(&self.root_model),
             canvas,
             interval,
             window_size_to_draw_region(window_inner_size),
@@ -61,8 +70,7 @@ where
         };
         self.pointer_state = next;
 
-        self.root_model
-            .get_element()
+        assert_root_model(&self.root_model)
             .emit_event(&mut delta, window_size_to_draw_region(window_inner_size));
         // TODO
         // if let WindowEvent::Resized(size) = &event {
@@ -95,7 +103,7 @@ pub(super) async fn new_window<F, T>(
 ) -> Result<Window>
 where
     F: FnOnce() -> T + Send + 'static,
-    T: VNode,
+    T: VModel,
 {
     let ev_disp = EventDispatcher::new();
 
