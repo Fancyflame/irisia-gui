@@ -1,5 +1,8 @@
 use crate::{
-    hook::{reactive::Reactive, Signal},
+    hook::{
+        reactive::{Reactive, ReactiveRef},
+        Signal,
+    },
     model::{Model, ModelCreateCtx, VModel},
 };
 
@@ -35,10 +38,11 @@ where
 {
     let ctx = ctx.clone();
     let model = Reactive::builder()
-        .dep(
-            move |storage, vmodel: &T| {
-                vmodel.update(storage, &ctx);
+        .dep2(
+            move |mut storage, vmodel: &T| {
+                vmodel.update(&mut *storage, &ctx);
                 if let Some(parent) = ctx.parent.upgrade() {
+                    ReactiveRef::drop_borrow(&mut storage);
                     parent.push(|block_model| {
                         block_model.submit_children();
                     });

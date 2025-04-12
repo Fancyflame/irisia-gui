@@ -4,13 +4,13 @@ use super::definition::SignalProxied;
 
 pub struct CheckEq<T>(Fallback<T>);
 pub struct Fallback<T>(Option<T>);
-const FALLBACK_TO: bool = true;
+const FALLBACK_TO: bool = false;
 
 pub fn check_eq<T>(value: T) -> CheckEq<T> {
     CheckEq(Fallback(Some(value)))
 }
 
-impl<T: Eq> CheckEq<T> {
+impl<T: PartialEq<T>> CheckEq<T> {
     pub fn get(self) -> SignalProxied<T> {
         SignalProxied {
             value: self.0 .0.unwrap(),

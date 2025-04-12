@@ -45,6 +45,7 @@ async fn main() -> Result<()> {
                 Block {
                     layout_fn: average_divide as LayoutFn,
 
+                    (changing_rect)
                     for i in 0..2, key = i {
                         Rect {
                             style: RectStyle {

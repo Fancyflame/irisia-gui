@@ -1,6 +1,6 @@
 use super::{signal_group::SignalGroup, utils::trace_cell::TraceRef};
-use builder::ReactiveRef;
-pub use builder::RealRef;
+pub use builder::ReactiveRef;
+pub(crate) use builder::RealRef;
 use inner::Inner;
 use std::rc::{Rc, Weak};
 use write_guard::ReactiveWriteGuard;

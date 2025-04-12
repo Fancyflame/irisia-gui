@@ -5,9 +5,9 @@ use super::{
     WhileStmt,
 };
 use syn::{
-    braced,
+    braced, parenthesized,
     parse::{Parse, ParseStream},
-    token::Brace,
+    token::{Brace, Paren},
     Expr, Ident, Pat, Result, Token,
 };
 
@@ -42,6 +42,8 @@ fn parse_stmt(input: ParseStream, multiple_mode: bool) -> Result<Stmt> {
         Ok(Stmt::While(parse_while_stmt(input)?))
     } else if input.peek(Brace) {
         Ok(Stmt::Block(parse_block(input)?))
+    } else if input.peek(Paren) {
+        Ok(Stmt::UseExpr(parse_use_expr(input)?))
     } else {
         Ok(Stmt::Component(parse_component(input)?))
     }
@@ -175,4 +177,10 @@ fn parse_block(input: ParseStream) -> Result<BlockStmt> {
     Ok(BlockStmt {
         stmts: parse_stmts(&content)?,
     })
+}
+
+fn parse_use_expr(input: ParseStream) -> Result<Expr> {
+    let content;
+    parenthesized!(content in input);
+    content.parse()
 }

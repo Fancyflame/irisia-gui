@@ -22,6 +22,7 @@ enum Stmt {
     While(WhileStmt),
     Component(Component),
     Block(BlockStmt),
+    UseExpr(Expr),
 }
 
 struct IfStmt {
