@@ -2,11 +2,9 @@ use std::marker::PhantomData;
 
 use definition::Definition;
 
-use crate::prim_element::EMCreateCtx;
-
 use super::{
     control_flow::common_vmodel::{BoxedModel, CommonVModel},
-    Model, VModel,
+    Model, ModelCreateCtx, VModel,
 };
 
 pub mod definition;
@@ -47,7 +45,7 @@ where
 {
     type Storage = UseComponentModel<T::Created, D::Storage>;
 
-    fn create(&self, ctx: &EMCreateCtx) -> Self::Storage {
+    fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
         let (def_storages, def_values) = self.defs.create();
         let (component, vmodel) = T::create((self.create_fn)(def_values));
 
@@ -59,7 +57,7 @@ where
         }
     }
 
-    fn update(&self, storage: &mut Self::Storage, _: &EMCreateCtx) {
+    fn update(&self, storage: &mut Self::Storage, _: &ModelCreateCtx) {
         self.defs.update(&mut storage.defs);
     }
 }

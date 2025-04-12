@@ -4,10 +4,11 @@ use crate::hook::utils::TraceCell;
 
 use super::{builder::ReactiveRef, RealRef};
 
-type DelayCallback<T> = Box<dyn Fn(&Inner<T>, ReactiveRef<T>)>;
+type DelayCallback<T> = Box<dyn FnOnce(&Inner<T>, ReactiveRef<T>)>;
 
 pub struct Inner<T> {
     pub(super) callback_chain_storage: Box<dyn Any>,
+    // TODO: 这个调用队列可以优化掉Box吗？
     pub(super) delay_callbacks: RefCell<VecDeque<DelayCallback<T>>>,
     pub(super) value: TraceCell<T>,
 }

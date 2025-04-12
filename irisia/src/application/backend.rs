@@ -9,8 +9,9 @@ use irisia_backend::{
 
 use crate::{
     event::{standard::WindowDestroyed, EventDispatcher},
-    model::{Model, VModel, VNode},
-    prim_element::{EMCreateCtx, Element, GetElement, RenderTree},
+    hook::reactive::Reactive,
+    model::{prim_element::BlockModel, Model, VModel},
+    prim_element::{EMCreateCtx, Element, RenderTree},
     primitive::{Point, Region},
     Result,
 };
@@ -23,10 +24,10 @@ use super::{
     Window,
 };
 
-pub(super) struct BackendRuntime<T> {
+pub(super) struct BackendRuntime {
     pointer_state: PointerState,
     gc: Rc<GlobalContent>,
-    root_model: T,
+    root_model: Reactive<BlockModel>,
 }
 
 fn assert_root_model<T: Model>(root_model: &T) -> Element {
@@ -38,10 +39,7 @@ fn assert_root_model<T: Model>(root_model: &T) -> Element {
     root.expect("one element is needed")
 }
 
-impl<T> AppWindow for BackendRuntime<T>
-where
-    T: Model + 'static,
-{
+impl AppWindow for BackendRuntime {
     fn on_redraw(
         &mut self,
         canvas: &Canvas,
@@ -122,8 +120,15 @@ where
                 user_close: Cell::new(true),
             });
 
-            let root_model = root_creator().create(&EMCreateCtx {
-                global_content: gc.clone(),
+            let root_model = Reactive::builder().build_cyclic(|weak| {
+                BlockModel::direct_create(
+                    weak,
+                    Some(&root_creator()),
+                    None,
+                    &EMCreateCtx {
+                        global_content: gc.clone(),
+                    },
+                )
             });
 
             //root.set_draw_region(Some(window_size_to_draw_region(gc.window().inner_size())));

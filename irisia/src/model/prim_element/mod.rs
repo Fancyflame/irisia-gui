@@ -6,6 +6,7 @@ pub use self::{
     block::{Block, DEFAULT_LAYOUT_FN},
     rect::Rect,
 };
+pub(crate) use block::BlockModel;
 
 mod block;
 mod rect;

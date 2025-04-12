@@ -15,20 +15,28 @@ async fn main() -> Result<()> {
     Window::new(
         WinitWindow::default_attributes().with_title("hello irisia"),
         move || {
-            let style = Signal::state(RectStyle {
-                color: Color::RED,
-                border_radius: [50.0; 4],
-            });
+            let red_rect = Signal::state(false);
+            let changing_rect = Signal::memo_ncmp(
+                |&is_red| {
+                    build2! {
+                        Rect {
+                            style: RectStyle {
+                                color: if is_red { Color::RED } else { Color::BLUE },
+                                border_radius: [50.0; 4],
+                            },
+                        }
+                    }
+                },
+                red_rect.to_signal(),
+            );
+
             tokio::task::spawn_local({
-                let style = style.clone();
                 let mut interval = tokio::time::interval(Duration::from_secs(1));
-                let mut red = false;
                 async move {
                     loop {
                         interval.tick().await;
-                        let mut w = style.write();
-                        w.color = if red { Color::RED } else { Color::BLUE };
-                        red = !red;
+                        let mut w = red_rect.write();
+                        *w = !*w;
                     }
                 }
             });
@@ -36,9 +44,7 @@ async fn main() -> Result<()> {
             build2! {
                 Block {
                     layout_fn: average_divide as LayoutFn,
-                    Rect {
-                        style:= style.to_signal(),
-                    }
+
                     for i in 0..2, key = i {
                         Rect {
                             style: RectStyle {

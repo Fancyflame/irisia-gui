@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     hook::{reactive::Reactive, Signal},
-    model::{component::Component, Model, VModel},
+    model::{component::Component, Model, ModelCreateCtx, VModel},
     prim_element::{
         rect::{RectStyle, RenderRect},
         GetElement,
@@ -26,22 +26,22 @@ impl Component for Rect {
 impl VModel for PrimitiveVModelWrapper<Rect> {
     type Storage = Reactive<RectModel>;
 
-    fn create(&self, ctx: &crate::prim_element::EMCreateCtx) -> Self::Storage {
+    fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
         let init_style = read_or_default(&self.0.style, RectStyle::default());
         let init_state = RectModel {
             el: Rc::new(RefCell::new(RenderRect::new(
                 init_style,
                 Box::new(|_| {}),
-                ctx,
+                &ctx.el_ctx,
             ))),
         };
 
-        Reactive::builder(init_state)
+        Reactive::builder()
             .dep(RectModel::update_style, self.0.style.clone())
-            .build()
+            .build(init_state)
     }
 
-    fn update(&self, _: &mut Self::Storage, _: &crate::prim_element::EMCreateCtx) {
+    fn update(&self, _: &mut Self::Storage, _: &ModelCreateCtx) {
         unreachable!("primitive v-model never updates");
     }
 }

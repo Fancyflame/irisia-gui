@@ -1,8 +1,5 @@
+use crate::model::{Model, ModelCreateCtx, VModel};
 use std::any::Any;
-
-use crate::prim_element::EMCreateCtx;
-
-use crate::model::{Model, VModel};
 
 pub struct BoxedModel(Box<dyn AnyModel>);
 
@@ -10,19 +7,19 @@ trait AnyModel: Any + Model {}
 impl<T> AnyModel for T where T: Any + Model {}
 
 pub trait CommonVModel {
-    fn common_create(&self, ctx: &EMCreateCtx) -> BoxedModel;
-    fn common_update(&self, storage: &mut BoxedModel, ctx: &EMCreateCtx);
+    fn common_create(&self, ctx: &ModelCreateCtx) -> BoxedModel;
+    fn common_update(&self, storage: &mut BoxedModel, ctx: &ModelCreateCtx);
 }
 
 impl<T> CommonVModel for T
 where
     T: VModel,
 {
-    fn common_create(&self, ctx: &EMCreateCtx) -> BoxedModel {
+    fn common_create(&self, ctx: &ModelCreateCtx) -> BoxedModel {
         BoxedModel(Box::new(self.create(ctx)))
     }
 
-    fn common_update(&self, storage: &mut BoxedModel, ctx: &EMCreateCtx) {
+    fn common_update(&self, storage: &mut BoxedModel, ctx: &ModelCreateCtx) {
         let inner: &mut dyn AnyModel = &mut *storage.0;
         match (inner as &mut dyn Any).downcast_mut::<T::Storage>() {
             Some(inner_storage) => self.update(inner_storage, ctx),
@@ -50,11 +47,11 @@ impl Model for BoxedModel {
 impl VModel for dyn CommonVModel + '_ {
     type Storage = BoxedModel;
 
-    fn create(&self, ctx: &EMCreateCtx) -> Self::Storage {
+    fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
         self.common_create(ctx)
     }
 
-    fn update(&self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
+    fn update(&self, storage: &mut Self::Storage, ctx: &ModelCreateCtx) {
         self.common_update(storage, ctx);
     }
 }

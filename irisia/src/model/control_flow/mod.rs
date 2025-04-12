@@ -1,9 +1,9 @@
-use crate::{coerce_hook, hook::Signal, prim_element::EMCreateCtx};
+use crate::{coerce_hook, hook::Signal};
 use std::rc::Rc;
 
 pub use self::common_vmodel::CommonVModel;
 
-use super::VModel;
+use super::{ModelCreateCtx, VModel};
 
 pub mod branch;
 pub mod common_vmodel;
@@ -28,10 +28,10 @@ macro_rules! impl_vmodel_for_refs {
                 T: VModel + ?Sized,
             {
                 type Storage = T::Storage;
-                fn create(&self, ctx: &EMCreateCtx) -> Self::Storage {
+                fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
                     (**self).create(ctx)
                 }
-                fn update(&self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
+                fn update(&self, storage: &mut Self::Storage, ctx: &ModelCreateCtx) {
                     (**self).update(storage, ctx);
                 }
             }

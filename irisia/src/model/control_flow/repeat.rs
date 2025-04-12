@@ -3,7 +3,7 @@ use std::{
     hash::Hash,
 };
 
-use crate::prim_element::{EMCreateCtx, Element};
+use crate::{model::ModelCreateCtx, prim_element::Element};
 
 use crate::model::{Model, VModel};
 
@@ -14,7 +14,7 @@ where
 {
     type Storage = RepeatModel<K, T::Storage>;
 
-    fn create(&self, ctx: &EMCreateCtx) -> Self::Storage {
+    fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
         let mut this = RepeatModel {
             map: HashMap::with_capacity(self.len()),
             order: Vec::with_capacity(self.len()),
@@ -39,7 +39,7 @@ where
         this
     }
 
-    fn update(&self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
+    fn update(&self, storage: &mut Self::Storage, ctx: &ModelCreateCtx) {
         storage.order.clear();
         for (key, vmodel) in self.iter() {
             match storage.map.entry(key.clone()) {

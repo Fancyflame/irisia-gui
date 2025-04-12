@@ -2,7 +2,7 @@ use super::{signal_group::SignalGroup, utils::trace_cell::TraceRef};
 use builder::ReactiveRef;
 pub use builder::RealRef;
 use inner::Inner;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 use write_guard::ReactiveWriteGuard;
 
 mod builder;
@@ -31,11 +31,32 @@ impl<T> Reactive<T> {
         )
     }
 
+    pub fn push<F>(&self, f: F)
+    where
+        F: FnOnce(ReactiveRef<T>) + 'static,
+    {
+        match self.inner.value.try_borrow_mut() {
+            Some(v) => {
+                f(ReactiveRef::Real(RealRef::new(&self.inner.value, v)));
+                self.inner.recall_delayed_callback();
+            }
+            None => self
+                .inner
+                .delay_callbacks
+                .borrow_mut()
+                .push_back(Box::new(move |_, r| f(r))),
+        }
+    }
+
     pub fn into_inner(self) -> Option<T>
     where
         T: Sized,
     {
         Rc::into_inner(self.inner).map(|inner| inner.value.into_inner())
+    }
+
+    pub fn downgrade(&self) -> WeakReactive<T> {
+        WeakReactive(Rc::downgrade(&self.inner))
     }
 }
 
@@ -44,6 +65,20 @@ impl<T> Clone for Reactive<T> {
         Self {
             inner: self.inner.clone(),
         }
+    }
+}
+
+pub struct WeakReactive<T>(Weak<Inner<T>>);
+
+impl<T> WeakReactive<T> {
+    pub fn upgrade(&self) -> Option<Reactive<T>> {
+        self.0.upgrade().map(|inner| Reactive { inner })
+    }
+}
+
+impl<T> Clone for WeakReactive<T> {
+    fn clone(&self) -> Self {
+        WeakReactive(self.0.clone())
     }
 }
 

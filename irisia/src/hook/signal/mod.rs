@@ -42,6 +42,22 @@ impl<T: 'static> Signal<T> {
             .build()
     }
 
+    pub fn memo_ncmp<F, D>(generator: F, deps: D) -> Self
+    where
+        F: Fn(D::Data<'_>) -> T + 'static,
+        D: SignalGroup + 'static,
+    {
+        let builder = Self::builder(generator(D::deref_wrapper(&deps.read_many())));
+        builder
+            .dep(
+                move |mut this, data| {
+                    *this = generator(data);
+                },
+                deps,
+            )
+            .build()
+    }
+
     pub fn builder(value: T) -> SignalBuilder<T, (), ()> {
         SignalBuilder {
             value,

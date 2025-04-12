@@ -1,5 +1,5 @@
-use crate::model::{Model, VModel};
-use crate::prim_element::{EMCreateCtx, Element};
+use crate::model::{Model, ModelCreateCtx, VModel};
+use crate::prim_element::Element;
 
 pub fn branch_a<A, B>(value: A) -> Branch<A, B>
 where
@@ -28,14 +28,14 @@ where
     T: VModel,
 {
     type Storage = Branch<T::Storage, ()>;
-    fn create(&self, ctx: &EMCreateCtx) -> Self::Storage {
+    fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
         match self {
             Some(v) => Branch::A(v),
             None => Branch::B(()),
         }
         .create(ctx)
     }
-    fn update(&self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
+    fn update(&self, storage: &mut Self::Storage, ctx: &ModelCreateCtx) {
         match self {
             Some(v) => Branch::A(v),
             None => Branch::B(()),
@@ -51,7 +51,7 @@ where
 {
     type Storage = Branch<A::Storage, B::Storage>;
 
-    fn create(&self, ctx: &EMCreateCtx) -> Self::Storage {
+    fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
         match self {
             Self::A(upd) => {
                 let storage = Branch::A(upd.create(ctx));
@@ -61,7 +61,7 @@ where
         }
     }
 
-    fn update(&self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
+    fn update(&self, storage: &mut Self::Storage, ctx: &ModelCreateCtx) {
         match self {
             Self::A(upd) => {
                 if let Branch::A(cache) = storage {

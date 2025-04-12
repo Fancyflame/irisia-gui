@@ -1,11 +1,12 @@
 use std::{
     cell::OnceCell,
     collections::VecDeque,
+    marker::PhantomData,
     ops::{Deref, DerefMut},
     rc::Rc,
 };
 
-use super::{CallbackFnAlias, Inner, Reactive};
+use super::{CallbackFnAlias, Inner, Reactive, WeakReactive};
 use crate::hook::{
     signal_group::SignalGroup,
     utils::{trace_cell::TraceMut, TraceCell},
@@ -15,14 +16,14 @@ use callback_chain::{CallbackChain, CallbackNode};
 mod callback_chain;
 
 pub struct ReactiveBuilder<T, C> {
-    value: T,
+    _value: PhantomData<T>,
     callbacks: C,
 }
 
 impl<T> Reactive<T> {
-    pub fn builder(value: T) -> ReactiveBuilder<T, ()> {
+    pub fn builder() -> ReactiveBuilder<T, ()> {
         ReactiveBuilder {
-            value,
+            _value: PhantomData,
             callbacks: (),
         }
     }
@@ -41,28 +42,16 @@ where
         F: FnMut(&mut T, D::Data<'_>) + 'static,
         D: SignalGroup + 'static,
     {
-        self.dep_call(move |mut val, data| callback(&mut val, data), deps, false)
+        self.dep2(move |mut val, data| callback(&mut val, data), deps)
     }
 
-    pub fn dep_call<F, D>(
-        mut self,
-        mut callback: F,
-        deps: D,
-        enable: bool,
-    ) -> ReactiveBuilder<T, CallbackNode<F, D, C>>
+    pub fn dep2<F, D>(self, callback: F, deps: D) -> ReactiveBuilder<T, CallbackNode<F, D, C>>
     where
         F: CallbackFnAlias<T, D>,
         D: SignalGroup + 'static,
     {
-        if enable {
-            callback(
-                ReactiveRef::Raw(&mut self.value),
-                D::deref_wrapper(&deps.read_many()),
-            );
-        }
-
         ReactiveBuilder {
-            value: self.value,
+            _value: self._value,
             callbacks: CallbackNode {
                 deps,
                 callback: callback.into(),
@@ -71,11 +60,12 @@ where
         }
     }
 
-    pub fn build(self) -> Reactive<T>
+    pub fn build_cyclic<F>(self, create_init_state: F) -> Reactive<T>
     where
+        F: FnOnce(&WeakReactive<T>) -> T,
         C: CallbackChain<T> + 'static,
     {
-        let inner = Rc::new_cyclic(|weak| {
+        let inner = Rc::new_cyclic(move |weak| {
             self.callbacks.listen(weak.clone(), |inner| {
                 inner
                     .callback_chain_storage
@@ -83,13 +73,20 @@ where
                     .expect("callback chain and signal mismatched")
             });
             Inner {
-                value: TraceCell::new(self.value),
+                value: TraceCell::new(create_init_state(&WeakReactive(weak.clone()))),
                 delay_callbacks: VecDeque::new().into(),
                 callback_chain_storage: Box::new(self.callbacks),
             }
         });
 
         Reactive { inner }
+    }
+
+    pub fn build(self, init_state: T) -> Reactive<T>
+    where
+        C: CallbackChain<T> + 'static,
+    {
+        self.build_cyclic(|_| init_state)
     }
 }
 

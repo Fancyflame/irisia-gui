@@ -1,6 +1,6 @@
 use crate::{
-    model::{Model, VModel},
-    prim_element::{EMCreateCtx, Element},
+    model::{Model, ModelCreateCtx, VModel},
+    prim_element::Element,
 };
 
 impl<A, B> VModel for (A, B)
@@ -9,10 +9,10 @@ where
     B: VModel,
 {
     type Storage = (A::Storage, B::Storage);
-    fn create(&self, ctx: &EMCreateCtx) -> Self::Storage {
+    fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
         (self.0.create(ctx), self.1.create(ctx))
     }
-    fn update(&self, storage: &mut Self::Storage, ctx: &EMCreateCtx) {
+    fn update(&self, storage: &mut Self::Storage, ctx: &ModelCreateCtx) {
         self.0.update(&mut storage.0, ctx);
         self.1.update(&mut storage.1, ctx);
     }
@@ -32,8 +32,8 @@ where
 impl VModel for () {
     type Storage = ();
 
-    fn create(&self, _ctx: &EMCreateCtx) -> Self::Storage {}
-    fn update(&self, _storage: &mut Self::Storage, _ctx: &EMCreateCtx) {}
+    fn create(&self, _ctx: &ModelCreateCtx) -> Self::Storage {}
+    fn update(&self, _storage: &mut Self::Storage, _ctx: &ModelCreateCtx) {}
 }
 
 impl Model for () {
