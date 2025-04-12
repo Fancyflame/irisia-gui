@@ -5,11 +5,13 @@ use super::Model;
 pub use self::{
     block::{Block, DEFAULT_LAYOUT_FN},
     rect::Rect,
+    text::Text,
 };
 pub(crate) use block::BlockModel;
 
 mod block;
 mod rect;
+mod text;
 
 impl<T> Model for Reactive<T>
 where

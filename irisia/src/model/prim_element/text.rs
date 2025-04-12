@@ -1,0 +1,86 @@
+use std::{cell::RefCell, rc::Rc};
+
+use crate::{
+    hook::{reactive::Reactive, Signal},
+    model::{component::Component, Model, ModelCreateCtx, VModel},
+    prim_element::{
+        text::{RenderText, TextSettings, TextStyle},
+        Element,
+    },
+};
+
+use super::{read_or_default, PrimitiveVModelWrapper};
+
+#[derive(Default)]
+pub struct Text {
+    pub text: Option<Signal<String>>,
+    pub style: Option<Signal<TextStyle>>,
+}
+
+impl Component for Text {
+    type Created = ();
+    fn create(self) -> ((), impl VModel) {
+        ((), PrimitiveVModelWrapper(self))
+    }
+}
+
+impl VModel for PrimitiveVModelWrapper<Text> {
+    type Storage = Reactive<TextModel>;
+
+    fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
+        let init_state = TextSettings {
+            text: read_or_default(&self.0.text, String::new()),
+            style: read_or_default(&self.0.style, Default::default()),
+        };
+
+        let init_state = TextModel {
+            el: Rc::new(RefCell::new(RenderText::new(
+                init_state,
+                Box::new(|_| {}),
+                &ctx.el_ctx,
+            ))),
+        };
+
+        Reactive::builder()
+            .dep(
+                TextModel::update_text_and_style,
+                (self.0.text.clone(), self.0.style.clone()),
+            )
+            .build(init_state)
+    }
+
+    fn update(&self, _: &mut Self::Storage, _: &ModelCreateCtx) {
+        unreachable!("primitive v-model never updates");
+    }
+}
+
+pub struct TextModel {
+    el: Rc<RefCell<RenderText>>,
+}
+
+impl TextModel {
+    fn update_text_and_style(&mut self, inputs: (Option<&String>, Option<&TextStyle>)) {
+        if let (None, None) = inputs {
+            return;
+        }
+
+        let mut borrow = self.el.borrow_mut();
+        let mut w = borrow.update_text();
+        let (text, style) = inputs;
+
+        if let Some(text) = text {
+            w.text.clear();
+            w.text.push_str(&text);
+        }
+
+        if let Some(style) = style {
+            w.style = style.clone();
+        }
+    }
+}
+
+impl Model for TextModel {
+    fn visit(&self, f: &mut dyn FnMut(crate::prim_element::Element)) {
+        f(Element::Text(self.el.clone()))
+    }
+}

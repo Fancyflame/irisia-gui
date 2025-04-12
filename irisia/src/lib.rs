@@ -4,10 +4,6 @@ pub mod anyhow {
 
 pub type Result<T> = anyhow::Result<T>;
 
-#[doc(hidden)]
-#[path = "macro_helper.rs"]
-pub mod __macro_helper;
-
 macro_rules! inner_error {
     ($($tt:tt)+) => {
         ::std::panic!("[IRISIA_INNER_ERROR {}: {}] {}", ::std::file!(), ::std::line!(), ::std::format!($($tt)+))

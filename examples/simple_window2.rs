@@ -1,7 +1,13 @@
+use std::time::Duration;
+
 use irisia::{
-    component::{hooks::UseHook, Comp, Component},
-    model::{VModel, VNode},
-    prim_element::{block::vmodel::Block, rect::RectStyle, text::Text},
+    build2,
+    hook::Signal,
+    model::{
+        prim_element::{Block, Rect},
+        VModel,
+    },
+    prim_element::{block::LayoutFn, rect::RectStyle, Element},
     primitive::{Point, Region},
     skia_safe::Color,
     Result, Window, WinitWindow,
@@ -11,10 +17,7 @@ use irisia::{
 async fn main() -> Result<()> {
     Window::new(
         WinitWindow::default_attributes().with_title("hello irisia"),
-        || Comp {
-            props: App.into(),
-            child_data: (),
-        },
+        app,
     )
     .await
     .unwrap()
@@ -22,57 +25,25 @@ async fn main() -> Result<()> {
     .await;
 }
 
-pub struct App;
+fn app() -> impl VModel {
+    let count_write = Signal::state(0);
 
-impl Component for App {
-    fn run(&self, use_hook: UseHook) -> impl VNode {
-        println!("render");
-        Comp {
-            child_data: (),
-            props: Average {
-                children: (
-                    Vec::from_iter(
-                        std::iter::repeat_n(
-                            RectStyle {
-                                color: Color::GRAY,
-                                border_radius: [50.0; 4],
-                            },
-                            3,
-                        )
-                        .enumerate(),
-                    ),
-                    Text {
-                        text: "中文😀\n🎁".into(),
-                        font_size: 60.0,
-                        font_color: Color::BLACK,
+    Signal::memo(
+        |count| {
+            build2! {
+                Text {
+                    text: format!("you clicked {count} times"),
+                    on_click: move |_| {
+                        *count_write.write() += 1;
                     },
-                ),
-            }
-            .into(),
-        }
-    }
-}
-
-pub struct Average<T: VModel + Clone> {
-    children: T,
-}
-
-impl<T: VModel + Clone> Component for Average<T> {
-    fn run(&self, use_hook: UseHook) -> impl VNode {
-        Block {
-            children: self.children.clone(),
-            layout_fn: |size, el, regions| {
-                let width = size.0 / el.len() as f32;
-                let height = size.1;
-
-                for i in 0..el.len() {
-                    let i = i as f32;
-                    regions.push(Region::new(
-                        Point(i * width, 0.0),
-                        Point((i + 1.0) * width, height),
-                    ));
                 }
-            },
-        }
-    }
+                MyComp {
+                    Text {
+                        text: format!("count count {count}"),
+                    }
+                }
+            }
+        },
+        count_write.to_signal(),
+    )
 }

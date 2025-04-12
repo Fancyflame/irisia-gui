@@ -1,5 +1,7 @@
 use irisia_backend::skia_safe::{
-    textlayout::{FontCollection, Paragraph, ParagraphBuilder, ParagraphStyle, TextStyle},
+    textlayout::{
+        FontCollection, Paragraph, ParagraphBuilder, ParagraphStyle, TextStyle as SkTextStyle,
+    },
     Color, FontMgr,
 };
 
@@ -8,20 +10,25 @@ use crate::{application::event2::pointer_event::PointerStateDelta, primitive::Re
 use super::{redraw_guard::RedrawGuard, Common, EMCreateCtx, EventCallback, RenderTree};
 
 pub struct RenderText {
-    text: Text,
+    text: TextSettings,
     paragraph: Option<Paragraph>,
     common: Common,
 }
 
 #[derive(PartialEq, Default, Clone)]
-pub struct Text {
+pub struct TextSettings {
     pub text: String,
+    pub style: TextStyle,
+}
+
+#[derive(PartialEq, Default, Clone)]
+pub struct TextStyle {
     pub font_size: f32,
     pub font_color: Color,
 }
 
 impl RenderText {
-    pub fn new(text: Text, event_callback: EventCallback, ctx: &EMCreateCtx) -> Self {
+    pub fn new(text: TextSettings, event_callback: EventCallback, ctx: &EMCreateCtx) -> Self {
         Self {
             text,
             paragraph: None,
@@ -29,7 +36,7 @@ impl RenderText {
         }
     }
 
-    pub fn update_text(&mut self) -> RedrawGuard<Text> {
+    pub fn update_text(&mut self) -> RedrawGuard<TextSettings> {
         self.paragraph = None;
         RedrawGuard::new(&mut self.text, &mut self.common)
     }
@@ -58,16 +65,16 @@ impl RenderTree for RenderText {
     }
 }
 
-impl Text {
+impl TextSettings {
     fn build_paragraph(&self) -> Paragraph {
         let mut font_collection = FontCollection::new();
         font_collection.set_default_font_manager(FontMgr::new(), None);
 
         ParagraphBuilder::new(&ParagraphStyle::new(), font_collection)
             .push_style(
-                TextStyle::new()
-                    .set_color(self.font_color)
-                    .set_font_size(self.font_size),
+                SkTextStyle::new()
+                    .set_color(self.style.font_color)
+                    .set_font_size(self.style.font_size),
             )
             .add_text(&self.text)
             .build()
