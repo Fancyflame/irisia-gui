@@ -43,6 +43,8 @@ impl RenderTree for RenderBlock {
         }
 
         let area = draw_region.right_bottom - draw_region.left_top;
+
+        // TODO: 如果渲染矩形大小相同，可以不用重新布局，直接平移全部矩形
         if self.common.prev_draw_region != Some(draw_region) {
             self.children_draw_regions.clear();
             (self.tree.layout_fn)(area, &self.tree.children, &mut self.children_draw_regions);
