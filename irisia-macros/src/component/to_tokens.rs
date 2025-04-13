@@ -25,7 +25,7 @@ impl Stmt {
             Stmt::For(for_stmt) => gen_for(for_stmt),
             Stmt::If(if_stmt) => gen_if(if_stmt),
             Stmt::Component(comp) => gen_component(comp),
-            Stmt::UseExpr(expr) => expr.to_token_stream(),
+            Stmt::UseExpr(expr) => expr.clone(),
             _ => todo!(),
         }
     }
