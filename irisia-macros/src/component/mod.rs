@@ -1,3 +1,4 @@
+use proc_macro2::TokenStream;
 use syn::{Expr, Ident, Type};
 
 mod parse;
@@ -22,7 +23,7 @@ enum Stmt {
     While(WhileStmt),
     Component(Component),
     Block(BlockStmt),
-    UseExpr(Expr),
+    UseExpr(TokenStream),
 }
 
 struct IfStmt {

@@ -4,6 +4,8 @@ use super::{
     BlockStmt, BuildMacro, Component, FieldAssignment, ForStmt, IfStmt, MatchArm, MatchStmt, Stmt,
     WhileStmt,
 };
+use proc_macro2::TokenStream;
+use quote::quote;
 use syn::{
     braced, parenthesized,
     parse::{Parse, ParseStream},
@@ -179,8 +181,12 @@ fn parse_block(input: ParseStream) -> Result<BlockStmt> {
     })
 }
 
-fn parse_use_expr(input: ParseStream) -> Result<Expr> {
+fn parse_use_expr(input: ParseStream) -> Result<TokenStream> {
     let content;
     parenthesized!(content in input);
-    content.parse()
+    if content.is_empty() {
+        Ok(quote! {()})
+    } else {
+        content.parse()
+    }
 }

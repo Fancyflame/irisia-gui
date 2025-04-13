@@ -61,7 +61,7 @@ fn app() -> impl VModel {
             layout_fn: average_divide as LayoutFn,
 
             Text {
-                text:= text,
+                text := text,
                 style: TextStyle {
                     font_size: 40.0,
                     font_color: Color::MAGENTA,
