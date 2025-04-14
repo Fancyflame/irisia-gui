@@ -5,7 +5,7 @@ use crate::{
     model::{component::Component, Model, ModelCreateCtx, VModel},
     prim_element::{
         rect::{RectStyle, RenderRect},
-        GetElement,
+        EventCallback, GetElement,
     },
 };
 
@@ -14,6 +14,7 @@ use super::{read_or_default, PrimitiveVModelWrapper};
 #[derive(Default)]
 pub struct Rect {
     pub style: Option<Signal<RectStyle>>,
+    pub on: Option<EventCallback>,
 }
 
 impl Component for Rect {
@@ -28,10 +29,11 @@ impl VModel for PrimitiveVModelWrapper<Rect> {
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
         let init_style = read_or_default(&self.0.style, RectStyle::default());
+
         let init_state = RectModel {
             el: Rc::new(RefCell::new(RenderRect::new(
                 init_style,
-                Box::new(|_| {}),
+                self.0.on.clone(),
                 &ctx.el_ctx,
             ))),
         };

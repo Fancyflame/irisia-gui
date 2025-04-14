@@ -1,11 +1,8 @@
-use crate::{
-    application::event2::pointer_event::PointerStateDelta,
-    primitive::{Point, Region},
-};
+use crate::primitive::{Point, Region};
 
 use super::{
-    redraw_guard::RedrawGuard, Common, EMCreateCtx, Element, EventCallback, GetElement, Handle,
-    RenderTree,
+    redraw_guard::RedrawGuard, Common, EMCreateCtx, Element, EmitEventArgs, EventCallback,
+    GetElement, Handle, RenderTree,
 };
 
 pub type LayoutFn = fn(Point, &[Element], &mut Vec<Region>);
@@ -23,7 +20,7 @@ pub struct Tree {
 }
 
 impl RenderBlock {
-    pub fn new(tree: Tree, event_callback: EventCallback, ctx: &EMCreateCtx) -> Self {
+    pub fn new(tree: Tree, event_callback: Option<EventCallback>, ctx: &EMCreateCtx) -> Self {
         Self {
             tree,
             children_draw_regions: vec![],
@@ -70,7 +67,7 @@ impl RenderTree for RenderBlock {
         }
     }
 
-    fn emit_event(&mut self, delta: &mut PointerStateDelta, draw_region: Region) {
+    fn emit_event(&mut self, mut args: EmitEventArgs) {
         for (el, &child_draw_region) in self
             .tree
             .children
@@ -78,14 +75,14 @@ impl RenderTree for RenderBlock {
             .zip(self.children_draw_regions.iter())
             .rev()
         {
-            el.emit_event(delta, child_draw_region);
+            el.emit_event(args.reborrow(child_draw_region));
         }
 
-        self.common.use_callback(delta, draw_region);
+        self.common.use_callback(args);
     }
 
     fn set_callback(&mut self, callback: EventCallback) {
-        self.common.event_callback = callback;
+        self.common.event_callback = Some(callback);
     }
 }
 

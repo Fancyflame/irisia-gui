@@ -16,8 +16,8 @@ pub(crate) mod redraw_scheduler;
 
 use backend::new_window;
 
-pub use event_comp::IncomingPointerEvent;
 pub use irisia_backend::window_handle::CloseHandle;
+pub use {event2::pointer_event::PointerEvent, event_comp::IncomingPointerEvent};
 
 #[derive(Clone)]
 pub struct Window {

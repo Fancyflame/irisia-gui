@@ -5,7 +5,7 @@ use crate::{
     model::{component::Component, Model, ModelCreateCtx, VModel},
     prim_element::{
         text::{RenderText, TextSettings, TextStyle},
-        Element,
+        Element, EventCallback,
     },
 };
 
@@ -15,6 +15,7 @@ use super::{read_or_default, PrimitiveVModelWrapper};
 pub struct Text {
     pub text: Option<Signal<String>>,
     pub style: Option<Signal<TextStyle>>,
+    pub on: Option<EventCallback>,
 }
 
 impl Component for Text {
@@ -36,7 +37,7 @@ impl VModel for PrimitiveVModelWrapper<Text> {
         let init_state = TextModel {
             el: Rc::new(RefCell::new(RenderText::new(
                 init_state,
-                Box::new(|_| {}),
+                self.0.on.clone(),
                 &ctx.el_ctx,
             ))),
         };

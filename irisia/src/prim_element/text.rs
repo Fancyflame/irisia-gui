@@ -5,9 +5,9 @@ use irisia_backend::skia_safe::{
     Color, FontMgr,
 };
 
-use crate::{application::event2::pointer_event::PointerStateDelta, primitive::Region};
-
-use super::{redraw_guard::RedrawGuard, Common, EMCreateCtx, EventCallback, RenderTree};
+use super::{
+    redraw_guard::RedrawGuard, Common, EMCreateCtx, EmitEventArgs, EventCallback, RenderTree,
+};
 
 pub struct RenderText {
     text: TextSettings,
@@ -28,7 +28,11 @@ pub struct TextStyle {
 }
 
 impl RenderText {
-    pub fn new(text: TextSettings, event_callback: EventCallback, ctx: &EMCreateCtx) -> Self {
+    pub fn new(
+        text: TextSettings,
+        event_callback: Option<EventCallback>,
+        ctx: &EMCreateCtx,
+    ) -> Self {
         Self {
             text,
             paragraph: None,
@@ -56,12 +60,12 @@ impl RenderTree for RenderText {
         para.paint(args.canvas, draw_region.left_top);
     }
 
-    fn emit_event(&mut self, delta: &mut PointerStateDelta, draw_region: Region) {
-        self.common.use_callback(delta, draw_region);
+    fn emit_event(&mut self, args: EmitEventArgs) {
+        self.common.use_callback(args);
     }
 
     fn set_callback(&mut self, callback: EventCallback) {
-        self.common.event_callback = callback;
+        self.common.event_callback = Some(callback);
     }
 }
 

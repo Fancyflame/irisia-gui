@@ -1,6 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{
+    application::event2::pointer_event::PointerEvent,
     hook::{
         reactive::{Reactive, WeakReactive},
         Signal,
@@ -12,7 +13,7 @@ use crate::{
     },
     prim_element::{
         block::{LayoutFn, RenderBlock, Tree},
-        EMCreateCtx, Element, GetElement,
+        EMCreateCtx, Element, EventCallback, GetElement,
     },
     primitive::{Point, Region},
 };
@@ -23,6 +24,7 @@ use super::PrimitiveVModelWrapper;
 pub struct Block {
     pub layout_fn: Option<Signal<LayoutFn>>,
     pub children: Option<Signal<dyn CommonVModel>>,
+    pub on: Option<EventCallback>,
 }
 
 pub struct BlockModel {
@@ -50,6 +52,7 @@ impl VModel for PrimitiveVModelWrapper<Block> {
                     weak,
                     self.0.children.as_ref(),
                     self.0.layout_fn.as_ref().map(|lf| *lf.read()),
+                    &self.0.on,
                     &ctx.el_ctx,
                 )
             })
@@ -77,6 +80,7 @@ impl BlockModel {
         weak: &WeakReactive<Self>,
         children: Option<&impl VModel>,
         layout_fn: Option<LayoutFn>,
+        callback: &Option<Signal<dyn Fn(PointerEvent)>>,
         el_ctx: &EMCreateCtx,
     ) -> Self {
         let ctx = ModelCreateCtx {
@@ -94,7 +98,7 @@ impl BlockModel {
                 layout_fn: layout_fn.unwrap_or(DEFAULT_LAYOUT_FN),
                 children: visit_into_vec(&children),
             },
-            Box::new(|_| {}),
+            callback.clone(),
             el_ctx,
         )));
 
@@ -123,6 +127,10 @@ impl BlockModel {
         let dst = &mut guard2.children;
         dst.clear();
         self.children.visit(&mut |el| dst.push(el));
+    }
+
+    pub(crate) fn get_inner(&self) -> &RefCell<RenderBlock> {
+        &self.el
     }
 }
 

@@ -1,7 +1,6 @@
-use std::time::Duration;
-
 use irisia::{
-    build2,
+    application::PointerEvent,
+    build2, coerce_hook,
     hook::Signal,
     model::{
         prim_element::{Block, Rect, Text},
@@ -27,40 +26,57 @@ async fn main() -> Result<()> {
 
 fn app() -> impl VModel {
     let red_rect = Signal::state(false);
+    let switch_color: Signal<dyn Fn(PointerEvent)> = {
+        let red_rect = red_rect.clone();
+        coerce_hook!(Signal::state(move |pe: PointerEvent| {
+            if let PointerEvent::PointerDown {
+                is_current: true,
+                position: _,
+            } = pe
+            {
+                let mut w = red_rect.write();
+                *w = !*w;
+            }
+        })
+        .to_signal())
+    };
+
     let changing_rect = Signal::memo_ncmp(
-        |&is_red| {
-            build2! {
-                Rect {
-                    style: RectStyle {
-                        color: if is_red { Color::RED } else { Color::BLUE },
-                        border_radius: [50.0; 4],
-                    },
+        {
+            let switch_color = switch_color.clone();
+            move |&is_red| {
+                build2! {
+                    Rect {
+                        on := switch_color.clone(),
+                        style: RectStyle {
+                            color: if is_red { Color::RED } else { Color::BLUE },
+                            border_radius: [50.0; 4],
+                        },
+                    }
                 }
             }
         },
         red_rect.to_signal(),
     );
     let text = Signal::memo_ncmp(
-        |&is_red| format!("当前显示{}色", if is_red { "红" } else { "蓝" }),
+        |&is_red| {
+            format!(
+                "点击该文本或{0}色矩形切换颜色：当前显示{0}色",
+                if is_red { "红" } else { "蓝" }
+            )
+        },
         red_rect.to_signal(),
     );
-
-    tokio::task::spawn_local({
-        let mut interval = tokio::time::interval(Duration::from_secs(1));
-        async move {
-            loop {
-                interval.tick().await;
-                let mut w = red_rect.write();
-                *w = !*w;
-            }
-        }
-    });
 
     build2! {
         Block {
             layout_fn: average_divide as LayoutFn,
 
             Text {
+                on := switch_color,
+                // on PointerEvent(foo) => {
+
+                // },
                 text := text,
                 style: TextStyle {
                     font_size: 40.0,

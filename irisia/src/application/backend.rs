@@ -11,7 +11,9 @@ use crate::{
     event::{standard::WindowDestroyed, EventDispatcher},
     hook::reactive::Reactive,
     model::{prim_element::BlockModel, Model, VModel},
-    prim_element::{EMCreateCtx, Element, RenderTree},
+    prim_element::{
+        callback_queue::CallbackQueue, EMCreateCtx, Element, EmitEventArgs, RenderTree,
+    },
     primitive::{Point, Region},
     Result,
 };
@@ -28,6 +30,7 @@ pub(super) struct BackendRuntime {
     pointer_state: PointerState,
     gc: Rc<GlobalContent>,
     root_model: Reactive<BlockModel>,
+    callback_queue: CallbackQueue,
 }
 
 fn assert_root_model<T: Model>(root_model: &T) -> Element {
@@ -68,8 +71,16 @@ impl AppWindow for BackendRuntime {
         };
         self.pointer_state = next;
 
-        assert_root_model(&self.root_model)
-            .emit_event(&mut delta, window_size_to_draw_region(window_inner_size));
+        self.root_model
+            .read()
+            .get_inner()
+            .borrow_mut()
+            .emit_event(EmitEventArgs {
+                queue: &mut self.callback_queue,
+                delta: &mut delta,
+                draw_region: window_size_to_draw_region(window_inner_size),
+            });
+        self.callback_queue.execute();
         // TODO
         // if let WindowEvent::Resized(size) = &event {
         //     self.root
@@ -125,6 +136,7 @@ where
                     weak,
                     Some(&root_creator()),
                     None,
+                    &None,
                     &EMCreateCtx {
                         global_content: gc.clone(),
                     },
@@ -138,6 +150,7 @@ where
                 pointer_state: PointerState::new(),
                 gc,
                 root_model,
+                callback_queue: CallbackQueue::new(),
             }
         }
     };
