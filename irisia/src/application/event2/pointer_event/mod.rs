@@ -38,7 +38,7 @@ impl PointerStateDelta {
         &mut self,
         draw_region: Region,
         prev_cursor_directly_over: &mut bool,
-    ) -> impl Iterator<Item = PointerEvent> {
+    ) -> impl Iterator<Item = PointerEvent> + use<> {
         let (iter, cursor_over) = self.prev.compare(
             &self.next,
             draw_region,

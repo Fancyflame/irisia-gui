@@ -92,7 +92,7 @@ impl PointerState {
         draw_region: Region,
         prev_cursor_over: bool,
         next_may_cursor_over: bool,
-    ) -> (impl Iterator<Item = PointerEvent> + 'static, bool) {
+    ) -> (impl Iterator<Item = PointerEvent> + use<>, bool) {
         let mut events: SmallVec<[PointerEvent; 4]> = SmallVec::new();
         let inside_draw_region = (
             self.pointer_inside(draw_region),

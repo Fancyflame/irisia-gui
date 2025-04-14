@@ -1,6 +1,6 @@
 use proc_macro2::{Literal, TokenStream};
-use quote::{format_ident, ToTokens};
-use syn::{parse_quote, spanned::Spanned, visit_mut::VisitMut, Expr, ExprLit, Lit};
+use quote::{ToTokens, format_ident};
+use syn::{Expr, ExprLit, Lit, parse_quote, spanned::Spanned, visit_mut::VisitMut};
 
 pub fn handle_expr(mut i: Expr) -> HandledExpr {
     Visitor.visit_expr_mut(&mut i);
@@ -11,7 +11,7 @@ struct Visitor;
 
 impl VisitMut for Visitor {
     fn visit_expr_mut(&mut self, i: &mut Expr) {
-        let (value_result, suffix) = if let Expr::Lit(ExprLit { ref lit, .. }) = i {
+        let (value_result, suffix) = if let &mut Expr::Lit(ExprLit { ref lit, .. }) = i {
             match lit {
                 Lit::Float(f) => (f.base10_parse::<f32>(), f.suffix()),
                 Lit::Int(int) => (int.base10_parse::<i32>().map(|i| i as f32), int.suffix()),

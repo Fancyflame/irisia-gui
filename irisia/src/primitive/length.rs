@@ -53,7 +53,7 @@ macro_rules! create_length {
             }*/
 
             #[inline]
-            fn debug_fields(&self) -> impl Iterator<Item = (f32, &'static str)> {
+            fn debug_fields(&self) -> impl Iterator<Item = (f32, &'static str)> + use<> {
                 [
                     $((self.$name, stringify!($short)),)*
                 ].into_iter()

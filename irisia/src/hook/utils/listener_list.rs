@@ -16,11 +16,11 @@ impl ListenerList {
     }
 
     pub fn add_listener(&self, listener: Listener) {
-        if let Ok(mut refmut) = self.listeners.try_borrow_mut() {
+        match self.listeners.try_borrow_mut() { Ok(mut refmut) => {
             refmut.push(listener);
-        } else {
+        } _ => {
             self.delay_add.borrow_mut().push(listener);
-        }
+        }}
     }
 
     fn for_each_listeners<F>(&self, f: F)
