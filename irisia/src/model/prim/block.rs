@@ -1,7 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{
-    application::event2::pointer_event::PointerEvent,
     hook::{
         reactive::{Reactive, WeakReactive},
         Signal,
@@ -9,16 +8,16 @@ use crate::{
     model::{
         component::Component,
         control_flow::{common_vmodel::BoxedModel, CommonVModel},
-        Model, ModelCreateCtx, VModel,
+        EleModel, Model, ModelCreateCtx, VModel, VNode,
     },
     prim_element::{
         block::{LayoutFn, RenderBlock, Tree},
-        EMCreateCtx, Element, EventCallback, GetElement,
+        EMCreateCtx, Element, EventCallback,
     },
     primitive::{Point, Region},
 };
 
-use super::PrimitiveVModelWrapper;
+use super::{read_or_default, PrimitiveVnodeWrapper};
 
 #[derive(Default)]
 pub struct Block {
@@ -35,27 +34,19 @@ pub struct BlockModel {
 
 impl Component for Block {
     type Created = ();
-    fn create(self) -> ((), impl VModel) {
-        ((), PrimitiveVModelWrapper(self))
+    fn create(self) -> ((), impl VNode) {
+        ((), PrimitiveVnodeWrapper(self))
     }
 }
 
-impl VModel for PrimitiveVModelWrapper<Block> {
+impl VModel for PrimitiveVnodeWrapper<Block> {
     type Storage = Reactive<BlockModel>;
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
         Reactive::builder()
             .dep(BlockModel::update_layout_fn, self.0.layout_fn.clone())
             .dep(BlockModel::update_children, self.0.children.clone())
-            .build_cyclic(|weak| {
-                BlockModel::direct_create(
-                    weak,
-                    self.0.children.as_ref(),
-                    self.0.layout_fn.as_ref().map(|lf| *lf.read()),
-                    &self.0.on,
-                    &ctx.el_ctx,
-                )
-            })
+            .build_cyclic(|weak| BlockModel::create(weak, &self.0, &ctx.el_ctx))
     }
 
     fn update(&self, _: &mut Self::Storage, _: &ModelCreateCtx) {
@@ -69,36 +60,24 @@ fn visit_into_vec<T: Model>(model: &T) -> Vec<Element> {
     vec
 }
 
-impl Model for BlockModel {
-    fn visit(&self, f: &mut dyn FnMut(Element)) {
-        f(self.el.get_element())
-    }
-}
-
 impl BlockModel {
-    pub(crate) fn direct_create(
-        weak: &WeakReactive<Self>,
-        children: Option<&impl VModel>,
-        layout_fn: Option<LayoutFn>,
-        callback: &Option<Signal<dyn Fn(PointerEvent)>>,
-        el_ctx: &EMCreateCtx,
-    ) -> Self {
+    pub(crate) fn create(weak: &WeakReactive<Self>, props: &Block, el_ctx: &EMCreateCtx) -> Self {
         let ctx = ModelCreateCtx {
             el_ctx: el_ctx.clone(),
-            parent: weak.clone(),
+            parent: Some(weak.clone()),
         };
 
-        let children = match children {
+        let children = match &props.children {
             Some(sig) => sig.common_create(&ctx),
             None => ().common_create(&ctx),
         };
 
         let prim_block = Rc::new(RefCell::new(RenderBlock::new(
             Tree {
-                layout_fn: layout_fn.unwrap_or(DEFAULT_LAYOUT_FN),
+                layout_fn: read_or_default(&props.layout_fn, DEFAULT_LAYOUT_FN),
                 children: visit_into_vec(&children),
             },
-            callback.clone(),
+            props.on.clone(),
             el_ctx,
         )));
 
@@ -128,9 +107,17 @@ impl BlockModel {
         dst.clear();
         self.children.visit(&mut |el| dst.push(el));
     }
+}
 
-    pub(crate) fn get_inner(&self) -> &RefCell<RenderBlock> {
-        &self.el
+impl Model for BlockModel {
+    fn visit(&self, f: &mut dyn FnMut(Element)) {
+        f(self.get_element())
+    }
+}
+
+impl EleModel for BlockModel {
+    fn get_element(&self) -> Element {
+        self.el.clone()
     }
 }
 

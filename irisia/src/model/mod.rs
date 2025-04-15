@@ -1,13 +1,13 @@
-use prim_element::BlockModel;
+use prim::BlockModel;
 
 use crate::{
     hook::reactive::WeakReactive,
-    prim_element::{EMCreateCtx, Element, GetElement},
+    prim_element::{EMCreateCtx, Element},
 };
 
 pub mod component;
 pub mod control_flow;
-pub mod prim_element;
+pub mod prim;
 
 pub trait VModel {
     type Storage: Model;
@@ -19,13 +19,25 @@ pub trait VModel {
 pub trait Model: 'static {
     fn visit(&self, f: &mut dyn FnMut(Element));
 }
-
-pub trait VNode: VModel<Storage: GetElement> {}
-
-impl<T> VNode for T where T: VModel<Storage: GetElement> {}
-
 #[derive(Clone)]
 pub struct ModelCreateCtx {
     el_ctx: EMCreateCtx,
-    parent: WeakReactive<BlockModel>,
+    parent: Option<WeakReactive<BlockModel>>,
+}
+
+impl ModelCreateCtx {
+    pub(crate) fn create_as_root(ctx: EMCreateCtx) -> Self {
+        Self {
+            el_ctx: ctx,
+            parent: None,
+        }
+    }
+}
+
+/// VModel provides guaranteed only 1 element
+pub trait VNode: VModel<Storage: EleModel> {}
+impl<T> VNode for T where T: VModel<Storage: EleModel> {}
+
+pub trait EleModel: Model {
+    fn get_element(&self) -> Element;
 }

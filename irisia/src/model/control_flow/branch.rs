@@ -1,4 +1,4 @@
-use crate::model::{Model, ModelCreateCtx, VModel};
+use crate::model::{EleModel, Model, ModelCreateCtx, VModel};
 use crate::prim_element::Element;
 
 pub fn branch_a<A, B>(value: A) -> Branch<A, B>
@@ -90,6 +90,19 @@ where
         match self {
             Self::A(a) => a.visit(f),
             Self::B(b) => b.visit(f),
+        }
+    }
+}
+
+impl<A, B> EleModel for Branch<A, B>
+where
+    A: EleModel,
+    B: EleModel,
+{
+    fn get_element(&self) -> Element {
+        match self {
+            Self::A(a) => a.get_element(),
+            Self::B(b) => b.get_element(),
         }
     }
 }

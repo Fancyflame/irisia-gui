@@ -3,8 +3,7 @@ use irisia_backend::skia_safe::{Color, Color4f, Paint, RRect, Rect as SkRect};
 use crate::primitive::Region;
 
 use super::{
-    redraw_guard::RedrawGuard, Common, EMCreateCtx, Element, EmitEventArgs, EventCallback,
-    GetElement, Handle, RenderTree,
+    redraw_guard::RedrawGuard, Common, EMCreateCtx, EmitEventArgs, EventCallback, RenderTree,
 };
 
 pub struct RenderRect {
@@ -62,11 +61,5 @@ impl RenderTree for RenderRect {
 
     fn set_callback(&mut self, callback: EventCallback) {
         self.common.event_callback = Some(callback);
-    }
-}
-
-impl GetElement for Handle<RenderRect> {
-    fn get_element(&self) -> super::Element {
-        Element::Rect(self.clone())
     }
 }

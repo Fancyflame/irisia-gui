@@ -2,10 +2,9 @@ use std::marker::PhantomData;
 
 use definition::Definition;
 
-use super::{
-    control_flow::common_vmodel::{BoxedModel, CommonVModel},
-    Model, ModelCreateCtx, VModel,
-};
+use crate::prim_element::Element;
+
+use super::{EleModel, Model, ModelCreateCtx, VModel, VNode};
 
 pub mod definition;
 pub mod proxy_signal_helper;
@@ -34,7 +33,7 @@ where
 pub trait Component: Default + 'static {
     type Created: 'static;
 
-    fn create(self) -> (Self::Created, impl VModel);
+    fn create(self) -> (Self::Created, impl VNode);
 }
 
 impl<T, F, D> VModel for UseComponent<T, F, D>
@@ -49,7 +48,7 @@ where
         let (def_storages, def_values) = self.defs.create();
         let (component, vmodel) = T::create((self.create_fn)(def_values));
 
-        let model = vmodel.common_create(ctx);
+        let model = Box::new(vmodel.create(ctx));
         UseComponentModel {
             defs: def_storages,
             model,
@@ -65,15 +64,23 @@ where
 pub struct UseComponentModel<T, D> {
     _component: T,
     defs: D,
-    model: BoxedModel,
+    model: Box<dyn EleModel>,
 }
 
 impl<T, D> Model for UseComponentModel<T, D>
 where
-    T: 'static,
-    D: 'static,
+    Self: 'static,
 {
     fn visit(&self, f: &mut dyn FnMut(crate::prim_element::Element)) {
-        self.model.visit(f);
+        f(self.model.get_element())
+    }
+}
+
+impl<T, D> EleModel for UseComponentModel<T, D>
+where
+    Self: 'static,
+{
+    fn get_element(&self) -> Element {
+        self.model.get_element()
     }
 }

@@ -2,7 +2,7 @@ use crate::primitive::{Point, Region};
 
 use super::{
     redraw_guard::RedrawGuard, Common, EMCreateCtx, Element, EmitEventArgs, EventCallback,
-    GetElement, Handle, RenderTree,
+    RenderTree,
 };
 
 pub type LayoutFn = fn(Point, &[Element], &mut Vec<Region>);
@@ -83,11 +83,5 @@ impl RenderTree for RenderBlock {
 
     fn set_callback(&mut self, callback: EventCallback) {
         self.common.event_callback = Some(callback);
-    }
-}
-
-impl GetElement for Handle<RenderBlock> {
-    fn get_element(&self) -> Element {
-        Element::Block(self.clone())
     }
 }

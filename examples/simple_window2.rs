@@ -4,7 +4,7 @@ use irisia::{
     build2,
     hook::Signal,
     model::{
-        prim_element::{Block, Rect},
+        prim::{Block, Rect},
         VModel,
     },
     prim_element::{block::LayoutFn, rect::RectStyle, Element},

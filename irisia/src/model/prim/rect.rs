@@ -2,14 +2,14 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     hook::{reactive::Reactive, Signal},
-    model::{component::Component, Model, ModelCreateCtx, VModel},
+    model::{component::Component, EleModel, Model, ModelCreateCtx, VModel, VNode},
     prim_element::{
         rect::{RectStyle, RenderRect},
-        EventCallback, GetElement,
+        Element, EventCallback,
     },
 };
 
-use super::{read_or_default, PrimitiveVModelWrapper};
+use super::{read_or_default, PrimitiveVnodeWrapper};
 
 #[derive(Default)]
 pub struct Rect {
@@ -19,12 +19,12 @@ pub struct Rect {
 
 impl Component for Rect {
     type Created = ();
-    fn create(self) -> (Self::Created, impl crate::model::VModel) {
-        ((), PrimitiveVModelWrapper(self))
+    fn create(self) -> (Self::Created, impl VNode) {
+        ((), PrimitiveVnodeWrapper(self))
     }
 }
 
-impl VModel for PrimitiveVModelWrapper<Rect> {
+impl VModel for PrimitiveVnodeWrapper<Rect> {
     type Storage = Reactive<RectModel>;
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
@@ -58,8 +58,14 @@ impl RectModel {
     }
 }
 
+impl EleModel for RectModel {
+    fn get_element(&self) -> Element {
+        self.el.clone()
+    }
+}
+
 impl Model for RectModel {
-    fn visit(&self, f: &mut dyn FnMut(crate::prim_element::Element)) {
-        f(self.el.get_element())
+    fn visit(&self, f: &mut dyn FnMut(Element)) {
+        f(self.get_element())
     }
 }

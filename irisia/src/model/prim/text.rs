@@ -2,14 +2,14 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     hook::{reactive::Reactive, Signal},
-    model::{component::Component, Model, ModelCreateCtx, VModel},
+    model::{component::Component, EleModel, Model, ModelCreateCtx, VModel, VNode},
     prim_element::{
         text::{RenderText, TextSettings, TextStyle},
         Element, EventCallback,
     },
 };
 
-use super::{read_or_default, PrimitiveVModelWrapper};
+use super::{read_or_default, PrimitiveVnodeWrapper};
 
 #[derive(Default)]
 pub struct Text {
@@ -20,12 +20,12 @@ pub struct Text {
 
 impl Component for Text {
     type Created = ();
-    fn create(self) -> ((), impl VModel) {
-        ((), PrimitiveVModelWrapper(self))
+    fn create(self) -> ((), impl VNode) {
+        ((), PrimitiveVnodeWrapper(self))
     }
 }
 
-impl VModel for PrimitiveVModelWrapper<Text> {
+impl VModel for PrimitiveVnodeWrapper<Text> {
     type Storage = Reactive<TextModel>;
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
@@ -80,8 +80,14 @@ impl TextModel {
     }
 }
 
+impl EleModel for TextModel {
+    fn get_element(&self) -> Element {
+        self.el.clone()
+    }
+}
+
 impl Model for TextModel {
-    fn visit(&self, f: &mut dyn FnMut(crate::prim_element::Element)) {
-        f(Element::Text(self.el.clone()))
+    fn visit(&self, f: &mut dyn FnMut(Element)) {
+        f(self.get_element())
     }
 }

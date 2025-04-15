@@ -9,8 +9,7 @@ use irisia_backend::{
 
 use crate::{
     event::{standard::WindowDestroyed, EventDispatcher},
-    hook::reactive::Reactive,
-    model::{prim_element::BlockModel, Model, VModel},
+    model::{EleModel, Model, ModelCreateCtx, VNode},
     prim_element::{
         callback_queue::CallbackQueue, EMCreateCtx, Element, EmitEventArgs, RenderTree,
     },
@@ -29,7 +28,7 @@ use super::{
 pub(super) struct BackendRuntime {
     pointer_state: PointerState,
     gc: Rc<GlobalContent>,
-    root_model: Reactive<BlockModel>,
+    root_model: Box<dyn EleModel>,
     callback_queue: CallbackQueue,
 }
 
@@ -50,7 +49,7 @@ impl AppWindow for BackendRuntime {
         window_inner_size: PhysicalSize<u32>,
     ) -> Result<()> {
         self.gc.redraw_scheduler.redraw(
-            &mut assert_root_model(&self.root_model),
+            &mut self.root_model.get_element(),
             canvas,
             interval,
             window_size_to_draw_region(window_inner_size),
@@ -71,15 +70,11 @@ impl AppWindow for BackendRuntime {
         };
         self.pointer_state = next;
 
-        self.root_model
-            .read()
-            .get_inner()
-            .borrow_mut()
-            .emit_event(EmitEventArgs {
-                queue: &mut self.callback_queue,
-                delta: &mut delta,
-                draw_region: window_size_to_draw_region(window_inner_size),
-            });
+        self.root_model.get_element().emit_event(EmitEventArgs {
+            queue: &mut self.callback_queue,
+            delta: &mut delta,
+            draw_region: window_size_to_draw_region(window_inner_size),
+        });
         self.callback_queue.execute();
         // TODO
         // if let WindowEvent::Resized(size) = &event {
@@ -112,7 +107,7 @@ pub(super) async fn new_window<F, T>(
 ) -> Result<Window>
 where
     F: FnOnce() -> T + Send + 'static,
-    T: VModel,
+    T: VNode,
 {
     let ev_disp = EventDispatcher::new();
 
@@ -131,17 +126,9 @@ where
                 user_close: Cell::new(true),
             });
 
-            let root_model = Reactive::builder().build_cyclic(|weak| {
-                BlockModel::direct_create(
-                    weak,
-                    Some(&root_creator()),
-                    None,
-                    &None,
-                    &EMCreateCtx {
-                        global_content: gc.clone(),
-                    },
-                )
-            });
+            let root_model = root_creator().create(&ModelCreateCtx::create_as_root(EMCreateCtx {
+                global_content: gc.clone(),
+            }));
 
             //root.set_draw_region(Some(window_size_to_draw_region(gc.window().inner_size())));
             // root.
@@ -149,7 +136,7 @@ where
             BackendRuntime {
                 pointer_state: PointerState::new(),
                 gc,
-                root_model,
+                root_model: Box::new(root_model),
                 callback_queue: CallbackQueue::new(),
             }
         }

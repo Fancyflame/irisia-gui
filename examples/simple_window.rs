@@ -3,8 +3,8 @@ use irisia::{
     build2, coerce_hook,
     hook::Signal,
     model::{
-        prim_element::{Block, Rect, Text},
-        VModel,
+        prim::{Block, Rect, Text},
+        VNode,
     },
     prim_element::{block::LayoutFn, rect::RectStyle, text::TextStyle, Element},
     primitive::{Point, Region},
@@ -24,7 +24,7 @@ async fn main() -> Result<()> {
     .await;
 }
 
-fn app() -> impl VModel {
+fn app() -> impl VNode {
     let red_rect = Signal::state(false);
     let switch_color: Signal<dyn Fn(PointerEvent)> = {
         let red_rect = red_rect.clone();

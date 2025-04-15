@@ -1,10 +1,7 @@
-use std::{any::Any, cell::RefCell, rc::Rc, time::Duration};
+use std::{cell::RefCell, rc::Rc, time::Duration};
 
-use block::RenderBlock;
 use callback_queue::CallbackQueue;
 use irisia_backend::skia_safe::{Canvas, Region as SkRegion};
-use rect::RenderRect;
-use text::RenderText;
 
 use crate::{
     application::{
@@ -12,7 +9,6 @@ use crate::{
         event2::pointer_event::{PointerEvent, PointerStateDelta},
     },
     hook::Signal,
-    model::Model,
     primitive::Region,
 };
 
@@ -30,7 +26,7 @@ pub struct EMCreateCtx {
     pub(crate) global_content: Rc<GlobalContent>,
 }
 
-pub trait RenderTree: Any {
+pub trait RenderTree: 'static {
     fn render(&mut self, args: RenderArgs, draw_region: Region);
     fn emit_event(&mut self, args: EmitEventArgs);
     fn set_callback(&mut self, callback: EventCallback);
@@ -58,54 +54,17 @@ impl RenderArgs<'_> {
     }
 }
 
-#[derive(Clone)]
-pub enum Element {
-    Block(Handle<RenderBlock>),
-    Rect(Handle<RenderRect>),
-    Text(Handle<RenderText>),
-}
-
-macro_rules! for_el {
-    ($self: ident, $el:ident, $stmt:stmt) => {
-        match $self {
-            Self::Block(el) => {
-                let mut $el = el.borrow_mut();
-                $stmt
-            }
-            Self::Rect(el) => {
-                let mut $el = el.borrow_mut();
-                $stmt
-            }
-            Self::Text(el) => {
-                let mut $el = el.borrow_mut();
-                $stmt
-            }
-        }
-    };
-}
+pub type Element = Handle<dyn RenderTree>;
 
 impl RenderTree for Element {
     fn render(&mut self, args: RenderArgs, draw_region: Region) {
-        for_el!(self, el, el.render(args, draw_region))
+        self.borrow_mut().render(args, draw_region);
     }
     fn emit_event(&mut self, args: EmitEventArgs) {
-        for_el!(self, el, el.emit_event(args))
+        self.borrow_mut().emit_event(args);
     }
     fn set_callback(&mut self, callback: EventCallback) {
-        for_el!(self, el, el.set_callback(callback))
-    }
-}
-
-pub trait GetElement {
-    fn get_element(&self) -> Element;
-}
-
-impl<T> Model for T
-where
-    T: GetElement + 'static,
-{
-    fn visit(&self, f: &mut dyn FnMut(Element)) {
-        f(self.get_element())
+        self.borrow_mut().set_callback(callback);
     }
 }
 
