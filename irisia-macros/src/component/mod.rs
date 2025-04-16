@@ -1,20 +1,10 @@
 use proc_macro2::TokenStream;
-use syn::{Expr, Ident, Type};
+use syn::{Expr, Ident};
 
 mod parse;
 mod to_tokens;
 
 pub struct BuildMacro(Vec<Stmt>);
-
-struct FieldDefinition {
-    name: Ident,
-    field_type: FieldType,
-}
-
-enum FieldType {
-    Value { from_ty: Type, to_ty: Type },
-    Model,
-}
 
 enum Stmt {
     If(IfStmt),

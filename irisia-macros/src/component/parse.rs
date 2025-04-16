@@ -7,10 +7,9 @@ use super::{
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
-    braced, parenthesized,
+    Expr, Ident, Pat, Result, Token, braced, parenthesized,
     parse::{Parse, ParseStream},
     token::{Brace, Paren},
-    Expr, Ident, Pat, Result, Token,
 };
 
 mod kw {

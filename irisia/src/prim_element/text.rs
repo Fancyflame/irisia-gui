@@ -21,10 +21,19 @@ pub struct TextSettings {
     pub style: TextStyle,
 }
 
-#[derive(PartialEq, Default, Clone)]
+#[derive(PartialEq, Clone)]
 pub struct TextStyle {
     pub font_size: f32,
     pub font_color: Color,
+}
+
+impl Default for TextStyle {
+    fn default() -> Self {
+        Self {
+            font_size: 20.0,
+            font_color: Color::BLACK,
+        }
+    }
 }
 
 impl RenderText {

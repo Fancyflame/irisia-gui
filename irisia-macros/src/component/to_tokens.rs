@@ -1,15 +1,16 @@
 use proc_macro2::TokenStream;
-use quote::{format_ident, quote, ToTokens};
-use syn::Expr;
+use quote::{ToTokens, format_ident, quote};
+use syn::{Expr, Token};
 
 use crate::component::{Component, FieldAssignMethod, FieldAssignment, ForStmt, IfStmt, Stmt};
 
-use super::BuildMacro;
+use super::{BuildMacro, MatchArm, MatchStmt, WhileStmt};
 
 const_quote! {
     const PATH_CONTROL_FLOW = { irisia::model::control_flow };
     const PATH_COMPONENT = { irisia::model::component };
     const PATH_RC = { ::std::rc::Rc };
+    const PATH_OPTION = { ::core::option::Option };
 }
 
 impl BuildMacro {
@@ -23,10 +24,11 @@ impl Stmt {
         match self {
             Stmt::Block(block) => gen_chained(&block.stmts),
             Stmt::For(for_stmt) => gen_for(for_stmt),
+            Stmt::While(while_stmt) => gen_while(while_stmt),
             Stmt::If(if_stmt) => gen_if(if_stmt),
+            Stmt::Match(match_stmt) => gen_match(match_stmt),
             Stmt::Component(comp) => gen_component(comp),
             Stmt::UseExpr(expr) => expr.clone(),
-            _ => todo!(),
         }
     }
 }
@@ -72,6 +74,21 @@ fn gen_for(
     }
 }
 
+fn gen_while(WhileStmt { condition, body }: &WhileStmt) -> TokenStream {
+    let body = gen_chained(&body.stmts);
+    quote! {
+        ::std::vec::Vec::from_iter(
+            ::core::iter::from_fn(|| {
+                if #condition {
+                    #PATH_OPTION::Some(#body)
+                } else {
+                    #PATH_OPTION::None
+                }
+            })
+        )
+    }
+}
+
 fn gen_if(
     IfStmt {
         condition,
@@ -98,6 +115,57 @@ fn gen_if(
     }
 }
 
+fn gen_match(MatchStmt { expr, arms }: &MatchStmt) -> TokenStream {
+    let body = match_arm_binary_fold(&arms, &mut Vec::new());
+    quote! {
+        match #expr {
+            #body
+        }
+    }
+}
+
+fn match_arm_binary_fold(slice: &[MatchArm], branch_stack: &mut Vec<bool>) -> TokenStream {
+    let MatchArm {
+        pattern,
+        guard,
+        body,
+    } = match slice {
+        [] => return quote! {},
+        [arm] => arm,
+        _ => {
+            let (a, b) = slice.split_at(slice.len() / 2);
+
+            branch_stack.push(true);
+            let a = match_arm_binary_fold(a, branch_stack);
+            branch_stack.pop();
+
+            branch_stack.push(false);
+            let b = match_arm_binary_fold(b, branch_stack);
+            branch_stack.pop();
+
+            return quote! {#a #b};
+        }
+    };
+
+    let mut arm_value = body.gen_code();
+    for &branch_is_a in branch_stack.iter().rev() {
+        arm_value = if branch_is_a {
+            quote! {
+                #PATH_CONTROL_FLOW::branch::branch_a(#arm_value)
+            }
+        } else {
+            quote! {
+                #PATH_CONTROL_FLOW::branch::branch_b(#arm_value)
+            }
+        }
+    }
+
+    let if_token = guard.is_some().then(<Token![if]>::default);
+    quote! {
+        #pattern #if_token #guard => #arm_value,
+    }
+}
+
 fn gen_component(
     Component {
         type_path,
@@ -115,7 +183,7 @@ fn gen_component(
         }));
     };
 
-    let defs = binary_fold(&fields, &|fa| {
+    let defs = field_asgn_binary_fold(&fields, &|fa| {
         let FieldAssignment {
             name: _,
             value,
@@ -136,7 +204,7 @@ fn gen_component(
         }
     });
 
-    let names_tuple = binary_fold(&fields, &|fa| fa.name.to_token_stream());
+    let names_tuple = field_asgn_binary_fold(&fields, &|fa| fa.name.to_token_stream());
     let assignments = fields.iter().map(|fa| {
         let name = &fa.name;
         let value = match fa.method {
@@ -151,7 +219,7 @@ fn gen_component(
         };
 
         quote! {
-            #name: ::core::option::Option::Some(#value),
+            #name: #PATH_OPTION::Some(#value),
         }
     });
 
@@ -174,7 +242,7 @@ fn gen_component(
     }
 }
 
-fn binary_fold<F>(slice: &[&FieldAssignment], for_each: &F) -> TokenStream
+fn field_asgn_binary_fold<F>(slice: &[&FieldAssignment], for_each: &F) -> TokenStream
 where
     F: Fn(&FieldAssignment) -> TokenStream,
 {
@@ -183,8 +251,8 @@ where
         [one] => for_each(one),
         _ => {
             let (a, b) = slice.split_at(slice.len() / 2);
-            let a = binary_fold(a, for_each);
-            let b = binary_fold(b, for_each);
+            let a = field_asgn_binary_fold(a, for_each);
+            let b = field_asgn_binary_fold(b, for_each);
             quote! {(#a, #b)}
         }
     }
