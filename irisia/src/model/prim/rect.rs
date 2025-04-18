@@ -9,7 +9,7 @@ use crate::{
     },
 };
 
-use super::{read_or_default, PrimitiveVnodeWrapper};
+use super::{panic_when_call_unreachable, read_or_default, PrimitiveVnodeWrapper};
 
 #[derive(Default)]
 pub struct Rect {
@@ -46,7 +46,7 @@ impl VModel for PrimitiveVnodeWrapper<Rect> {
     }
 
     fn update(&self, _: &mut Self::Storage, _: &ModelCreateCtx) {
-        unreachable!("primitive v-model never updates");
+        panic_when_call_unreachable()
     }
 }
 

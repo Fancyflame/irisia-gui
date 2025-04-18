@@ -3,8 +3,17 @@ use crate::{
         reactive::{Reactive, ReactiveRef, WeakReactive},
         Signal,
     },
-    model::{EleModel, Model, ModelCreateCtx, VModel},
+    model::{EleModel, GetParentProps, Model, ModelCreateCtx, VModel},
 };
+
+impl<Pp, T> GetParentProps<Pp> for Signal<T>
+where
+    T: GetParentProps<Pp> + ?Sized,
+{
+    fn get_parent_props(&self, dst: &mut Vec<Pp>) {
+        self.read().get_parent_props(dst);
+    }
+}
 
 impl<T> VModel for Signal<T>
 where

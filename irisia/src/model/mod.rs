@@ -41,3 +41,7 @@ impl<T> VNode for T where T: VModel<Storage: EleModel> {}
 pub trait EleModel: Model {
     fn get_element(&self) -> Element;
 }
+
+pub trait GetParentProps<T> {
+    fn get_parent_props(&self, dst: &mut Vec<T>);
+}

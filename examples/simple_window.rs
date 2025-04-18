@@ -1,7 +1,7 @@
 use irisia::{
     application::PointerEvent,
     build2, coerce_hook,
-    hook::Signal,
+    hook::{reactive::Reactive, Signal},
     model::{
         component::Component,
         control_flow::CommonVModel,
@@ -145,6 +145,7 @@ impl Component for CustomComp {
     type Created = ();
     fn create(self) -> (Self::Created, impl VNode) {
         dbg!(&self.children_props);
+
         (
             (),
             build2! {

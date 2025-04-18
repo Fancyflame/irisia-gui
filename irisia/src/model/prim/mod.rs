@@ -42,3 +42,9 @@ fn read_or_default<T: Clone>(signal: &Option<Signal<T>>, default: T) -> T {
         None => default,
     }
 }
+
+fn panic_when_call_unreachable() -> ! {
+    panic!(
+        "don't use primitive v-model directly, please use them as components through `build` macro"
+    );
+}

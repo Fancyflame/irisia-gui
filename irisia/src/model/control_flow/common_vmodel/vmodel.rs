@@ -1,4 +1,4 @@
-use crate::model::{Model, ModelCreateCtx, VModel};
+use crate::model::{GetParentProps, Model, ModelCreateCtx, VModel};
 
 use std::any::Any;
 
@@ -8,14 +8,14 @@ trait AnyModel: Any + Model {}
 
 impl<T> AnyModel for T where T: Any + Model {}
 
-pub trait CommonVModel {
+pub trait CommonVModel<Pp>: GetParentProps<Pp> {
     fn common_create(&self, ctx: &ModelCreateCtx) -> BoxedModel;
     fn common_update(&self, storage: &mut BoxedModel, ctx: &ModelCreateCtx);
 }
 
-impl<T> CommonVModel for T
+impl<T, Pp> CommonVModel<Pp> for T
 where
-    T: VModel,
+    T: VModel + GetParentProps<Pp>,
 {
     fn common_create(&self, ctx: &ModelCreateCtx) -> BoxedModel {
         BoxedModel(Box::new(self.create(ctx)))
@@ -46,7 +46,7 @@ impl Model for BoxedModel {
     }
 }
 
-impl VModel for dyn CommonVModel + '_ {
+impl<Pp> VModel for dyn CommonVModel<Pp> + '_ {
     type Storage = BoxedModel;
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {

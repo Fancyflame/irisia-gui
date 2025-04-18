@@ -1,4 +1,4 @@
-use crate::model::{EleModel, Model, ModelCreateCtx, VModel};
+use crate::model::{EleModel, GetParentProps, Model, ModelCreateCtx, VModel};
 use crate::prim_element::Element;
 
 pub fn branch_a<A, B>(value: A) -> Branch<A, B>
@@ -23,11 +23,23 @@ pub enum Branch<A, B> {
     B(B),
 }
 
+impl<Pp, T> GetParentProps<Pp> for Option<T>
+where
+    T: GetParentProps<Pp>,
+{
+    fn get_parent_props(&self, dst: &mut Vec<Pp>) {
+        if let Some(value) = self {
+            value.get_parent_props(dst);
+        }
+    }
+}
+
 impl<T> VModel for Option<T>
 where
     T: VModel,
 {
     type Storage = Branch<T::Storage, ()>;
+
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
         match self {
             Some(v) => Branch::A(v),
@@ -35,12 +47,26 @@ where
         }
         .create(ctx)
     }
+
     fn update(&self, storage: &mut Self::Storage, ctx: &ModelCreateCtx) {
         match self {
             Some(v) => Branch::A(v),
             None => Branch::B(()),
         }
         .update(storage, ctx);
+    }
+}
+
+impl<A, B, Pp> GetParentProps<Pp> for Branch<A, B>
+where
+    A: GetParentProps<Pp>,
+    B: GetParentProps<Pp>,
+{
+    fn get_parent_props(&self, dst: &mut Vec<Pp>) {
+        match self {
+            Self::A(a) => a.get_parent_props(dst),
+            Self::B(b) => b.get_parent_props(dst),
+        }
     }
 }
 
