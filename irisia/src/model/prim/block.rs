@@ -34,6 +34,8 @@ pub struct BlockModel {
 
 impl Component for Block {
     type Created = ();
+    type ChildProps = ();
+
     fn create(self) -> ((), impl VNode) {
         ((), PrimitiveVnodeWrapper(self))
     }

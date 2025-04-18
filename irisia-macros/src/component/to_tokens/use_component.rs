@@ -1,0 +1,164 @@
+use proc_macro2::TokenStream;
+use quote::{ToTokens, format_ident, quote};
+use syn::{Expr, Path};
+
+use crate::component::{
+    ComponentStmt, FieldAssignMethod, FieldAssignment, check_has_parent_props_assigned,
+    to_tokens::{PATH_COMPONENT, PATH_OPTION},
+};
+
+use super::GenerationEnv;
+
+const_quote! {
+    const INPUT_VEC = { __irisia_prop_vec };
+    const CALL_DEFAULT = { ::std::default::Default::default() };
+}
+
+impl GenerationEnv<'_> {
+    pub(super) fn gen_component(
+        &self,
+        ComponentStmt {
+            type_path,
+            fields: all_fields,
+            body,
+        }: &ComponentStmt,
+    ) -> TokenStream {
+        let mut fields: Vec<&FieldAssignment> = Vec::with_capacity(all_fields.capacity());
+        let mut parent_prop_fields: Vec<&FieldAssignment> = Vec::new();
+        for field in all_fields {
+            if let FieldAssignMethod::ParentProp = field.method {
+                parent_prop_fields.push(field);
+            } else {
+                fields.push(field);
+            }
+        }
+
+        let require_this_s_children_props = body.iter().any(check_has_parent_props_assigned);
+        let mut _body_fa = (None, None);
+        if !body.is_empty() {
+            fields.push(
+                _body_fa.0.insert(FieldAssignment {
+                    name: format_ident!("children"),
+                    method: FieldAssignMethod::HostingSignal,
+                    value: Expr::Verbatim(
+                        GenerationEnv {
+                            parent_component: require_this_s_children_props.then_some(type_path),
+                        }
+                        .gen_rc_chained(&body),
+                    ),
+                }),
+            );
+
+            if require_this_s_children_props {
+                fields.push(_body_fa.1.insert(FieldAssignment {
+                    name: format_ident!("children_props"),
+                    method: FieldAssignMethod::HostingSignal,
+                    value: Expr::Verbatim(INPUT_VEC.to_token_stream()),
+                }));
+            }
+        };
+
+        let defs = field_asgn_binary_fold(&fields, &|fa| {
+            let FieldAssignment {
+                name: _,
+                value,
+                method,
+            } = fa;
+
+            match method {
+                FieldAssignMethod::HostingSignal => {
+                    quote! {
+                        #PATH_COMPONENT::proxy_signal_helper::check_eq(#value).get()
+                    }
+                }
+                FieldAssignMethod::Direct => {
+                    quote! {
+                        #PATH_COMPONENT::definition::DirectAssign(#value)
+                    }
+                }
+                FieldAssignMethod::ParentProp => unreachable!(),
+            }
+        });
+
+        let names_tuple = field_asgn_binary_fold(&fields, &|fa| fa.name.to_token_stream());
+        let prop_assignments = fields.iter().map(|fa| {
+            let name = &fa.name;
+            let value = match fa.method {
+                FieldAssignMethod::HostingSignal => {
+                    quote! {
+                        irisia::coerce_hook!(#name)
+                    }
+                }
+                FieldAssignMethod::Direct => {
+                    quote! { #name }
+                }
+                FieldAssignMethod::ParentProp => unreachable!(),
+            };
+
+            quote! {
+                #name: #PATH_OPTION::Some(#value),
+            }
+        });
+
+        let create_fn = quote! {
+            |#names_tuple| {
+                #type_path {
+                    #(#prop_assignments)*
+                    ..#CALL_DEFAULT
+                }
+            }
+        };
+
+        let parent_prop_assignments = self
+            .parent_component
+            .map(|ty| gen_parent_prop_assigments(parent_prop_fields.iter().copied(), ty));
+
+        let create_children_props_vec = require_this_s_children_props.then(|| {
+            quote! {
+                let mut #INPUT_VEC = ::std::vec::Vec::new();
+            }
+        });
+
+        quote! {
+            {
+                #parent_prop_assignments
+                #create_children_props_vec
+                #PATH_COMPONENT::UseComponent::<#type_path, _, _>::new(
+                    #create_fn,
+                    #defs,
+                )
+            }
+        }
+    }
+}
+
+pub(super) fn gen_parent_prop_assigments<'a>(
+    parent_prop_fields: impl Iterator<Item = &'a FieldAssignment> + Clone,
+    parent_type: &Path,
+) -> TokenStream {
+    let names = parent_prop_fields.clone().map(|fa| &fa.name);
+    let values = parent_prop_fields.map(|fa| &fa.value);
+
+    quote! {
+        #INPUT_VEC.push(#PATH_COMPONENT::GetChildProps::<#parent_type> {
+            #(#names: #values,)*
+            ..#CALL_DEFAULT
+        });
+    }
+}
+
+fn field_asgn_binary_fold<F>(slice: &[&FieldAssignment], for_each: &F) -> TokenStream
+where
+    F: Fn(&FieldAssignment) -> TokenStream,
+{
+    match slice {
+        [] => quote! {()},
+        [one] => for_each(one),
+        _ => {
+            let (a, b) = slice.split_at(slice.len() / 2);
+            let a = field_asgn_binary_fold(a, for_each);
+            let b = field_asgn_binary_fold(b, for_each);
+            quote! {(#a, #b)}
+        }
+    }
+}

@@ -1,4 +1,7 @@
-use std::rc::Rc;
+use std::{
+    fmt::{Debug, Formatter},
+    rc::Rc,
+};
 
 use builder::SignalBuilder;
 
@@ -119,4 +122,40 @@ impl<T: ?Sized> Clone for WriteSignal<T> {
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
+}
+
+impl<T> Debug for Signal<T>
+where
+    T: Debug + ?Sized,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        debug_signal(f, self, false)
+    }
+}
+
+impl<T> Debug for WriteSignal<T>
+where
+    T: Debug + ?Sized,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        debug_signal(f, &self.0, true)
+    }
+}
+
+fn debug_signal<T: Debug + ?Sized>(
+    f: &mut Formatter,
+    signal: &Signal<T>,
+    is_write_signal: bool,
+) -> std::fmt::Result {
+    let value: &&T = &&*signal.read();
+    let struct_name = if is_write_signal {
+        "WriteSignal"
+    } else {
+        "Signal"
+    };
+
+    f.debug_struct(struct_name)
+        .field("value", value)
+        .field("addr", &signal.addr())
+        .finish()
 }

@@ -19,6 +19,8 @@ pub struct Rect {
 
 impl Component for Rect {
     type Created = ();
+    type ChildProps = ();
+
     fn create(self) -> (Self::Created, impl VNode) {
         ((), PrimitiveVnodeWrapper(self))
     }

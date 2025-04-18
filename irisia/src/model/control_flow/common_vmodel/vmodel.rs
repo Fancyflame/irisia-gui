@@ -1,9 +1,11 @@
 use crate::model::{Model, ModelCreateCtx, VModel};
+
 use std::any::Any;
 
 pub struct BoxedModel(Box<dyn AnyModel>);
 
 trait AnyModel: Any + Model {}
+
 impl<T> AnyModel for T where T: Any + Model {}
 
 pub trait CommonVModel {

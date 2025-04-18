@@ -20,6 +20,8 @@ pub struct Text {
 
 impl Component for Text {
     type Created = ();
+    type ChildProps = ();
+
     fn create(self) -> ((), impl VNode) {
         ((), PrimitiveVnodeWrapper(self))
     }

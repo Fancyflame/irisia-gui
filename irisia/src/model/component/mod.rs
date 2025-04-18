@@ -30,8 +30,11 @@ where
     }
 }
 
+pub type GetChildProps<T> = <T as Component>::ChildProps;
+
 pub trait Component: Default + 'static {
     type Created: 'static;
+    type ChildProps: Default;
 
     fn create(self) -> (Self::Created, impl VNode);
 }
@@ -83,4 +86,11 @@ where
     fn get_element(&self) -> Element {
         self.model.get_element()
     }
+}
+
+pub fn assert_vnode<T>(n: T) -> T
+where
+    T: VNode,
+{
+    n
 }

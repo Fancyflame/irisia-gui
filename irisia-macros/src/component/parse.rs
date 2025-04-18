@@ -1,15 +1,15 @@
 use crate::component::FieldAssignMethod;
 
 use super::{
-    BlockStmt, BuildMacro, Component, FieldAssignment, ForStmt, IfStmt, MatchArm, MatchStmt, Stmt,
-    WhileStmt,
+    BlockStmt, BuildMacro, ComponentStmt, FieldAssignment, ForStmt, IfStmt, MatchArm, MatchStmt,
+    Stmt, UseExprStmt, WhileStmt, check_has_parent_props_assigned,
 };
-use proc_macro2::TokenStream;
-use quote::quote;
+
+use proc_macro2::{Span, TokenStream};
 use syn::{
-    Expr, Ident, Pat, Result, Token, braced, parenthesized,
+    Error, Expr, Ident, Pat, Result, Token, braced, bracketed, parenthesized,
     parse::{Parse, ParseStream},
-    token::{Brace, Paren},
+    token::{Brace, Bracket, Paren},
 };
 
 mod kw {
@@ -20,7 +20,14 @@ mod kw {
 
 impl Parse for BuildMacro {
     fn parse(input: ParseStream) -> Result<Self> {
-        parse_stmts(input).map(Self)
+        let stmts = parse_stmts(input)?;
+        if stmts.iter().any(check_has_parent_props_assigned) {
+            return Err(Error::new(
+                Span::call_site(),
+                "parent-property declaration is not allowed at root nodes",
+            ));
+        }
+        Ok(Self(stmts))
     }
 }
 
@@ -135,36 +142,61 @@ fn parse_while_stmt(input: ParseStream) -> Result<WhileStmt> {
     })
 }
 
-fn parse_component(input: ParseStream) -> Result<Component> {
+fn parse_field_assignment(input: ParseStream) -> Result<Option<FieldAssignment>> {
+    let mut method = if input.peek(Bracket) {
+        FieldAssignMethod::ParentProp
+    } else if input.peek(Ident) {
+        FieldAssignMethod::HostingSignal
+    } else {
+        return Ok(None);
+    };
+
+    if !input.peek2(Token![:]) {
+        return Ok(None);
+    }
+
+    let name: Ident = if let FieldAssignMethod::ParentProp = method {
+        let content;
+        bracketed!(content in input);
+        content.parse()?
+    } else {
+        input.parse()?
+    };
+    input.parse::<Token![:]>()?;
+
+    if input.peek(Token![=]) {
+        let eq_token = input.parse::<Token![=]>()?;
+        if let FieldAssignMethod::ParentProp = method {
+            return Err(Error::new_spanned(
+                eq_token,
+                "direct-assign mode is not available when declaring parent prop",
+            ));
+        }
+        method = FieldAssignMethod::Direct;
+    }
+
+    let value = input.parse()?;
+    input.parse::<Token![,]>()?;
+
+    Ok(Some(FieldAssignment {
+        name,
+        value,
+        method,
+    }))
+}
+
+fn parse_component(input: ParseStream) -> Result<ComponentStmt> {
     let type_path = input.parse()?;
 
     let content;
     braced!(content in input);
 
     let mut fields = Vec::new();
-
-    while content.peek(Ident) && content.peek2(Token![:]) {
-        let name = content.parse()?;
-        content.parse::<Token![:]>()?;
-
-        let method = if content.peek(Token![=]) {
-            content.parse::<Token![=]>()?;
-            FieldAssignMethod::Direct
-        } else {
-            FieldAssignMethod::HostingSignal
-        };
-
-        let value = content.parse()?;
-        content.parse::<Token![,]>()?;
-
-        fields.push(FieldAssignment {
-            name,
-            value,
-            method,
-        });
+    while let Some(fa) = parse_field_assignment(&content)? {
+        fields.push(fa);
     }
 
-    Ok(Component {
+    Ok(ComponentStmt {
         type_path,
         fields,
         body: parse_stmts(&content)?,
@@ -180,12 +212,43 @@ fn parse_block(input: ParseStream) -> Result<BlockStmt> {
     })
 }
 
-fn parse_use_expr(input: ParseStream) -> Result<TokenStream> {
-    let content;
-    parenthesized!(content in input);
-    if content.is_empty() {
-        Ok(quote! {()})
+fn parse_use_expr(input: ParseStream) -> Result<UseExprStmt> {
+    let paren_content;
+    parenthesized!(paren_content in input);
+    let expr_is_empty = paren_content.is_empty();
+    let value: Option<TokenStream> = if expr_is_empty {
+        None
     } else {
-        content.parse()
-    }
+        Some(paren_content.parse()?)
+    };
+
+    let bind_props = if input.peek(Token![in]) {
+        let in_token = input.parse::<Token![in]>()?;
+        if expr_is_empty {
+            return Err(Error::new_spanned(
+                in_token,
+                "cannot bind properties on empty value",
+            ));
+        }
+
+        let content;
+        braced!(content in input);
+
+        let mut fields = Vec::new();
+        while let Some(fa) = parse_field_assignment(&content)? {
+            if !matches!(fa.method, FieldAssignMethod::ParentProp) {
+                return Err(Error::new_spanned(
+                    fa.name,
+                    "only parent-property is allowed here, try wrapping it with brackets: `[name]: value`",
+                ));
+            }
+            fields.push(fa);
+        }
+
+        Some(fields)
+    } else {
+        None
+    };
+
+    Ok(UseExprStmt { value, bind_props })
 }
