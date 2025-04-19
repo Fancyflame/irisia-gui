@@ -1,4 +1,4 @@
-use crate::model::{EleModel, Model, ModelCreateCtx, VModel, VNode};
+use crate::model::{EleModel, GetParentProps, Model, ModelCreateCtx, VModel, VNode};
 
 use std::any::Any;
 
@@ -8,14 +8,14 @@ trait AnyNode: Any + EleModel {}
 
 impl<T> AnyNode for T where T: Any + EleModel {}
 
-pub trait CommonVNode {
+pub trait CommonVNode<Pp>: GetParentProps<Pp> {
     fn common_create_node(&self, ctx: &ModelCreateCtx) -> BoxedNode;
     fn common_update_node(&self, storage: &mut BoxedNode, ctx: &ModelCreateCtx);
 }
 
-impl<T> CommonVNode for T
+impl<T, Pp> CommonVNode<Pp> for T
 where
-    T: VNode,
+    T: VNode + GetParentProps<Pp>,
 {
     fn common_create_node(&self, ctx: &ModelCreateCtx) -> BoxedNode {
         BoxedNode(Box::new(self.create(ctx)))
@@ -52,7 +52,7 @@ impl EleModel for BoxedNode {
     }
 }
 
-impl VModel for dyn CommonVNode + '_ {
+impl<Pp> VModel for dyn CommonVNode<Pp> + '_ {
     type Storage = BoxedNode;
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {

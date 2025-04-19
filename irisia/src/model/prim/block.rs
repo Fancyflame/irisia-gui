@@ -17,12 +17,12 @@ use crate::{
     primitive::{Point, Region},
 };
 
-use super::{read_or_default, PrimitiveVnodeWrapper};
+use super::{panic_when_call_unreachable, read_or_default, PrimitiveVnodeWrapper};
 
 #[derive(Default)]
 pub struct Block {
     pub layout_fn: Option<Signal<LayoutFn>>,
-    pub children: Option<Signal<dyn CommonVModel>>,
+    pub children: Option<Signal<dyn CommonVModel<()>>>,
     pub on: Option<EventCallback>,
 }
 
@@ -52,7 +52,7 @@ impl VModel for PrimitiveVnodeWrapper<Block> {
     }
 
     fn update(&self, _: &mut Self::Storage, _: &ModelCreateCtx) {
-        unreachable!("primitive v-model never updates");
+        panic_when_call_unreachable()
     }
 }
 
@@ -71,7 +71,7 @@ impl BlockModel {
 
         let children = match &props.children {
             Some(sig) => sig.common_create(&ctx),
-            None => ().common_create(&ctx),
+            None => CommonVModel::<()>::common_create(&(), &ctx),
         };
 
         let prim_block = Rc::new(RefCell::new(RenderBlock::new(
@@ -94,7 +94,7 @@ impl BlockModel {
         self.el.borrow_mut().update_tree().layout_fn = *layout_fn.unwrap();
     }
 
-    fn update_children(&mut self, children: Option<&(dyn CommonVModel + '_)>) {
+    fn update_children(&mut self, children: Option<&(dyn CommonVModel<()> + '_)>) {
         let Some(vmodel) = children else {
             return;
         };

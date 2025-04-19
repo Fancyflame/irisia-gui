@@ -9,20 +9,22 @@ use super::{EleModel, Model, ModelCreateCtx, VModel, VNode};
 pub mod definition;
 pub mod proxy_signal_helper;
 
-pub struct UseComponent<T, F, D> {
+pub struct UseComponent<Pp, T, F, D> {
     _comp: PhantomData<T>,
+    parent_props: Pp,
     create_fn: F,
     defs: D,
 }
 
-impl<T, F, D> UseComponent<T, F, D>
+impl<Pp, T, F, D> UseComponent<Pp, T, F, D>
 where
     T: Component,
     F: Fn(D::Value) -> T,
     D: Definition,
 {
-    pub fn new(create_fn: F, defs: D) -> Self {
+    pub fn new(parent_props: Pp, create_fn: F, defs: D) -> Self {
         Self {
+            parent_props,
             _comp: PhantomData,
             create_fn,
             defs,
@@ -39,7 +41,7 @@ pub trait Component: Default + 'static {
     fn create(self) -> (Self::Created, impl VNode);
 }
 
-impl<T, F, D> VModel for UseComponent<T, F, D>
+impl<Pp, T, F, D> VModel for UseComponent<Pp, T, F, D>
 where
     F: Fn(D::Value) -> T,
     T: Component,
