@@ -9,10 +9,8 @@ use irisia_backend::{
 
 use crate::{
     event::{standard::WindowDestroyed, EventDispatcher},
-    model::{EleModel, Model, ModelCreateCtx, VNode},
-    prim_element::{
-        callback_queue::CallbackQueue, EMCreateCtx, Element, EmitEventArgs, RenderTree,
-    },
+    model::{EleModel, ModelCreateCtx, VNode},
+    prim_element::{callback_queue::CallbackQueue, EMCreateCtx, EmitEventArgs, RenderTree},
     primitive::{Point, Region},
     Result,
 };
@@ -30,15 +28,6 @@ pub(super) struct BackendRuntime {
     gc: Rc<GlobalContent>,
     root_model: Box<dyn EleModel>,
     callback_queue: CallbackQueue,
-}
-
-fn assert_root_model<T: Model>(root_model: &T) -> Element {
-    let mut root = None;
-    root_model.visit(&mut |element| match root {
-        Some(_) => panic!("only 1 element is permitted"),
-        None => root = Some(element),
-    });
-    root.expect("one element is needed")
 }
 
 impl AppWindow for BackendRuntime {
