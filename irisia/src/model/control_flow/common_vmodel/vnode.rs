@@ -1,4 +1,4 @@
-use crate::model::{EleModel, GetParentProps, Model, ModelCreateCtx, VModel, VNode};
+use crate::model::{EleModel, GetParentPropsFn, Model, ModelCreateCtx, VModel, VNode};
 
 use std::any::Any;
 
@@ -8,15 +8,24 @@ trait AnyNode: Any + EleModel {}
 
 impl<T> AnyNode for T where T: Any + EleModel {}
 
-pub trait CommonVNode<Pp>: GetParentProps<Pp> {
+pub trait CommonVNode {
+    type CommonParentPropsNode;
+
+    fn common_get_parent_props_node(&self, f: GetParentPropsFn<Self::CommonParentPropsNode>);
     fn common_create_node(&self, ctx: &ModelCreateCtx) -> BoxedNode;
     fn common_update_node(&self, storage: &mut BoxedNode, ctx: &ModelCreateCtx);
 }
 
-impl<T, Pp> CommonVNode<Pp> for T
+impl<T, Pp> CommonVNode for T
 where
-    T: VNode + GetParentProps<Pp>,
+    T: VNode<ParentProps = Pp>,
 {
+    type CommonParentPropsNode = Pp;
+
+    fn common_get_parent_props_node(&self, f: GetParentPropsFn<Self::CommonParentPropsNode>) {
+        self.get_parent_props(f);
+    }
+
     fn common_create_node(&self, ctx: &ModelCreateCtx) -> BoxedNode {
         BoxedNode(Box::new(self.create(ctx)))
     }
@@ -52,8 +61,13 @@ impl EleModel for BoxedNode {
     }
 }
 
-impl<Pp> VModel for dyn CommonVNode<Pp> + '_ {
+impl<Pp> VModel for dyn CommonVNode<CommonParentPropsNode = Pp> + '_ {
     type Storage = BoxedNode;
+    type ParentProps = Pp;
+
+    fn get_parent_props(&self, f: GetParentPropsFn<Self::ParentProps>) {
+        self.common_get_parent_props_node(f);
+    }
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
         self.common_create_node(ctx)

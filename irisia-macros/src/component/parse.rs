@@ -7,7 +7,7 @@ use super::{
 
 use proc_macro2::{Span, TokenStream};
 use syn::{
-    Error, Expr, Ident, Pat, Result, Token, braced, bracketed, parenthesized,
+    Error, Expr, Ident, Pat, Path, Result, Token, braced, bracketed, parenthesized,
     parse::{Parse, ParseStream},
     token::{Brace, Bracket, Paren},
 };
@@ -20,15 +20,33 @@ mod kw {
 
 impl Parse for BuildMacro {
     fn parse(input: ParseStream) -> Result<Self> {
+        let virtual_parent = parse_virtual_parent(input)?;
         let stmts = parse_stmts(input)?;
-        if stmts.iter().any(check_has_parent_props_assigned) {
+        if virtual_parent.is_none() && stmts.iter().any(check_has_parent_props_assigned) {
             return Err(Error::new(
                 Span::call_site(),
-                "parent-property declaration is not allowed at root nodes",
+                "parent-property declaration is not allowed at root \
+                when there is no parent type provided, which is default to be `()`. \
+                consider using `in path::to::Type;` to declare a virtual parent.",
             ));
         }
-        Ok(Self(stmts))
+
+        Ok(Self {
+            stmts,
+            virtual_parent,
+        })
     }
+}
+
+fn parse_virtual_parent(input: ParseStream) -> Result<Option<Path>> {
+    if !input.peek(Token![in]) {
+        return Ok(None);
+    }
+
+    input.parse::<Token![in]>()?;
+    let path: Path = input.parse()?;
+    input.parse::<Token![;]>()?;
+    Ok(Some(path))
 }
 
 fn parse_stmts(input: ParseStream) -> Result<Vec<Stmt>> {
@@ -222,33 +240,5 @@ fn parse_use_expr(input: ParseStream) -> Result<UseExprStmt> {
         Some(paren_content.parse()?)
     };
 
-    let bind_props = if input.peek(Token![in]) {
-        let in_token = input.parse::<Token![in]>()?;
-        if expr_is_empty {
-            return Err(Error::new_spanned(
-                in_token,
-                "cannot bind properties on empty value",
-            ));
-        }
-
-        let content;
-        braced!(content in input);
-
-        let mut fields = Vec::new();
-        while let Some(fa) = parse_field_assignment(&content)? {
-            if !matches!(fa.method, FieldAssignMethod::ParentProp) {
-                return Err(Error::new_spanned(
-                    fa.name,
-                    "only parent-property is allowed here, try wrapping it with brackets: `[name]: value`",
-                ));
-            }
-            fields.push(fa);
-        }
-
-        Some(fields)
-    } else {
-        None
-    };
-
-    Ok(UseExprStmt { value, bind_props })
+    Ok(UseExprStmt { value })
 }

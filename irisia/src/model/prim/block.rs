@@ -7,7 +7,11 @@ use crate::{
     },
     model::{
         component::Component,
-        control_flow::{common_vmodel::BoxedModel, CommonVModel},
+        control_flow::{
+            common_vmodel::{BoxedModel, DynVModel},
+            miscellaneous::Empty,
+            CommonVModel,
+        },
         EleModel, Model, ModelCreateCtx, VModel, VNode,
     },
     prim_element::{
@@ -22,7 +26,7 @@ use super::{panic_when_call_unreachable, read_or_default, PrimitiveVnodeWrapper}
 #[derive(Default)]
 pub struct Block {
     pub layout_fn: Option<Signal<LayoutFn>>,
-    pub children: Option<Signal<dyn CommonVModel<()>>>,
+    pub children: Option<Signal<DynVModel<()>>>,
     pub on: Option<EventCallback>,
 }
 
@@ -43,6 +47,11 @@ impl Component for Block {
 
 impl VModel for PrimitiveVnodeWrapper<Block> {
     type Storage = Reactive<BlockModel>;
+    type ParentProps = ();
+
+    fn get_parent_props(&self, _: crate::model::GetParentPropsFn<Self::ParentProps>) {
+        panic_when_call_unreachable()
+    }
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
         Reactive::builder()
@@ -71,7 +80,7 @@ impl BlockModel {
 
         let children = match &props.children {
             Some(sig) => sig.common_create(&ctx),
-            None => CommonVModel::<()>::common_create(&(), &ctx),
+            None => Empty::<()>::new().common_create(&ctx),
         };
 
         let prim_block = Rc::new(RefCell::new(RenderBlock::new(
@@ -94,7 +103,7 @@ impl BlockModel {
         self.el.borrow_mut().update_tree().layout_fn = *layout_fn.unwrap();
     }
 
-    fn update_children(&mut self, children: Option<&(dyn CommonVModel<()> + '_)>) {
+    fn update_children(&mut self, children: Option<&DynVModel<()>>) {
         let Some(vmodel) = children else {
             return;
         };

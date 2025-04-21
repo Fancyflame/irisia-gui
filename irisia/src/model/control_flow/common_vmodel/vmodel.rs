@@ -1,4 +1,4 @@
-use crate::model::{GetParentProps, Model, ModelCreateCtx, VModel};
+use crate::model::{GetParentPropsFn, Model, ModelCreateCtx, VModel};
 
 use std::any::Any;
 
@@ -8,15 +8,24 @@ trait AnyModel: Any + Model {}
 
 impl<T> AnyModel for T where T: Any + Model {}
 
-pub trait CommonVModel<Pp>: GetParentProps<Pp> {
+pub trait CommonVModel {
+    type CommonParentProps;
+
+    fn common_get_parent_props(&self, f: GetParentPropsFn<Self::CommonParentProps>);
     fn common_create(&self, ctx: &ModelCreateCtx) -> BoxedModel;
     fn common_update(&self, storage: &mut BoxedModel, ctx: &ModelCreateCtx);
 }
 
-impl<T, Pp> CommonVModel<Pp> for T
+impl<T> CommonVModel for T
 where
-    T: VModel + GetParentProps<Pp>,
+    T: VModel,
 {
+    type CommonParentProps = T::ParentProps;
+
+    fn common_get_parent_props(&self, f: GetParentPropsFn<Self::CommonParentProps>) {
+        self.get_parent_props(f);
+    }
+
     fn common_create(&self, ctx: &ModelCreateCtx) -> BoxedModel {
         BoxedModel(Box::new(self.create(ctx)))
     }
@@ -46,8 +55,13 @@ impl Model for BoxedModel {
     }
 }
 
-impl<Pp> VModel for dyn CommonVModel<Pp> + '_ {
+impl<Pp> VModel for dyn CommonVModel<CommonParentProps = Pp> + '_ {
     type Storage = BoxedModel;
+    type ParentProps = Pp;
+
+    fn get_parent_props(&self, f: GetParentPropsFn<Self::ParentProps>) {
+        self.common_get_parent_props(f);
+    }
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
         self.common_create(ctx)

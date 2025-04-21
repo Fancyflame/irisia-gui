@@ -28,6 +28,11 @@ impl Component for Rect {
 
 impl VModel for PrimitiveVnodeWrapper<Rect> {
     type Storage = Reactive<RectModel>;
+    type ParentProps = ();
+
+    fn get_parent_props(&self, _: crate::model::GetParentPropsFn<Self::ParentProps>) {
+        panic_when_call_unreachable()
+    }
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
         let init_style = read_or_default(&self.0.style, RectStyle::default());

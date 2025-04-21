@@ -3,15 +3,14 @@ use quote::{ToTokens, format_ident, quote};
 use syn::{Expr, Path};
 
 use crate::component::{
-    ComponentStmt, FieldAssignMethod, FieldAssignment, check_has_parent_props_assigned,
+    ComponentStmt, FieldAssignMethod, FieldAssignment,
     to_tokens::{PATH_COMPONENT, PATH_OPTION},
 };
 
 use super::GenerationEnv;
 
 const_quote! {
-    const INPUT_VEC = { __irisia_prop_vec };
-    const CALL_DEFAULT = { ::std::default::Default::default() };
+    const DEFAULT_TRAIT = { ::std::default::Default };
 }
 
 impl GenerationEnv<'_> {
@@ -33,29 +32,20 @@ impl GenerationEnv<'_> {
             }
         }
 
-        let require_this_s_children_props = body.iter().any(check_has_parent_props_assigned);
-        let mut _body_fa = (None, None);
+        let mut _body_fa = None;
         if !body.is_empty() {
             fields.push(
-                _body_fa.0.insert(FieldAssignment {
+                _body_fa.insert(FieldAssignment {
                     name: format_ident!("children"),
                     method: FieldAssignMethod::HostingSignal,
                     value: Expr::Verbatim(
                         GenerationEnv {
-                            parent_component: require_this_s_children_props.then_some(type_path),
+                            parent_component: Some(type_path),
                         }
                         .gen_rc_chained(&body),
                     ),
                 }),
             );
-
-            if require_this_s_children_props {
-                fields.push(_body_fa.1.insert(FieldAssignment {
-                    name: format_ident!("children_props"),
-                    method: FieldAssignMethod::HostingSignal,
-                    value: Expr::Verbatim(INPUT_VEC.to_token_stream()),
-                }));
-            }
         };
 
         let defs = field_asgn_binary_fold(&fields, &|fa| {
@@ -104,26 +94,18 @@ impl GenerationEnv<'_> {
             |#names_tuple| {
                 #type_path {
                     #(#prop_assignments)*
-                    ..#CALL_DEFAULT
+                    ..#DEFAULT_TRAIT::default()
                 }
             }
         };
 
-        let parent_prop_assignments = self
-            .parent_component
-            .map(|ty| gen_parent_prop_assigments(parent_prop_fields.iter().copied(), ty));
-
-        let create_children_props_vec = require_this_s_children_props.then(|| {
-            quote! {
-                let mut #INPUT_VEC = ::std::vec::Vec::new();
-            }
-        });
+        let parent_prop_expr =
+            gen_parent_prop_expr(parent_prop_fields.iter().copied(), self.parent_component);
 
         quote! {
             {
-                #parent_prop_assignments
-                #create_children_props_vec
-                #PATH_COMPONENT::UseComponent::<#type_path, _, _>::new(
+                #PATH_COMPONENT::UseComponent::<#type_path, _, _, _>::new(
+                    #parent_prop_expr,
                     #create_fn,
                     #defs,
                 )
@@ -132,18 +114,32 @@ impl GenerationEnv<'_> {
     }
 }
 
-pub(super) fn gen_parent_prop_assigments<'a>(
-    parent_prop_fields: impl Iterator<Item = &'a FieldAssignment> + Clone,
-    parent_type: &Path,
-) -> TokenStream {
+pub(super) fn gen_parent_prop_expr<'a, I>(
+    parent_prop_fields: I,
+    parent_type: Option<&Path>,
+) -> TokenStream
+where
+    I: Iterator<Item = &'a FieldAssignment> + ExactSizeIterator + Clone,
+{
+    let Some(parent_type) = parent_type else {
+        assert_eq!(parent_prop_fields.len(), 0);
+        return quote! {()};
+    };
+
+    if parent_prop_fields.len() == 0 {
+        return quote! {
+            <#PATH_COMPONENT::GetChildProps::<#parent_type> as #DEFAULT_TRAIT>::default()
+        };
+    }
+
     let names = parent_prop_fields.clone().map(|fa| &fa.name);
     let values = parent_prop_fields.map(|fa| &fa.value);
 
     quote! {
-        #INPUT_VEC.push(#PATH_COMPONENT::GetChildProps::<#parent_type> {
+        #PATH_COMPONENT::GetChildProps::<#parent_type> {
             #(#names: #values,)*
-            ..#CALL_DEFAULT
-        });
+            ..#DEFAULT_TRAIT::default()
+        }
     }
 }
 

@@ -29,6 +29,11 @@ impl Component for Text {
 
 impl VModel for PrimitiveVnodeWrapper<Text> {
     type Storage = Reactive<TextModel>;
+    type ParentProps = ();
+
+    fn get_parent_props(&self, _: crate::model::GetParentPropsFn<Self::ParentProps>) {
+        panic_when_call_unreachable()
+    }
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
         let init_state = TextSettings {

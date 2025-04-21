@@ -1,7 +1,6 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{Path, Token};
-use use_component::gen_parent_prop_assigments;
 
 use crate::component::{ForStmt, IfStmt, Stmt};
 
@@ -19,9 +18,9 @@ const_quote! {
 impl BuildMacro {
     pub fn gen_code(&self) -> TokenStream {
         GenerationEnv {
-            parent_component: None,
+            parent_component: self.virtual_parent.as_ref(),
         }
-        .gen_rc_chained(&self.0)
+        .gen_rc_chained(&self.stmts)
     }
 }
 
@@ -53,7 +52,7 @@ impl GenerationEnv<'_> {
 
     fn gen_chained(&self, stmts: &[Stmt]) -> TokenStream {
         match stmts {
-            [] => quote! {()},
+            [] => self.gen_empty(),
             [one] => self.gen_code(one),
             _ => {
                 let (p1, p2) = stmts.split_at(stmts.len() / 2);
@@ -112,7 +111,7 @@ impl GenerationEnv<'_> {
         let then_branch = self.gen_chained(&then_branch.stmts);
         let else_branch = match else_branch {
             Some(b) => self.gen_code(&b),
-            None => quote! {()},
+            None => self.gen_empty(),
         };
 
         quote! {
@@ -183,23 +182,23 @@ impl GenerationEnv<'_> {
         }
     }
 
-    fn gen_use_expr(&self, UseExprStmt { value, bind_props }: &UseExprStmt) -> TokenStream {
-        match (value, self.parent_component) {
-            (Some(value), Some(ty)) => {
-                let vec_operation = match bind_props {
-                    Some(vec) => gen_parent_prop_assigments(vec.iter(), ty),
-                    None => gen_parent_prop_assigments([].iter(), ty),
-                };
-                quote! {
-                    (
-                        (#PATH_COMPONENT::assert_vnode(#value), {
-                            #vec_operation
-                        }).0
-                    )
-                }
-            }
-            (Some(value), None) => quote! {(#value)},
-            (None, _) => quote! {()},
+    fn gen_use_expr(&self, UseExprStmt { value }: &UseExprStmt) -> TokenStream {
+        match value {
+            Some(value) => value.clone(),
+            None => self.gen_empty(),
+        }
+    }
+
+    fn gen_empty(&self) -> TokenStream {
+        let parent_prop_type = match self.parent_component {
+            Some(ty) => quote! {
+                #PATH_COMPONENT::GetChildProps<#ty>
+            },
+            None => quote! {()},
+        };
+
+        quote! {
+            #PATH_CONTROL_FLOW::miscellaneous::Empty::<#parent_prop_type>::new()
         }
     }
 }

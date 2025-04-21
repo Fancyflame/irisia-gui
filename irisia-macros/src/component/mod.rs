@@ -1,10 +1,13 @@
 use proc_macro2::TokenStream;
-use syn::{Expr, Ident};
+use syn::{Expr, Ident, Path};
 
 mod parse;
 mod to_tokens;
 
-pub struct BuildMacro(Vec<Stmt>);
+pub struct BuildMacro {
+    stmts: Vec<Stmt>,
+    virtual_parent: Option<Path>,
+}
 
 enum Stmt {
     If(IfStmt),
@@ -57,7 +60,6 @@ struct ComponentStmt {
 
 struct UseExprStmt {
     value: Option<TokenStream>,
-    bind_props: Option<Vec<FieldAssignment>>,
 }
 
 struct FieldAssignment {
@@ -100,10 +102,7 @@ fn check_has_parent_props_assigned(stmt: &Stmt) -> bool {
             .arms
             .iter()
             .any(|arm| check_has_parent_props_assigned(&arm.body)),
-        Stmt::UseExpr(use_expr) => match &use_expr.bind_props {
-            Some(props) => check_fields(&props),
-            None => false,
-        },
+        Stmt::UseExpr(_) => false,
         Stmt::While(while_stmt) => check_sliced(&while_stmt.body.stmts),
     }
 }

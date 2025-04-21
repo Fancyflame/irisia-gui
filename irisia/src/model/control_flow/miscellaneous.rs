@@ -1,25 +1,22 @@
+use std::marker::PhantomData;
+
 use crate::{
-    model::{GetParentProps, Model, ModelCreateCtx, VModel},
+    model::{GetParentPropsFn, Model, ModelCreateCtx, VModel},
     prim_element::Element,
 };
 
-impl<Pp, A, B> GetParentProps<Pp> for (A, B)
+impl<A, B, Pp> VModel for (A, B)
 where
-    A: GetParentProps<Pp>,
-    B: GetParentProps<Pp>,
+    A: VModel<ParentProps = Pp>,
+    B: VModel<ParentProps = Pp>,
 {
-    fn get_parent_props(&self, dst: &mut Vec<Pp>) {
-        self.0.get_parent_props(dst);
-        self.1.get_parent_props(dst);
-    }
-}
-
-impl<A, B> VModel for (A, B)
-where
-    A: VModel,
-    B: VModel,
-{
+    type ParentProps = Pp;
     type Storage = (A::Storage, B::Storage);
+
+    fn get_parent_props(&self, f: GetParentPropsFn<Self::ParentProps>) {
+        self.0.get_parent_props(f);
+        self.1.get_parent_props(f);
+    }
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
         (self.0.create(ctx), self.1.create(ctx))
@@ -42,13 +39,19 @@ where
     }
 }
 
-impl<Pp> GetParentProps<Pp> for () {
-    fn get_parent_props(&self, _dst: &mut Vec<Pp>) {}
+pub struct Empty<T>(PhantomData<fn() -> T>);
+
+impl<T> Empty<T> {
+    pub const fn new() -> Self {
+        Empty(PhantomData)
+    }
 }
 
-impl VModel for () {
+impl<T> VModel for Empty<T> {
+    type ParentProps = T;
     type Storage = ();
 
+    fn get_parent_props(&self, _: GetParentPropsFn<Self::ParentProps>) {}
     fn create(&self, _ctx: &ModelCreateCtx) -> Self::Storage {}
     fn update(&self, _storage: &mut Self::Storage, _ctx: &ModelCreateCtx) {}
 }

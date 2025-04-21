@@ -4,19 +4,19 @@ use definition::Definition;
 
 use crate::prim_element::Element;
 
-use super::{EleModel, Model, ModelCreateCtx, VModel, VNode};
+use super::{EleModel, GetParentPropsFn, Model, ModelCreateCtx, VModel, VNode};
 
 pub mod definition;
 pub mod proxy_signal_helper;
 
-pub struct UseComponent<Pp, T, F, D> {
+pub struct UseComponent<T, Pp, F, D> {
     _comp: PhantomData<T>,
     parent_props: Pp,
     create_fn: F,
     defs: D,
 }
 
-impl<Pp, T, F, D> UseComponent<Pp, T, F, D>
+impl<Pp, T, F, D> UseComponent<T, Pp, F, D>
 where
     T: Component,
     F: Fn(D::Value) -> T,
@@ -41,13 +41,18 @@ pub trait Component: Default + 'static {
     fn create(self) -> (Self::Created, impl VNode);
 }
 
-impl<Pp, T, F, D> VModel for UseComponent<Pp, T, F, D>
+impl<T, Pp, F, D> VModel for UseComponent<T, Pp, F, D>
 where
     F: Fn(D::Value) -> T,
     T: Component,
     D: Definition,
 {
     type Storage = UseComponentModel<T::Created, D::Storage>;
+    type ParentProps = Pp;
+
+    fn get_parent_props(&self, f: GetParentPropsFn<Self::ParentProps>) {
+        f(&self.parent_props)
+    }
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
         let (def_storages, def_values) = self.defs.create();

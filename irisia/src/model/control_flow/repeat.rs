@@ -4,22 +4,11 @@ use std::{
 };
 
 use crate::{
-    model::{GetParentProps, ModelCreateCtx},
+    model::{GetParentPropsFn, ModelCreateCtx},
     prim_element::Element,
 };
 
 use crate::model::{Model, VModel};
-
-impl<Pp, K, T> GetParentProps<Pp> for Vec<(K, T)>
-where
-    T: GetParentProps<Pp>,
-{
-    fn get_parent_props(&self, dst: &mut Vec<Pp>) {
-        for (_, value) in self {
-            value.get_parent_props(dst);
-        }
-    }
-}
 
 impl<K, T> VModel for Vec<(K, T)>
 where
@@ -27,6 +16,13 @@ where
     T: VModel,
 {
     type Storage = RepeatModel<K, T::Storage>;
+    type ParentProps = T::ParentProps;
+
+    fn get_parent_props(&self, f: GetParentPropsFn<Self::ParentProps>) {
+        for (_, value) in self {
+            value.get_parent_props(f);
+        }
+    }
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
         let mut this = RepeatModel {

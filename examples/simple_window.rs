@@ -1,12 +1,12 @@
 use irisia::{
     application::PointerEvent,
     build2, coerce_hook,
-    hook::{reactive::Reactive, Signal},
+    hook::Signal,
     model::{
         component::Component,
-        control_flow::CommonVModel,
+        control_flow::common_vmodel::DynVModel,
         prim::{Block, Rect, Text},
-        VNode,
+        VModel, VNode,
     },
     prim_element::{block::LayoutFn, rect::RectStyle, text::TextStyle, Element},
     primitive::{Point, Region},
@@ -48,6 +48,8 @@ fn app() -> impl VNode {
             let switch_color = switch_color.clone();
             move |&is_red| {
                 build2! {
+                    in CustomComp;
+
                     Rect {
                         on := switch_color.clone(),
                         style: RectStyle {
@@ -72,9 +74,7 @@ fn app() -> impl VNode {
 
     build2! {
         CustomComp {
-            (changing_rect) in {
-                [foo]: 1,
-            }
+            (changing_rect)
 
             Text {
                 on := switch_color,
@@ -130,8 +130,7 @@ fn average_divide(size: Point, el: &[Element], regions: &mut Vec<Region>) {
 
 #[derive(Default)]
 struct CustomComp {
-    children: Option<Signal<dyn CommonVModel>>,
-    children_props: Option<Signal<Vec<CustomProps>>>,
+    children: Option<Signal<DynVModel<CustomProps>>>,
 }
 
 #[allow(unused)]
@@ -144,14 +143,27 @@ impl Component for CustomComp {
     type ChildProps = CustomProps;
     type Created = ();
     fn create(self) -> (Self::Created, impl VNode) {
-        dbg!(&self.children_props);
+        let styles = Signal::builder(Vec::new())
+            .dep_call(
+                |mut vec, styles| {
+                    if let Some(styles) = styles {
+                        vec.clear();
+                        styles.get_parent_props(&mut |style| vec.push(style.clone()));
+                    };
+                },
+                self.children.clone(),
+                true,
+            )
+            .build();
+
+        dbg!(&styles);
 
         (
             (),
             build2! {
                 Block {
                     layout_fn: average_divide as LayoutFn,
-                    (self.children)
+                    (self.children.clear_parent_props())
                 }
             },
         )
