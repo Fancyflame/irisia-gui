@@ -38,7 +38,7 @@ pub trait Component: Default + 'static {
     type Created: 'static;
     type ChildProps: Default;
 
-    fn create(self) -> (Self::Created, impl VNode);
+    fn create(self) -> (Self::Created, impl VNode<ParentProps = ()>);
 }
 
 impl<T, Pp, F, D> VModel for UseComponent<T, Pp, F, D>

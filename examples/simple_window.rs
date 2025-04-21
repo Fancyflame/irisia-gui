@@ -26,7 +26,7 @@ async fn main() -> Result<()> {
     .await;
 }
 
-fn app() -> impl VNode {
+fn app() -> impl VNode<ParentProps = ()> {
     let red_rect = Signal::state(false);
     let switch_color: Signal<dyn Fn(PointerEvent)> = {
         let red_rect = red_rect.clone();
@@ -48,8 +48,6 @@ fn app() -> impl VNode {
             let switch_color = switch_color.clone();
             move |&is_red| {
                 build2! {
-                    in CustomComp;
-
                     Rect {
                         on := switch_color.clone(),
                         style: RectStyle {
@@ -86,6 +84,7 @@ fn app() -> impl VNode {
                     font_size: 40.0,
                     font_color: Color::MAGENTA,
                 },
+
                 // [foo]: 2, // emitted
             }
 

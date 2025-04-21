@@ -121,20 +121,26 @@ pub(super) fn gen_parent_prop_expr<'a, I>(
 where
     I: Iterator<Item = &'a FieldAssignment> + ExactSizeIterator + Clone,
 {
-    let Some(parent_type) = parent_type else {
-        assert_eq!(parent_prop_fields.len(), 0);
-        return quote! {()};
-    };
+    // let Some(parent_type) = parent_type else {
+    //     assert_eq!(parent_prop_fields.len(), 0);
+    //     return quote! {()};
+    // };
 
     if parent_prop_fields.len() == 0 {
-        return quote! {
-            <#PATH_COMPONENT::GetChildProps::<#parent_type> as #DEFAULT_TRAIT>::default()
+        return match parent_type {
+            Some(parent_type) => quote! {
+                <#PATH_COMPONENT::GetChildProps::<#parent_type> as #DEFAULT_TRAIT>::default()
+            },
+            None => quote! {
+                #DEFAULT_TRAIT::default()
+            },
         };
     }
 
     let names = parent_prop_fields.clone().map(|fa| &fa.name);
     let values = parent_prop_fields.map(|fa| &fa.value);
 
+    let parent_type = parent_type.expect("parent type must be provided as parent-property defined");
     quote! {
         #PATH_COMPONENT::GetChildProps::<#parent_type> {
             #(#names: #values,)*

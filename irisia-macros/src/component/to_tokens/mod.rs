@@ -194,7 +194,7 @@ impl GenerationEnv<'_> {
             Some(ty) => quote! {
                 #PATH_COMPONENT::GetChildProps<#ty>
             },
-            None => quote! {()},
+            None => quote! {_},
         };
 
         quote! {
