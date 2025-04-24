@@ -21,7 +21,7 @@ impl Component for Rect {
     type Created = ();
     type ChildProps = ();
 
-    fn create(self) -> (Self::Created, impl VNode) {
+    fn create(self) -> (Self::Created, impl VNode<ParentProps = ()>) {
         ((), PrimitiveVnodeWrapper(self))
     }
 }

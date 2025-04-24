@@ -40,7 +40,7 @@ impl Component for Block {
     type Created = ();
     type ChildProps = ();
 
-    fn create(self) -> ((), impl VNode) {
+    fn create(self) -> ((), impl VNode<ParentProps = ()>) {
         ((), PrimitiveVnodeWrapper(self))
     }
 }

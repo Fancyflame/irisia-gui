@@ -22,7 +22,7 @@ impl Component for Text {
     type Created = ();
     type ChildProps = ();
 
-    fn create(self) -> ((), impl VNode) {
+    fn create(self) -> ((), impl VNode<ParentProps = ()>) {
         ((), PrimitiveVnodeWrapper(self))
     }
 }

@@ -141,7 +141,7 @@ struct CustomProps {
 impl Component for CustomComp {
     type ChildProps = CustomProps;
     type Created = ();
-    fn create(self) -> (Self::Created, impl VNode) {
+    fn create(self) -> (Self::Created, impl VNode<ParentProps = ()>) {
         let styles = Signal::builder(Vec::new())
             .dep_call(
                 |mut vec, styles| {
