@@ -5,20 +5,20 @@ use irisia_backend::skia_safe::{
     Color, FontMgr,
 };
 
+use crate::{hook::Signal, primitive::Point};
+
 use super::{
-    redraw_guard::RedrawGuard, Common, EMCreateCtx, EmitEventArgs, EventCallback, RenderTree,
+    clip_draw_region, Common, EMCreateCtx, EmitEventArgs, EventCallback, RenderTree, Size,
+    SpaceConstraint,
 };
 
+pub type SignalStr = Signal<dyn AsRef<str>>;
+
 pub struct RenderText {
-    text: TextSettings,
+    text: SignalStr,
+    style: Signal<TextStyle>,
     paragraph: Option<Paragraph>,
     common: Common,
-}
-
-#[derive(PartialEq, Default, Clone)]
-pub struct TextSettings {
-    pub text: String,
-    pub style: TextStyle,
 }
 
 #[derive(PartialEq, Clone)]
@@ -38,39 +38,68 @@ impl Default for TextStyle {
 
 impl RenderText {
     pub fn new(
-        text: TextSettings,
+        text: SignalStr,
+        style: Signal<TextStyle>,
         event_callback: Option<EventCallback>,
         ctx: &EMCreateCtx,
     ) -> Self {
         Self {
             text,
+            style,
             paragraph: None,
             common: Common::new(event_callback, ctx),
         }
     }
 
-    pub fn update_text(&mut self) -> RedrawGuard<TextSettings> {
+    pub fn text_updated(&mut self) {
         self.paragraph = None;
-        RedrawGuard::new(&mut self.text, &mut self.common)
+        self.common.cached_layout.take();
+        self.common.request_redraw();
+        self.common.request_relayout();
     }
 }
 
 impl RenderTree for RenderText {
-    fn render(&mut self, args: super::RenderArgs, draw_region: crate::primitive::Region) {
+    fn render(&mut self, args: super::RenderArgs, location: Point) {
+        let draw_region = self.common.set_rendered(location);
         if !args.needs_redraw(draw_region) {
             return;
         }
 
-        self.common.prev_draw_region = Some(draw_region);
-        let para = self
+        let paragraph = self
             .paragraph
-            .get_or_insert_with(|| self.text.build_paragraph());
-        para.layout(draw_region.right_bottom.0 - draw_region.left_top.0);
-        para.paint(args.canvas, draw_region.left_top);
+            .get_or_insert_with(|| build_paragraph(&self.text, &self.style));
+
+        args.canvas.save();
+        clip_draw_region(args.canvas, draw_region);
+        paragraph.paint(args.canvas, location);
+        args.canvas.restore();
     }
 
     fn emit_event(&mut self, args: EmitEventArgs) {
         self.common.use_callback(args);
+    }
+
+    fn layout(&mut self, constraint: Size<SpaceConstraint>) -> Size<f32> {
+        let layout_fn = |constraint: Size<SpaceConstraint>| {
+            let paragraph = self
+                .paragraph
+                .get_or_insert_with(|| build_paragraph(&self.text, &self.style));
+
+            let w = match constraint.x {
+                SpaceConstraint::Exact(width) | SpaceConstraint::Available(width) => width,
+                SpaceConstraint::MinContent => paragraph.min_intrinsic_width(),
+                SpaceConstraint::MaxContent => paragraph.max_intrinsic_width(),
+            };
+            paragraph.layout(w);
+
+            Size {
+                x: fit_constraint(paragraph.max_width(), constraint.x),
+                y: fit_constraint(paragraph.height(), constraint.y),
+            }
+        };
+
+        self.common.use_cached_layout(constraint, false, layout_fn)
     }
 
     fn set_callback(&mut self, callback: EventCallback) {
@@ -78,18 +107,25 @@ impl RenderTree for RenderText {
     }
 }
 
-impl TextSettings {
-    fn build_paragraph(&self) -> Paragraph {
-        let mut font_collection = FontCollection::new();
-        font_collection.set_default_font_manager(FontMgr::new(), None);
+fn build_paragraph(text: &SignalStr, style: &Signal<TextStyle>) -> Paragraph {
+    let mut font_collection = FontCollection::new();
+    font_collection.set_default_font_manager(FontMgr::new(), None);
 
-        ParagraphBuilder::new(&ParagraphStyle::new(), font_collection)
-            .push_style(
-                SkTextStyle::new()
-                    .set_color(self.style.font_color)
-                    .set_font_size(self.style.font_size),
-            )
-            .add_text(&self.text)
-            .build()
+    let style = style.read();
+    ParagraphBuilder::new(&ParagraphStyle::new(), font_collection)
+        .push_style(
+            SkTextStyle::new()
+                .set_color(style.font_color)
+                .set_font_size(style.font_size),
+        )
+        .add_text(text.read().as_ref())
+        .build()
+}
+
+fn fit_constraint(computed: f32, constraint: SpaceConstraint) -> f32 {
+    match constraint {
+        SpaceConstraint::MinContent | SpaceConstraint::MaxContent => computed,
+        SpaceConstraint::Exact(exact) => exact,
+        SpaceConstraint::Available(available) => computed.min(available),
     }
 }

@@ -36,6 +36,8 @@ impl SubAssign for Point {
 }
 
 impl Point {
+    pub const ZERO: Self = Point(0.0, 0.0);
+
     pub fn abs_diff(self, other: Self) -> f32 {
         ((self.0 - other.0).powi(2) + (self.1 - other.1).powi(2)).sqrt()
     }
