@@ -58,3 +58,24 @@ impl<'a> LayoutChildren<'a> {
         self.children.is_empty()
     }
 }
+
+#[derive(Clone, Copy)]
+pub struct DefaultLayouter;
+
+impl BlockLayout for DefaultLayouter {
+    fn compute_layout(
+        &self,
+        mut children: LayoutChildren,
+        constraint: Size<SpaceConstraint>,
+    ) -> Size<f32> {
+        let mut max_size = Size { x: 0.0, y: 0.0 };
+
+        for mut child in children.iter() {
+            let this_size = child.measure(constraint);
+            max_size.x = this_size.x.max(max_size.x);
+            max_size.y = this_size.y.max(max_size.y);
+        }
+
+        max_size
+    }
+}

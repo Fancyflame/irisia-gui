@@ -1,5 +1,5 @@
 use irisia_backend::skia_safe::Color;
-use layout::LayoutChildren;
+use layout::{DefaultLayouter, LayoutChildren};
 use rect::DrawRRect;
 
 use crate::{
@@ -8,8 +8,8 @@ use crate::{
 };
 
 use super::{
-    redraw_guard::RedrawGuard, Common, EMCreateCtx, Element, EmitEventArgs, EventCallback,
-    RenderTree, Size, SpaceConstraint,
+    read_or_default, redraw_guard::RedrawGuard, Common, EMCreateCtx, Element, EmitEventArgs,
+    EventCallback, RenderTree, Size, SpaceConstraint,
 };
 
 pub use layout::BlockLayout;
@@ -27,15 +27,19 @@ pub struct BlockStyle {
     pub border_radius: [f32; 4],
 }
 
+impl BlockStyle {
+    const DEFAULT: Self = Self {
+        margin: 0.0,
+        background: Color::TRANSPARENT,
+        border_width: 0.0,
+        border_color: Color::BLACK,
+        border_radius: [0.0; 4],
+    };
+}
+
 impl Default for BlockStyle {
     fn default() -> Self {
-        Self {
-            margin: 0.0,
-            background: Color::TRANSPARENT,
-            border_width: 0.0,
-            border_color: Color::BLACK,
-            border_radius: [0.0; 4],
-        }
+        Self::DEFAULT
     }
 }
 
@@ -46,8 +50,8 @@ struct Child {
 }
 
 pub struct RenderBlock {
-    layouter: Signal<dyn BlockLayout>,
-    style: Signal<BlockStyle>,
+    layouter: Option<Signal<dyn BlockLayout>>,
+    style: Option<Signal<BlockStyle>>,
     cached_background_rect: Option<DrawRRect>,
     children: ElementList,
     needs_check_children_sizes: bool,
@@ -55,9 +59,9 @@ pub struct RenderBlock {
 }
 
 pub struct InitRenderBlock<'a> {
-    pub style: Signal<BlockStyle>,
+    pub layouter: Option<Signal<dyn BlockLayout>>,
+    pub style: Option<Signal<BlockStyle>>,
     pub children: ElementList,
-    pub layouter: Signal<dyn BlockLayout>,
     pub event_callback: Option<EventCallback>,
     pub ctx: &'a EMCreateCtx,
 }
@@ -96,9 +100,7 @@ impl RenderBlock {
 
     fn layout_tree(&mut self, constraint: Size<SpaceConstraint>, force_compute: bool) -> Size<f32> {
         let layout_fn = |constraint| {
-            let this_size = self
-                .layouter
-                .read()
+            let this_size = read_or_default(&self.layouter, &DefaultLayouter)
                 .compute_layout(LayoutChildren::new(&mut self.children.0), constraint);
 
             if self
@@ -147,7 +149,12 @@ impl RenderTree for RenderBlock {
         }
 
         self.cached_background_rect
-            .get_or_insert_with(|| DrawRRect::new(&*self.style.read(), draw_region))
+            .get_or_insert_with(|| {
+                DrawRRect::new(
+                    &read_or_default(&self.style, &BlockStyle::DEFAULT),
+                    draw_region,
+                )
+            })
             .draw(args.canvas);
 
         for child in self.children.0.iter_mut() {

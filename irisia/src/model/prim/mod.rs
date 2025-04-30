@@ -5,15 +5,12 @@ use crate::{
 
 use super::{EleModel, Model};
 
-pub use self::{
-    block::{Block, DEFAULT_LAYOUT_FN},
-    rect::Rect,
-    text::Text,
-};
+pub use self::{block::Block, text::Text};
+pub use crate::prim_element::block::layout::DefaultLayouter;
 pub(crate) use block::BlockModel;
 
 mod block;
-mod rect;
+// mod image;
 mod text;
 
 impl<T> EleModel for Reactive<T>

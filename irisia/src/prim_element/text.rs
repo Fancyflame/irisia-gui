@@ -8,15 +8,15 @@ use irisia_backend::skia_safe::{
 use crate::{hook::Signal, primitive::Point};
 
 use super::{
-    clip_draw_region, Common, EMCreateCtx, EmitEventArgs, EventCallback, RenderTree, Size,
-    SpaceConstraint,
+    clip_draw_region, read_or_default, Common, EMCreateCtx, EmitEventArgs, EventCallback,
+    RenderTree, Size, SpaceConstraint,
 };
 
 pub type SignalStr = Signal<dyn AsRef<str>>;
 
 pub struct RenderText {
-    text: SignalStr,
-    style: Signal<TextStyle>,
+    text: Option<SignalStr>,
+    style: Option<Signal<TextStyle>>,
     paragraph: Option<Paragraph>,
     common: Common,
 }
@@ -27,19 +27,23 @@ pub struct TextStyle {
     pub font_color: Color,
 }
 
+impl TextStyle {
+    const DEFAULT: Self = Self {
+        font_size: 20.0,
+        font_color: Color::BLACK,
+    };
+}
+
 impl Default for TextStyle {
     fn default() -> Self {
-        Self {
-            font_size: 20.0,
-            font_color: Color::BLACK,
-        }
+        Self::DEFAULT
     }
 }
 
 impl RenderText {
     pub fn new(
-        text: SignalStr,
-        style: Signal<TextStyle>,
+        text: Option<SignalStr>,
+        style: Option<Signal<TextStyle>>,
         event_callback: Option<EventCallback>,
         ctx: &EMCreateCtx,
     ) -> Self {
@@ -107,18 +111,18 @@ impl RenderTree for RenderText {
     }
 }
 
-fn build_paragraph(text: &SignalStr, style: &Signal<TextStyle>) -> Paragraph {
+fn build_paragraph(text: &Option<SignalStr>, style: &Option<Signal<TextStyle>>) -> Paragraph {
     let mut font_collection = FontCollection::new();
     font_collection.set_default_font_manager(FontMgr::new(), None);
 
-    let style = style.read();
+    let style = read_or_default(style, &TextStyle::DEFAULT);
     ParagraphBuilder::new(&ParagraphStyle::new(), font_collection)
         .push_style(
             SkTextStyle::new()
                 .set_color(style.font_color)
                 .set_font_size(style.font_size),
         )
-        .add_text(text.read().as_ref())
+        .add_text(read_or_default(text, &"").as_ref())
         .build()
 }
 

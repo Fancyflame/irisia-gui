@@ -4,7 +4,7 @@ use crate::{
     hook::{reactive::Reactive, Signal},
     model::{component::Component, EleModel, Model, ModelCreateCtx, VModel, VNode},
     prim_element::{
-        text::{RenderText, TextSettings, TextStyle},
+        text::{RenderText, SignalStr, TextStyle},
         Element, EventCallback,
     },
 };
@@ -13,7 +13,7 @@ use super::{panic_when_call_unreachable, read_or_default, PrimitiveVnodeWrapper}
 
 #[derive(Default)]
 pub struct Text {
-    pub text: Option<Signal<String>>,
+    pub text: Option<SignalStr>,
     pub style: Option<Signal<TextStyle>>,
     pub on: Option<EventCallback>,
 }
@@ -36,14 +36,10 @@ impl VModel for PrimitiveVnodeWrapper<Text> {
     }
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
-        let init_state = TextSettings {
-            text: read_or_default(&self.0.text, String::new()),
-            style: read_or_default(&self.0.style, Default::default()),
-        };
-
         let init_state = TextModel {
             el: Rc::new(RefCell::new(RenderText::new(
-                init_state,
+                self.0.text.clone(),
+                self.0.style.clone(),
                 self.0.on.clone(),
                 &ctx.el_ctx,
             ))),
@@ -72,18 +68,7 @@ impl TextModel {
             return;
         }
 
-        let mut borrow = self.el.borrow_mut();
-        let mut w = borrow.update_text();
-        let (text, style) = inputs;
-
-        if let Some(text) = text {
-            w.text.clear();
-            w.text.push_str(&text);
-        }
-
-        if let Some(style) = style {
-            w.style = style.clone();
-        }
+        self.el.borrow_mut().text_updated();
     }
 }
 

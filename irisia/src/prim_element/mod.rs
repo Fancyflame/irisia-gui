@@ -1,5 +1,6 @@
 use std::{
     cell::RefCell,
+    ops::Deref,
     rc::{Rc, Weak},
     time::Duration,
 };
@@ -13,7 +14,7 @@ use crate::{
         content::GlobalContent,
         event2::pointer_event::{PointerEvent, PointerStateDelta},
     },
-    hook::Signal,
+    hook::{utils::trace_cell::TraceRef, Signal},
     primitive::{Point, Region},
 };
 
@@ -120,4 +121,29 @@ fn make_region(location: Point, width: f32, height: f32) -> Region {
 fn clip_draw_region(canvas: &Canvas, region: Region) {
     let rect = region.ceil_to_irect();
     canvas.clip_region(&SkRegion::from_rect(rect), ClipOp::Intersect);
+}
+
+fn read_or_default<'a, T: ?Sized>(
+    sig: &'a Option<Signal<T>>,
+    default: &'a T,
+) -> impl Deref<Target = T> + use<'a, T> {
+    enum Ref<'a, T: ?Sized> {
+        Ref(&'a T),
+        TRef(TraceRef<'a, T>),
+    }
+
+    impl<T: ?Sized> Deref for Ref<'_, T> {
+        type Target = T;
+        fn deref(&self) -> &Self::Target {
+            match self {
+                Self::Ref(r) => &r,
+                Self::TRef(r) => &r,
+            }
+        }
+    }
+
+    match sig {
+        Some(sig) => Ref::TRef(sig.read()),
+        None => Ref::Ref(default),
+    }
 }

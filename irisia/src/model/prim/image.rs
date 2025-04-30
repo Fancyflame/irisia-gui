@@ -4,7 +4,7 @@ use crate::{
     hook::{reactive::Reactive, Signal},
     model::{component::Component, EleModel, Model, ModelCreateCtx, VModel, VNode},
     prim_element::{
-        rect::{RectStyle, RenderRect},
+        image::{ImageStyle, RenderRect},
         Element, EventCallback,
     },
 };
@@ -13,7 +13,7 @@ use super::{panic_when_call_unreachable, read_or_default, PrimitiveVnodeWrapper}
 
 #[derive(Default)]
 pub struct Rect {
-    pub style: Option<Signal<RectStyle>>,
+    pub style: Option<Signal<ImageStyle>>,
     pub on: Option<EventCallback>,
 }
 
@@ -35,7 +35,7 @@ impl VModel for PrimitiveVnodeWrapper<Rect> {
     }
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
-        let init_style = read_or_default(&self.0.style, RectStyle::default());
+        let init_style = read_or_default(&self.0.style, ImageStyle::default());
 
         let init_state = RectModel {
             el: Rc::new(RefCell::new(RenderRect::new(
@@ -60,7 +60,7 @@ pub struct RectModel {
 }
 
 impl RectModel {
-    fn update_style(&mut self, style: Option<&RectStyle>) {
+    fn update_style(&mut self, style: Option<&ImageStyle>) {
         *self.el.borrow_mut().update_rect() = style.unwrap().clone();
     }
 }

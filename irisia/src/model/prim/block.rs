@@ -15,8 +15,11 @@ use crate::{
         EleModel, Model, ModelCreateCtx, VModel, VNode,
     },
     prim_element::{
-        block::{LayoutFn, RenderBlock, Tree},
-        EMCreateCtx, Element, EventCallback,
+        block::{
+            layout::LayoutChildren, BlockLayout, BlockStyle, ElementList, InitRenderBlock,
+            LayoutFn, RenderBlock,
+        },
+        EMCreateCtx, Element, EventCallback, Size, SpaceConstraint,
     },
     primitive::{Point, Region},
 };
@@ -25,7 +28,8 @@ use super::{panic_when_call_unreachable, read_or_default, PrimitiveVnodeWrapper}
 
 #[derive(Default)]
 pub struct Block {
-    pub layout_fn: Option<Signal<LayoutFn>>,
+    pub display: Option<Signal<dyn BlockLayout>>,
+    pub style: Option<Signal<BlockStyle>>,
     pub children: Option<Signal<DynVModel<()>>>,
     pub on: Option<EventCallback>,
 }
@@ -55,7 +59,7 @@ impl VModel for PrimitiveVnodeWrapper<Block> {
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
         Reactive::builder()
-            .dep(BlockModel::update_layout_fn, self.0.layout_fn.clone())
+            .dep(BlockModel::update_layouter, self.0.display.clone())
             .dep(BlockModel::update_children, self.0.children.clone())
             .build_cyclic(|weak| BlockModel::create(weak, &self.0, &ctx.el_ctx))
     }
@@ -65,8 +69,8 @@ impl VModel for PrimitiveVnodeWrapper<Block> {
     }
 }
 
-fn visit_into_vec<T: Model>(model: &T) -> Vec<Element> {
-    let mut vec = Vec::new();
+fn visit_into_list<T: Model>(model: &T) -> ElementList {
+    let mut vec = ElementList::new();
     model.visit(&mut |el| vec.push(el));
     vec
 }
@@ -83,14 +87,13 @@ impl BlockModel {
             None => Empty::<()>::new().common_create(&ctx),
         };
 
-        let prim_block = Rc::new(RefCell::new(RenderBlock::new(
-            Tree {
-                layout_fn: read_or_default(&props.layout_fn, DEFAULT_LAYOUT_FN),
-                children: visit_into_vec(&children),
-            },
-            props.on.clone(),
-            el_ctx,
-        )));
+        let prim_block = Rc::new(RefCell::new(RenderBlock::new(InitRenderBlock {
+            style: props.style.clone(),
+            children: visit_into_list(&children),
+            layouter: props.display.clone(),
+            event_callback: props.on.clone(),
+            ctx: el_ctx,
+        })));
 
         BlockModel {
             el: prim_block,
@@ -99,8 +102,8 @@ impl BlockModel {
         }
     }
 
-    fn update_layout_fn(&mut self, layout_fn: Option<&LayoutFn>) {
-        self.el.borrow_mut().update_tree().layout_fn = *layout_fn.unwrap();
+    fn update_layouter(&mut self) {
+        self.el.borrow_mut().layouter_updated();
     }
 
     fn update_children(&mut self, children: Option<&DynVModel<()>>) {
@@ -113,10 +116,8 @@ impl BlockModel {
 
     pub(crate) fn submit_children(&self) {
         let mut guard = self.el.borrow_mut();
-        let mut guard2 = guard.update_tree();
-        let dst = &mut guard2.children;
-        dst.clear();
-        self.children.visit(&mut |el| dst.push(el));
+        let mut guard2 = guard.update_children();
+        self.children.visit(&mut |el| guard2.push(el));
     }
 }
 
@@ -130,15 +131,4 @@ impl EleModel for BlockModel {
     fn get_element(&self) -> Element {
         self.el.clone()
     }
-}
-
-pub const DEFAULT_LAYOUT_FN: LayoutFn = default_layout_fn;
-fn default_layout_fn(size: Point, elements: &[Element], region_buffer: &mut Vec<Region>) {
-    region_buffer.resize(
-        elements.len(),
-        Region {
-            left_top: (0.0, 0.0).into(),
-            right_bottom: size,
-        },
-    );
 }
