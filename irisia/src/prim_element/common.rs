@@ -43,9 +43,13 @@ impl Common {
             return;
         }
 
-        self.ctx
-            .global_content
-            .request_redraw(self.prev_draw_region.unwrap_or_default());
+        if let Some(prev_dr) = self.prev_draw_region {
+            self.ctx.global_content.request_redraw(prev_dr);
+        }
+
+        // TODO: 设置脏区
+        self.ctx.global_content.request_redraw(Region::default());
+
         self.redraw_request_sent = true;
     }
 
@@ -57,7 +61,7 @@ impl Common {
                 .borrow_mut()
                 .set_children_size_changed();
         } else {
-            // TODO: request root node to relayout
+            self.ctx.global_content.request_relayout();
         }
     }
 

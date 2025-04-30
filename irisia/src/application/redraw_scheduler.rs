@@ -6,19 +6,22 @@ use std::{
 
 use irisia_backend::{
     skia_safe::{region::RegionOp, Canvas, Color, Region as SkRegion},
+    winit::dpi::PhysicalSize,
     WinitWindow,
 };
 
 use crate::{
     prim_element::{Element, RenderArgs, RenderTree},
-    primitive::Region,
+    primitive::{Point, Region},
 };
+
+use super::window_size_to_constraint;
 
 pub(super) struct RedrawScheduler {
     window: Arc<WinitWindow>,
     dirty_region: RefCell<SkRegion>,
-    redrawing_dirty_region: RefCell<SkRegion>,
     redraw_req_sent: Cell<bool>,
+    relayout_mode: Cell<bool>,
 }
 
 impl RedrawScheduler {
@@ -26,20 +29,28 @@ impl RedrawScheduler {
         Self {
             window,
             dirty_region: RefCell::new(SkRegion::new()),
-            redrawing_dirty_region: RefCell::new(SkRegion::new()),
             redraw_req_sent: Cell::new(false),
+            relayout_mode: Cell::new(true),
         }
     }
 
-    pub fn request_redraw(&self, dirty_region: Region) {
+    fn request_window_redraw(&self) {
         if !self.redraw_req_sent.get() {
             self.redraw_req_sent.set(true);
             self.window.request_redraw();
         }
-        self.dirty_region.borrow_mut().op_region(
-            &SkRegion::from_rect(dirty_region.ceil_to_irect()),
-            RegionOp::Union,
-        );
+    }
+
+    pub fn request_relayout(&self) {
+        self.request_window_redraw();
+        self.relayout_mode.set(true);
+    }
+
+    pub fn request_redraw(&self, region: Region) {
+        self.request_window_redraw();
+        self.dirty_region
+            .borrow_mut()
+            .op_rect(region.ceil_to_irect(), RegionOp::Union);
     }
 
     pub fn redraw(
@@ -47,18 +58,18 @@ impl RedrawScheduler {
         root: &mut Element,
         canvas: &Canvas,
         interval: Duration,
-        root_draw_region: Region,
+        draw_size: PhysicalSize<u32>,
     ) {
-        let mut redrawing_dirty_region = self.redrawing_dirty_region.borrow_mut();
-        redrawing_dirty_region.set_empty();
-        std::mem::swap(
-            &mut *redrawing_dirty_region,
-            &mut *self.dirty_region.borrow_mut(),
-        );
+        if self.relayout_mode.take() {
+            root.layout(window_size_to_constraint(draw_size));
+        }
+
+        // TODO: operate dirty region
+        let _dirty_region = self.dirty_region.replace(SkRegion::new());
 
         self.redraw_req_sent.set(false);
         canvas.save();
-        //canvas.clip_region(&dirty_region, ClipOp::Intersect);
+        //canvas.clip_region(&redrawing_dirty_region, ClipOp::Intersect);
         canvas.clear(Color::WHITE);
         root.render(
             RenderArgs {
@@ -66,7 +77,7 @@ impl RedrawScheduler {
                 interval,
                 dirty_region: None,
             },
-            root_draw_region,
+            Point::ZERO,
         );
         canvas.restore();
     }

@@ -81,7 +81,7 @@ impl RenderBlock {
 
     pub fn layouter_updated(&mut self) {
         self.common.cached_layout.take();
-        self.common.request_redraw();
+        self.common.request_relayout();
     }
 
     pub fn style_updated(&mut self) {

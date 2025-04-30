@@ -20,7 +20,7 @@ use super::{
     event2::pointer_event::{PointerState, PointerStateDelta},
     event_comp::global::focusing::Focusing,
     redraw_scheduler::RedrawScheduler,
-    Window,
+    window_size_to_constraint, Window,
 };
 
 pub(super) struct BackendRuntime {
@@ -41,12 +41,12 @@ impl AppWindow for BackendRuntime {
             &mut self.root_model.get_element(),
             canvas,
             interval,
-            window_size_to_draw_region(window_inner_size),
+            window_inner_size,
         );
         Ok(())
     }
 
-    fn on_window_event(&mut self, event: WindowEvent, window_inner_size: PhysicalSize<u32>) {
+    fn on_window_event(&mut self, event: WindowEvent, _window_inner_size: PhysicalSize<u32>) {
         let Some(next) = self.pointer_state.next(&event) else {
             // TODO
             return;
@@ -62,9 +62,14 @@ impl AppWindow for BackendRuntime {
         self.root_model.get_element().emit_event(EmitEventArgs {
             queue: &mut self.callback_queue,
             delta: &mut delta,
-            draw_region: window_size_to_draw_region(window_inner_size),
         });
         self.callback_queue.execute();
+
+        if let WindowEvent::Resized(new_size) = event {
+            self.root_model
+                .get_element()
+                .layout(window_size_to_constraint(new_size));
+        }
         // TODO
         // if let WindowEvent::Resized(size) = &event {
         //     self.root
@@ -117,6 +122,7 @@ where
 
             let root_model = root_creator().create(&ModelCreateCtx::create_as_root(EMCreateCtx {
                 global_content: gc.clone(),
+                parent: None,
             }));
 
             //root.set_draw_region(Some(window_size_to_draw_region(gc.window().inner_size())));

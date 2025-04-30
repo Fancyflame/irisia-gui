@@ -28,6 +28,10 @@ impl GlobalContent {
         self.redraw_scheduler.request_redraw(dirty_region)
     }
 
+    pub(crate) fn request_relayout(&self) {
+        self.redraw_scheduler.request_relayout();
+    }
+
     /// Returns a reference to the global event dispatcher
     pub fn event_dispatcher(&self) -> &EventDispatcher {
         &self.global_ed

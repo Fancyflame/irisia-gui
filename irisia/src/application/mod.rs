@@ -1,10 +1,14 @@
 use std::sync::Weak;
 
-use irisia_backend::{winit::window::WindowAttributes, WinitWindow};
+use irisia_backend::{
+    winit::{dpi::PhysicalSize, window::WindowAttributes},
+    WinitWindow,
+};
 
 use crate::{
     event::{standard::WindowDestroyed, EventDispatcher},
     model::VNode,
+    prim_element::{Size, SpaceConstraint},
     Result,
 };
 
@@ -59,5 +63,12 @@ impl Window {
         self.event_dispatcher
             .recv_trusted::<WindowDestroyed>()
             .await;
+    }
+}
+
+fn window_size_to_constraint(size: PhysicalSize<u32>) -> Size<SpaceConstraint> {
+    Size {
+        x: SpaceConstraint::Available(size.width as f32),
+        y: SpaceConstraint::Available(size.height as f32),
     }
 }
