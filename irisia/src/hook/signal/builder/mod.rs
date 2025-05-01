@@ -3,7 +3,7 @@ use std::{
     rc::Rc,
 };
 
-use super::{Inner, Signal, WriteSignal};
+use super::{inner::StrongListenerList, Inner, Signal, WriteSignal};
 use crate::hook::{
     signal_group::SignalGroup,
     utils::{DirtyCount, ListenerList, TraceCell},
@@ -91,16 +91,12 @@ where
         C: CallbackChain<T> + 'static,
     {
         let inner = Rc::new_cyclic(|weak| {
-            self.callbacks.listen(weak.clone(), |inner| {
-                inner
-                    .callback_chain_storage
-                    .downcast_ref()
-                    .expect("callback chain and signal mismatched")
-            });
+            let mut store_list = StrongListenerList::new();
+            self.callbacks.listen(weak.clone(), &mut store_list);
             Inner {
                 value: TraceCell::new(self.value),
                 global_dirty_count: DirtyCount::new(),
-                callback_chain_storage: Box::new(self.callbacks),
+                _store_list: store_list,
                 listeners: ListenerList::new(),
             }
         });

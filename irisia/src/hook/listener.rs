@@ -1,29 +1,43 @@
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 use super::utils::{CallbackAction, DirtyCount};
 
-pub struct Listener(Rc<Inner<dyn Fn(CallbackAction) -> bool>>);
+type Core = Inner<dyn Fn(CallbackAction) -> bool>;
+
+pub struct Listener(Weak<Core>);
+pub(crate) struct StrongListener(Rc<Core>);
+
+impl StrongListener {
+    pub fn downgrade(&self) -> Listener {
+        Listener(Rc::downgrade(&self.0))
+    }
+}
 
 impl Listener {
     /// The callback ***must NOT capture hooks*** or will cause underlying memory leaks
-    pub(crate) fn new<F>(callback: F) -> Self
+    pub(crate) fn new<Maker, F>(make_callback: Maker) -> StrongListener
     where
+        Maker: FnOnce(Listener) -> F,
         F: Fn(CallbackAction) -> bool + 'static,
     {
-        let inner = Inner {
+        let inner = Rc::new_cyclic(|weak_inner| Inner {
             dirty_count: DirtyCount::new(),
-            callback,
-        };
+            callback: make_callback(Listener(weak_inner.clone() as _)),
+        });
 
-        Listener(Rc::new(inner) as _)
+        StrongListener(inner)
     }
 
     pub(crate) fn callback(&self, action: CallbackAction) -> bool {
-        if let Some(spread_action) = self.0.dirty_count.push(action) {
-            (self.0.callback)(spread_action)
-        } else {
-            true
-        }
+        let Some(rc) = self.0.upgrade() else {
+            return false;
+        };
+
+        let Some(spread_action) = rc.dirty_count.push(action) else {
+            return true;
+        };
+
+        (rc.callback)(spread_action)
     }
 }
 

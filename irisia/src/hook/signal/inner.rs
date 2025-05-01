@@ -1,14 +1,17 @@
-use std::any::Any;
+use smallvec::SmallVec;
 
 use crate::hook::{
+    listener::StrongListener,
     utils::{trace_cell::TraceRef, CallbackAction, DirtyCount, ListenerList, TraceCell},
     Listener,
 };
 
+pub(super) type StrongListenerList = SmallVec<[StrongListener; 1]>;
+
 pub struct Inner<T: ?Sized> {
     pub(super) listeners: ListenerList,
     pub(super) global_dirty_count: DirtyCount,
-    pub(super) callback_chain_storage: Box<dyn Any>,
+    pub(super) _store_list: StrongListenerList,
     pub(super) value: TraceCell<T>,
 }
 

@@ -1,21 +1,17 @@
 use std::rc::Weak;
 
-use crate::hook::{signal_group::SignalGroup, utils::CallbackAction, Listener};
+use crate::hook::{
+    signal::inner::StrongListenerList, signal_group::SignalGroup, utils::CallbackAction, Listener,
+};
 
 use super::{Inner, Setter};
 
 pub trait CallbackChain<T> {
-    fn listen<F>(&self, src: Weak<Inner<T>>, get_node: F)
-    where
-        F: Fn(&Inner<T>) -> &Self + Copy + 'static;
+    fn listen(self, src: Weak<Inner<T>>, store_list: &mut StrongListenerList);
 }
 
 impl<T> CallbackChain<T> for () {
-    fn listen<F>(&self, _: Weak<Inner<T>>, _: F)
-    where
-        F: Fn(&Inner<T>) -> &Self + Copy + 'static,
-    {
-    }
+    fn listen(self, _: Weak<Inner<T>>, _: &mut StrongListenerList) {}
 }
 
 pub struct CallbackNode<F, D, Next> {
@@ -31,31 +27,26 @@ where
     F: Fn(Setter<T>, D::Data<'_>) + 'static,
     Next: CallbackChain<T>,
 {
-    fn listen<Fg>(&self, weak_src: Weak<Inner<T>>, get_node: Fg)
-    where
-        Fg: Fn(&Inner<T>) -> &Self + Copy + 'static,
-    {
-        let listener = Listener::new({
+    fn listen(self, weak_src: Weak<Inner<T>>, store_list: &mut StrongListenerList) {
+        let strong_listener = Listener::new(|listener| {
+            self.deps.dependent_many(listener);
             let weak_src = weak_src.clone();
             move |action| {
-                let Some(src) = weak_src.upgrade() else {
-                    return false;
-                };
+                let src = weak_src.upgrade().unwrap();
 
                 if !action.is_update() {
                     src.push_action(action);
                     return true;
                 }
 
-                let this = get_node(&src);
                 let mut mutated = false;
 
-                (this.callback)(
+                (self.callback)(
                     Setter::new(
                         &mut src.value.borrow_mut().expect("failed updating signal"),
                         &mut mutated,
                     ),
-                    D::deref_wrapper(&this.deps.read_many()),
+                    D::deref_wrapper(&self.deps.read_many()),
                 );
 
                 src.push_action(if mutated {
@@ -67,7 +58,8 @@ where
                 true
             }
         });
-        self.deps.dependent_many(listener);
-        self.next.listen(weak_src, move |src| &get_node(src).next);
+
+        store_list.push(strong_listener);
+        self.next.listen(weak_src, store_list);
     }
 }
