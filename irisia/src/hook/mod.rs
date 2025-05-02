@@ -2,10 +2,10 @@ use std::rc::Rc;
 pub use {listener::Listener, signal::Signal};
 
 pub mod listener;
-pub mod reactive;
 pub mod signal;
 pub mod signal_group;
 pub mod utils;
+pub mod watcher;
 
 #[macro_export]
 macro_rules! coerce_hook {
