@@ -1,6 +1,7 @@
 use crate::{
-    hook::{reactive::Reactive, Signal},
+    hook::{watcher::WatcherList, Signal},
     prim_element::Element,
+    Handle,
 };
 
 use super::{EleModel, Model};
@@ -13,25 +14,24 @@ mod block;
 // mod image;
 mod text;
 
-impl<T> EleModel for Reactive<T>
-where
-    T: EleModel,
-{
-    fn get_element(&self) -> Element {
-        self.read().get_element()
-    }
-}
-
-impl<T> Model for Reactive<T>
-where
-    T: Model,
-{
-    fn visit(&self, f: &mut dyn FnMut(Element)) {
-        self.read().visit(f);
-    }
-}
-
 struct PrimitiveVnodeWrapper<T>(T);
+
+pub struct PrimitiveModel<T> {
+    model: Handle<T>,
+    _watcher_list: WatcherList,
+}
+
+impl<T: Model> Model for PrimitiveModel<T> {
+    fn visit(&self, f: &mut dyn FnMut(Element)) {
+        self.model.borrow().visit(f);
+    }
+}
+
+impl<T: EleModel> EleModel for PrimitiveModel<T> {
+    fn get_element(&self) -> Element {
+        self.model.borrow().get_element()
+    }
+}
 
 fn read_or_default<T: Clone>(signal: &Option<Signal<T>>, default: T) -> T {
     match signal {

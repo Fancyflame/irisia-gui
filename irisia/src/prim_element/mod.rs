@@ -16,6 +16,7 @@ use crate::{
     },
     hook::{utils::trace_cell::TraceRef, Signal},
     primitive::{Point, Region},
+    Handle,
 };
 
 pub(self) use common::Common;
@@ -27,7 +28,6 @@ mod common;
 mod redraw_guard;
 pub mod text;
 
-type Handle<T> = Rc<RefCell<T>>;
 pub(crate) type EventCallback = Signal<dyn Fn(PointerEvent)>;
 pub(crate) type Parent = Option<Weak<RefCell<RenderBlock>>>;
 
@@ -109,6 +109,18 @@ pub enum SpaceConstraint {
 pub struct Size<T> {
     pub x: T,
     pub y: T,
+}
+
+impl<T> Size<T> {
+    pub fn map<F, U>(self, f: F) -> Size<U>
+    where
+        F: Fn(T) -> U,
+    {
+        Size {
+            x: f(self.x),
+            y: f(self.y),
+        }
+    }
 }
 
 fn make_region(location: Point, width: f32, height: f32) -> Region {

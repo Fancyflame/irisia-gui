@@ -1,9 +1,15 @@
+use std::{
+    cell::RefCell,
+    rc::{Rc, Weak},
+};
+
 use crate::{
     hook::{
-        reactive::{Reactive, ReactiveRef, WeakReactive},
+        watcher::{WatcherGuard, WatcherList},
         Signal,
     },
     model::{EleModel, GetParentPropsFn, Model, ModelCreateCtx, VModel},
+    Handle,
 };
 
 impl<T> VModel for Signal<T>
@@ -18,7 +24,7 @@ where
     }
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
-        make_model(self, self.read().create(ctx), ctx)
+        make_model(self, Rc::new(RefCell::new(self.read().create(ctx))), ctx)
     }
 
     fn update(&self, storage: &mut Self::Storage, ctx: &ModelCreateCtx) {
@@ -26,46 +32,46 @@ where
             return;
         }
 
-        match storage.model.take().unwrap().into_inner() {
-            Some(model) => make_model(self, model, ctx),
-            None => self.create(ctx),
-        };
+        *storage = make_model(self, storage.model.take().unwrap(), ctx);
     }
 }
 
 fn make_model<T>(
     vmodel: &Signal<T>,
-    init_state: T::Storage,
+    init_state: Rc<RefCell<T::Storage>>,
     ctx: &ModelCreateCtx,
 ) -> SignalModel<T::Storage>
 where
     T: VModel + ?Sized + 'static,
 {
     let ctx = ctx.clone();
-    let model = Reactive::builder()
-        .dep2(
-            move |mut storage, vmodel: &T| {
-                vmodel.update(&mut *storage, &ctx);
-                ReactiveRef::drop_borrow(&mut storage);
-                if let Some(parent) = ctx.parent.as_ref().and_then(WeakReactive::upgrade) {
-                    parent.push(|block_model| {
-                        block_model.submit_children();
-                    });
+    let model = init_state.clone();
+    let mut watcher_list = WatcherList::new();
+
+    watcher_list.watch(
+        {
+            let model = model.clone();
+            move |vmodel: &T| {
+                vmodel.update(&mut model.borrow_mut(), &ctx);
+                if let Some(parent) = ctx.parent.as_ref().and_then(Weak::upgrade) {
+                    parent.borrow_mut().submit_children();
                 }
-            },
-            vmodel.clone(),
-        )
-        .build(init_state);
+            }
+        },
+        vmodel.clone(),
+    );
 
     SignalModel {
         vmodel_addr: vmodel.addr(),
+        _watcher_list: watcher_list,
         model: Some(model),
     }
 }
 
 pub struct SignalModel<T> {
     vmodel_addr: *const (),
-    model: Option<Reactive<T>>,
+    _watcher_list: WatcherList,
+    model: Option<Handle<T>>,
 }
 
 impl<T> Model for SignalModel<T>
@@ -73,7 +79,7 @@ where
     T: Model,
 {
     fn visit(&self, f: &mut dyn FnMut(crate::prim_element::Element)) {
-        self.model.as_ref().unwrap().read().visit(f);
+        self.model.as_ref().unwrap().borrow().visit(f);
     }
 }
 
@@ -82,6 +88,6 @@ where
     T: EleModel,
 {
     fn get_element(&self) -> crate::prim_element::Element {
-        self.model.as_ref().unwrap().read().get_element()
+        self.model.as_ref().unwrap().borrow().get_element()
     }
 }

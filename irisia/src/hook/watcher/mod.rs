@@ -1,10 +1,24 @@
-use std::cell::{Cell, RefCell};
+use std::{
+    any::type_name,
+    cell::{Cell, RefCell},
+    rc::Rc,
+};
 
 use smallvec::SmallVec;
 
 use super::{listener::StrongListener, signal_group::SignalGroup, Listener};
 
 pub struct WatcherList(SmallVec<[Watcher; 1]>);
+
+impl WatcherList {
+    pub fn new() -> Self {
+        Self(SmallVec::new())
+    }
+
+    pub fn clear(&mut self) {
+        self.0.clear();
+    }
+}
 
 impl WatcherGuard for WatcherList {
     fn push(&mut self, watcher: Watcher) {
@@ -19,7 +33,7 @@ pub trait WatcherGuard {
 
     // Provided
 
-    fn watch<F, Return, D>(&mut self, callback: F, deps: D)
+    fn watch<F, Return, D>(&mut self, callback: F, deps: D) -> &mut Self
     where
         D: SignalGroup + 'static,
         F: Fn(D::Data<'_>) -> Return + 'static,
@@ -54,9 +68,40 @@ pub trait WatcherGuard {
         });
 
         self.push(Watcher(strong_listener));
+        self
     }
 
-    fn watch_once<F, Return, D>(&mut self, callback: F, deps: D)
+    fn watch_borrow_mut<T, F, Return, D>(
+        &mut self,
+        cell: &Rc<RefCell<T>>,
+        callback: F,
+        deps: D,
+    ) -> &mut Self
+    where
+        T: 'static,
+        D: SignalGroup + 'static,
+        F: Fn(&mut T, D::Data<'_>) -> Return + 'static,
+        Return: WatcherCallbackReturn,
+    {
+        let cell = cell.clone();
+        self.watch(
+            move |data| {
+                let Ok(mut borrowed) = cell.try_borrow_mut() else {
+                    panic!(
+                        "cannot borrow `RefCell` as mutable when the watcher triggered. \
+                        the callback function is `{}`",
+                        type_name::<F>()
+                    );
+                };
+                let ret = callback(&mut borrowed, data).keep_alive();
+                ret
+            },
+            deps,
+        );
+        self
+    }
+
+    fn watch_once<F, Return, D>(&mut self, callback: F, deps: D) -> &mut Self
     where
         D: SignalGroup + 'static,
         F: FnOnce(D::Data<'_>) -> Return + 'static,
@@ -79,6 +124,7 @@ pub trait WatcherGuard {
         });
 
         self.push(Watcher(strong_listener));
+        self
     }
 }
 

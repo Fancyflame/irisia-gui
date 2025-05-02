@@ -9,6 +9,7 @@ use crate::hook::{
     utils::{DirtyCount, ListenerList, TraceCell},
 };
 use callback_chain::{CallbackChain, CallbackNode};
+use smallvec::SmallVec;
 
 mod callback_chain;
 
@@ -91,7 +92,7 @@ where
         C: CallbackChain<T> + 'static,
     {
         let inner = Rc::new_cyclic(|weak| {
-            let mut store_list = StrongListenerList::new();
+            let mut store_list = StrongListenerList(SmallVec::new());
             self.callbacks.listen(weak.clone(), &mut store_list);
             Inner {
                 value: TraceCell::new(self.value),

@@ -59,7 +59,7 @@ where
             }
         });
 
-        store_list.push(strong_listener);
+        store_list.0.push(strong_listener);
         self.next.listen(weak_src, store_list);
     }
 }

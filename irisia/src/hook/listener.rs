@@ -5,7 +5,8 @@ use super::utils::{CallbackAction, DirtyCount};
 type Core = Inner<dyn Fn(CallbackAction) -> bool>;
 
 pub struct Listener(Weak<Core>);
-pub(crate) struct StrongListener(Rc<Core>);
+
+pub(crate) struct StrongListener(#[allow(dead_code)] Rc<Core>);
 
 impl StrongListener {
     pub fn downgrade(&self) -> Listener {

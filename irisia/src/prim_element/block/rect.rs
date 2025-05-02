@@ -1,12 +1,12 @@
-use irisia_backend::skia_safe::{Canvas, Color4f, ColorSpace, Paint, RRect, Rect as SkRect};
+use irisia_backend::skia_safe::{Canvas, Color, Color4f, ColorSpace, Paint, RRect, Rect as SkRect};
 
 use crate::primitive::Region;
 
 use super::BlockStyle;
 
 pub(super) struct DrawRRect {
-    paint_fill: Paint,
-    paint_stroke: Paint,
+    paint_fill: Option<Paint>,
+    paint_stroke: Option<Paint>,
     rrect: RRect,
 }
 
@@ -37,13 +37,23 @@ impl DrawRRect {
 
         let color_space = ColorSpace::new_srgb_linear();
 
-        let mut paint_fill = Paint::new(&Color4f::from(background), &color_space);
-        paint_fill.set_anti_alias(true);
+        let paint_fill = if background != Color::TRANSPARENT {
+            let mut paint = Paint::new(&Color4f::from(background), &color_space);
+            paint.set_anti_alias(true);
+            Some(paint)
+        } else {
+            None
+        };
 
-        let mut paint_stroke = Paint::new(&Color4f::from(border_color), &color_space);
-        paint_stroke.set_stroke(true).set_stroke_width(border_width);
-        // .set_stroke_miter();
-        paint_stroke.set_anti_alias(true);
+        let paint_stroke = if border_width != 0.0 {
+            let mut paint = Paint::new(&Color4f::from(border_color), &color_space);
+            paint.set_stroke(true).set_stroke_width(border_width);
+            // .set_stroke_miter();
+            paint.set_anti_alias(true);
+            Some(paint)
+        } else {
+            None
+        };
 
         Self {
             paint_fill,
@@ -53,8 +63,12 @@ impl DrawRRect {
     }
 
     pub fn draw(&self, canvas: &Canvas) {
-        canvas
-            .draw_rrect(&self.rrect, &self.paint_fill)
-            .draw_rrect(&self.rrect, &self.paint_stroke);
+        let draw = |paint: &Option<Paint>| {
+            if let Some(paint) = paint {
+                canvas.draw_rrect(&self.rrect, paint);
+            }
+        };
+        draw(&self.paint_fill);
+        draw(&self.paint_stroke);
     }
 }

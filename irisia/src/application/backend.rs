@@ -47,6 +47,12 @@ impl AppWindow for BackendRuntime {
     }
 
     fn on_window_event(&mut self, event: WindowEvent, _window_inner_size: PhysicalSize<u32>) {
+        if let WindowEvent::Resized(new_size) = event {
+            self.root_model
+                .get_element()
+                .layout(window_size_to_constraint(new_size));
+        }
+
         let Some(next) = self.pointer_state.next(&event) else {
             // TODO
             return;
@@ -64,12 +70,6 @@ impl AppWindow for BackendRuntime {
             delta: &mut delta,
         });
         self.callback_queue.execute();
-
-        if let WindowEvent::Resized(new_size) = event {
-            self.root_model
-                .get_element()
-                .layout(window_size_to_constraint(new_size));
-        }
         // TODO
         // if let WindowEvent::Resized(size) = &event {
         //     self.root

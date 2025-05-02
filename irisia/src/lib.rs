@@ -3,6 +3,8 @@ pub mod anyhow {
 }
 
 pub type Result<T> = anyhow::Result<T>;
+type Handle<T> = Rc<RefCell<T>>;
+type WeakHandle<T> = Weak<RefCell<T>>;
 
 macro_rules! inner_error {
     ($($tt:tt)+) => {
@@ -17,6 +19,11 @@ pub mod log;
 pub mod model;
 pub mod prim_element;
 pub mod primitive;
+
+use std::{
+    cell::RefCell,
+    rc::{Rc, Weak},
+};
 
 pub use application::Window;
 pub use event::Event;

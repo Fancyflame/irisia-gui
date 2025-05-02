@@ -74,14 +74,14 @@ impl GenerationEnv<'_> {
         let prop_assignments = fields.iter().map(|fa| {
             let name = &fa.name;
             let value = match fa.method {
-                FieldAssignMethod::HostingSignal => {
+                FieldAssignMethod::HostingSignal | FieldAssignMethod::Direct => {
                     quote! {
                         irisia::coerce_hook!(#name)
                     }
                 }
-                FieldAssignMethod::Direct => {
-                    quote! { #name }
-                }
+                // FieldAssignMethod::Direct => {
+                //     quote! { #name }
+                // }
                 FieldAssignMethod::ParentProp => unreachable!(),
             };
 

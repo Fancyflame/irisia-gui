@@ -2,10 +2,7 @@ use irisia_backend::skia_safe::Color;
 use layout::{DefaultLayouter, LayoutChildren};
 use rect::DrawRRect;
 
-use crate::{
-    hook::Signal,
-    primitive::{Point, Region},
-};
+use crate::{hook::Signal, primitive::Point};
 
 use super::{
     read_or_default, redraw_guard::RedrawGuard, Common, EMCreateCtx, Element, EmitEventArgs,
@@ -17,8 +14,7 @@ pub use layout::BlockLayout;
 pub mod layout;
 mod rect;
 
-pub type LayoutFn = fn(Point, &[Element], &mut Vec<Region>);
-
+#[derive(Clone, Copy)]
 pub struct BlockStyle {
     pub margin: f32,
     pub background: Color,
@@ -28,7 +24,7 @@ pub struct BlockStyle {
 }
 
 impl BlockStyle {
-    const DEFAULT: Self = Self {
+    pub const DEFAULT: Self = Self {
         margin: 0.0,
         background: Color::TRANSPARENT,
         border_width: 0.0,
@@ -95,6 +91,7 @@ impl RenderBlock {
 
     pub fn update_children(&mut self) -> RedrawGuard<ElementList> {
         self.common.cached_layout.take();
+        self.children.0.clear();
         RedrawGuard::new(&mut self.children, &mut self.common)
     }
 
@@ -109,8 +106,10 @@ impl RenderBlock {
                 .iter()
                 .any(|child| child.cached_layout.is_none())
             {
-                panic!("there still some element not being layouted");
+                panic!("there still some elements not being layouted");
             }
+
+            self.cached_background_rect.take();
 
             this_size
         };

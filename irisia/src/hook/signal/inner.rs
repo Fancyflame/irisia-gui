@@ -6,7 +6,7 @@ use crate::hook::{
     Listener,
 };
 
-pub(super) type StrongListenerList = SmallVec<[StrongListener; 1]>;
+pub struct StrongListenerList(pub(super) SmallVec<[StrongListener; 1]>);
 
 pub struct Inner<T: ?Sized> {
     pub(super) listeners: ListenerList,

@@ -2,8 +2,8 @@ use map_parent_props::MapParentProps;
 use prim::BlockModel;
 
 use crate::{
-    hook::reactive::WeakReactive,
     prim_element::{EMCreateCtx, Element},
+    WeakHandle,
 };
 
 pub mod component;
@@ -50,7 +50,7 @@ pub trait Model: 'static {
 #[derive(Clone)]
 pub struct ModelCreateCtx {
     el_ctx: EMCreateCtx,
-    parent: Option<WeakReactive<BlockModel>>,
+    parent: Option<WeakHandle<BlockModel>>,
 }
 
 impl ModelCreateCtx {

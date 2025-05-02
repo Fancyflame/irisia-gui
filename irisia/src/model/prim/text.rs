@@ -1,15 +1,22 @@
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{
-    hook::{reactive::Reactive, Signal},
-    model::{component::Component, EleModel, Model, ModelCreateCtx, VModel, VNode},
+    hook::{
+        watcher::{WatcherGuard, WatcherList},
+        Signal,
+    },
+    model::{
+        component::{Component, ComponentVNode},
+        EleModel, Model, ModelCreateCtx, VModel,
+    },
     prim_element::{
         text::{RenderText, SignalStr, TextStyle},
         Element, EventCallback,
     },
+    Handle,
 };
 
-use super::{panic_when_call_unreachable, read_or_default, PrimitiveVnodeWrapper};
+use super::{panic_when_call_unreachable, read_or_default, PrimitiveModel, PrimitiveVnodeWrapper};
 
 #[derive(Default)]
 pub struct Text {
@@ -19,16 +26,15 @@ pub struct Text {
 }
 
 impl Component for Text {
-    type Created = ();
     type ChildProps = ();
 
-    fn create(self) -> ((), impl VNode<ParentProps = ()>) {
-        ((), PrimitiveVnodeWrapper(self))
+    fn create(self, _watcher_list: &mut WatcherList) -> impl ComponentVNode {
+        PrimitiveVnodeWrapper(self)
     }
 }
 
 impl VModel for PrimitiveVnodeWrapper<Text> {
-    type Storage = Reactive<TextModel>;
+    type Storage = PrimitiveModel<TextModel>;
     type ParentProps = ();
 
     fn get_parent_props(&self, _: crate::model::GetParentPropsFn<Self::ParentProps>) {
@@ -36,21 +42,26 @@ impl VModel for PrimitiveVnodeWrapper<Text> {
     }
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
-        let init_state = TextModel {
+        let model = Rc::new(RefCell::new(TextModel {
             el: Rc::new(RefCell::new(RenderText::new(
                 self.0.text.clone(),
                 self.0.style.clone(),
                 self.0.on.clone(),
                 &ctx.el_ctx,
             ))),
-        };
+        }));
 
-        Reactive::builder()
-            .dep(
-                TextModel::update_text_and_style,
-                (self.0.text.clone(), self.0.style.clone()),
-            )
-            .build(init_state)
+        let mut wl = WatcherList::new();
+        wl.watch_borrow_mut(
+            &model,
+            TextModel::update_text_and_style,
+            (self.0.text.clone(), self.0.style.clone()),
+        );
+
+        PrimitiveModel {
+            _watcher_list: wl,
+            model,
+        }
     }
 
     fn update(&self, _: &mut Self::Storage, _: &ModelCreateCtx) {
@@ -63,7 +74,10 @@ pub struct TextModel {
 }
 
 impl TextModel {
-    fn update_text_and_style(&mut self, inputs: (Option<&String>, Option<&TextStyle>)) {
+    fn update_text_and_style(
+        &mut self,
+        inputs: (Option<&(dyn AsRef<str> + 'static)>, Option<&TextStyle>),
+    ) {
         if let (None, None) = inputs {
             return;
         }

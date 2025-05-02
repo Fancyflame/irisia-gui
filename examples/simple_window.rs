@@ -5,10 +5,14 @@ use irisia::{
     model::{
         component::Component,
         control_flow::common_vmodel::DynVModel,
-        prim::{Block, Rect, Text},
+        prim::{Block, Text},
         VModel, VNode,
     },
-    prim_element::{block::LayoutFn, rect::RectStyle, text::TextStyle, Element},
+    prim_element::{
+        block::{layout::LayoutChildren, BlockLayout, BlockStyle},
+        text::TextStyle,
+        Element, Size, SpaceConstraint,
+    },
     primitive::{Point, Region},
     skia_safe::Color,
     Result, Window, WinitWindow,
@@ -48,11 +52,12 @@ fn app() -> impl VNode<ParentProps = ()> {
             let switch_color = switch_color.clone();
             move |&is_red| {
                 build2! {
-                    Rect {
+                    Block {
                         on := switch_color.clone(),
-                        style: RectStyle {
-                            color: if is_red { Color::RED } else { Color::BLUE },
+                        style: BlockStyle {
+                            background: if is_red { Color::RED } else { Color::BLUE },
                             border_radius: [50.0; 4],
+                            ..BlockStyle::DEFAULT
                         },
                     }
                 }
@@ -70,8 +75,12 @@ fn app() -> impl VNode<ParentProps = ()> {
         red_rect.to_signal(),
     );
 
+    //let text: Signal<dyn AsRef<str>> = coerce_hook!(text);
+
     build2! {
         CustomComp {
+            vertical := red_rect.to_signal(),
+
             (changing_rect)
 
             Text {
@@ -89,10 +98,11 @@ fn app() -> impl VNode<ParentProps = ()> {
             }
 
             for i in 0..2, key = i {
-                Rect {
-                    style: RectStyle {
-                        color: Color::BLACK,
+                Block {
+                    style: BlockStyle {
+                        background: Color::BLACK,
                         border_radius: [50.0; 4],
+                        ..BlockStyle::DEFAULT
                     },
                     [foo]: 3,
                 }
@@ -114,21 +124,9 @@ fn app() -> impl VNode<ParentProps = ()> {
     }
 }
 
-fn average_divide(size: Point, el: &[Element], regions: &mut Vec<Region>) {
-    let width = size.0 / el.len() as f32;
-    let height = size.1;
-
-    for i in 0..el.len() {
-        let i = i as f32;
-        regions.push(Region::new(
-            Point(i * width, 0.0),
-            Point((i + 1.0) * width, height),
-        ));
-    }
-}
-
 #[derive(Default)]
 struct CustomComp {
+    vertical: Option<Signal<bool>>,
     children: Option<Signal<DynVModel<CustomProps>>>,
 }
 
@@ -140,8 +138,10 @@ struct CustomProps {
 
 impl Component for CustomComp {
     type ChildProps = CustomProps;
-    type Created = ();
-    fn create(self) -> (Self::Created, impl VNode<ParentProps = ()>) {
+    fn create(
+        self,
+        _watcher_list: &mut irisia::hook::watcher::WatcherList,
+    ) -> impl irisia::model::component::ComponentVNode {
         let styles = Signal::builder(Vec::new())
             .dep_call(
                 |mut vec, styles| {
@@ -157,14 +157,91 @@ impl Component for CustomComp {
 
         dbg!(&styles);
 
-        (
-            (),
-            build2! {
-                Block {
-                    layout_fn: average_divide as LayoutFn,
-                    (self.children.clear_parent_props())
-                }
+        let layout = Signal::memo(
+            |vertical| AverageDivideLayout {
+                vertical: vertical.copied().unwrap_or(false),
             },
-        )
+            self.vertical,
+        );
+
+        build2! {
+            Block {
+                display := layout,
+                (self.children.clear_parent_props())
+            }
+        }
+    }
+}
+
+// Layouter implementation
+
+#[derive(PartialEq, Eq)]
+struct AverageDivideLayout {
+    vertical: bool,
+}
+
+impl AverageDivideLayout {
+    fn get_axis<T>(&self, size: Size<T>) -> (T, T)
+    where
+        T: Copy,
+    {
+        if self.vertical {
+            (size.y, size.x)
+        } else {
+            (size.x, size.y)
+        }
+    }
+
+    fn set_axis<T>(&self, main: T, sub: T) -> Size<T> {
+        if self.vertical {
+            Size { x: sub, y: main }
+        } else {
+            Size { x: main, y: sub }
+        }
+    }
+}
+
+impl BlockLayout for AverageDivideLayout {
+    fn compute_layout(
+        &self,
+        mut children: LayoutChildren,
+        constraint: irisia::prim_element::Size<SpaceConstraint>,
+    ) -> irisia::prim_element::Size<f32> {
+        let (main_axis_constraint, sub_axis_constraint) = self.get_axis(constraint);
+
+        let main_axis_len = match main_axis_constraint {
+            SpaceConstraint::Available(a) => a,
+            SpaceConstraint::Exact(e) => e,
+            SpaceConstraint::MinContent | SpaceConstraint::MaxContent => 10.0,
+        };
+
+        let main_axis_each_space = main_axis_len / children.len() as f32;
+        let mut sub_axis_len = 0f32;
+
+        for mut child in children.iter() {
+            let size = child.measure(self.set_axis(
+                SpaceConstraint::Exact(main_axis_each_space),
+                sub_axis_constraint,
+            ));
+            sub_axis_len = sub_axis_len.max(self.get_axis(size).1);
+        }
+
+        for (index, mut child) in children.iter().enumerate() {
+            let size = child.measure(self.set_axis(
+                SpaceConstraint::Exact(main_axis_each_space),
+                SpaceConstraint::Available(sub_axis_len),
+            ));
+
+            let location = self.set_axis(
+                index as f32 * main_axis_each_space,
+                (sub_axis_len - self.get_axis(size).1).max(0.0) / 2.0,
+            );
+            child.set_location(Point(location.x, location.y));
+        }
+
+        Size {
+            x: main_axis_len,
+            y: sub_axis_len,
+        }
     }
 }

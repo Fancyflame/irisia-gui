@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use definition::Definition;
 
-use crate::prim_element::Element;
+use crate::{hook::watcher::WatcherList, prim_element::Element};
 
 use super::{EleModel, GetParentPropsFn, Model, ModelCreateCtx, VModel, VNode};
 
@@ -35,10 +35,9 @@ where
 pub type GetChildProps<T> = <T as Component>::ChildProps;
 
 pub trait Component: Default + 'static {
-    type Created: 'static;
     type ChildProps: Default;
 
-    fn create(self) -> (Self::Created, impl VNode<ParentProps = ()>);
+    fn create(self, watcher_list: &mut WatcherList) -> impl ComponentVNode;
 }
 
 impl<T, Pp, F, D> VModel for UseComponent<T, Pp, F, D>
@@ -47,7 +46,7 @@ where
     T: Component,
     D: Definition,
 {
-    type Storage = UseComponentModel<T::Created, D::Storage>;
+    type Storage = UseComponentModel<D::Storage>;
     type ParentProps = Pp;
 
     fn get_parent_props(&self, f: GetParentPropsFn<Self::ParentProps>) {
@@ -56,13 +55,14 @@ where
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
         let (def_storages, def_values) = self.defs.create();
-        let (component, vmodel) = T::create((self.create_fn)(def_values));
+        let mut watcher_list = WatcherList::new();
+        let vmodel = T::create((self.create_fn)(def_values), &mut watcher_list);
 
         let model = Box::new(vmodel.create(ctx));
         UseComponentModel {
+            _watcher_list: watcher_list,
             defs: def_storages,
             model,
-            _component: component,
         }
     }
 
@@ -71,13 +71,13 @@ where
     }
 }
 
-pub struct UseComponentModel<T, D> {
-    _component: T,
+pub struct UseComponentModel<D> {
+    _watcher_list: WatcherList,
     defs: D,
     model: Box<dyn EleModel>,
 }
 
-impl<T, D> Model for UseComponentModel<T, D>
+impl<D> Model for UseComponentModel<D>
 where
     Self: 'static,
 {
@@ -86,7 +86,7 @@ where
     }
 }
 
-impl<T, D> EleModel for UseComponentModel<T, D>
+impl<D> EleModel for UseComponentModel<D>
 where
     Self: 'static,
 {
@@ -101,3 +101,6 @@ where
 {
     n
 }
+
+pub trait ComponentVNode: VNode<ParentProps = ()> + 'static {}
+impl<T: VNode<ParentProps = ()> + 'static> ComponentVNode for T {}

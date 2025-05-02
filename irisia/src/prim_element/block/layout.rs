@@ -26,6 +26,10 @@ impl Child<'_> {
         self.0.cached_layout = Some((constraint, size));
         size
     }
+
+    pub fn get_cached(&self) -> Option<(Size<SpaceConstraint>, Size<f32>)> {
+        self.0.cached_layout
+    }
 }
 
 pub struct LayoutChildren<'a> {
@@ -69,6 +73,10 @@ impl BlockLayout for DefaultLayouter {
         constraint: Size<SpaceConstraint>,
     ) -> Size<f32> {
         let mut max_size = Size { x: 0.0, y: 0.0 };
+        let mut max_size = constraint.map(|cons| match cons {
+            SpaceConstraint::Available(v) | SpaceConstraint::Exact(v) => v,
+            _ => 0.0,
+        });
 
         for mut child in children.iter() {
             let this_size = child.measure(constraint);
