@@ -8,11 +8,11 @@ pub struct Listener(Weak<Core>);
 
 pub(crate) struct StrongListener(#[allow(dead_code)] Rc<Core>);
 
-impl StrongListener {
-    pub fn downgrade(&self) -> Listener {
-        Listener(Rc::downgrade(&self.0))
-    }
-}
+// impl StrongListener {
+//     pub fn downgrade(&self) -> Listener {
+//         Listener(Rc::downgrade(&self.0))
+//     }
+// }
 
 impl Listener {
     /// The callback ***must NOT capture hooks*** or will cause underlying memory leaks

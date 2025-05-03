@@ -1,7 +1,7 @@
 [package]
 name = "irisia_backend"
 version = "1.0.0"
-edition = "2021"
+edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -9,7 +9,7 @@ edition = "2021"
 winit = { version = "0.30", features = ["android-native-activity", "rwh_05"] }
 pixels = "0.14"
 skia-safe = { version = "0.80", features = ["textlayout", "binary-cache"] }
-tokio = { version = "1.40", features = ["rt-multi-thread"] }
+tokio = { version = "1.40", features = ["rt-multi-thread", "sync"] }
 anyhow = "1"
 lazy_static = "1"
 futures = "0.3"

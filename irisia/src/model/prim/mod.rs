@@ -1,8 +1,4 @@
-use crate::{
-    hook::{watcher::WatcherList, Signal},
-    prim_element::Element,
-    Handle,
-};
+use crate::{Handle, hook::watcher::WatcherList, prim_element::Element};
 
 use super::{EleModel, Model};
 
@@ -30,13 +26,6 @@ impl<T: Model> Model for PrimitiveModel<T> {
 impl<T: EleModel> EleModel for PrimitiveModel<T> {
     fn get_element(&self) -> Element {
         self.model.borrow().get_element()
-    }
-}
-
-fn read_or_default<T: Clone>(signal: &Option<Signal<T>>, default: T) -> T {
-    match signal {
-        Some(sig) => sig.read().clone(),
-        None => default,
     }
 }
 

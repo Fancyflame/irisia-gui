@@ -2,21 +2,20 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     hook::{
-        watcher::{WatcherGuard, WatcherList},
         Signal,
+        watcher::{WatcherGuard, WatcherList},
     },
     model::{
-        component::{Component, ComponentVNode},
         EleModel, Model, ModelCreateCtx, VModel,
+        component::{Component, ComponentVNode},
     },
     prim_element::{
-        text::{RenderText, SignalStr, TextStyle},
         Element, EventCallback,
+        text::{RenderText, SignalStr, TextStyle},
     },
-    Handle,
 };
 
-use super::{panic_when_call_unreachable, read_or_default, PrimitiveModel, PrimitiveVnodeWrapper};
+use super::{PrimitiveModel, PrimitiveVnodeWrapper, panic_when_call_unreachable};
 
 #[derive(Default)]
 pub struct Text {

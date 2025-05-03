@@ -1,12 +1,10 @@
 #[cfg(feature = "fps_recorder")]
-use std::{
-    sync::{atomic::AtomicU16, Arc},
-    time::Duration,
-};
+use std::{sync::atomic::AtomicU16, time::Duration};
 
-use anyhow::{anyhow, Result};
-use pixels::{wgpu::BlendState, Pixels, PixelsBuilder, SurfaceTexture};
+use anyhow::{Result, anyhow};
+use pixels::{Pixels, PixelsBuilder, SurfaceTexture, wgpu::BlendState};
 use skia_safe::{Canvas, ColorSpace, ColorType, ImageInfo, Surface};
+use std::sync::Arc;
 use winit::dpi::PhysicalSize;
 
 use crate::WinitWindow;
@@ -130,12 +128,14 @@ fn fps_recorder() -> Arc<AtomicU16> {
     let counter = Arc::new(AtomicU16::new(0));
     let counter_cloned = counter.clone();
 
-    std::thread::spawn(move || loop {
-        std::thread::sleep(Duration::from_secs(2));
-        println!(
-            "{}fps",
-            counter.swap(0, std::sync::atomic::Ordering::Relaxed) / 2
-        );
+    std::thread::spawn(move || {
+        loop {
+            std::thread::sleep(Duration::from_secs(2));
+            println!(
+                "{}fps",
+                counter.swap(0, std::sync::atomic::Ordering::Relaxed) / 2
+            );
+        }
     });
     counter_cloned
 }

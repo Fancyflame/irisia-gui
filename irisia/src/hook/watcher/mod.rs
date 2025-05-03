@@ -6,7 +6,7 @@ use std::{
 
 use smallvec::SmallVec;
 
-use super::{listener::StrongListener, signal_group::SignalGroup, Listener};
+use super::{Listener, listener::StrongListener, signal_group::SignalGroup};
 
 pub struct WatcherList(SmallVec<[Watcher; 1]>);
 
@@ -26,7 +26,7 @@ impl WatcherGuard for WatcherList {
     }
 }
 
-pub struct Watcher(StrongListener);
+pub struct Watcher(#[allow(unused)] StrongListener);
 
 pub trait WatcherGuard {
     fn push(&mut self, watcher: Watcher);
