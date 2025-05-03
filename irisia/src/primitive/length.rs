@@ -7,12 +7,10 @@ use std::{
 
 use irisia_backend::winit::dpi::PhysicalSize;
 
-use crate::primitive::Region;
-
 pub struct LengthStandard {
     pub dpi: f32,
     pub viewport_size: PhysicalSize<u32>,
-    pub draw_region: Option<Region>,
+    pub parent_axis_len: f32,
 }
 
 macro_rules! create_length {
@@ -38,12 +36,12 @@ macro_rules! create_length {
                 }
             }
 
-            pub /*const*/ fn add(mut self, rhs: Self) -> Self {
+            pub const fn add(mut self, rhs: Self) -> Self {
                 $(self.$name += rhs.$name;)*
                 self
             }
 
-            pub /*const*/ fn mul(mut self, rhs: f32) -> Self {
+            pub const fn mul(mut self, rhs: f32) -> Self {
                 $(self.$name *= rhs;)*
                 self
             }
@@ -68,10 +66,7 @@ create_length! {
     viewport_height VH,
     viewport_min    VMIN,
     viewport_max    VMAX,
-    parent_width    PW,
-    parent_height   PH,
-    parent_min      PMIN,
-    parent_max      PMAX,
+    percent         PCT,
 }
 
 impl Length {
@@ -82,32 +77,18 @@ impl Length {
         let LengthStandard {
             dpi,
             viewport_size,
-            draw_region,
+            parent_axis_len,
         } = standard;
 
-        let (ew, eh) = match draw_region {
-            Some(Region {
-                left_top,
-                right_bottom,
-            }) => (
-                (right_bottom.x - left_top.x) / 100.0,
-                (right_bottom.y - left_top.y) / 100.0,
-            ),
-            None => (0.0, 0.0),
-        };
-
-        let vw = viewport_size.width as f32 / 100.0;
-        let vh = viewport_size.height as f32 / 100.0;
+        let vw = viewport_size.width as f32;
+        let vh = viewport_size.height as f32;
 
         self.pixel * dpi
             + self.viewport_width * vw
             + self.viewport_height * vh
             + self.viewport_min * vw.min(vh)
             + self.viewport_max * vw.max(vh)
-            + self.parent_width * ew
-            + self.parent_height * eh
-            + self.parent_min * ew.min(eh)
-            + self.parent_max * ew.max(eh)
+            + self.percent * parent_axis_len
     }
 }
 
@@ -118,14 +99,14 @@ impl Default for Length {
 }
 
 impl Mul<f32> for Length {
-    type Output = Self;
+    type Output = Length;
 
     fn mul(self, rhs: f32) -> Self::Output {
         self.mul(rhs)
     }
 }
 
-impl Mul<Length> for u32 {
+impl Mul<Length> for i32 {
     type Output = Length;
 
     fn mul(self, rhs: Length) -> Self::Output {
@@ -207,50 +188,30 @@ impl SubAssign<Self> for Length {
 
 impl Debug for Length {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        enum State {
-            Zero,
-            Once { value: f32, unit: &'static str },
-            Multiple,
-        }
-
-        let mut state = State::Zero;
+        let mut is_first = true;
 
         for (value, unit) in self.debug_fields() {
             if value == 0.0 {
                 continue;
             }
 
-            match state {
-                State::Zero => {
-                    state = State::Once { value, unit };
-                    continue;
-                }
-                State::Once { value, unit } => {
-                    write!(f, "(")?;
-                    fmt_value(f, value, unit)?;
-                    state = State::Multiple;
-                }
-                State::Multiple => {}
+            if is_first {
+                is_first = false;
+            } else {
+                write!(f, " + ")?;
             }
 
-            write!(f, " + ")?;
             fmt_value(f, value, unit)?;
         }
 
-        match state {
-            State::Zero => write!(f, "0px"),
-            State::Once { value, unit } => fmt_value(f, value, unit),
-            State::Multiple => {
-                write!(f, ")")
-            }
-        }
+        if is_first { write!(f, "0px") } else { Ok(()) }
     }
 }
 
 fn fmt_value(out_buf: &mut Formatter, value: f32, unit: &str) -> std::fmt::Result {
     let mut byte_buf = [0u8; 32];
     let mut fmt_buf = BufWriter::new(&mut byte_buf as &mut [u8]);
-    write!(&mut fmt_buf, "{value:.2}").unwrap();
+    write!(&mut fmt_buf, "{value:.3}").unwrap();
     let s = str::from_utf8(fmt_buf.buffer())
         .unwrap()
         .trim_end_matches('0')
