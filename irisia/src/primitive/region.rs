@@ -25,22 +25,22 @@ impl Region {
     }
 
     pub const fn intersects(&self, rhs: Self) -> bool {
-        !(self.left_top.0 >= rhs.right_bottom.0
-            || self.left_top.1 >= rhs.right_bottom.1
-            || self.right_bottom.0 <= rhs.left_top.0
-            || self.right_bottom.1 <= rhs.left_top.1)
+        !(self.left_top.x >= rhs.right_bottom.x
+            || self.left_top.y >= rhs.right_bottom.y
+            || self.right_bottom.x <= rhs.left_top.x
+            || self.right_bottom.y <= rhs.left_top.y)
     }
 
     pub const fn is_empty(&self) -> bool {
-        self.left_top.0 == self.right_bottom.0 && self.left_top.1 == self.right_bottom.1
+        self.left_top.x == self.right_bottom.x && self.left_top.y == self.right_bottom.y
     }
 
     pub fn ceil_to_irect(&self) -> IRect {
         IRect::from_ltrb(
-            self.left_top.0.floor() as _,
-            self.left_top.1.floor() as _,
-            self.right_bottom.0.ceil() as _,
-            self.right_bottom.1.ceil() as _,
+            self.left_top.x.floor() as _,
+            self.left_top.y.floor() as _,
+            self.right_bottom.x.ceil() as _,
+            self.right_bottom.y.ceil() as _,
         )
     }
 }

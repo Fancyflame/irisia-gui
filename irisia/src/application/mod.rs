@@ -1,15 +1,16 @@
 use std::sync::Weak;
 
 use irisia_backend::{
-    winit::{dpi::PhysicalSize, window::WindowAttributes},
     WinitWindow,
+    winit::{dpi::PhysicalSize, window::WindowAttributes},
 };
 
 use crate::{
-    event::{standard::WindowDestroyed, EventDispatcher},
-    model::VNode,
-    prim_element::{Size, SpaceConstraint},
     Result,
+    event::{EventDispatcher, standard::WindowDestroyed},
+    model::VNode,
+    prim_element::SpaceConstraint,
+    primitive::size::Size,
 };
 
 mod backend;
@@ -21,7 +22,7 @@ pub(crate) mod redraw_scheduler;
 use backend::new_window;
 
 pub use irisia_backend::window_handle::CloseHandle;
-pub use {event2::pointer_event::PointerEvent, event_comp::IncomingPointerEvent};
+pub use {event_comp::IncomingPointerEvent, event2::pointer_event::PointerEvent};
 
 #[derive(Clone)]
 pub struct Window {
@@ -68,7 +69,7 @@ impl Window {
 
 fn window_size_to_constraint(size: PhysicalSize<u32>) -> Size<SpaceConstraint> {
     Size {
-        x: SpaceConstraint::Available(size.width as f32),
-        y: SpaceConstraint::Available(size.height as f32),
+        width: SpaceConstraint::Available(size.width as f32),
+        height: SpaceConstraint::Available(size.height as f32),
     }
 }

@@ -1,4 +1,4 @@
-use super::{make_region, EMCreateCtx, EmitEventArgs, EventCallback, Size, SpaceConstraint};
+use super::{EMCreateCtx, EmitEventArgs, EventCallback, Size, SpaceConstraint, make_region};
 use crate::primitive::{Point, Region};
 
 pub(super) struct Common {
@@ -69,7 +69,7 @@ impl Common {
         let (_, size) = self
             .cached_layout
             .expect("element cannot be rendered before layout");
-        let new_region = make_region(location, size.x, size.y);
+        let new_region = make_region(location, size.width, size.height);
         self.prev_draw_region = Some(new_region);
         self.redraw_request_sent = false;
         new_region

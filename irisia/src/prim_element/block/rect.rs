@@ -21,10 +21,10 @@ impl DrawRRect {
         } = style;
 
         let rect = SkRect {
-            left: draw_region.left_top.0 + margin,
-            top: draw_region.left_top.1 + margin,
-            right: draw_region.right_bottom.0 - margin,
-            bottom: draw_region.right_bottom.1 - margin,
+            left: draw_region.left_top.x + margin,
+            top: draw_region.left_top.y + margin,
+            right: draw_region.right_bottom.x - margin,
+            bottom: draw_region.right_bottom.y - margin,
         };
 
         let rrect = RRect::new_nine_patch(

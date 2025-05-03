@@ -1,15 +1,15 @@
 use irisia_backend::skia_safe::{
+    Color, FontMgr,
     textlayout::{
         FontCollection, Paragraph, ParagraphBuilder, ParagraphStyle, TextStyle as SkTextStyle,
     },
-    Color, FontMgr,
 };
 
 use crate::{hook::Signal, primitive::Point};
 
 use super::{
-    clip_draw_region, read_or_default, Common, EMCreateCtx, EmitEventArgs, EventCallback,
-    RenderTree, Size, SpaceConstraint,
+    Common, EMCreateCtx, EmitEventArgs, EventCallback, RenderTree, Size, SpaceConstraint,
+    clip_draw_region, read_or_default,
 };
 
 pub type SignalStr = Signal<dyn AsRef<str>>;
@@ -90,7 +90,7 @@ impl RenderTree for RenderText {
                 .paragraph
                 .get_or_insert_with(|| build_paragraph(&self.text, &self.style));
 
-            let w = match constraint.x {
+            let w = match constraint.width {
                 SpaceConstraint::Exact(width) | SpaceConstraint::Available(width) => width,
                 SpaceConstraint::MinContent => paragraph.min_intrinsic_width(),
                 SpaceConstraint::MaxContent => paragraph.max_intrinsic_width(),
@@ -98,8 +98,8 @@ impl RenderTree for RenderText {
             paragraph.layout(w);
 
             Size {
-                x: fit_constraint(paragraph.max_width(), constraint.x),
-                y: fit_constraint(paragraph.height(), constraint.y),
+                width: fit_constraint(paragraph.max_width(), constraint.width),
+                height: fit_constraint(paragraph.height(), constraint.height),
             }
         };
 

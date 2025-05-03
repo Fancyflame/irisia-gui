@@ -43,7 +43,7 @@ impl<'a> IncomingPointerEvent<'a> {
         let cursor_delta = gem
             .last_cursor_position
             .zip(new_position)
-            .map(|(old, new)| (new.0 - old.0, new.1 - old.1));
+            .map(|(old, new)| (new.x - old.x, new.y - old.y));
 
         IncomingPointerEvent {
             event,

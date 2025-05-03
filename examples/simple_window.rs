@@ -1,21 +1,21 @@
 use irisia::{
+    Result, Window, WinitWindow,
     application::PointerEvent,
     build2, coerce_hook,
     hook::Signal,
     model::{
+        VModel, VNode,
         component::Component,
         control_flow::common_vmodel::DynVModel,
         prim::{Block, Text},
-        VModel, VNode,
     },
     prim_element::{
-        block::{layout::LayoutChildren, BlockLayout, BlockStyle},
+        SpaceConstraint,
+        block::{BlockLayout, BlockStyle, layout::LayoutChildren},
         text::TextStyle,
-        Size, SpaceConstraint,
     },
-    primitive::Point,
+    primitive::{Point, size::Size},
     skia_safe::Color,
-    Result, Window, WinitWindow,
 };
 
 #[irisia::main]
@@ -34,17 +34,19 @@ fn app() -> impl VNode<ParentProps = ()> {
     let red_rect = Signal::state(false);
     let switch_color: Signal<dyn Fn(PointerEvent)> = {
         let red_rect = red_rect.clone();
-        coerce_hook!(Signal::state(move |pe: PointerEvent| {
-            if let PointerEvent::PointerDown {
-                is_current: true,
-                position: _,
-            } = pe
-            {
-                let mut w = red_rect.write();
-                *w = !*w;
-            }
-        })
-        .to_signal())
+        coerce_hook!(
+            Signal::state(move |pe: PointerEvent| {
+                if let PointerEvent::PointerDown {
+                    is_current: true,
+                    position: _,
+                } = pe
+                {
+                    let mut w = red_rect.write();
+                    *w = !*w;
+                }
+            })
+            .to_signal()
+        )
     };
 
     let changing_rect = Signal::memo_ncmp(
@@ -186,17 +188,23 @@ impl AverageDivideLayout {
         T: Copy,
     {
         if self.vertical {
-            (size.y, size.x)
+            (size.height, size.width)
         } else {
-            (size.x, size.y)
+            (size.width, size.height)
         }
     }
 
     fn set_axis<T>(&self, main: T, sub: T) -> Size<T> {
         if self.vertical {
-            Size { x: sub, y: main }
+            Size {
+                width: sub,
+                height: main,
+            }
         } else {
-            Size { x: main, y: sub }
+            Size {
+                width: main,
+                height: sub,
+            }
         }
     }
 }
@@ -205,8 +213,8 @@ impl BlockLayout for AverageDivideLayout {
     fn compute_layout(
         &self,
         mut children: LayoutChildren,
-        constraint: irisia::prim_element::Size<SpaceConstraint>,
-    ) -> irisia::prim_element::Size<f32> {
+        constraint: Size<SpaceConstraint>,
+    ) -> Size<f32> {
         let (main_axis_constraint, sub_axis_constraint) = self.get_axis(constraint);
 
         let main_axis_len = match main_axis_constraint {
@@ -236,12 +244,15 @@ impl BlockLayout for AverageDivideLayout {
                 index as f32 * main_axis_each_space,
                 (sub_axis_len - self.get_axis(size).1).max(0.0) / 2.0,
             );
-            child.set_location(Point(location.x, location.y));
+            child.set_location(Point {
+                x: location.width,
+                y: location.height,
+            });
         }
 
         Size {
-            x: main_axis_len,
-            y: sub_axis_len,
+            width: main_axis_len,
+            height: sub_axis_len,
         }
     }
 }

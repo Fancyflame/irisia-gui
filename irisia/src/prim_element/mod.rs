@@ -10,13 +10,13 @@ use callback_queue::CallbackQueue;
 use irisia_backend::skia_safe::{Canvas, ClipOp, Region as SkRegion};
 
 use crate::{
+    Handle,
     application::{
         content::GlobalContent,
         event2::pointer_event::{PointerEvent, PointerStateDelta},
     },
-    hook::{utils::trace_cell::TraceRef, Signal},
-    primitive::{Point, Region},
-    Handle,
+    hook::{Signal, utils::trace_cell::TraceRef},
+    primitive::{Point, Region, size::Size},
 };
 
 pub(self) use common::Common;
@@ -105,28 +105,13 @@ pub enum SpaceConstraint {
     MaxContent,
 }
 
-#[derive(Clone, Copy, Default, PartialEq)]
-pub struct Size<T> {
-    pub x: T,
-    pub y: T,
-}
-
-impl<T> Size<T> {
-    pub fn map<F, U>(self, f: F) -> Size<U>
-    where
-        F: Fn(T) -> U,
-    {
-        Size {
-            x: f(self.x),
-            y: f(self.y),
-        }
-    }
-}
-
 fn make_region(location: Point, width: f32, height: f32) -> Region {
     Region {
         left_top: location,
-        right_bottom: Point(location.0 + width, location.1 + height),
+        right_bottom: Point {
+            x: location.x + width,
+            y: location.y + height,
+        },
     }
 }
 

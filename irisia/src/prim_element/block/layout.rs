@@ -1,8 +1,8 @@
 use std::any::Any;
 
 use crate::{
-    prim_element::{Size, SpaceConstraint},
-    primitive::Point,
+    prim_element::SpaceConstraint,
+    primitive::{Point, size::Size},
 };
 
 use super::Child as ChildStorage;
@@ -72,7 +72,10 @@ impl BlockLayout for DefaultLayouter {
         mut children: LayoutChildren,
         constraint: Size<SpaceConstraint>,
     ) -> Size<f32> {
-        let mut max_size = Size { x: 0.0, y: 0.0 };
+        let mut max_size = Size {
+            width: 0.0,
+            height: 0.0,
+        };
         let mut max_size = constraint.map(|cons| match cons {
             SpaceConstraint::Available(v) | SpaceConstraint::Exact(v) => v,
             _ => 0.0,
@@ -80,8 +83,8 @@ impl BlockLayout for DefaultLayouter {
 
         for mut child in children.iter() {
             let this_size = child.measure(constraint);
-            max_size.x = this_size.x.max(max_size.x);
-            max_size.y = this_size.y.max(max_size.y);
+            max_size.width = this_size.width.max(max_size.width);
+            max_size.height = this_size.height.max(max_size.height);
         }
 
         max_size

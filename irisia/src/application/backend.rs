@@ -90,8 +90,8 @@ impl AppWindow for BackendRuntime {
 
 fn window_size_to_draw_region(size: PhysicalSize<u32>) -> Region {
     Region {
-        left_top: Point(0.0, 0.0),
-        right_bottom: Point(size.width as f32, size.height as f32),
+        left_top: Point { x: 0.0, y: 0.0 },
+        right_bottom: Point { x: size.width as f32, y: size.height as f32 },
     }
 }
 

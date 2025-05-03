@@ -90,8 +90,8 @@ impl Length {
                 left_top,
                 right_bottom,
             }) => (
-                (right_bottom.0 - left_top.0) / 100.0,
-                (right_bottom.1 - left_top.1) / 100.0,
+                (right_bottom.x - left_top.x) / 100.0,
+                (right_bottom.y - left_top.y) / 100.0,
             ),
             None => (0.0, 0.0),
         };

@@ -126,7 +126,7 @@ impl PointerState {
 
         if let (Some(pos1), Some(pos2)) = (self.cursor_position, next.cursor_position) {
             let delta = pos2 - pos1;
-            if delta.0 != 0.0 && delta.1 != 0.0 {
+            if delta.x != 0.0 && delta.y != 0.0 {
                 events.push(PointerEvent::PointerMove {
                     is_current,
                     delta,
