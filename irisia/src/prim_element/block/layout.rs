@@ -76,10 +76,6 @@ impl BlockLayout for DefaultLayouter {
             width: 0.0,
             height: 0.0,
         };
-        let mut max_size = constraint.map(|cons| match cons {
-            SpaceConstraint::Available(v) | SpaceConstraint::Exact(v) => v,
-            _ => 0.0,
-        });
 
         for mut child in children.iter() {
             let this_size = child.measure(constraint);
@@ -87,6 +83,9 @@ impl BlockLayout for DefaultLayouter {
             max_size.height = this_size.height.max(max_size.height);
         }
 
-        max_size
+        Size {
+            width: constraint.width.constraint_length(max_size.width),
+            height: constraint.height.constraint_length(max_size.height),
+        }
     }
 }

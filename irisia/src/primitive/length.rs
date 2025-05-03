@@ -5,36 +5,67 @@ use std::{
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
 };
 
-use irisia_backend::winit::dpi::PhysicalSize;
+use super::size::Size;
 
 pub struct LengthStandard {
-    pub dpi: f32,
-    pub viewport_size: PhysicalSize<u32>,
+    pub global: LengthStandardGlobalPart,
     pub parent_axis_len: f32,
 }
 
+#[derive(Clone, Copy)]
+pub struct LengthStandardGlobalPart {
+    pub dpi: f32,
+    pub viewport_size: Size<u32>,
+}
+
+#[derive(Clone, Copy, PartialEq, Default)]
+pub enum Length {
+    #[default]
+    Auto,
+    Measured(MeasuredLength),
+}
+
+impl Length {
+    pub fn map<F>(self, f: F) -> Length
+    where
+        F: FnOnce(MeasuredLength) -> MeasuredLength,
+    {
+        match self {
+            Length::Auto => Length::Auto,
+            Length::Measured(m) => Length::Measured(f(m)),
+        }
+    }
+
+    pub fn to_resolved(&self, standard: LengthStandard) -> Option<f32> {
+        match self {
+            Length::Measured(m) => Some(m.to_resolved(standard)),
+            Length::Auto => None,
+        }
+    }
+}
+
 macro_rules! create_length {
-    {$($name:ident $UNIT:ident,)*} => {
-        #[derive(Clone, Copy, PartialEq, PartialOrd)]
-        pub struct Length {
+    {$($name:ident $UNIT:ident $short:ident,)*} => {
+        #[derive(Clone, Copy, PartialEq)]
+        pub struct MeasuredLength {
             $(pub $name: f32,)*
         }
 
         $(
             #[doc = stringify!(1 $UNIT)]
-            pub const $UNIT: Length = Length {
-                $name: 1.0,
-                ..Length::zero()
-            };
+            pub const $UNIT: Length = Length::Measured(
+                MeasuredLength {
+                    $name: 1.0,
+                    ..MeasuredLength::ZERO
+                }
+            );
         )*
 
-        impl Length {
+        impl MeasuredLength {
             /// Create a zero length.
-            pub const fn zero() -> Self {
-                Self {
-                    $($name: 0.0,)*
-                }
-            }
+            pub const ZERO: Self = Self {
+                $($name: 0.0,)*
+            };
 
             pub const fn add(mut self, rhs: Self) -> Self {
                 $(self.$name += rhs.$name;)*
@@ -61,23 +92,27 @@ macro_rules! create_length {
 }
 
 create_length! {
-    pixel           PX,
-    viewport_width  VW,
-    viewport_height VH,
-    viewport_min    VMIN,
-    viewport_max    VMAX,
-    percent         PCT,
+    pixel           PX   px,
+    viewport_width  VW   vw,
+    viewport_height VH   vh,
+    viewport_min    VMIN vmin,
+    viewport_max    VMAX vmax,
+    percent         PCT  pct,
 }
 
-impl Length {
+impl Default for MeasuredLength {
+    fn default() -> Self {
+        Self::ZERO
+    }
+}
+
+impl MeasuredLength {
     /// Convert the relative length to physical length of the screen with a window.
     /// The resolved value can be used directly to draw something.
-    #[inline]
     pub fn to_resolved(&self, standard: LengthStandard) -> f32 {
         let LengthStandard {
-            dpi,
-            viewport_size,
             parent_axis_len,
+            global: LengthStandardGlobalPart { dpi, viewport_size },
         } = standard;
 
         let vw = viewport_size.width as f32;
@@ -92,17 +127,11 @@ impl Length {
     }
 }
 
-impl Default for Length {
-    fn default() -> Self {
-        Self::zero()
-    }
-}
-
 impl Mul<f32> for Length {
     type Output = Length;
 
     fn mul(self, rhs: f32) -> Self::Output {
-        self.mul(rhs)
+        self.map(|this| this.mul(rhs))
     }
 }
 
@@ -110,7 +139,7 @@ impl Mul<Length> for i32 {
     type Output = Length;
 
     fn mul(self, rhs: Length) -> Self::Output {
-        rhs.mul(self as _)
+        rhs.map(|rhs| rhs.mul(self as _))
     }
 }
 
@@ -118,7 +147,7 @@ impl Mul<Length> for f32 {
     type Output = Length;
 
     fn mul(self, rhs: Length) -> Self::Output {
-        rhs.mul(self)
+        rhs.map(|rhs| rhs.mul(self))
     }
 }
 
@@ -159,7 +188,11 @@ impl Add<Self> for Length {
 
     #[inline]
     fn add(self, rhs: Self) -> Self::Output {
-        self.add(rhs)
+        match (self, rhs) {
+            (Length::Measured(lhs), Length::Measured(rhs)) => Length::Measured(lhs.add(rhs)),
+            (Length::Measured(v), _) | (_, Length::Measured(v)) => Length::Measured(v),
+            (Length::Auto, Length::Auto) => Length::Auto,
+        }
     }
 }
 
@@ -188,9 +221,14 @@ impl SubAssign<Self> for Length {
 
 impl Debug for Length {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let length = match self {
+            Length::Auto => return write!(f, "auto"),
+            Length::Measured(l) => l,
+        };
+
         let mut is_first = true;
 
-        for (value, unit) in self.debug_fields() {
+        for (value, unit) in length.debug_fields() {
             if value == 0.0 {
                 continue;
             }

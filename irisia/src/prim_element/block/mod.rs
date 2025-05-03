@@ -2,7 +2,13 @@ use irisia_backend::skia_safe::Color;
 use layout::{DefaultLayouter, LayoutChildren};
 use rect::DrawRRect;
 
-use crate::{hook::Signal, primitive::Point};
+use crate::{
+    hook::Signal,
+    primitive::{
+        Length, Point,
+        length::{LengthStandard, LengthStandardGlobalPart},
+    },
+};
 
 use super::{
     Common, EMCreateCtx, Element, EmitEventArgs, EventCallback, RenderTree, Size, SpaceConstraint,
@@ -16,6 +22,8 @@ mod rect;
 
 #[derive(Clone, Copy)]
 pub struct BlockStyle {
+    pub width: Length,
+    pub height: Length,
     pub margin: f32,
     pub background: Color,
     pub border_width: f32,
@@ -25,6 +33,8 @@ pub struct BlockStyle {
 
 impl BlockStyle {
     pub const DEFAULT: Self = Self {
+        width: Length::Auto,
+        height: Length::Auto,
         margin: 0.0,
         background: Color::TRANSPARENT,
         border_width: 0.0,
@@ -80,12 +90,14 @@ impl RenderBlock {
     }
 
     pub fn layouter_updated(&mut self) {
-        self.common.cached_layout.take();
+        self.cached_background_rect.take();
         self.common.request_relayout();
     }
 
     pub fn style_updated(&mut self) {
-        self.cached_background_rect = None;
+        // TODO: 需要判断width和height是否改变
+        self.cached_background_rect.take();
+        self.common.request_relayout();
         self.common.request_redraw();
     }
 
@@ -96,9 +108,34 @@ impl RenderBlock {
     }
 
     fn layout_tree(&mut self, constraint: Size<SpaceConstraint>, force_compute: bool) -> Size<f32> {
-        let layout_fn = |constraint| {
+        let length_standard_gp = self.common.ctx.global_content.length_standard();
+        let layout_fn = |constraint: Size<SpaceConstraint>| {
+            let wh_style = match self.style.as_ref() {
+                Some(style) => {
+                    let style = style.read();
+                    Size {
+                        width: style.width,
+                        height: style.height,
+                    }
+                }
+                None => Size::default(),
+            };
+
+            let new_constraint = Size {
+                width: constraint_single_axis_styled(
+                    constraint.width,
+                    wh_style.width,
+                    &length_standard_gp,
+                ),
+                height: constraint_single_axis_styled(
+                    constraint.height,
+                    wh_style.height,
+                    &length_standard_gp,
+                ),
+            };
+
             let this_size = read_or_default(&self.layouter, &DefaultLayouter)
-                .compute_layout(LayoutChildren::new(&mut self.children.0), constraint);
+                .compute_layout(LayoutChildren::new(&mut self.children.0), new_constraint);
 
             if self
                 .children
@@ -133,6 +170,25 @@ impl RenderBlock {
         }
         false
     }
+}
+
+fn constraint_single_axis_styled(
+    input_constraint: SpaceConstraint,
+    length: Length,
+    ls: &LengthStandardGlobalPart,
+) -> SpaceConstraint {
+    let Some(except) = length.to_resolved(LengthStandard {
+        global: *ls,
+        parent_axis_len: input_constraint.as_parent_size().unwrap_or(0.0),
+    }) else {
+        return input_constraint;
+    };
+
+    SpaceConstraint::Exact(match input_constraint {
+        SpaceConstraint::Available(available) => available.min(except),
+        SpaceConstraint::Exact(value) => value,
+        SpaceConstraint::MinContent | SpaceConstraint::MaxContent => except,
+    })
 }
 
 impl RenderTree for RenderBlock {

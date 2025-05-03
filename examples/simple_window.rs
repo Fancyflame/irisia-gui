@@ -14,7 +14,11 @@ use irisia::{
         block::{BlockLayout, BlockStyle, layout::LayoutChildren},
         text::TextStyle,
     },
-    primitive::{Point, size::Size},
+    primitive::{
+        Point,
+        length::{PCT, PX, VMIN},
+        size::Size,
+    },
     skia_safe::Color,
 };
 
@@ -57,6 +61,8 @@ fn app() -> impl VNode<ParentProps = ()> {
                     Block {
                         on := switch_color.clone(),
                         style: BlockStyle {
+                            width: 0.5 * VMIN,
+                            height: 0.5 * VMIN,
                             background: if is_red { Color::RED } else { Color::BLUE },
                             border_radius: [50.0; 4],
                             ..BlockStyle::DEFAULT
@@ -102,6 +108,8 @@ fn app() -> impl VNode<ParentProps = ()> {
             for i in 0..2, key = i {
                 Block {
                     style: BlockStyle {
+                        width: 1 * PCT,
+                        height: 10 * PX,
                         background: Color::BLACK,
                         border_radius: [50.0; 4],
                         ..BlockStyle::DEFAULT
@@ -169,6 +177,11 @@ impl Component for CustomComp {
         build2! {
             Block {
                 display := coerce_hook!(layout),
+                style: BlockStyle {
+                    width: 0.7 * PCT,
+                    height: 0.7 * PCT,
+                    ..Default::default()
+                },
                 (self.children.clear_parent_props())
             }
         }
@@ -217,33 +230,24 @@ impl BlockLayout for AverageDivideLayout {
     ) -> Size<f32> {
         let (main_axis_constraint, sub_axis_constraint) = self.get_axis(constraint);
 
-        let main_axis_len = match main_axis_constraint {
-            SpaceConstraint::Available(a) => a,
-            SpaceConstraint::Exact(e) => e,
-            SpaceConstraint::MinContent | SpaceConstraint::MaxContent => 10.0,
-        };
+        let main_axis_len = main_axis_constraint.as_parent_size().unwrap_or(0.0);
+        let sub_axis_len = sub_axis_constraint.as_parent_size().unwrap_or(0.0);
 
         let main_axis_each_space = main_axis_len / children.len() as f32;
-        let mut sub_axis_len = 0f32;
-
-        for mut child in children.iter() {
-            let size = child.measure(self.set_axis(
-                SpaceConstraint::Exact(main_axis_each_space),
-                sub_axis_constraint,
-            ));
-            sub_axis_len = sub_axis_len.max(self.get_axis(size).1);
-        }
+        //let mut sub_axis_len = 0f32;
 
         for (index, mut child) in children.iter().enumerate() {
             let size = child.measure(self.set_axis(
-                SpaceConstraint::Exact(main_axis_each_space),
+                SpaceConstraint::Available(main_axis_each_space),
                 SpaceConstraint::Available(sub_axis_len),
             ));
+            //sub_axis_len = sub_axis_len.max(self.get_axis(size).1);
 
             let location = self.set_axis(
                 index as f32 * main_axis_each_space,
                 (sub_axis_len - self.get_axis(size).1).max(0.0) / 2.0,
             );
+
             child.set_location(Point {
                 x: location.width,
                 y: location.height,

@@ -13,6 +13,8 @@ pub(super) struct DrawRRect {
 impl DrawRRect {
     pub fn new(style: &BlockStyle, draw_region: Region) -> Self {
         let &BlockStyle {
+            width: _,
+            height: _,
             margin,
             background,
             border_width,

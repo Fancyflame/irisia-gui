@@ -97,12 +97,30 @@ impl EmitEventArgs<'_> {
     }
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum SpaceConstraint {
     Exact(f32),
     Available(f32),
     MinContent,
     MaxContent,
+}
+
+impl SpaceConstraint {
+    pub const fn as_parent_size(self) -> Option<f32> {
+        match self {
+            Self::Exact(v) | Self::Available(v) => Some(v),
+            Self::MinContent | Self::MaxContent => None,
+        }
+    }
+
+    pub fn constraint_length(self, request_length: f32) -> f32 {
+        (match self {
+            Self::Available(a) => a.min(request_length),
+            Self::Exact(e) => e,
+            Self::MinContent | Self::MaxContent => request_length,
+        })
+        .max(0.0)
+    }
 }
 
 fn make_region(location: Point, width: f32, height: f32) -> Region {

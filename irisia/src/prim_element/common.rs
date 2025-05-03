@@ -54,6 +54,7 @@ impl Common {
     }
 
     pub fn request_relayout(&mut self) {
+        self.cached_layout.take();
         if let Some(parent) = &self.ctx.parent {
             parent
                 .upgrade()

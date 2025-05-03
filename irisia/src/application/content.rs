@@ -1,8 +1,11 @@
 use std::{cell::Cell, sync::Arc};
 
-use irisia_backend::{window_handle::CloseHandle, WinitWindow};
+use irisia_backend::{WinitWindow, window_handle::CloseHandle};
 
-use crate::{event::EventDispatcher, primitive::Region};
+use crate::{
+    event::EventDispatcher,
+    primitive::{Region, length::LengthStandardGlobalPart},
+};
 
 use super::{event_comp::global::focusing::Focusing, redraw_scheduler::RedrawScheduler};
 
@@ -10,6 +13,7 @@ pub struct GlobalContent {
     pub(super) focusing: Focusing,
     pub(super) global_ed: EventDispatcher,
     pub(super) window: Arc<WinitWindow>,
+    pub(super) length_standard: Cell<LengthStandardGlobalPart>,
     pub(super) close_handle: CloseHandle,
     pub(super) user_close: Cell<bool>,
     pub(super) redraw_scheduler: RedrawScheduler,
@@ -50,6 +54,10 @@ impl GlobalContent {
     /// Returns a reference to the window
     pub fn window(&self) -> &WinitWindow {
         &self.window
+    }
+
+    pub fn length_standard(&self) -> LengthStandardGlobalPart {
+        self.length_standard.get()
     }
 
     pub fn user_close(&self) -> bool {

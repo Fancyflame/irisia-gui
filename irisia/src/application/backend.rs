@@ -1,26 +1,27 @@
 use std::{cell::Cell, rc::Rc, sync::Arc, time::Duration};
 
 use irisia_backend::{
+    AppWindow, WinitWindow,
     skia_safe::Canvas,
     window_handle::RawWindowHandle,
     winit::{dpi::PhysicalSize, event::WindowEvent, window::WindowAttributes},
-    AppWindow, WinitWindow,
 };
 
 use crate::{
-    event::{standard::WindowDestroyed, EventDispatcher},
-    model::{EleModel, ModelCreateCtx, VNode},
-    prim_element::{callback_queue::CallbackQueue, EMCreateCtx, EmitEventArgs, RenderTree},
-    primitive::{Point, Region},
     Result,
+    event::{EventDispatcher, standard::WindowDestroyed},
+    model::{EleModel, ModelCreateCtx, VNode},
+    prim_element::{EMCreateCtx, EmitEventArgs, RenderTree, callback_queue::CallbackQueue},
+    primitive::{Point, Region, length::LengthStandardGlobalPart},
 };
 
 use super::{
+    Window,
     content::GlobalContent,
-    event2::pointer_event::{PointerState, PointerStateDelta},
     event_comp::global::focusing::Focusing,
+    event2::pointer_event::{PointerState, PointerStateDelta},
     redraw_scheduler::RedrawScheduler,
-    window_size_to_constraint, Window,
+    window_size_to_constraint,
 };
 
 pub(super) struct BackendRuntime {
@@ -47,7 +48,16 @@ impl AppWindow for BackendRuntime {
     }
 
     fn on_window_event(&mut self, event: WindowEvent, _window_inner_size: PhysicalSize<u32>) {
+        // TODO: watch dpi change
+        // if let WindowEvent::ScaleFactorChanged { scale_factor, inner_size_writer }
+
         if let WindowEvent::Resized(new_size) = event {
+            let ls = self.gc.length_standard();
+            self.gc.length_standard.set(LengthStandardGlobalPart {
+                viewport_size: new_size.into(),
+                ..ls
+            });
+
             self.root_model
                 .get_element()
                 .layout(window_size_to_constraint(new_size));
@@ -91,7 +101,10 @@ impl AppWindow for BackendRuntime {
 fn window_size_to_draw_region(size: PhysicalSize<u32>) -> Region {
     Region {
         left_top: Point { x: 0.0, y: 0.0 },
-        right_bottom: Point { x: size.width as f32, y: size.height as f32 },
+        right_bottom: Point {
+            x: size.width as f32,
+            y: size.height as f32,
+        },
     }
 }
 
@@ -114,6 +127,10 @@ where
             let gc = Rc::new(GlobalContent {
                 global_ed: ev_disp,
                 focusing: Focusing::new(),
+                length_standard: Cell::new(LengthStandardGlobalPart {
+                    viewport_size: window.inner_size().into(),
+                    dpi: window.scale_factor() as _,
+                }),
                 window,
                 redraw_scheduler,
                 close_handle,
