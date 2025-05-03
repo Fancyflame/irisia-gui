@@ -4,7 +4,7 @@ use super::definition::SignalProxied;
 
 pub struct CheckEq<T>(Fallback<T>);
 pub struct Fallback<T>(Option<T>);
-const FALLBACK_TO: bool = false;
+const EQ_FALLBACK_TO: bool = false;
 
 pub fn check_eq<T>(value: T) -> CheckEq<T> {
     CheckEq(Fallback(Some(value)))
@@ -36,7 +36,7 @@ impl<T> Fallback<T> {
     pub fn get(&mut self) -> SignalProxied<T> {
         SignalProxied {
             value: self.0.take().unwrap(),
-            eq_fn: |_, _| FALLBACK_TO,
+            eq_fn: |_, _| EQ_FALLBACK_TO,
         }
     }
 }

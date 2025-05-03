@@ -11,9 +11,9 @@ use irisia::{
     prim_element::{
         block::{layout::LayoutChildren, BlockLayout, BlockStyle},
         text::TextStyle,
-        Element, Size, SpaceConstraint,
+        Size, SpaceConstraint,
     },
-    primitive::{Point, Region},
+    primitive::Point,
     skia_safe::Color,
     Result, Window, WinitWindow,
 };
@@ -88,7 +88,7 @@ fn app() -> impl VNode<ParentProps = ()> {
                 // on PointerEvent(foo) => {
 
                 // },
-                text := text,
+                text := coerce_hook!(text),
                 style: TextStyle {
                     font_size: 40.0,
                     font_color: Color::MAGENTA,
@@ -166,7 +166,7 @@ impl Component for CustomComp {
 
         build2! {
             Block {
-                display := layout,
+                display := coerce_hook!(layout),
                 (self.children.clear_parent_props())
             }
         }

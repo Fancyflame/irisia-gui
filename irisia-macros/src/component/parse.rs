@@ -204,7 +204,7 @@ fn parse_field_assignment(input: ParseStream) -> Result<Option<FieldAssignment>>
 }
 
 fn parse_component(input: ParseStream) -> Result<ComponentStmt> {
-    let type_path = input.parse()?;
+    let comp_type = input.parse()?;
 
     let content;
     braced!(content in input);
@@ -215,7 +215,7 @@ fn parse_component(input: ParseStream) -> Result<ComponentStmt> {
     }
 
     Ok(ComponentStmt {
-        type_path,
+        comp_type,
         fields,
         body: parse_stmts(&content)?,
     })

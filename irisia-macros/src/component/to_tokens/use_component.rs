@@ -17,7 +17,7 @@ impl GenerationEnv<'_> {
     pub(super) fn gen_component(
         &self,
         ComponentStmt {
-            type_path,
+            comp_type,
             fields: all_fields,
             body,
         }: &ComponentStmt,
@@ -40,7 +40,7 @@ impl GenerationEnv<'_> {
                     method: FieldAssignMethod::HostingSignal,
                     value: Expr::Verbatim(
                         GenerationEnv {
-                            parent_component: Some(type_path),
+                            parent_component: Some(comp_type),
                         }
                         .gen_rc_chained(&body),
                     ),
@@ -50,7 +50,7 @@ impl GenerationEnv<'_> {
 
         let defs = field_asgn_binary_fold(&fields, &|fa| {
             let FieldAssignment {
-                name: _,
+                name,
                 value,
                 method,
             } = fa;
@@ -63,7 +63,9 @@ impl GenerationEnv<'_> {
                 }
                 FieldAssignMethod::Direct => {
                     quote! {
-                        #PATH_COMPONENT::definition::DirectAssign(#value)
+                        #PATH_COMPONENT::direct_assign_helper::type_infer(
+                            |v: #comp_type| v.#name
+                        ).infer(#value)
                     }
                 }
                 FieldAssignMethod::ParentProp => unreachable!(),
@@ -74,14 +76,14 @@ impl GenerationEnv<'_> {
         let prop_assignments = fields.iter().map(|fa| {
             let name = &fa.name;
             let value = match fa.method {
-                FieldAssignMethod::HostingSignal | FieldAssignMethod::Direct => {
+                FieldAssignMethod::HostingSignal => {
                     quote! {
                         irisia::coerce_hook!(#name)
                     }
                 }
-                // FieldAssignMethod::Direct => {
-                //     quote! { #name }
-                // }
+                FieldAssignMethod::Direct => {
+                    quote! { #name }
+                }
                 FieldAssignMethod::ParentProp => unreachable!(),
             };
 
@@ -92,7 +94,7 @@ impl GenerationEnv<'_> {
 
         let create_fn = quote! {
             |#names_tuple| {
-                #type_path {
+                #comp_type {
                     #(#prop_assignments)*
                     ..#DEFAULT_TRAIT::default()
                 }
@@ -104,7 +106,7 @@ impl GenerationEnv<'_> {
 
         quote! {
             {
-                #PATH_COMPONENT::UseComponent::<#type_path, _, _, _>::new(
+                #PATH_COMPONENT::UseComponent::<#comp_type, _, _, _>::new(
                     #parent_prop_expr,
                     #create_fn,
                     #defs,

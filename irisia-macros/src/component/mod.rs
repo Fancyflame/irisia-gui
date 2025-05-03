@@ -53,7 +53,7 @@ struct BlockStmt {
 }
 
 struct ComponentStmt {
-    type_path: syn::Path,
+    comp_type: syn::Path,
     fields: Vec<FieldAssignment>,
     body: Vec<Stmt>,
 }
