@@ -177,7 +177,7 @@ fn constraint_single_axis_styled(
     length: Length,
     ls: &LengthStandardGlobalPart,
 ) -> SpaceConstraint {
-    let Some(except) = length.to_resolved(LengthStandard {
+    let Some(except) = length.to_resolved(&LengthStandard {
         global: *ls,
         parent_axis_len: input_constraint.as_parent_size().unwrap_or(0.0),
     }) else {

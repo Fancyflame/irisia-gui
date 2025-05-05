@@ -26,6 +26,8 @@ pub enum Length {
 }
 
 impl Length {
+    pub const ZERO: Self = Length::Measured(MeasuredLength::ZERO);
+
     pub fn map<F>(self, f: F) -> Length
     where
         F: FnOnce(MeasuredLength) -> MeasuredLength,
@@ -36,7 +38,7 @@ impl Length {
         }
     }
 
-    pub fn to_resolved(&self, standard: LengthStandard) -> Option<f32> {
+    pub fn to_resolved(&self, standard: &LengthStandard) -> Option<f32> {
         match self {
             Length::Measured(m) => Some(m.to_resolved(standard)),
             Length::Auto => None,
@@ -109,8 +111,8 @@ impl Default for MeasuredLength {
 impl MeasuredLength {
     /// Convert the relative length to physical length of the screen with a window.
     /// The resolved value can be used directly to draw something.
-    pub fn to_resolved(&self, standard: LengthStandard) -> f32 {
-        let LengthStandard {
+    pub fn to_resolved(&self, standard: &LengthStandard) -> f32 {
+        let &LengthStandard {
             parent_axis_len,
             global: LengthStandardGlobalPart { dpi, viewport_size },
         } = standard;

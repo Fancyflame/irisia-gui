@@ -6,7 +6,7 @@ pub struct Size<T> {
     pub height: T,
 }
 
-impl_two_dimensions!(Size width height);
+impl_mul_dimensions!(Size width height);
 
 impl<T> From<PhysicalSize<T>> for Size<T> {
     fn from(value: PhysicalSize<T>) -> Self {

@@ -6,7 +6,7 @@ pub struct Point<T = f32> {
     pub y: T,
 }
 
-impl_two_dimensions!(Point x y);
+impl_mul_dimensions!(Point x y);
 
 impl Point {
     pub const ZERO: Self = Point { x: 0.0, y: 0.0 };
