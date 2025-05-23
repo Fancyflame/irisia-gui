@@ -1,8 +1,11 @@
 use std::any::Any;
 
 use crate::{
-    prim_element::SpaceConstraint,
-    primitive::{Point, size::Size},
+    prim_element::{
+        RenderTreeExt,
+        layout::{FinalLayout, SpaceConstraint},
+    },
+    primitive::{length::LengthStandard, size::Size},
 };
 
 use super::Child as ChildStorage;
@@ -15,43 +18,52 @@ pub trait BlockLayout: Any {
     ) -> Size<f32>;
 }
 
-pub struct Child<'a>(&'a mut ChildStorage);
+pub struct Child<'a> {
+    child: &'a ChildStorage,
+    length_standard: &'a Size<LengthStandard>,
+}
+
 impl Child<'_> {
-    pub fn set_location(&mut self, location: Point) {
-        self.0.location = location;
+    pub fn measure(&self, constraint: Size<SpaceConstraint>) -> Size<f32> {
+        self.child
+            .element
+            .borrow_mut()
+            .compute_layout_cached(constraint, *self.length_standard)
     }
 
-    pub fn measure(&mut self, constraint: Size<SpaceConstraint>) -> Size<f32> {
-        let size = self.0.element.borrow_mut().layout(constraint);
-        self.0.cached_layout = Some((constraint, size));
-        size
-    }
-
-    pub fn get_cached(&self) -> Option<(Size<SpaceConstraint>, Size<f32>)> {
-        self.0.cached_layout
+    pub fn set_final_layout(&self, final_layout: Option<FinalLayout>) {
+        self.child
+            .element
+            .borrow_mut()
+            .set_final_layout(final_layout);
     }
 }
 
 pub struct LayoutChildren<'a> {
-    children: &'a mut [ChildStorage],
+    children: &'a [ChildStorage],
+    length_standard: &'a Size<LengthStandard>,
 }
 
 impl<'a> LayoutChildren<'a> {
-    pub(super) fn new(children: &'a mut [ChildStorage]) -> Self {
-        for child in children.iter_mut() {
-            child.cached_layout = None;
-            child.location = Point::ZERO;
+    pub(super) fn new(children: &'a [ChildStorage], ls: &'a Size<LengthStandard>) -> Self {
+        Self {
+            children,
+            length_standard: ls,
         }
-
-        Self { children }
     }
 
-    pub fn iter(&mut self) -> impl Iterator<Item = Child<'_>> + use<'_, 'a> {
-        self.children.iter_mut().map(Child)
+    pub fn iter(&self) -> impl Iterator<Item = Child<'_>> + use<'_, 'a> {
+        self.children.iter().map(|child| Child {
+            child,
+            length_standard: self.length_standard,
+        })
     }
 
-    pub fn get(&mut self, index: usize) -> Option<Child> {
-        self.children.get_mut(index).map(Child)
+    pub fn get(&self, index: usize) -> Option<Child> {
+        self.children.get(index).map(|child| Child {
+            child,
+            length_standard: self.length_standard,
+        })
     }
 
     pub fn len(&self) -> usize {
@@ -69,23 +81,20 @@ pub struct DefaultLayouter;
 impl BlockLayout for DefaultLayouter {
     fn compute_layout(
         &self,
-        mut children: LayoutChildren,
+        children: LayoutChildren,
         constraint: Size<SpaceConstraint>,
     ) -> Size<f32> {
-        let mut max_size = Size {
+        let mut final_size = Size {
             width: 0.0,
             height: 0.0,
         };
 
-        for mut child in children.iter() {
+        for child in children.iter() {
             let this_size = child.measure(constraint);
-            max_size.width = this_size.width.max(max_size.width);
-            max_size.height = this_size.height.max(max_size.height);
+            final_size.width = this_size.width.max(final_size.width);
+            final_size.height = this_size.height.max(final_size.height);
         }
 
-        Size {
-            width: constraint.width.constraint_length(max_size.width),
-            height: constraint.height.constraint_length(max_size.height),
-        }
+        final_size
     }
 }

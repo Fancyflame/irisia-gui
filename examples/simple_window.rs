@@ -10,8 +10,8 @@ use irisia::{
         prim::{Block, Text},
     },
     prim_element::{
-        SpaceConstraint,
         block::{BlockLayout, BlockStyle, layout::LayoutChildren},
+        modname::SpaceConstraint,
         text::TextStyle,
     },
     primitive::{
@@ -226,7 +226,7 @@ impl BlockLayout for AverageDivideLayout {
     fn compute_layout(
         &self,
         mut children: LayoutChildren,
-        constraint: Size<SpaceConstraint>,
+        constraint: Size<modname::SpaceConstraint>,
     ) -> Size<f32> {
         let (main_axis_constraint, sub_axis_constraint) = self.get_axis(constraint);
 
@@ -238,8 +238,8 @@ impl BlockLayout for AverageDivideLayout {
 
         for (index, mut child) in children.iter().enumerate() {
             let size = child.measure(self.set_axis(
-                SpaceConstraint::Available(main_axis_each_space),
-                SpaceConstraint::Available(sub_axis_len),
+                modname::SpaceConstraint::Available(main_axis_each_space),
+                modname::SpaceConstraint::Available(sub_axis_len),
             ));
             //sub_axis_len = sub_axis_len.max(self.get_axis(size).1);
 

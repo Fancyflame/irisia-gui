@@ -9,7 +9,7 @@ use crate::{
     Result,
     event::{EventDispatcher, standard::WindowDestroyed},
     model::VNode,
-    prim_element::SpaceConstraint,
+    prim_element::layout::SpaceConstraint,
     primitive::size::Size,
 };
 

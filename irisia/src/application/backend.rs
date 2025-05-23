@@ -11,8 +11,11 @@ use crate::{
     Result,
     event::{EventDispatcher, standard::WindowDestroyed},
     model::{EleModel, ModelCreateCtx, VNode},
-    prim_element::{EMCreateCtx, EmitEventArgs, RenderTree, callback_queue::CallbackQueue},
-    primitive::{Point, Region, length::LengthStandardGlobalPart},
+    prim_element::{EMCreateCtx, EmitEventArgs, RenderTreeExt, callback_queue::CallbackQueue},
+    primitive::{
+        Point, Region,
+        length::{LengthStandard, LengthStandardGlobalPart},
+    },
 };
 
 use super::{
@@ -52,15 +55,17 @@ impl AppWindow for BackendRuntime {
         // if let WindowEvent::ScaleFactorChanged { scale_factor, inner_size_writer }
 
         if let WindowEvent::Resized(new_size) = event {
-            let ls = self.gc.length_standard();
-            self.gc.length_standard.set(LengthStandardGlobalPart {
-                viewport_size: new_size.into(),
-                ..ls
-            });
+            let mut lsgp = self.gc.length_standard();
+            lsgp.viewport_size = new_size.into();
+            self.gc.length_standard.set(lsgp);
 
-            self.root_model
-                .get_element()
-                .layout(window_size_to_constraint(new_size));
+            self.root_model.get_element().borrow_mut().compute_layout(
+                window_size_to_constraint(new_size),
+                lsgp.viewport_size.map(|x| LengthStandard {
+                    global: lsgp,
+                    percentage_reference: x as f32,
+                }),
+            );
         }
 
         let Some(next) = self.pointer_state.next(&event) else {
@@ -68,17 +73,20 @@ impl AppWindow for BackendRuntime {
             return;
         };
 
-        let mut delta = PointerStateDelta {
+        let delta = PointerStateDelta {
             prev: self.pointer_state,
             next,
             cursor_may_over: true,
         };
         self.pointer_state = next;
 
-        self.root_model.get_element().emit_event(EmitEventArgs {
-            queue: &mut self.callback_queue,
-            delta: &mut delta,
-        });
+        self.root_model
+            .get_element()
+            .borrow_mut()
+            .emit_event(&mut EmitEventArgs {
+                queue: &mut self.callback_queue,
+                delta,
+            });
         self.callback_queue.execute();
         // TODO
         // if let WindowEvent::Resized(size) = &event {

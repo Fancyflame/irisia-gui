@@ -5,13 +5,13 @@ use std::{
 };
 
 use irisia_backend::{
-    skia_safe::{region::RegionOp, Canvas, Color, Region as SkRegion},
-    winit::dpi::PhysicalSize,
     WinitWindow,
+    skia_safe::{Canvas, Color, Region as SkRegion, region::RegionOp},
+    winit::dpi::PhysicalSize,
 };
 
 use crate::{
-    prim_element::{Element, RenderArgs, RenderTree},
+    prim_element::{Element, RenderArgs, RenderTree, RenderTreeExt},
     primitive::{Point, Region},
 };
 
@@ -55,11 +55,13 @@ impl RedrawScheduler {
 
     pub fn redraw(
         &self,
-        root: &mut Element,
+        root: &Element,
         canvas: &Canvas,
         interval: Duration,
         draw_size: PhysicalSize<u32>,
     ) {
+        let mut root = root.borrow_mut();
+
         if self.relayout_mode.take() {
             root.layout(window_size_to_constraint(draw_size));
         }
@@ -71,7 +73,7 @@ impl RedrawScheduler {
         canvas.save();
         //canvas.clip_region(&redrawing_dirty_region, ClipOp::Intersect);
         canvas.clear(Color::WHITE);
-        root.render(
+        root.render_entry(
             RenderArgs {
                 canvas,
                 interval,

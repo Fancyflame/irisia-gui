@@ -8,6 +8,7 @@ use std::{
 use block::RenderBlock;
 use callback_queue::CallbackQueue;
 use irisia_backend::skia_safe::{Canvas, ClipOp, Region as SkRegion};
+use layout::FinalLayout;
 
 use crate::{
     Handle,
@@ -16,14 +17,14 @@ use crate::{
         event2::pointer_event::{PointerEvent, PointerStateDelta},
     },
     hook::{Signal, utils::trace_cell::TraceRef},
-    primitive::{Point, Region, size::Size},
+    primitive::{Point, Region, length::LengthStandard, size::Size},
 };
 
 pub(self) use common::Common;
-
 pub mod block;
 pub(crate) mod callback_queue;
 mod common;
+pub mod layout;
 // pub mod image;
 mod redraw_guard;
 pub mod text;
@@ -38,10 +39,65 @@ pub struct EMCreateCtx {
 }
 
 pub trait RenderTree: 'static {
-    fn render(&mut self, args: RenderArgs, draw_location: Point);
-    fn emit_event(&mut self, args: EmitEventArgs);
-    fn layout(&mut self, constraint: Size<SpaceConstraint>) -> Size<f32>;
-    fn set_callback(&mut self, callback: EventCallback);
+    fn render(&mut self, args: RenderArgs, draw_location: Point<f32>);
+    fn compute_layout(
+        &mut self,
+        constraint: Size<layout::SpaceConstraint>,
+        length_standard: Size<LengthStandard>,
+    ) -> Size<f32>;
+    fn children_emit_event(&mut self, args: &mut EmitEventArgs);
+    fn common_mut(&mut self) -> &mut Common;
+}
+
+impl<T: RenderTree + ?Sized> RenderTreeExt for T {}
+pub(crate) trait RenderTreeExt: RenderTree {
+    fn render_entry(&mut self, args: RenderArgs, parent_location: Point<f32>) {
+        self.common_mut().redraw_request_sent = false;
+
+        let absolute_draw_region = match self.common_mut().final_layout {
+            Some(visible_layout) => visible_layout.region + parent_location.split_hv_to_rect(),
+            None => return,
+        };
+
+        if args.needs_redraw(absolute_draw_region.to_lagacy_region()) {
+            self.render(args, absolute_draw_region.get_location());
+        }
+    }
+
+    fn emit_event(&mut self, args: &mut EmitEventArgs) {
+        self.common_mut().use_callback(args);
+        self.children_emit_event(args);
+    }
+
+    fn set_callback(&mut self, callback: EventCallback) {
+        self.common_mut().event_callback = Some(callback);
+    }
+
+    fn compute_layout_cached(
+        &mut self,
+        constraint: Size<layout::SpaceConstraint>,
+        length_standard: Size<LengthStandard>,
+    ) -> Size<f32> {
+        match &self.common_mut().cached_layout {
+            Some((cached_constraint, cached)) if *cached_constraint == constraint => *cached,
+            _ => {
+                let computed = self.compute_layout(constraint, length_standard);
+                self.common_mut().cached_layout = Some((constraint, computed));
+                computed
+            }
+        }
+    }
+
+    fn set_final_layout(&mut self, new_layout: Option<FinalLayout>) {
+        let common = self.common_mut();
+
+        if common.final_layout == new_layout {
+            return;
+        }
+
+        common.final_layout = new_layout;
+        common.request_redraw();
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -68,59 +124,9 @@ impl RenderArgs<'_> {
 
 pub type Element = Handle<dyn RenderTree>;
 
-impl RenderTree for Element {
-    fn render(&mut self, args: RenderArgs, location: Point) {
-        self.borrow_mut().render(args, location);
-    }
-    fn emit_event(&mut self, args: EmitEventArgs) {
-        self.borrow_mut().emit_event(args);
-    }
-    fn layout(&mut self, constraint: Size<SpaceConstraint>) -> Size<f32> {
-        self.borrow_mut().layout(constraint)
-    }
-    fn set_callback(&mut self, callback: EventCallback) {
-        self.borrow_mut().set_callback(callback);
-    }
-}
-
 pub struct EmitEventArgs<'a> {
     pub(crate) queue: &'a mut CallbackQueue,
-    pub(crate) delta: &'a mut PointerStateDelta,
-}
-
-impl EmitEventArgs<'_> {
-    pub(crate) fn reborrow<'r>(&'r mut self) -> EmitEventArgs<'r> {
-        EmitEventArgs {
-            queue: self.queue,
-            delta: self.delta,
-        }
-    }
-}
-
-#[derive(Clone, Copy, PartialEq, Debug)]
-pub enum SpaceConstraint {
-    Exact(f32),
-    Available(f32),
-    MinContent,
-    MaxContent,
-}
-
-impl SpaceConstraint {
-    pub const fn as_parent_size(self) -> Option<f32> {
-        match self {
-            Self::Exact(v) | Self::Available(v) => Some(v),
-            Self::MinContent | Self::MaxContent => None,
-        }
-    }
-
-    pub fn constraint_length(self, request_length: f32) -> f32 {
-        (match self {
-            Self::Available(a) => a.min(request_length),
-            Self::Exact(e) => e,
-            Self::MinContent | Self::MaxContent => request_length,
-        })
-        .max(0.0)
-    }
+    pub(crate) delta: PointerStateDelta,
 }
 
 fn make_region(location: Point, width: f32, height: f32) -> Region {

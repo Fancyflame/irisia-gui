@@ -1,5 +1,7 @@
 use irisia_backend::winit::dpi::PhysicalSize;
 
+use super::Point;
+
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct Size<T> {
     pub width: T,
@@ -7,6 +9,15 @@ pub struct Size<T> {
 }
 
 impl_mul_dimensions!(Size width height);
+
+impl<T> Size<T> {
+    pub fn to_point(self) -> Point<T> {
+        Point {
+            x: self.width,
+            y: self.height,
+        }
+    }
+}
 
 impl<T> From<PhysicalSize<T>> for Size<T> {
     fn from(value: PhysicalSize<T>) -> Self {

@@ -1,18 +1,15 @@
 use irisia_backend::skia_safe::Color;
 use layout::{DefaultLayouter, LayoutChildren};
-use rect::DrawRRect;
+use rect::{DrawRRect, DrawRRectProps};
 
 use crate::{
     hook::Signal,
-    primitive::{
-        Length, Point,
-        length::{LengthStandard, LengthStandardGlobalPart},
-    },
+    primitive::{Length, Point, corner::Corner, length::LengthStandard, rect::Rect},
 };
 
 use super::{
-    Common, EMCreateCtx, Element, EmitEventArgs, EventCallback, RenderTree, Size, SpaceConstraint,
-    read_or_default, redraw_guard::RedrawGuard,
+    Common, EMCreateCtx, Element, EmitEventArgs, EventCallback, RenderArgs, RenderTree,
+    RenderTreeExt, Size, layout::SpaceConstraint, read_or_default, redraw_guard::RedrawGuard,
 };
 
 pub use layout::BlockLayout;
@@ -24,22 +21,33 @@ mod rect;
 pub struct BlockStyle {
     pub width: Length,
     pub height: Length,
-    pub margin: f32,
+    pub margin: Rect<Length>,
     pub background: Color,
-    pub border_width: f32,
+    pub border_width: Rect<Length>,
     pub border_color: Color,
-    pub border_radius: [f32; 4],
+    pub border_radius: Corner<f32>,
+    pub padding: Rect<Length>,
+    pub box_sizing: BoxSizing,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
+pub enum BoxSizing {
+    #[default]
+    ContentBox,
+    BorderBox,
 }
 
 impl BlockStyle {
     pub const DEFAULT: Self = Self {
         width: Length::Auto,
         height: Length::Auto,
-        margin: 0.0,
+        margin: Rect::all(Length::Auto),
         background: Color::TRANSPARENT,
-        border_width: 0.0,
+        border_width: Rect::all(Length::Auto),
         border_color: Color::BLACK,
-        border_radius: [0.0; 4],
+        border_radius: Corner::all(0.0),
+        padding: Rect::all(Length::Auto),
+        box_sizing: BoxSizing::ContentBox,
     };
 }
 
@@ -51,8 +59,6 @@ impl Default for BlockStyle {
 
 struct Child {
     element: Element,
-    location: Point,
-    cached_layout: Option<(Size<SpaceConstraint>, Size<f32>)>,
 }
 
 pub struct RenderBlock {
@@ -106,134 +112,85 @@ impl RenderBlock {
         self.children.0.clear();
         RedrawGuard::new(&mut self.children, &mut self.common)
     }
-
-    fn layout_tree(&mut self, constraint: Size<SpaceConstraint>, force_compute: bool) -> Size<f32> {
-        let length_standard_gp = self.common.ctx.global_content.length_standard();
-        let layout_fn = |constraint: Size<SpaceConstraint>| {
-            let wh_style = match self.style.as_ref() {
-                Some(style) => {
-                    let style = style.read();
-                    Size {
-                        width: style.width,
-                        height: style.height,
-                    }
-                }
-                None => Size::default(),
-            };
-
-            let new_constraint = Size {
-                width: constraint_single_axis_styled(
-                    constraint.width,
-                    wh_style.width,
-                    &length_standard_gp,
-                ),
-                height: constraint_single_axis_styled(
-                    constraint.height,
-                    wh_style.height,
-                    &length_standard_gp,
-                ),
-            };
-
-            let this_size = read_or_default(&self.layouter, &DefaultLayouter)
-                .compute_layout(LayoutChildren::new(&mut self.children.0), new_constraint);
-
-            if self
-                .children
-                .0
-                .iter()
-                .any(|child| child.cached_layout.is_none())
-            {
-                panic!("there still some elements not being layouted");
-            }
-
-            self.cached_background_rect.take();
-
-            this_size
-        };
-
-        let result = self
-            .common
-            .use_cached_layout(constraint, force_compute, layout_fn);
-        self.needs_check_children_sizes = false;
-        result
-    }
-
-    fn recompute_and_check_child_sizes(&mut self) -> bool {
-        for child in self.children.0.iter_mut() {
-            let Some((constraint, old_size)) = child.cached_layout else {
-                return true;
-            };
-
-            if child.element.layout(constraint) != old_size {
-                return true;
-            }
-        }
-        false
-    }
-}
-
-fn constraint_single_axis_styled(
-    input_constraint: SpaceConstraint,
-    length: Length,
-    ls: &LengthStandardGlobalPart,
-) -> SpaceConstraint {
-    let Some(except) = length.to_resolved(&LengthStandard {
-        global: *ls,
-        parent_axis_len: input_constraint.as_parent_size().unwrap_or(0.0),
-    }) else {
-        return input_constraint;
-    };
-
-    SpaceConstraint::Exact(match input_constraint {
-        SpaceConstraint::Available(available) => available.min(except),
-        SpaceConstraint::Exact(value) => value,
-        SpaceConstraint::MinContent | SpaceConstraint::MaxContent => except,
-    })
 }
 
 impl RenderTree for RenderBlock {
-    fn render(&mut self, args: super::RenderArgs, location: Point) {
-        if self.needs_check_children_sizes || self.common.cached_layout.is_none() {
-            panic!("must layout before render");
-        }
-
-        let draw_region = self.common.set_rendered(location);
-
-        if !args.needs_redraw(draw_region) {
-            return;
-        }
-
+    fn render(&mut self, args: RenderArgs, draw_location: Point<f32>) {
         self.cached_background_rect
-            .get_or_insert_with(|| {
-                DrawRRect::new(
-                    &read_or_default(&self.style, &BlockStyle::DEFAULT),
-                    draw_region,
-                )
-            })
-            .draw(args.canvas);
+            .as_ref()
+            .expect("cannot render before layout")
+            .draw(args.canvas, draw_location);
 
         for child in self.children.0.iter_mut() {
-            child.element.render(args, location + child.location);
+            child.element.borrow_mut().render_entry(args, draw_location);
         }
     }
 
-    fn layout(&mut self, constraint: Size<SpaceConstraint>) -> Size<f32> {
-        let force_compute = self.common.cached_layout.is_none()
-            || (self.needs_check_children_sizes && self.recompute_and_check_child_sizes());
+    fn compute_layout(
+        &mut self,
+        constraint: Size<SpaceConstraint>,
+        length_standard: Size<LengthStandard>,
+    ) -> Size<f32> {
+        let style = read_or_default(&self.style, &BlockStyle::DEFAULT);
 
-        self.layout_tree(constraint, force_compute)
+        let resolve_rect = |rect: Rect<Length>| {
+            rect.map_with(
+                length_standard.as_ref().to_point().split_hv_to_rect(),
+                |len, std| std.resolve(len).unwrap_or(0.0),
+            )
+        };
+
+        let margin = resolve_rect(style.margin);
+        let border = resolve_rect(style.border_width);
+        let padding = resolve_rect(style.padding);
+
+        let white_space_size = (margin + border + padding)
+            .as_border_size()
+            .map(|(start, end)| start + end)
+            .to_size();
+
+        let content_constraint =
+            constraint.map_with(white_space_size, |mut constraint, white_space| {
+                if let Some(num) = constraint.get_numerical() {
+                    *num = (*num - white_space).max(0.0);
+                }
+                constraint
+            });
+
+        let child_length_standard = length_standard.map_with(content_constraint, |ls, mut cons| {
+            ls.set_percentage_reference(match cons.get_numerical() {
+                Some(v) => *v,
+                None => 0.0,
+            })
+        });
+
+        let layouter = read_or_default(&self.layouter, &DefaultLayouter);
+        let content_size = layouter.compute_layout(
+            LayoutChildren::new(&mut self.children.0, &child_length_standard),
+            content_constraint,
+        );
+
+        let outer_size = content_size + white_space_size;
+        self.cached_background_rect = Some(DrawRRect::new(DrawRRectProps {
+            background: style.background,
+            border_color: style.border_color,
+            border_radius: style.border_radius,
+            margin,
+            border,
+            outer_size,
+        }));
+
+        outer_size
     }
 
-    fn emit_event(&mut self, mut args: EmitEventArgs) {
-        for child in self.children.0.iter_mut().rev() {
-            child.element.emit_event(args.reborrow());
+    fn children_emit_event(&mut self, args: &mut EmitEventArgs) {
+        for child in &self.children.0 {
+            child.element.borrow_mut().emit_event(args);
         }
-
-        self.common.use_callback(args);
     }
 
-    fn set_callback(&mut self, callback: EventCallback) {
-        self.common.event_callback = Some(callback);
+    fn common_mut(&mut self) -> &mut Common {
+        &mut self.common
     }
 }
 
@@ -245,10 +202,6 @@ impl ElementList {
     }
 
     pub fn push(&mut self, el: Element) {
-        self.0.push(Child {
-            element: el,
-            cached_layout: None,
-            location: Point::ZERO,
-        });
+        self.0.push(Child { element: el });
     }
 }

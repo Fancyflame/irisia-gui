@@ -5,11 +5,13 @@ use irisia_backend::skia_safe::{
     },
 };
 
-use crate::{hook::Signal, primitive::Point};
+use crate::{
+    hook::Signal,
+    primitive::{Point, length::LengthStandard},
+};
 
 use super::{
-    Common, EMCreateCtx, EmitEventArgs, EventCallback, RenderTree, Size, SpaceConstraint,
-    clip_draw_region, read_or_default,
+    Common, EMCreateCtx, EventCallback, RenderTree, Size, layout::SpaceConstraint, read_or_default,
 };
 
 pub type SignalStr = Signal<dyn AsRef<str>>;
@@ -64,51 +66,41 @@ impl RenderText {
 }
 
 impl RenderTree for RenderText {
-    fn render(&mut self, args: super::RenderArgs, location: Point) {
-        let draw_region = self.common.set_rendered(location);
-        if !args.needs_redraw(draw_region) {
-            return;
-        }
-
+    fn render(&mut self, args: super::RenderArgs, draw_location: Point<f32>) {
         let paragraph = self
             .paragraph
             .get_or_insert_with(|| build_paragraph(&self.text, &self.style));
 
-        args.canvas.save();
-        clip_draw_region(args.canvas, draw_region);
-        paragraph.paint(args.canvas, location);
-        args.canvas.restore();
+        paragraph.paint(args.canvas, draw_location);
     }
 
-    fn emit_event(&mut self, args: EmitEventArgs) {
-        self.common.use_callback(args);
-    }
+    fn compute_layout(
+        &mut self,
+        constraint: Size<SpaceConstraint>,
+        _length_standard: Size<LengthStandard>,
+    ) -> Size<f32> {
+        let paragraph = self
+            .paragraph
+            .get_or_insert_with(|| build_paragraph(&self.text, &self.style));
 
-    fn layout(&mut self, constraint: Size<SpaceConstraint>) -> Size<f32> {
-        let layout_fn = |constraint: Size<SpaceConstraint>| {
-            let paragraph = self
-                .paragraph
-                .get_or_insert_with(|| build_paragraph(&self.text, &self.style));
-
-            let w = match constraint.width {
-                SpaceConstraint::Exact(width) | SpaceConstraint::Available(width) => width,
-                SpaceConstraint::MinContent => paragraph.min_intrinsic_width(),
-                SpaceConstraint::MaxContent => paragraph.max_intrinsic_width(),
-            };
-            paragraph.layout(w);
-
-            Size {
-                width: fit_constraint(paragraph.max_width(), constraint.width),
-                height: fit_constraint(paragraph.height(), constraint.height),
-            }
+        let w = match constraint.width {
+            SpaceConstraint::Exact(width) | SpaceConstraint::Available(width) => width,
+            SpaceConstraint::MinContent => paragraph.min_intrinsic_width(),
+            SpaceConstraint::MaxContent => paragraph.max_intrinsic_width(),
         };
+        paragraph.layout(w);
 
-        self.common.use_cached_layout(constraint, false, layout_fn)
+        Size {
+            width: fit_constraint(paragraph.max_width(), constraint.width),
+            height: fit_constraint(paragraph.height(), constraint.height),
+        }
     }
 
-    fn set_callback(&mut self, callback: EventCallback) {
-        self.common.event_callback = Some(callback);
+    fn common_mut(&mut self) -> &mut Common {
+        &mut self.common
     }
+
+    fn children_emit_event(&mut self, _: &mut super::EmitEventArgs) {}
 }
 
 fn build_paragraph(text: &Option<SignalStr>, style: &Option<Signal<TextStyle>>) -> Paragraph {

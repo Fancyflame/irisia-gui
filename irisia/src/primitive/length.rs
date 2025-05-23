@@ -7,15 +7,36 @@ use std::{
 
 use super::size::Size;
 
+#[derive(Clone, Copy)]
 pub struct LengthStandard {
     pub global: LengthStandardGlobalPart,
-    pub parent_axis_len: f32,
+    pub percentage_reference: f32,
 }
 
 #[derive(Clone, Copy)]
 pub struct LengthStandardGlobalPart {
     pub dpi: f32,
     pub viewport_size: Size<u32>,
+}
+
+impl LengthStandard {
+    pub fn resolve(&self, length: Length) -> Option<f32> {
+        match length {
+            Length::Measured(m) => Some(m.to_resolved(self)),
+            Length::Auto => None,
+        }
+    }
+
+    pub(crate) fn resolve_fn(&self) -> impl Fn(Length) -> Option<f32> {
+        |len| self.resolve(len)
+    }
+
+    pub fn set_percentage_reference(&self, r: f32) -> Self {
+        Self {
+            global: self.global,
+            percentage_reference: r,
+        }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Default)]
@@ -35,13 +56,6 @@ impl Length {
         match self {
             Length::Auto => Length::Auto,
             Length::Measured(m) => Length::Measured(f(m)),
-        }
-    }
-
-    pub fn to_resolved(&self, standard: &LengthStandard) -> Option<f32> {
-        match self {
-            Length::Measured(m) => Some(m.to_resolved(standard)),
-            Length::Auto => None,
         }
     }
 }
@@ -113,7 +127,7 @@ impl MeasuredLength {
     /// The resolved value can be used directly to draw something.
     pub fn to_resolved(&self, standard: &LengthStandard) -> f32 {
         let &LengthStandard {
-            parent_axis_len,
+            percentage_reference: parent_axis_len,
             global: LengthStandardGlobalPart { dpi, viewport_size },
         } = standard;
 

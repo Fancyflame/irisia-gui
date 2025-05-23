@@ -1,5 +1,7 @@
 use irisia_backend::{skia_safe::Point as SkiaPoint, winit::dpi::PhysicalPosition};
 
+use super::{Size, rect::Rect};
+
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct Point<T = f32> {
     pub x: T,
@@ -7,6 +9,27 @@ pub struct Point<T = f32> {
 }
 
 impl_mul_dimensions!(Point x y);
+
+impl<T> Point<T> {
+    pub fn split_hv_to_rect(&self) -> Rect<T>
+    where
+        T: Clone,
+    {
+        Rect {
+            left: self.x.clone(),
+            top: self.y.clone(),
+            right: self.x.clone(),
+            bottom: self.y.clone(),
+        }
+    }
+
+    pub fn to_size(self) -> Size<T> {
+        Size {
+            width: self.x,
+            height: self.y,
+        }
+    }
+}
 
 impl Point {
     pub const ZERO: Self = Point { x: 0.0, y: 0.0 };

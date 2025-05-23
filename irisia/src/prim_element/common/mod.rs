@@ -1,13 +1,16 @@
-use super::{EMCreateCtx, EmitEventArgs, EventCallback, Size, SpaceConstraint, make_region};
-use crate::primitive::{Point, Region};
+use super::{
+    EMCreateCtx, EmitEventArgs, EventCallback, Size,
+    layout::{FinalLayout, SpaceConstraint},
+};
+use crate::primitive::Region;
 
 pub(super) struct Common {
     prev_cursor_over: bool,
     pub ctx: EMCreateCtx,
     pub event_callback: Option<EventCallback>,
     pub cached_layout: Option<(Size<SpaceConstraint>, Size<f32>)>,
-    prev_draw_region: Option<Region>,
-    redraw_request_sent: bool,
+    pub final_layout: Option<FinalLayout>,
+    pub redraw_request_sent: bool,
 }
 
 impl Common {
@@ -15,7 +18,7 @@ impl Common {
         let mut this = Self {
             prev_cursor_over: false,
             event_callback,
-            prev_draw_region: None,
+            final_layout: None,
             cached_layout: None,
             ctx: ctx.clone(),
             redraw_request_sent: false,
@@ -24,10 +27,12 @@ impl Common {
         this
     }
 
-    pub fn use_callback(&mut self, args: EmitEventArgs) {
-        let Some(draw_region) = self.prev_draw_region else {
+    pub fn use_callback(&mut self, args: &mut EmitEventArgs) {
+        let Some(final_layout) = self.final_layout else {
             return;
         };
+
+        let draw_region = final_layout.region.to_lagacy_region();
 
         let events = args
             .delta
@@ -43,8 +48,10 @@ impl Common {
             return;
         }
 
-        if let Some(prev_dr) = self.prev_draw_region {
-            self.ctx.global_content.request_redraw(prev_dr);
+        if let Some(final_layout) = self.final_layout {
+            self.ctx
+                .global_content
+                .request_redraw(final_layout.region.to_lagacy_region());
         }
 
         // TODO: 设置脏区
@@ -64,35 +71,5 @@ impl Common {
         } else {
             self.ctx.global_content.request_relayout();
         }
-    }
-
-    pub fn set_rendered(&mut self, location: Point) -> Region {
-        let (_, size) = self
-            .cached_layout
-            .expect("element cannot be rendered before layout");
-        let new_region = make_region(location, size.width, size.height);
-        self.prev_draw_region = Some(new_region);
-        self.redraw_request_sent = false;
-        new_region
-    }
-
-    pub fn use_cached_layout<F>(
-        &mut self,
-        input_constraint: Size<SpaceConstraint>,
-        force_compute: bool,
-        compute: F,
-    ) -> Size<f32>
-    where
-        F: FnOnce(Size<SpaceConstraint>) -> Size<f32>,
-    {
-        if let (Some((constraint, result)), false) = (self.cached_layout, force_compute) {
-            if constraint == input_constraint {
-                return result;
-            }
-        }
-
-        let result = compute(input_constraint);
-        self.cached_layout = Some((input_constraint, result));
-        result
     }
 }

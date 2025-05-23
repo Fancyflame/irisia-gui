@@ -1,8 +1,11 @@
-pub use self::{length::Length, point::Point, region::Region};
+pub use self::{
+    corner::Corner, length::Length, point::Point, rect::Rect, region::Region, size::Size,
+};
 
 #[macro_use]
 mod mul_dimensions;
 
+pub mod corner;
 pub mod length;
 pub mod point;
 pub mod rect;
