@@ -1,27 +1,27 @@
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{
+    WeakHandle,
     hook::{
-        watcher::{WatcherGuard, WatcherList},
         Signal,
+        watcher::{WatcherGuard, WatcherList},
     },
     model::{
+        EleModel, Model, ModelCreateCtx, VModel,
         component::{Component, ComponentVNode},
         control_flow::{
+            CommonVModel,
             common_vmodel::{BoxedModel, DynVModel},
             miscellaneous::Empty,
-            CommonVModel,
         },
-        EleModel, Model, ModelCreateCtx, VModel,
     },
     prim_element::{
-        block::{BlockLayout, BlockStyle, ElementList, InitRenderBlock, RenderBlock},
         EMCreateCtx, Element, EventCallback,
+        block::{BlockLayout, BlockStyle, ElementList, InitRenderBlock, RenderBlock},
     },
-    WeakHandle,
 };
 
-use super::{panic_when_call_unreachable, PrimitiveModel, PrimitiveVnodeWrapper};
+use super::{PrimitiveModel, PrimitiveVnodeWrapper, panic_when_call_unreachable};
 
 #[derive(Default)]
 pub struct Block {
@@ -95,13 +95,16 @@ impl BlockModel {
             None => Empty::<()>::new().common_create(&ctx),
         };
 
-        let prim_block = Rc::new(RefCell::new(RenderBlock::new(InitRenderBlock {
-            style: props.style.clone(),
-            children: visit_into_list(&children),
-            layouter: props.display.clone(),
-            event_callback: props.on.clone(),
-            ctx: el_ctx,
-        })));
+        let prim_block = Rc::new_cyclic(|weak| {
+            RefCell::new(RenderBlock::new(InitRenderBlock {
+                this: weak.clone() as _,
+                style: props.style.clone(),
+                children: visit_into_list(&children),
+                layouter: props.display.clone(),
+                event_callback: props.on.clone(),
+                ctx: el_ctx,
+            }))
+        });
 
         BlockModel {
             el: prim_block,

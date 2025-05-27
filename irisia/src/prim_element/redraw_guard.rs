@@ -28,6 +28,6 @@ impl<T: ?Sized> DerefMut for RedrawGuard<'_, T> {
 
 impl<T: ?Sized> Drop for RedrawGuard<'_, T> {
     fn drop(&mut self) {
-        self.common.request_redraw();
+        self.common.request_repaint();
     }
 }

@@ -5,13 +5,12 @@ use irisia_backend::skia_safe::{
     },
 };
 
-use crate::{
-    hook::Signal,
-    primitive::{Point, length::LengthStandard},
-};
+use crate::{hook::Signal, primitive::Point};
 
 use super::{
-    Common, EMCreateCtx, EventCallback, RenderTree, Size, layout::SpaceConstraint, read_or_default,
+    Common, EMCreateCtx, EventCallback, RenderTree, Size, WeakElement,
+    layout::{LayoutInput, SpaceConstraint},
+    read_or_default,
 };
 
 pub type SignalStr = Signal<dyn AsRef<str>>;
@@ -44,6 +43,7 @@ impl Default for TextStyle {
 
 impl RenderText {
     pub fn new(
+        this: WeakElement,
         text: Option<SignalStr>,
         style: Option<Signal<TextStyle>>,
         event_callback: Option<EventCallback>,
@@ -53,15 +53,14 @@ impl RenderText {
             text,
             style,
             paragraph: None,
-            common: Common::new(event_callback, ctx),
+            common: Common::new(this, event_callback, ctx),
         }
     }
 
     pub fn text_updated(&mut self) {
         self.paragraph = None;
-        self.common.cached_layout.take();
-        self.common.request_redraw();
-        self.common.request_relayout();
+        self.common.request_repaint();
+        self.common.request_reflow();
     }
 }
 
@@ -76,8 +75,10 @@ impl RenderTree for RenderText {
 
     fn compute_layout(
         &mut self,
-        constraint: Size<SpaceConstraint>,
-        _length_standard: Size<LengthStandard>,
+        LayoutInput {
+            constraint,
+            length_standard: _,
+        }: LayoutInput,
     ) -> Size<f32> {
         let paragraph = self
             .paragraph

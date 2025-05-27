@@ -1,38 +1,42 @@
 use super::{
-    EMCreateCtx, EmitEventArgs, EventCallback, Size,
-    layout::{FinalLayout, SpaceConstraint},
+    EMCreateCtx, EmitEventArgs, EventCallback, RenderTree, WeakElement,
+    layout::{FinalLayout, LayoutInput},
 };
-use crate::primitive::Region;
+use crate::{WeakHandle, primitive::Rect};
 
-pub(super) struct Common {
+pub struct Common {
     prev_cursor_over: bool,
+    element: WeakElement,
     pub ctx: EMCreateCtx,
+    pub prev_draw_region: Option<Rect<f32>>,
     pub event_callback: Option<EventCallback>,
-    pub cached_layout: Option<(Size<SpaceConstraint>, Size<f32>)>,
-    pub final_layout: Option<FinalLayout>,
-    pub redraw_request_sent: bool,
+    pub layout_input: Option<LayoutInput>,
+    pub layout_output: FinalLayout,
 }
 
 impl Common {
-    pub fn new(event_callback: Option<EventCallback>, ctx: &EMCreateCtx) -> Common {
-        let mut this = Self {
+    pub fn new(
+        el: WeakHandle<dyn RenderTree>,
+        event_callback: Option<EventCallback>,
+        ctx: &EMCreateCtx,
+    ) -> Common {
+        Self {
             prev_cursor_over: false,
+            prev_draw_region: None,
+            element: el,
             event_callback,
-            final_layout: None,
-            cached_layout: None,
+            layout_output: FinalLayout::HIDDEN,
+            layout_input: None,
             ctx: ctx.clone(),
-            redraw_request_sent: false,
-        };
-        this.request_redraw();
-        this
+        }
     }
 
     pub fn use_callback(&mut self, args: &mut EmitEventArgs) {
-        let Some(final_layout) = self.final_layout else {
+        if self.layout_output.is_hidden() {
             return;
-        };
+        }
 
-        let draw_region = final_layout.region.to_lagacy_region();
+        let draw_region = self.layout_output.as_rect().to_lagacy_region();
 
         let events = args
             .delta
@@ -43,33 +47,12 @@ impl Common {
         }
     }
 
-    pub fn request_redraw(&mut self) {
-        if self.redraw_request_sent {
-            return;
-        }
-
-        if let Some(final_layout) = self.final_layout {
-            self.ctx
-                .global_content
-                .request_redraw(final_layout.region.to_lagacy_region());
-        }
-
-        // TODO: 设置脏区
-        self.ctx.global_content.request_redraw(Region::default());
-
-        self.redraw_request_sent = true;
+    pub fn request_repaint(&self) {
+        self.ctx.global_content.request_repaint(&self.element);
     }
 
-    pub fn request_relayout(&mut self) {
-        self.cached_layout.take();
-        if let Some(parent) = &self.ctx.parent {
-            parent
-                .upgrade()
-                .expect("parent should not be dropped when child is alive")
-                .borrow_mut()
-                .set_children_size_changed();
-        } else {
-            self.ctx.global_content.request_relayout();
-        }
+    pub fn request_reflow(&self) {
+        let el = self.element.upgrade().expect("element has been dropped");
+        self.ctx.global_content.request_reflow(&el);
     }
 }

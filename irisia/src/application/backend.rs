@@ -11,7 +11,10 @@ use crate::{
     Result,
     event::{EventDispatcher, standard::WindowDestroyed},
     model::{EleModel, ModelCreateCtx, VNode},
-    prim_element::{EMCreateCtx, EmitEventArgs, RenderTreeExt, callback_queue::CallbackQueue},
+    prim_element::{
+        EMCreateCtx, EmitEventArgs, RenderTreeExt, callback_queue::CallbackQueue,
+        layout::LayoutInput,
+    },
     primitive::{
         Point, Region,
         length::{LengthStandard, LengthStandardGlobalPart},
@@ -31,6 +34,7 @@ pub(super) struct BackendRuntime {
     pointer_state: PointerState,
     gc: Rc<GlobalContent>,
     root_model: Box<dyn EleModel>,
+    window_resized: bool,
     callback_queue: CallbackQueue,
 }
 
@@ -41,11 +45,27 @@ impl AppWindow for BackendRuntime {
         interval: Duration,
         window_inner_size: PhysicalSize<u32>,
     ) -> Result<()> {
+        let redraw_root_inputs = if self.window_resized {
+            let mut lsgp = self.gc.length_standard_global_part();
+            lsgp.viewport_size = window_inner_size.into();
+            self.gc.length_standard.set(lsgp);
+
+            Some(LayoutInput {
+                constraint: window_size_to_constraint(window_inner_size),
+                length_standard: lsgp.viewport_size.map(|x| LengthStandard {
+                    global: lsgp,
+                    percentage_reference: x as f32,
+                }),
+            })
+        } else {
+            None
+        };
+
         self.gc.redraw_scheduler.redraw(
-            &mut self.root_model.get_element(),
             canvas,
             interval,
-            window_inner_size,
+            &self.root_model.get_element(),
+            redraw_root_inputs,
         );
         Ok(())
     }
@@ -54,18 +74,8 @@ impl AppWindow for BackendRuntime {
         // TODO: watch dpi change
         // if let WindowEvent::ScaleFactorChanged { scale_factor, inner_size_writer }
 
-        if let WindowEvent::Resized(new_size) = event {
-            let mut lsgp = self.gc.length_standard();
-            lsgp.viewport_size = new_size.into();
-            self.gc.length_standard.set(lsgp);
-
-            self.root_model.get_element().borrow_mut().compute_layout(
-                window_size_to_constraint(new_size),
-                lsgp.viewport_size.map(|x| LengthStandard {
-                    global: lsgp,
-                    percentage_reference: x as f32,
-                }),
-            );
+        if let WindowEvent::Resized(_) = event {
+            self.window_resized = true;
         }
 
         let Some(next) = self.pointer_state.next(&event) else {
@@ -158,6 +168,7 @@ where
                 gc,
                 root_model: Box::new(root_model),
                 callback_queue: CallbackQueue::new(),
+                window_resized: true,
             }
         }
     };

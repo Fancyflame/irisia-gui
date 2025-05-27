@@ -8,19 +8,19 @@ use std::{
 use block::RenderBlock;
 use callback_queue::CallbackQueue;
 use irisia_backend::skia_safe::{Canvas, ClipOp, Region as SkRegion};
-use layout::FinalLayout;
+use layout::{FinalLayout, LayoutInput};
 
 use crate::{
-    Handle,
+    Handle, WeakHandle,
     application::{
         content::GlobalContent,
         event2::pointer_event::{PointerEvent, PointerStateDelta},
     },
     hook::{Signal, utils::trace_cell::TraceRef},
-    primitive::{Point, Region, length::LengthStandard, size::Size},
+    primitive::{Point, Rect, Region, size::Size},
 };
 
-pub(self) use common::Common;
+pub(crate) use common::Common;
 pub mod block;
 pub(crate) mod callback_queue;
 mod common;
@@ -40,11 +40,7 @@ pub struct EMCreateCtx {
 
 pub trait RenderTree: 'static {
     fn render(&mut self, args: RenderArgs, draw_location: Point<f32>);
-    fn compute_layout(
-        &mut self,
-        constraint: Size<layout::SpaceConstraint>,
-        length_standard: Size<LengthStandard>,
-    ) -> Size<f32>;
+    fn compute_layout(&mut self, inputs: LayoutInput) -> Size<f32>;
     fn children_emit_event(&mut self, args: &mut EmitEventArgs);
     fn common_mut(&mut self) -> &mut Common;
 }
@@ -52,14 +48,16 @@ pub trait RenderTree: 'static {
 impl<T: RenderTree + ?Sized> RenderTreeExt for T {}
 pub(crate) trait RenderTreeExt: RenderTree {
     fn render_entry(&mut self, args: RenderArgs, parent_location: Point<f32>) {
-        self.common_mut().redraw_request_sent = false;
+        let final_layout = self.common_mut().layout_output;
+        self.common_mut().prev_draw_region = Some(final_layout.as_rect());
 
-        let absolute_draw_region = match self.common_mut().final_layout {
-            Some(visible_layout) => visible_layout.region + parent_location.split_hv_to_rect(),
-            None => return,
-        };
+        if final_layout.is_hidden() {
+            return;
+        }
 
-        if args.needs_redraw(absolute_draw_region.to_lagacy_region()) {
+        let absolute_draw_region = final_layout.as_rect() + parent_location.split_hv_to_rect();
+
+        if args.needs_redraw(absolute_draw_region) {
             self.render(args, absolute_draw_region.get_location());
         }
     }
@@ -73,30 +71,35 @@ pub(crate) trait RenderTreeExt: RenderTree {
         self.common_mut().event_callback = Some(callback);
     }
 
-    fn compute_layout_cached(
-        &mut self,
-        constraint: Size<layout::SpaceConstraint>,
-        length_standard: Size<LengthStandard>,
-    ) -> Size<f32> {
-        match &self.common_mut().cached_layout {
-            Some((cached_constraint, cached)) if *cached_constraint == constraint => *cached,
+    fn compute_layout_cached(&mut self, inputs: LayoutInput) -> Size<f32> {
+        let common = self.common_mut();
+        match common.layout_input {
+            Some(old_inputs) if old_inputs == inputs => common.layout_output.size,
             _ => {
-                let computed = self.compute_layout(constraint, length_standard);
-                self.common_mut().cached_layout = Some((constraint, computed));
-                computed
+                let computed_size = self.compute_layout(inputs);
+                let common = self.common_mut();
+                common.layout_input = Some(inputs);
+                common.layout_output.size = computed_size;
+                computed_size
             }
         }
     }
 
-    fn set_final_layout(&mut self, new_layout: Option<FinalLayout>) {
+    fn set_final_layout(&mut self, new_layout: FinalLayout) {
         let common = self.common_mut();
 
-        if common.final_layout == new_layout {
+        if common.layout_output == new_layout
+            || (common.layout_output.is_hidden() && new_layout.is_hidden())
+        {
             return;
         }
 
-        common.final_layout = new_layout;
-        common.request_redraw();
+        common.layout_output = new_layout;
+        common.request_repaint();
+    }
+
+    fn clear_layout_cache(&mut self) {
+        self.common_mut().layout_input.take();
     }
 }
 
@@ -108,8 +111,8 @@ pub struct RenderArgs<'a> {
 }
 
 impl RenderArgs<'_> {
-    pub fn needs_redraw(&self, draw_region: Region) -> bool {
-        let draw_rect = draw_region.ceil_to_irect();
+    pub fn needs_redraw(&self, draw_region: Rect<f32>) -> bool {
+        let draw_rect = draw_region.round_to_skia_irect();
         if let Some(dirty_region) = self.dirty_region {
             if dirty_region.quick_reject_rect(draw_rect) {
                 return false;
@@ -123,6 +126,7 @@ impl RenderArgs<'_> {
 }
 
 pub type Element = Handle<dyn RenderTree>;
+pub type WeakElement = WeakHandle<dyn RenderTree>;
 
 pub struct EmitEventArgs<'a> {
     pub(crate) queue: &'a mut CallbackQueue,

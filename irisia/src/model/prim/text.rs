@@ -42,12 +42,15 @@ impl VModel for PrimitiveVnodeWrapper<Text> {
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
         let model = Rc::new(RefCell::new(TextModel {
-            el: Rc::new(RefCell::new(RenderText::new(
-                self.0.text.clone(),
-                self.0.style.clone(),
-                self.0.on.clone(),
-                &ctx.el_ctx,
-            ))),
+            el: Rc::new_cyclic(|weak| {
+                RefCell::new(RenderText::new(
+                    weak.clone() as _,
+                    self.0.text.clone(),
+                    self.0.style.clone(),
+                    self.0.on.clone(),
+                    &ctx.el_ctx,
+                ))
+            }),
         }));
 
         let mut wl = WatcherList::new();

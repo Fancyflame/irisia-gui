@@ -4,7 +4,8 @@ use irisia_backend::{WinitWindow, window_handle::CloseHandle};
 
 use crate::{
     event::EventDispatcher,
-    primitive::{Region, length::LengthStandardGlobalPart},
+    prim_element::{Element, WeakElement},
+    primitive::length::LengthStandardGlobalPart,
 };
 
 use super::{event_comp::global::focusing::Focusing, redraw_scheduler::RedrawScheduler};
@@ -28,12 +29,12 @@ impl GlobalContent {
         &self.focusing
     }
 
-    pub(crate) fn request_redraw(&self, dirty_region: Region) {
-        self.redraw_scheduler.request_redraw(dirty_region)
+    pub(crate) fn request_repaint(&self, el: &WeakElement) {
+        self.redraw_scheduler.request_repaint(el)
     }
 
-    pub(crate) fn request_relayout(&self) {
-        self.redraw_scheduler.request_relayout();
+    pub(crate) fn request_reflow(&self, el: &Element) {
+        self.redraw_scheduler.request_reflow(el)
     }
 
     /// Returns a reference to the global event dispatcher
@@ -56,7 +57,7 @@ impl GlobalContent {
         &self.window
     }
 
-    pub fn length_standard(&self) -> LengthStandardGlobalPart {
+    pub fn length_standard_global_part(&self) -> LengthStandardGlobalPart {
         self.length_standard.get()
     }
 

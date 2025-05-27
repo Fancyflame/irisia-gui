@@ -7,13 +7,13 @@ use std::{
 
 use super::size::Size;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct LengthStandard {
     pub global: LengthStandardGlobalPart,
     pub percentage_reference: f32,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct LengthStandardGlobalPart {
     pub dpi: f32,
     pub viewport_size: Size<u32>,

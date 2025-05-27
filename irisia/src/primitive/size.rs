@@ -27,3 +27,9 @@ impl<T> From<PhysicalSize<T>> for Size<T> {
         }
     }
 }
+
+impl Size<f32> {
+    pub const fn is_empty(&self) -> bool {
+        self.width == 0.0 || self.height == 0.0
+    }
+}

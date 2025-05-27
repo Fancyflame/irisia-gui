@@ -43,6 +43,15 @@ impl Rect<f32> {
         }
     }
 
+    pub(crate) fn round_to_skia_irect(self) -> skia_safe::IRect {
+        skia_safe::IRect {
+            left: self.left.floor() as _,
+            top: self.top.floor() as _,
+            right: self.right.ceil() as _,
+            bottom: self.bottom.ceil() as _,
+        }
+    }
+
     pub(crate) const fn to_lagacy_region(self) -> Region {
         Region {
             left_top: Point {

@@ -4,12 +4,13 @@ use rect::{DrawRRect, DrawRRectProps};
 
 use crate::{
     hook::Signal,
-    primitive::{Length, Point, corner::Corner, length::LengthStandard, rect::Rect},
+    primitive::{Length, Point, corner::Corner, rect::Rect},
 };
 
 use super::{
     Common, EMCreateCtx, Element, EmitEventArgs, EventCallback, RenderArgs, RenderTree,
-    RenderTreeExt, Size, layout::SpaceConstraint, read_or_default, redraw_guard::RedrawGuard,
+    RenderTreeExt, Size, WeakElement, layout::LayoutInput, read_or_default,
+    redraw_guard::RedrawGuard,
 };
 
 pub use layout::BlockLayout;
@@ -66,11 +67,12 @@ pub struct RenderBlock {
     style: Option<Signal<BlockStyle>>,
     cached_background_rect: Option<DrawRRect>,
     children: ElementList,
-    needs_check_children_sizes: bool,
+    // prev_content_length_standard: Option<Size<LengthStandard>>,
     common: Common,
 }
 
 pub struct InitRenderBlock<'a> {
+    pub this: WeakElement,
     pub layouter: Option<Signal<dyn BlockLayout>>,
     pub style: Option<Signal<BlockStyle>>,
     pub children: ElementList,
@@ -85,30 +87,24 @@ impl RenderBlock {
             style: init.style,
             cached_background_rect: None,
             children: init.children,
-            needs_check_children_sizes: false,
-            common: Common::new(init.event_callback, init.ctx),
+            common: Common::new(init.this, init.event_callback, init.ctx),
         }
-    }
-
-    pub fn set_children_size_changed(&mut self) {
-        self.needs_check_children_sizes = true;
-        self.common.request_relayout();
     }
 
     pub fn layouter_updated(&mut self) {
         self.cached_background_rect.take();
-        self.common.request_relayout();
+        self.common.request_reflow();
     }
 
     pub fn style_updated(&mut self) {
         // TODO: 需要判断width和height是否改变
         self.cached_background_rect.take();
-        self.common.request_relayout();
-        self.common.request_redraw();
+        self.common.request_reflow();
+        self.common.request_repaint();
     }
 
     pub fn update_children(&mut self) -> RedrawGuard<ElementList> {
-        self.common.cached_layout.take();
+        self.common.request_reflow();
         self.children.0.clear();
         RedrawGuard::new(&mut self.children, &mut self.common)
     }
@@ -128,8 +124,10 @@ impl RenderTree for RenderBlock {
 
     fn compute_layout(
         &mut self,
-        constraint: Size<SpaceConstraint>,
-        length_standard: Size<LengthStandard>,
+        LayoutInput {
+            constraint,
+            length_standard,
+        }: LayoutInput,
     ) -> Size<f32> {
         let style = read_or_default(&self.style, &BlockStyle::DEFAULT);
 
@@ -157,16 +155,22 @@ impl RenderTree for RenderBlock {
                 constraint
             });
 
-        let child_length_standard = length_standard.map_with(content_constraint, |ls, mut cons| {
-            ls.set_percentage_reference(match cons.get_numerical() {
-                Some(v) => *v,
-                None => 0.0,
-            })
-        });
+        let content_length_standard =
+            length_standard.map_with(content_constraint, |ls, mut cons| {
+                ls.set_percentage_reference(match cons.get_numerical() {
+                    Some(v) => *v,
+                    None => 0.0,
+                })
+            });
+
+        self.children
+            .0
+            .iter()
+            .for_each(|e| e.element.borrow_mut().clear_layout_cache());
 
         let layouter = read_or_default(&self.layouter, &DefaultLayouter);
         let content_size = layouter.compute_layout(
-            LayoutChildren::new(&mut self.children.0, &child_length_standard),
+            LayoutChildren::new(&mut self.children.0, &content_length_standard),
             content_constraint,
         );
 

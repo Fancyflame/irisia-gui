@@ -3,7 +3,7 @@ use std::any::Any;
 use crate::{
     prim_element::{
         RenderTreeExt,
-        layout::{FinalLayout, SpaceConstraint},
+        layout::{FinalLayout, LayoutInput, SpaceConstraint},
     },
     primitive::{length::LengthStandard, size::Size},
 };
@@ -28,10 +28,13 @@ impl Child<'_> {
         self.child
             .element
             .borrow_mut()
-            .compute_layout_cached(constraint, *self.length_standard)
+            .compute_layout_cached(LayoutInput {
+                constraint,
+                length_standard: *self.length_standard,
+            })
     }
 
-    pub fn set_final_layout(&self, final_layout: Option<FinalLayout>) {
+    pub fn set_final_layout(&self, final_layout: FinalLayout) {
         self.child
             .element
             .borrow_mut()

@@ -1,4 +1,4 @@
-use crate::primitive::rect::Rect;
+use crate::primitive::{Point, Size, length::LengthStandard, rect::Rect};
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum SpaceConstraint {
@@ -18,6 +18,28 @@ impl SpaceConstraint {
 }
 
 #[derive(Clone, Copy, PartialEq)]
+pub struct LayoutInput {
+    pub constraint: Size<SpaceConstraint>,
+    pub length_standard: Size<LengthStandard>,
+}
+
+#[derive(Clone, Copy, PartialEq)]
 pub struct FinalLayout {
-    pub region: Rect<f32>,
+    pub size: Size<f32>,
+    pub location: Point<f32>,
+}
+
+impl FinalLayout {
+    pub const HIDDEN: Self = Self {
+        size: Size::all(0.0),
+        location: Point::all(0.0),
+    };
+
+    pub const fn as_rect(&self) -> Rect<f32> {
+        Rect::from_location_size(self.location, self.size)
+    }
+
+    pub const fn is_hidden(&self) -> bool {
+        self.size.is_empty()
+    }
 }
