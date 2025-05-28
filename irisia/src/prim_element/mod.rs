@@ -43,6 +43,7 @@ pub trait RenderTree: 'static {
     fn compute_layout(&mut self, inputs: LayoutInput) -> Size<f32>;
     fn children_emit_event(&mut self, args: &mut EmitEventArgs);
     fn common_mut(&mut self) -> &mut Common;
+    fn common(&self) -> &Common;
 }
 
 impl<T: RenderTree + ?Sized> RenderTreeExt for T {}
@@ -63,8 +64,8 @@ pub(crate) trait RenderTreeExt: RenderTree {
     }
 
     fn emit_event(&mut self, args: &mut EmitEventArgs) {
-        self.common_mut().use_callback(args);
         self.children_emit_event(args);
+        self.common_mut().use_callback(args);
     }
 
     fn set_callback(&mut self, callback: EventCallback) {
@@ -72,34 +73,36 @@ pub(crate) trait RenderTreeExt: RenderTree {
     }
 
     fn compute_layout_cached(&mut self, inputs: LayoutInput) -> Size<f32> {
-        let common = self.common_mut();
-        match common.layout_input {
-            Some(old_inputs) if old_inputs == inputs => common.layout_output.size,
-            _ => {
-                let computed_size = self.compute_layout(inputs);
-                let common = self.common_mut();
-                common.layout_input = Some(inputs);
-                common.layout_output.size = computed_size;
-                computed_size
-            }
+        match self.common().layout_input {
+            Some(old_inputs) if old_inputs == inputs => self.common().layout_output.size,
+            _ => self.force_compute_layout_cached(inputs),
         }
     }
 
-    fn set_final_layout(&mut self, new_layout: FinalLayout) {
+    fn force_compute_layout_cached(&mut self, inputs: LayoutInput) -> Size<f32> {
+        let computed_size = self.compute_layout(inputs);
         let common = self.common_mut();
+        common.layout_input = Some(inputs);
+        common.layout_output.size = computed_size;
+        computed_size
+    }
 
-        if common.layout_output == new_layout
+    fn set_layout_completed(&mut self) {
+        let common = self.common_mut();
+        let new_layout = common.layout_output;
+
+        if matches!(common.prev_draw_region, Some(prev) if prev == new_layout.as_rect())
             || (common.layout_output.is_hidden() && new_layout.is_hidden())
         {
             return;
         }
 
-        common.layout_output = new_layout;
         common.request_repaint();
     }
 
     fn clear_layout_cache(&mut self) {
         self.common_mut().layout_input.take();
+        self.common_mut().layout_output = FinalLayout::HIDDEN;
     }
 }
 

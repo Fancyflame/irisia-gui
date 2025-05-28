@@ -92,7 +92,7 @@ impl RenderBlock {
     }
 
     pub fn layouter_updated(&mut self) {
-        self.cached_background_rect.take();
+        // self.cached_background_rect.take();
         self.common.request_reflow();
     }
 
@@ -112,10 +112,11 @@ impl RenderBlock {
 
 impl RenderTree for RenderBlock {
     fn render(&mut self, args: RenderArgs, draw_location: Point<f32>) {
-        self.cached_background_rect
-            .as_ref()
-            .expect("cannot render before layout")
-            .draw(args.canvas, draw_location);
+        if let Some(rect) = &self.cached_background_rect {
+            rect.draw(args.canvas, draw_location);
+        } else {
+            panic!("cannot render before layout")
+        }
 
         for child in self.children.0.iter_mut() {
             child.element.borrow_mut().render_entry(args, draw_location);
@@ -149,7 +150,7 @@ impl RenderTree for RenderBlock {
 
         let content_constraint =
             constraint.map_with(white_space_size, |mut constraint, white_space| {
-                if let Some(num) = constraint.get_numerical() {
+                if let Some(num) = constraint.get_numerical_mut() {
                     *num = (*num - white_space).max(0.0);
                 }
                 constraint
@@ -157,7 +158,7 @@ impl RenderTree for RenderBlock {
 
         let content_length_standard =
             length_standard.map_with(content_constraint, |ls, mut cons| {
-                ls.set_percentage_reference(match cons.get_numerical() {
+                ls.set_percentage_reference(match cons.get_numerical_mut() {
                     Some(v) => *v,
                     None => 0.0,
                 })
@@ -195,6 +196,10 @@ impl RenderTree for RenderBlock {
 
     fn common_mut(&mut self) -> &mut Common {
         &mut self.common
+    }
+
+    fn common(&self) -> &Common {
+        &self.common
     }
 }
 

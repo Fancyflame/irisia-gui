@@ -45,10 +45,10 @@ impl RedrawScheduler {
         }
     }
 
-    pub fn request_reflow(&self, this_el: &Element) {
+    pub fn request_reflow(&self, el: &WeakElement) {
         self.request_window_redraw();
 
-        self.reflow_nodes.borrow_mut().push_reflow(this_el);
+        self.reflow_nodes.borrow_mut().insert(el);
     }
 
     pub fn request_repaint(&self, el: &WeakElement) {
@@ -66,10 +66,14 @@ impl RedrawScheduler {
         root: &Element,
         redraw_root: Option<LayoutInput>,
     ) {
+        self.redraw_req_sent.set(true); // prevent request next frame redraw
+
         let dirty_region = if let Some(redraw_root_inputs) = redraw_root {
             self.reflow_nodes.borrow_mut().clear();
             self.repaint_nodes.borrow_mut().clear();
-            root.borrow_mut().compute_layout_cached(redraw_root_inputs);
+
+            let mut root_ref = root.borrow_mut();
+            root_ref.force_compute_layout_cached(redraw_root_inputs);
             None
         } else {
             let dirty_region = self.perform_partial_reflow();
@@ -100,10 +104,10 @@ impl RedrawScheduler {
 
         for reflow_node in self.reflow_nodes.borrow_mut().get_reflow_roots() {
             let mut node = reflow_node.borrow_mut();
-            let layout_input = node.common_mut().layout_input.expect(
+            let layout_input = node.common().layout_input.expect(
                 "this element has not been layouted before. its parent must reflow but it didn't.",
             );
-            node.compute_layout_cached(layout_input);
+            node.force_compute_layout_cached(layout_input);
         }
 
         for repaint_node in self

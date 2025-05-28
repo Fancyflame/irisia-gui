@@ -9,9 +9,16 @@ pub enum SpaceConstraint {
 }
 
 impl SpaceConstraint {
-    pub const fn get_numerical(&mut self) -> Option<&mut f32> {
+    pub const fn get_numerical_mut(&mut self) -> Option<&mut f32> {
         match self {
             Self::Exact(v) | Self::Available(v) => Some(v),
+            Self::MinContent | Self::MaxContent => None,
+        }
+    }
+
+    pub const fn get_numerical(&self) -> Option<f32> {
+        match self {
+            Self::Exact(v) | Self::Available(v) => Some(*v),
             Self::MinContent | Self::MaxContent => None,
         }
     }
@@ -23,7 +30,7 @@ pub struct LayoutInput {
     pub length_standard: Size<LengthStandard>,
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct FinalLayout {
     pub size: Size<f32>,
     pub location: Point<f32>,

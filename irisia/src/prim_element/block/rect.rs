@@ -11,6 +11,7 @@ pub(super) struct DrawRRect {
     content_rrect: RRect,
 }
 
+#[derive(Debug)]
 pub(super) struct DrawRRectProps {
     pub background: Color,
     pub border_color: Color,
@@ -88,13 +89,13 @@ impl DrawRRect {
         canvas.save();
         canvas.translate(location);
 
-        if let Some(fill_border_content) = &self.fill_border_content {
-            canvas.clip_rrect(self.content_rrect, ClipOp::Intersect, true);
-            canvas.draw_rrect(self.border_content_rrect, fill_border_content);
-        }
-
         if let Some(fill_content) = &self.fill_content {
             canvas.draw_rrect(self.content_rrect, fill_content);
+        }
+
+        if let Some(fill_border_content) = &self.fill_border_content {
+            canvas.clip_rrect(self.content_rrect, ClipOp::Difference, true);
+            canvas.draw_rrect(self.border_content_rrect, fill_border_content);
         }
 
         canvas.restore();

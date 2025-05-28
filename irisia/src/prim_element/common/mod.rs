@@ -32,9 +32,9 @@ impl Common {
     }
 
     pub fn use_callback(&mut self, args: &mut EmitEventArgs) {
-        if self.layout_output.is_hidden() {
-            return;
-        }
+        // if self.layout_output.is_hidden() {
+        //     return;
+        // }
 
         let draw_region = self.layout_output.as_rect().to_lagacy_region();
 
@@ -52,7 +52,6 @@ impl Common {
     }
 
     pub fn request_reflow(&self) {
-        let el = self.element.upgrade().expect("element has been dropped");
-        self.ctx.global_content.request_reflow(&el);
+        self.ctx.global_content.request_reflow(&self.element);
     }
 }

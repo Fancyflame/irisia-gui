@@ -3,9 +3,9 @@ use std::any::Any;
 use crate::{
     prim_element::{
         RenderTreeExt,
-        layout::{FinalLayout, LayoutInput, SpaceConstraint},
+        layout::{LayoutInput, SpaceConstraint},
     },
-    primitive::{length::LengthStandard, size::Size},
+    primitive::{Point, length::LengthStandard, size::Size},
 };
 
 use super::Child as ChildStorage;
@@ -34,11 +34,13 @@ impl Child<'_> {
             })
     }
 
-    pub fn set_final_layout(&self, final_layout: FinalLayout) {
+    pub fn set_location(&self, location: Point<f32>) {
         self.child
             .element
             .borrow_mut()
-            .set_final_layout(final_layout);
+            .common_mut()
+            .layout_output
+            .location = location;
     }
 }
 
@@ -78,6 +80,14 @@ impl<'a> LayoutChildren<'a> {
     }
 }
 
+impl Drop for LayoutChildren<'_> {
+    fn drop(&mut self) {
+        for child in self.children {
+            child.element.borrow_mut().set_layout_completed();
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct DefaultLayouter;
 
@@ -98,6 +108,12 @@ impl BlockLayout for DefaultLayouter {
             final_size.height = this_size.height.max(final_size.height);
         }
 
-        final_size
+        final_size.map_with(constraint, |len, cons| {
+            if let SpaceConstraint::Exact(exact) = cons {
+                exact
+            } else {
+                len
+            }
+        })
     }
 }

@@ -69,7 +69,7 @@ impl Window {
 
 fn window_size_to_constraint(size: PhysicalSize<u32>) -> Size<SpaceConstraint> {
     Size {
-        width: SpaceConstraint::Available(size.width as f32),
-        height: SpaceConstraint::Available(size.height as f32),
+        width: SpaceConstraint::Exact(size.width as f32),
+        height: SpaceConstraint::Exact(size.height as f32),
     }
 }

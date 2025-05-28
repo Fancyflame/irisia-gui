@@ -1,4 +1,4 @@
-#[derive(Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Corner<T> {
     pub left_top: T,
     pub right_top: T,

@@ -101,6 +101,10 @@ impl RenderTree for RenderText {
         &mut self.common
     }
 
+    fn common(&self) -> &Common {
+        &self.common
+    }
+
     fn children_emit_event(&mut self, _: &mut super::EmitEventArgs) {}
 }
 

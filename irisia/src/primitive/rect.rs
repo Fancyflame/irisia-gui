@@ -2,7 +2,7 @@ use irisia_backend::skia_safe;
 
 use super::{Point, Region, Size};
 
-#[derive(Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
 pub struct Rect<T> {
     pub left: T,
     pub top: T,

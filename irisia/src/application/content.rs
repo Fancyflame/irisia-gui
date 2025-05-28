@@ -4,7 +4,7 @@ use irisia_backend::{WinitWindow, window_handle::CloseHandle};
 
 use crate::{
     event::EventDispatcher,
-    prim_element::{Element, WeakElement},
+    prim_element::{Element, RenderTree, WeakElement},
     primitive::length::LengthStandardGlobalPart,
 };
 
@@ -33,7 +33,7 @@ impl GlobalContent {
         self.redraw_scheduler.request_repaint(el)
     }
 
-    pub(crate) fn request_reflow(&self, el: &Element) {
+    pub(crate) fn request_reflow(&self, el: &WeakElement) {
         self.redraw_scheduler.request_reflow(el)
     }
 

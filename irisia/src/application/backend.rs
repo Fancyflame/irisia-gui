@@ -67,6 +67,8 @@ impl AppWindow for BackendRuntime {
             &self.root_model.get_element(),
             redraw_root_inputs,
         );
+
+        self.window_resized = false;
         Ok(())
     }
 
