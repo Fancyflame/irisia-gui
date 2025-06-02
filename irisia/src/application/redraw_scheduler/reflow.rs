@@ -104,7 +104,6 @@ impl ReflowScheduler {
                 }
             };
 
-            dbg!(key);
             while let Some(parent_node) = get_parent(&current_child_node) {
                 if self.pool.contains_key(&get_key(&parent_node)) {
                     self.pool.remove(key);

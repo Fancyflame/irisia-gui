@@ -84,27 +84,43 @@ fn visit_into_list<T: Model>(model: &T) -> ElementList {
 }
 
 impl BlockModel {
-    pub(crate) fn create(weak: &WeakHandle<Self>, props: &Block, el_ctx: &EMCreateCtx) -> Self {
-        let ctx = ModelCreateCtx {
-            el_ctx: el_ctx.clone(),
-            parent: Some(weak.clone()),
-        };
+    pub(crate) fn create(
+        self_weak: &WeakHandle<Self>,
+        props: &Block,
+        el_ctx: &EMCreateCtx,
+    ) -> Self {
+        let mut children_ctx = None;
 
-        let children = match &props.children {
-            Some(sig) => sig.common_create(&ctx),
-            None => Empty::<()>::new().common_create(&ctx),
-        };
+        let prim_block = Rc::new_cyclic(|render_block_weak| {
+            let ctx = ModelCreateCtx {
+                el_ctx: EMCreateCtx {
+                    global_content: el_ctx.global_content.clone(),
+                    parent: Some(render_block_weak.clone()),
+                },
+                parent: Some(self_weak.clone() as _),
+            };
 
-        let prim_block = Rc::new_cyclic(|weak| {
-            RefCell::new(RenderBlock::new(InitRenderBlock {
-                this: weak.clone() as _,
+            let children = match &props.children {
+                Some(sig) => sig.common_create(&ctx),
+                None => Empty::<()>::new().common_create(&ctx),
+            };
+
+            let ret = RefCell::new(RenderBlock::new(InitRenderBlock {
+                this: render_block_weak.clone() as _,
                 style: props.style.clone(),
                 children: visit_into_list(&children),
                 layouter: props.display.clone(),
                 event_callback: props.on.clone(),
                 ctx: el_ctx,
-            }))
+            }));
+
+            children_ctx = Some((children, ctx));
+            ret
         });
+
+        let Some((children, ctx)) = children_ctx else {
+            unreachable!();
+        };
 
         BlockModel {
             el: prim_block,

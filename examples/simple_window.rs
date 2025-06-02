@@ -15,7 +15,7 @@ use irisia::{
         text::TextStyle,
     },
     primitive::{
-        Corner, Point, Rect,
+        Corner, Rect,
         length::{PCT, PX, VMIN},
         size::Size,
     },
