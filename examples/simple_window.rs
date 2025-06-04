@@ -7,7 +7,7 @@ use irisia::{
         VNode,
         component::Component,
         control_flow::common_vmodel::DynVModel,
-        prim::{Block, DefaultLayouter, Text},
+        prim::{Block, Text},
     },
     prim_element::{
         block::{BlockLayout, BlockStyle, layout::LayoutChildren},
@@ -169,7 +169,7 @@ impl Component for CustomComp {
         );
 
         build2! {
-            Block::<_> {
+            Block {
                 display := coerce_hook!(layout),
                 style: BlockStyle {
                     width: 0.7 * PCT,

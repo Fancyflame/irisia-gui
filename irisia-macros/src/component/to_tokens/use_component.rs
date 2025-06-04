@@ -50,7 +50,7 @@ impl GenerationEnv {
                 FieldAssignMethod::Direct => {
                     quote! {
                         #PATH_COMPONENT::direct_assign_helper::type_infer(
-                            |v: #comp_type| v.#name
+                            |#comp_type { #name, .. }| #name
                         ).infer(#value)
                     }
                 }
