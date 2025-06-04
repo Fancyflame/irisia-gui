@@ -4,55 +4,72 @@ use definition::Definition;
 
 use crate::{hook::watcher::WatcherList, prim_element::Element};
 
-use super::{EleModel, GetParentPropsFn, Model, ModelCreateCtx, VModel, VNode};
+use super::{EleModel, Model, ModelCreateCtx, VModel, VNode};
 
 pub mod definition;
 pub mod direct_assign_helper;
 pub mod proxy_signal_helper;
 
-pub struct UseComponent<T, Pp, F, D> {
+pub struct UseComponent<T, Cd, F, D> {
     _comp: PhantomData<T>,
-    parent_props: Pp,
+    child_data: Cd,
     create_fn: F,
     defs: D,
 }
 
-impl<Pp, T, F, D> UseComponent<T, Pp, F, D>
+impl<T, F, D> UseComponent<T, ChildDataUndefined, F, D>
 where
     T: Component,
     F: Fn(D::Value) -> T,
     D: Definition,
 {
-    pub fn new(parent_props: Pp, create_fn: F, defs: D) -> Self {
+    pub fn new(create_fn: F, defs: D) -> Self {
         Self {
-            parent_props,
             _comp: PhantomData,
+            child_data: ChildDataUndefined,
+            create_fn,
+            defs,
+        }
+    }
+
+    pub fn set_child_data<Cd>(self, child_data: Cd) -> UseComponent<T, ChildDataDefined<Cd>, F, D> {
+        UseComponent {
+            _comp: PhantomData,
+            child_data: ChildDataDefined(child_data),
+            create_fn: self.create_fn,
+            defs: self.defs,
+        }
+    }
+}
+
+impl<Cd, T, F, D> UseComponent<T, ChildDataDefined<Cd>, F, D>
+where
+    T: Component,
+    F: Fn(D::Value) -> T,
+    D: Definition,
+{
+    pub fn with_child_data(child_data: Cd, create_fn: F, defs: D) -> Self {
+        Self {
+            _comp: PhantomData,
+            child_data: ChildDataDefined(child_data),
             create_fn,
             defs,
         }
     }
 }
 
-pub type GetChildProps<T> = <T as Component>::ChildProps;
-
 pub trait Component: Default + 'static {
-    type ChildProps: Default;
-
-    fn create(self, watcher_list: &mut WatcherList) -> impl ComponentVNode;
+    fn create(self, watcher_list: &mut WatcherList) -> impl VNode<()> + use<Self>;
 }
 
-impl<T, Pp, F, D> VModel for UseComponent<T, Pp, F, D>
+impl<T, Cdmd, Cd, F, D> VModel<Cd> for UseComponent<T, Cdmd, F, D>
 where
+    Cdmd: ChildDataMaybeDefined<Cd> + Clone + 'static,
     F: Fn(D::Value) -> T,
     T: Component,
     D: Definition,
 {
-    type Storage = UseComponentModel<D::Storage>;
-    type ParentProps = Pp;
-
-    fn get_parent_props(&self, f: GetParentPropsFn<Self::ParentProps>) {
-        f(&self.parent_props)
-    }
+    type Storage = UseComponentModel<D::Storage, Cdmd>;
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
         let (def_storages, def_values) = self.defs.create();
@@ -63,6 +80,7 @@ where
         UseComponentModel {
             _watcher_list: watcher_list,
             defs: def_storages,
+            child_data: self.child_data.clone(),
             model,
         }
     }
@@ -72,36 +90,54 @@ where
     }
 }
 
-pub struct UseComponentModel<D> {
+pub struct UseComponentModel<D, Cdmd> {
     _watcher_list: WatcherList,
     defs: D,
-    model: Box<dyn EleModel>,
+    child_data: Cdmd,
+    model: Box<dyn EleModel<()>>,
 }
 
-impl<D> Model for UseComponentModel<D>
+impl<D, Cdmd, Cd> Model<Cd> for UseComponentModel<D, Cdmd>
 where
+    Cdmd: ChildDataMaybeDefined<Cd>,
     Self: 'static,
 {
-    fn visit(&self, f: &mut dyn FnMut(crate::prim_element::Element)) {
-        f(self.model.get_element())
+    fn visit(&self, f: &mut dyn FnMut(Element, Cd)) {
+        let (el, cd) = self.get_element();
+        f(el, cd)
     }
 }
 
-impl<D> EleModel for UseComponentModel<D>
+impl<D, Cdmd, Cd> EleModel<Cd> for UseComponentModel<D, Cdmd>
 where
+    Cdmd: ChildDataMaybeDefined<Cd>,
     Self: 'static,
 {
-    fn get_element(&self) -> Element {
-        self.model.get_element()
+    fn get_element(&self) -> (Element, Cd) {
+        (self.model.get_element().0, self.child_data.get_child_data())
     }
 }
 
-pub fn assert_vnode<T>(n: T) -> T
-where
-    T: VNode,
-{
-    n
+// Child Data
+
+#[derive(Clone)]
+pub struct ChildDataDefined<T>(T);
+
+#[derive(Clone, Copy)]
+pub struct ChildDataUndefined;
+
+pub trait ChildDataMaybeDefined<T> {
+    fn get_child_data(&self) -> T;
 }
 
-pub trait ComponentVNode: VNode<ParentProps = ()> + 'static {}
-impl<T: VNode<ParentProps = ()> + 'static> ComponentVNode for T {}
+impl<T: Clone> ChildDataMaybeDefined<T> for ChildDataDefined<T> {
+    fn get_child_data(&self) -> T {
+        self.0.clone()
+    }
+}
+
+impl<T: Default> ChildDataMaybeDefined<T> for ChildDataUndefined {
+    fn get_child_data(&self) -> T {
+        T::default()
+    }
+}

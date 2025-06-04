@@ -1,23 +1,5 @@
-use crate::model::{EleModel, GetParentPropsFn, Model, ModelCreateCtx, VModel};
+use crate::model::{EleModel, Model, ModelCreateCtx, VModel};
 use crate::prim_element::Element;
-
-use super::miscellaneous::Empty;
-
-pub fn branch_a<A, B>(value: A) -> Branch<A, B>
-where
-    A: VModel,
-    B: VModel,
-{
-    Branch::A(value)
-}
-
-pub fn branch_b<A, B>(value: B) -> Branch<A, B>
-where
-    A: VModel,
-    B: VModel,
-{
-    Branch::B(value)
-}
 
 #[derive(PartialEq)]
 pub enum Branch<A, B> {
@@ -25,23 +7,16 @@ pub enum Branch<A, B> {
     B(B),
 }
 
-impl<T> VModel for Option<T>
+impl<T, Cd> VModel<Cd> for Option<T>
 where
-    T: VModel,
+    T: VModel<Cd>,
 {
     type Storage = Branch<T::Storage, ()>;
-    type ParentProps = T::ParentProps;
-
-    fn get_parent_props(&self, f: GetParentPropsFn<Self::ParentProps>) {
-        if let Some(value) = self {
-            value.get_parent_props(f);
-        }
-    }
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
         match self {
             Some(v) => Branch::A(v),
-            None => Branch::B(Empty::new()),
+            None => Branch::B(()),
         }
         .create(ctx)
     }
@@ -49,26 +24,18 @@ where
     fn update(&self, storage: &mut Self::Storage, ctx: &ModelCreateCtx) {
         match self {
             Some(v) => Branch::A(v),
-            None => Branch::B(Empty::new()),
+            None => Branch::B(()),
         }
         .update(storage, ctx);
     }
 }
 
-impl<A, B, Pp> VModel for Branch<A, B>
+impl<A, B, Cd> VModel<Cd> for Branch<A, B>
 where
-    A: VModel<ParentProps = Pp>,
-    B: VModel<ParentProps = Pp>,
+    A: VModel<Cd>,
+    B: VModel<Cd>,
 {
     type Storage = Branch<A::Storage, B::Storage>;
-    type ParentProps = Pp;
-
-    fn get_parent_props(&self, f: GetParentPropsFn<Pp>) {
-        match self {
-            Self::A(a) => a.get_parent_props(f),
-            Self::B(b) => b.get_parent_props(f),
-        }
-    }
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
         match self {
@@ -100,12 +67,12 @@ where
     }
 }
 
-impl<A, B> Model for Branch<A, B>
+impl<A, B, Cd> Model<Cd> for Branch<A, B>
 where
-    A: Model,
-    B: Model,
+    A: Model<Cd>,
+    B: Model<Cd>,
 {
-    fn visit(&self, f: &mut dyn FnMut(Element)) {
+    fn visit(&self, f: &mut dyn FnMut(Element, Cd)) {
         match self {
             Self::A(a) => a.visit(f),
             Self::B(b) => b.visit(f),
@@ -113,12 +80,12 @@ where
     }
 }
 
-impl<A, B> EleModel for Branch<A, B>
+impl<A, B, Cd> EleModel<Cd> for Branch<A, B>
 where
-    A: EleModel,
-    B: EleModel,
+    A: EleModel<Cd>,
+    B: EleModel<Cd>,
 {
-    fn get_element(&self) -> Element {
+    fn get_element(&self) -> (Element, Cd) {
         match self {
             Self::A(a) => a.get_element(),
             Self::B(b) => b.get_element(),

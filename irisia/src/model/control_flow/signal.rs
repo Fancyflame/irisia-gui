@@ -4,24 +4,20 @@ use std::{
 };
 
 use crate::{
-    hook::{
-        watcher::{WatcherGuard, WatcherList},
-        Signal,
-    },
-    model::{EleModel, GetParentPropsFn, Model, ModelCreateCtx, VModel},
     Handle,
+    hook::{
+        Signal,
+        watcher::{WatcherGuard, WatcherList},
+    },
+    model::{EleModel, Model, ModelCreateCtx, VModel},
+    prim_element::Element,
 };
 
-impl<T> VModel for Signal<T>
+impl<T, Cd> VModel<Cd> for Signal<T>
 where
-    T: VModel + ?Sized + 'static,
+    T: VModel<Cd> + ?Sized + 'static,
 {
-    type ParentProps = T::ParentProps;
     type Storage = SignalModel<T::Storage>;
-
-    fn get_parent_props(&self, f: GetParentPropsFn<Self::ParentProps>) {
-        self.read().get_parent_props(f);
-    }
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
         make_model(self, Rc::new(RefCell::new(self.read().create(ctx))), ctx)
@@ -36,13 +32,13 @@ where
     }
 }
 
-fn make_model<T>(
+fn make_model<T, Cd>(
     vmodel: &Signal<T>,
     init_state: Rc<RefCell<T::Storage>>,
     ctx: &ModelCreateCtx,
 ) -> SignalModel<T::Storage>
 where
-    T: VModel + ?Sized + 'static,
+    T: VModel<Cd> + ?Sized + 'static,
 {
     let ctx = ctx.clone();
     let model = init_state.clone();
@@ -74,20 +70,20 @@ pub struct SignalModel<T> {
     model: Option<Handle<T>>,
 }
 
-impl<T> Model for SignalModel<T>
+impl<T, Cd> Model<Cd> for SignalModel<T>
 where
-    T: Model,
+    T: Model<Cd>,
 {
-    fn visit(&self, f: &mut dyn FnMut(crate::prim_element::Element)) {
+    fn visit(&self, f: &mut dyn FnMut(Element, Cd)) {
         self.model.as_ref().unwrap().borrow().visit(f);
     }
 }
 
-impl<T> EleModel for SignalModel<T>
+impl<T, Cd> EleModel<Cd> for SignalModel<T>
 where
-    T: EleModel,
+    T: EleModel<Cd>,
 {
-    fn get_element(&self) -> crate::prim_element::Element {
+    fn get_element(&self) -> (Element, Cd) {
         self.model.as_ref().unwrap().borrow().get_element()
     }
 }

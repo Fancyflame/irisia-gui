@@ -3,27 +3,26 @@ use std::any::Any;
 use crate::{
     prim_element::{
         RenderTreeExt,
+        block::Child,
         layout::{LayoutInput, SpaceConstraint},
     },
     primitive::{Point, length::LengthStandard, size::Size},
 };
 
-use super::Child as ChildStorage;
-
-pub trait BlockLayout: Any {
+pub trait BlockLayout<Cd>: Any {
     fn compute_layout(
         &self,
-        children: LayoutChildren,
+        children: LayoutChildren<Cd>,
         constraint: Size<SpaceConstraint>,
     ) -> Size<f32>;
 }
 
-pub struct Child<'a> {
-    child: &'a ChildStorage,
+pub struct LayoutChild<'a, Cd> {
+    child: &'a Child<Cd>,
     length_standard: &'a Size<LengthStandard>,
 }
 
-impl Child<'_> {
+impl<Cd> LayoutChild<'_, Cd> {
     pub fn measure(&self, constraint: Size<SpaceConstraint>) -> Size<f32> {
         self.child
             .element
@@ -44,28 +43,28 @@ impl Child<'_> {
     }
 }
 
-pub struct LayoutChildren<'a> {
-    children: &'a [ChildStorage],
+pub struct LayoutChildren<'a, Cd> {
+    children: &'a [Child<Cd>],
     length_standard: &'a Size<LengthStandard>,
 }
 
-impl<'a> LayoutChildren<'a> {
-    pub(super) fn new(children: &'a [ChildStorage], ls: &'a Size<LengthStandard>) -> Self {
+impl<'a, Cd> LayoutChildren<'a, Cd> {
+    pub(super) fn new(children: &'a [Child<Cd>], ls: &'a Size<LengthStandard>) -> Self {
         Self {
             children,
             length_standard: ls,
         }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = Child<'_>> + use<'_, 'a> {
-        self.children.iter().map(|child| Child {
+    pub fn iter(&self) -> impl Iterator<Item = LayoutChild<'_, Cd>> + use<'_, 'a, Cd> {
+        self.children.iter().map(|child| LayoutChild {
             child,
             length_standard: self.length_standard,
         })
     }
 
-    pub fn get(&self, index: usize) -> Option<Child> {
-        self.children.get(index).map(|child| Child {
+    pub fn get(&self, index: usize) -> Option<LayoutChild<Cd>> {
+        self.children.get(index).map(|child| LayoutChild {
             child,
             length_standard: self.length_standard,
         })
@@ -80,7 +79,7 @@ impl<'a> LayoutChildren<'a> {
     }
 }
 
-impl Drop for LayoutChildren<'_> {
+impl<Cd> Drop for LayoutChildren<'_, Cd> {
     fn drop(&mut self) {
         for child in self.children {
             child.element.borrow_mut().set_layout_completed();
@@ -91,10 +90,10 @@ impl Drop for LayoutChildren<'_> {
 #[derive(Clone, Copy)]
 pub struct DefaultLayouter;
 
-impl BlockLayout for DefaultLayouter {
+impl<Cd> BlockLayout<Cd> for DefaultLayouter {
     fn compute_layout(
         &self,
-        children: LayoutChildren,
+        children: LayoutChildren<Cd>,
         constraint: Size<SpaceConstraint>,
     ) -> Size<f32> {
         let mut final_size = Size {

@@ -33,7 +33,7 @@ use super::{
 pub(super) struct BackendRuntime {
     pointer_state: PointerState,
     gc: Rc<GlobalContent>,
-    root_model: Box<dyn EleModel>,
+    root_model: Box<dyn EleModel<()>>,
     window_resized: bool,
     callback_queue: CallbackQueue,
 }
@@ -64,7 +64,7 @@ impl AppWindow for BackendRuntime {
         self.gc.redraw_scheduler.redraw(
             canvas,
             interval,
-            &self.root_model.get_element(),
+            &self.root_model.get_element().0,
             redraw_root_inputs,
         );
 
@@ -94,6 +94,7 @@ impl AppWindow for BackendRuntime {
 
         self.root_model
             .get_element()
+            .0
             .borrow_mut()
             .emit_event(&mut EmitEventArgs {
                 queue: &mut self.callback_queue,
@@ -134,7 +135,7 @@ pub(super) async fn new_window<F, T>(
 ) -> Result<Window>
 where
     F: FnOnce() -> T + Send + 'static,
-    T: VNode,
+    T: VNode<()>,
 {
     let ev_disp = EventDispatcher::new();
 

@@ -1,27 +1,23 @@
-use map_parent_props::MapParentProps;
-use prim::BlockModel;
-
 use crate::{
-    prim_element::{EMCreateCtx, Element},
     WeakHandle,
+    model::prim::SubmitChildren,
+    prim_element::{EMCreateCtx, Element},
 };
 
 pub mod component;
 pub mod control_flow;
-pub mod map_parent_props;
+// pub mod map_parent_props;
 pub mod prim;
 
-pub trait VModel {
-    type Storage: Model;
-    type ParentProps;
+pub trait VModel<Cd> {
+    type Storage: Model<Cd>;
 
-    fn get_parent_props(&self, f: GetParentPropsFn<Self::ParentProps>);
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage;
     fn update(&self, storage: &mut Self::Storage, ctx: &ModelCreateCtx);
 
     // Provided
 
-    fn map_parent_props<F, U>(self, f: F) -> MapParentProps<F, Self>
+    /*fn map_parent_props<F, U>(self, f: F) -> MapParentProps<F, Self>
     where
         Self: Sized,
         F: Fn(&Self::ParentProps) -> &U,
@@ -40,17 +36,17 @@ pub trait VModel {
             map: (),
             src_vmodel: self,
         }
-    }
+    }*/
 }
 
-pub trait Model: 'static {
-    fn visit(&self, f: &mut dyn FnMut(Element));
+pub trait Model<Cd>: 'static {
+    fn visit(&self, f: &mut dyn FnMut(Element, Cd));
 }
 
 #[derive(Clone)]
 pub struct ModelCreateCtx {
     el_ctx: EMCreateCtx,
-    parent: Option<WeakHandle<BlockModel>>,
+    parent: Option<WeakHandle<dyn SubmitChildren>>,
 }
 
 impl ModelCreateCtx {
@@ -63,11 +59,9 @@ impl ModelCreateCtx {
 }
 
 /// VModel provides guaranteed only 1 element
-pub trait VNode: VModel<Storage: EleModel> {}
-impl<T> VNode for T where T: VModel<Storage: EleModel> {}
+pub trait VNode<Cd>: VModel<Cd, Storage: EleModel<Cd>> {}
+impl<Cd, T> VNode<Cd> for T where T: VModel<Cd, Storage: EleModel<Cd>> {}
 
-pub trait EleModel: Model {
-    fn get_element(&self) -> Element;
+pub trait EleModel<Cd>: Model<Cd> {
+    fn get_element(&self) -> (Element, Cd);
 }
-
-pub type GetParentPropsFn<'a, Pp> = &'a mut dyn FnMut(&Pp);

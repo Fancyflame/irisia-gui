@@ -3,7 +3,6 @@ use std::{collections::HashMap, future::Future};
 use anyhow::Result;
 use tokio::task::LocalSet;
 use winit::{
-    application::ApplicationHandler,
     event::{Event, StartCause, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::WindowId,

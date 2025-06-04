@@ -1,11 +1,5 @@
-use std::{
-    cell::RefCell,
-    ops::Deref,
-    rc::{Rc, Weak},
-    time::Duration,
-};
+use std::{ops::Deref, rc::Rc, time::Duration};
 
-use block::RenderBlock;
 use callback_queue::CallbackQueue;
 use irisia_backend::skia_safe::{Canvas, ClipOp, Region as SkRegion};
 use layout::{FinalLayout, LayoutInput};
@@ -30,12 +24,11 @@ mod redraw_guard;
 pub mod text;
 
 pub(crate) type EventCallback = Signal<dyn Fn(PointerEvent)>;
-pub(crate) type Parent = Option<Weak<RefCell<RenderBlock>>>;
 
 #[derive(Clone)]
 pub struct EMCreateCtx {
     pub(crate) global_content: Rc<GlobalContent>,
-    pub(crate) parent: Parent,
+    pub(crate) parent: Option<WeakElement>,
 }
 
 pub trait RenderTree: 'static {

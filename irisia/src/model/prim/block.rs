@@ -7,12 +7,11 @@ use crate::{
         watcher::{WatcherGuard, WatcherList},
     },
     model::{
-        EleModel, Model, ModelCreateCtx, VModel,
-        component::{Component, ComponentVNode},
+        EleModel, Model, ModelCreateCtx, VModel, VNode,
+        component::Component,
         control_flow::{
             CommonVModel,
             common_vmodel::{BoxedModel, DynVModel},
-            miscellaneous::Empty,
         },
     },
     prim_element::{
@@ -23,35 +22,38 @@ use crate::{
 
 use super::{PrimitiveModel, PrimitiveVnodeWrapper, panic_when_call_unreachable};
 
-#[derive(Default)]
-pub struct Block {
-    pub display: Option<Signal<dyn BlockLayout>>,
+pub struct Block<Cd> {
+    pub display: Option<Signal<dyn BlockLayout<Cd>>>,
     pub style: Option<Signal<BlockStyle>>,
-    pub children: Option<Signal<DynVModel<()>>>,
+    pub children: Option<Signal<DynVModel<Cd>>>,
     pub on: Option<EventCallback>,
 }
 
-pub struct BlockModel {
-    el: Rc<RefCell<RenderBlock>>,
-    children: BoxedModel,
+impl<Cd> Default for Block<Cd> {
+    fn default() -> Self {
+        Self {
+            display: None,
+            style: None,
+            children: None,
+            on: None,
+        }
+    }
+}
+
+pub struct BlockModel<Cd> {
+    el: Rc<RefCell<RenderBlock<Cd>>>,
+    children: BoxedModel<Cd>,
     ctx: ModelCreateCtx,
 }
 
-impl Component for Block {
-    type ChildProps = ();
-
-    fn create(self, _watcher_list: &mut WatcherList) -> impl ComponentVNode {
+impl<Cd: 'static> Component for Block<Cd> {
+    fn create(self, _watcher_list: &mut WatcherList) -> impl VNode<()> + use<Cd> {
         PrimitiveVnodeWrapper(self)
     }
 }
 
-impl VModel for PrimitiveVnodeWrapper<Block> {
-    type Storage = PrimitiveModel<BlockModel>;
-    type ParentProps = ();
-
-    fn get_parent_props(&self, _: crate::model::GetParentPropsFn<Self::ParentProps>) {
-        panic_when_call_unreachable()
-    }
+impl<Cd: 'static> VModel<()> for PrimitiveVnodeWrapper<Block<Cd>> {
+    type Storage = PrimitiveModel<BlockModel<Cd>>;
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
         let mut wl = WatcherList::new();
@@ -64,7 +66,11 @@ impl VModel for PrimitiveVnodeWrapper<Block> {
             self.0.display.clone(),
         )
         .watch_borrow_mut(&model, |this, _| this.style_updated(), self.0.style.clone())
-        .watch_borrow_mut(&model, BlockModel::update_children, self.0.children.clone());
+        .watch_borrow_mut(
+            &model,
+            BlockModel::<Cd>::update_children,
+            self.0.children.clone(),
+        );
 
         PrimitiveModel {
             model,
@@ -77,16 +83,19 @@ impl VModel for PrimitiveVnodeWrapper<Block> {
     }
 }
 
-fn visit_into_list<T: Model>(model: &T) -> ElementList {
+fn visit_into_list<T, Cd>(model: &T) -> ElementList<Cd>
+where
+    T: Model<Cd>,
+{
     let mut vec = ElementList::new();
-    model.visit(&mut |el| vec.push(el));
+    model.visit(&mut |el, cd| vec.push(el, cd));
     vec
 }
 
-impl BlockModel {
+impl<Cd: 'static> BlockModel<Cd> {
     pub(crate) fn create(
         self_weak: &WeakHandle<Self>,
-        props: &Block,
+        props: &Block<Cd>,
         el_ctx: &EMCreateCtx,
     ) -> Self {
         let mut children_ctx = None;
@@ -95,14 +104,14 @@ impl BlockModel {
             let ctx = ModelCreateCtx {
                 el_ctx: EMCreateCtx {
                     global_content: el_ctx.global_content.clone(),
-                    parent: Some(render_block_weak.clone()),
+                    parent: Some(render_block_weak.clone() as _),
                 },
                 parent: Some(self_weak.clone() as _),
             };
 
             let children = match &props.children {
                 Some(sig) => sig.common_create(&ctx),
-                None => Empty::<()>::new().common_create(&ctx),
+                None => ().common_create(&ctx),
             };
 
             let ret = RefCell::new(RenderBlock::new(InitRenderBlock {
@@ -137,29 +146,35 @@ impl BlockModel {
         self.el.borrow_mut().layouter_updated();
     }
 
-    fn update_children(&mut self, children: Option<&DynVModel<()>>) {
+    fn update_children(&mut self, children: Option<&DynVModel<Cd>>) {
         let Some(vmodel) = children else {
             return;
         };
         vmodel.update(&mut self.children, &self.ctx);
         self.submit_children();
     }
+}
 
-    pub(crate) fn submit_children(&self) {
+impl<Cd: 'static> Model<()> for BlockModel<Cd> {
+    fn visit(&self, f: &mut dyn FnMut(Element, ())) {
+        f(self.el.clone(), ())
+    }
+}
+
+impl<Cd: 'static> EleModel<()> for BlockModel<Cd> {
+    fn get_element(&self) -> (Element, ()) {
+        (self.el.clone(), ())
+    }
+}
+
+pub(crate) trait SubmitChildren {
+    fn submit_children(&self);
+}
+
+impl<Cd: 'static> SubmitChildren for BlockModel<Cd> {
+    fn submit_children(&self) {
         let mut guard = self.el.borrow_mut();
         let mut guard2 = guard.update_children();
-        self.children.visit(&mut |el| guard2.push(el));
-    }
-}
-
-impl Model for BlockModel {
-    fn visit(&self, f: &mut dyn FnMut(Element)) {
-        f(self.get_element())
-    }
-}
-
-impl EleModel for BlockModel {
-    fn get_element(&self) -> Element {
-        self.el.clone()
+        self.children.visit(&mut |el, cd| guard2.push(el, cd));
     }
 }

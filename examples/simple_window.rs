@@ -152,24 +152,10 @@ struct CustomProps {
 }
 
 impl Component for CustomComp {
-    type ChildProps = CustomProps;
     fn create(
         self,
         _watcher_list: &mut irisia::hook::watcher::WatcherList,
-    ) -> impl irisia::model::component::ComponentVNode {
-        let styles = Signal::builder(Vec::new())
-            .dep_call(
-                |mut vec, styles| {
-                    if let Some(styles) = styles {
-                        vec.clear();
-                        styles.get_parent_props(&mut |style| vec.push(style.clone()));
-                    };
-                },
-                self.children.clone(),
-                true,
-            )
-            .build();
-
+    ) -> impl VNode<()> + use<> {
         dbg!(&styles);
 
         let layout = Signal::memo(

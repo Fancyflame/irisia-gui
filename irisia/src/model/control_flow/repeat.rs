@@ -1,28 +1,18 @@
 use std::{
-    collections::{hash_map::Entry, HashMap},
+    collections::{HashMap, hash_map::Entry},
     hash::Hash,
 };
 
-use crate::{
-    model::{GetParentPropsFn, ModelCreateCtx},
-    prim_element::Element,
-};
+use crate::{model::ModelCreateCtx, prim_element::Element};
 
 use crate::model::{Model, VModel};
 
-impl<K, T> VModel for Vec<(K, T)>
+impl<K, T, Cd> VModel<Cd> for Vec<(K, T)>
 where
     K: Hash + Eq + Clone + 'static,
-    T: VModel,
+    T: VModel<Cd>,
 {
     type Storage = RepeatModel<K, T::Storage>;
-    type ParentProps = T::ParentProps;
-
-    fn get_parent_props(&self, f: GetParentPropsFn<Self::ParentProps>) {
-        for (_, value) in self {
-            value.get_parent_props(f);
-        }
-    }
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
         let mut this = RepeatModel {
@@ -84,12 +74,12 @@ struct Item<T> {
     value: T,
 }
 
-impl<K, T> Model for RepeatModel<K, T>
+impl<K, T, Cd> Model<Cd> for RepeatModel<K, T>
 where
     K: Hash + Eq + 'static,
-    T: Model,
+    T: Model<Cd>,
 {
-    fn visit(&self, f: &mut dyn FnMut(Element)) {
+    fn visit(&self, f: &mut dyn FnMut(Element, Cd)) {
         for key in &self.order {
             self.map[key].value.visit(f);
         }

@@ -4,7 +4,7 @@ use super::{EleModel, Model};
 
 pub use self::{block::Block, text::Text};
 pub use crate::prim_element::block::layout::DefaultLayouter;
-pub(crate) use block::BlockModel;
+pub(crate) use block::SubmitChildren;
 
 mod block;
 // mod image;
@@ -17,14 +17,20 @@ pub struct PrimitiveModel<T> {
     _watcher_list: WatcherList,
 }
 
-impl<T: Model> Model for PrimitiveModel<T> {
-    fn visit(&self, f: &mut dyn FnMut(Element)) {
+impl<T, Cd> Model<Cd> for PrimitiveModel<T>
+where
+    T: Model<Cd>,
+{
+    fn visit(&self, f: &mut dyn FnMut(Element, Cd)) {
         self.model.borrow().visit(f);
     }
 }
 
-impl<T: EleModel> EleModel for PrimitiveModel<T> {
-    fn get_element(&self) -> Element {
+impl<T, Cd> EleModel<Cd> for PrimitiveModel<T>
+where
+    T: EleModel<Cd>,
+{
+    fn get_element(&self) -> (Element, Cd) {
         self.model.borrow().get_element()
     }
 }

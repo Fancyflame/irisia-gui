@@ -5,10 +5,7 @@ use crate::{
         Signal,
         watcher::{WatcherGuard, WatcherList},
     },
-    model::{
-        EleModel, Model, ModelCreateCtx, VModel,
-        component::{Component, ComponentVNode},
-    },
+    model::{EleModel, Model, ModelCreateCtx, VModel, VNode, component::Component},
     prim_element::{
         Element, EventCallback,
         text::{RenderText, SignalStr, TextStyle},
@@ -25,20 +22,13 @@ pub struct Text {
 }
 
 impl Component for Text {
-    type ChildProps = ();
-
-    fn create(self, _watcher_list: &mut WatcherList) -> impl ComponentVNode {
+    fn create(self, _watcher_list: &mut WatcherList) -> impl VNode<()> + use<> {
         PrimitiveVnodeWrapper(self)
     }
 }
 
-impl VModel for PrimitiveVnodeWrapper<Text> {
+impl VModel<()> for PrimitiveVnodeWrapper<Text> {
     type Storage = PrimitiveModel<TextModel>;
-    type ParentProps = ();
-
-    fn get_parent_props(&self, _: crate::model::GetParentPropsFn<Self::ParentProps>) {
-        panic_when_call_unreachable()
-    }
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
         let model = Rc::new(RefCell::new(TextModel {
@@ -88,14 +78,14 @@ impl TextModel {
     }
 }
 
-impl EleModel for TextModel {
-    fn get_element(&self) -> Element {
-        self.el.clone()
+impl EleModel<()> for TextModel {
+    fn get_element(&self) -> (Element, ()) {
+        (self.el.clone(), ())
     }
 }
 
-impl Model for TextModel {
-    fn visit(&self, f: &mut dyn FnMut(Element)) {
-        f(self.get_element())
+impl Model<()> for TextModel {
+    fn visit(&self, f: &mut dyn FnMut(Element, ())) {
+        f(self.el.clone(), ())
     }
 }

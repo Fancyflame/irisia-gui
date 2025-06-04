@@ -58,30 +58,31 @@ impl Default for BlockStyle {
     }
 }
 
-struct Child {
+struct Child<Cd> {
     element: Element,
+    child_data: Cd,
 }
 
-pub struct RenderBlock {
-    layouter: Option<Signal<dyn BlockLayout>>,
+pub struct RenderBlock<Cd> {
+    layouter: Option<Signal<dyn BlockLayout<Cd>>>,
     style: Option<Signal<BlockStyle>>,
     cached_background_rect: Option<DrawRRect>,
-    children: ElementList,
+    children: ElementList<Cd>,
     // prev_content_length_standard: Option<Size<LengthStandard>>,
     common: Common,
 }
 
-pub struct InitRenderBlock<'a> {
+pub struct InitRenderBlock<'a, Cd = ()> {
     pub this: WeakElement,
-    pub layouter: Option<Signal<dyn BlockLayout>>,
+    pub layouter: Option<Signal<dyn BlockLayout<Cd>>>,
     pub style: Option<Signal<BlockStyle>>,
-    pub children: ElementList,
+    pub children: ElementList<Cd>,
     pub event_callback: Option<EventCallback>,
     pub ctx: &'a EMCreateCtx,
 }
 
-impl RenderBlock {
-    pub fn new(init: InitRenderBlock) -> Self {
+impl<Cd> RenderBlock<Cd> {
+    pub fn new(init: InitRenderBlock<Cd>) -> Self {
         Self {
             layouter: init.layouter,
             style: init.style,
@@ -103,14 +104,14 @@ impl RenderBlock {
         self.common.request_repaint();
     }
 
-    pub fn update_children(&mut self) -> RedrawGuard<ElementList> {
+    pub fn update_children(&mut self) -> RedrawGuard<ElementList<Cd>> {
         self.common.request_reflow();
         self.children.0.clear();
         RedrawGuard::new(&mut self.children, &mut self.common)
     }
 }
 
-impl RenderTree for RenderBlock {
+impl<Cd: 'static> RenderTree for RenderBlock<Cd> {
     fn render(&mut self, args: RenderArgs, draw_location: Point<f32>) {
         if let Some(rect) = &self.cached_background_rect {
             rect.draw(args.canvas, draw_location);
@@ -203,14 +204,17 @@ impl RenderTree for RenderBlock {
     }
 }
 
-pub struct ElementList(Vec<Child>);
+pub struct ElementList<Cd>(Vec<Child<Cd>>);
 
-impl ElementList {
+impl<Cd> ElementList<Cd> {
     pub fn new() -> Self {
         ElementList(Vec::new())
     }
 
-    pub fn push(&mut self, el: Element) {
-        self.0.push(Child { element: el });
+    pub fn push(&mut self, el: Element, child_data: Cd) {
+        self.0.push(Child {
+            element: el,
+            child_data,
+        });
     }
 }

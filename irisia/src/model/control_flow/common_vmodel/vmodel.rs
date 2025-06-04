@@ -1,37 +1,31 @@
-use crate::model::{GetParentPropsFn, Model, ModelCreateCtx, VModel};
+use crate::{
+    model::{Model, ModelCreateCtx, VModel},
+    prim_element::Element,
+};
 
 use std::any::Any;
 
-pub struct BoxedModel(Box<dyn AnyModel>);
+pub struct BoxedModel<Cd>(Box<dyn AnyModel<Cd>>);
 
-trait AnyModel: Any + Model {}
+trait AnyModel<Cd>: Any + Model<Cd> {}
 
-impl<T> AnyModel for T where T: Any + Model {}
+impl<Cd, T> AnyModel<Cd> for T where T: Any + Model<Cd> {}
 
-pub trait CommonVModel {
-    type CommonParentProps;
-
-    fn common_get_parent_props(&self, f: GetParentPropsFn<Self::CommonParentProps>);
-    fn common_create(&self, ctx: &ModelCreateCtx) -> BoxedModel;
-    fn common_update(&self, storage: &mut BoxedModel, ctx: &ModelCreateCtx);
+pub trait CommonVModel<Cd> {
+    fn common_create(&self, ctx: &ModelCreateCtx) -> BoxedModel<Cd>;
+    fn common_update(&self, storage: &mut BoxedModel<Cd>, ctx: &ModelCreateCtx);
 }
 
-impl<T> CommonVModel for T
+impl<Cd, T> CommonVModel<Cd> for T
 where
-    T: VModel,
+    T: VModel<Cd>,
 {
-    type CommonParentProps = T::ParentProps;
-
-    fn common_get_parent_props(&self, f: GetParentPropsFn<Self::CommonParentProps>) {
-        self.get_parent_props(f);
-    }
-
-    fn common_create(&self, ctx: &ModelCreateCtx) -> BoxedModel {
+    fn common_create(&self, ctx: &ModelCreateCtx) -> BoxedModel<Cd> {
         BoxedModel(Box::new(self.create(ctx)))
     }
 
-    fn common_update(&self, storage: &mut BoxedModel, ctx: &ModelCreateCtx) {
-        let inner: &mut dyn AnyModel = &mut *storage.0;
+    fn common_update(&self, storage: &mut BoxedModel<Cd>, ctx: &ModelCreateCtx) {
+        let inner: &mut dyn AnyModel<Cd> = &mut *storage.0;
         match (inner as &mut dyn Any).downcast_mut::<T::Storage>() {
             Some(inner_storage) => self.update(inner_storage, ctx),
             None => {
@@ -49,19 +43,14 @@ where
     }
 }
 
-impl Model for BoxedModel {
-    fn visit(&self, f: &mut dyn FnMut(crate::prim_element::Element)) {
+impl<Cd: 'static> Model<Cd> for BoxedModel<Cd> {
+    fn visit(&self, f: &mut dyn FnMut(Element, Cd)) {
         self.0.visit(f);
     }
 }
 
-impl<Pp> VModel for dyn CommonVModel<CommonParentProps = Pp> + '_ {
-    type Storage = BoxedModel;
-    type ParentProps = Pp;
-
-    fn get_parent_props(&self, f: GetParentPropsFn<Self::ParentProps>) {
-        self.common_get_parent_props(f);
-    }
+impl<Cd: 'static> VModel<Cd> for dyn CommonVModel<Cd> + '_ {
+    type Storage = BoxedModel<Cd>;
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
         self.common_create(ctx)
