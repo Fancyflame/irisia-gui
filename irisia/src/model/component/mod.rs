@@ -42,22 +42,6 @@ where
     }
 }
 
-impl<Cd, T, F, D> UseComponent<T, ChildDataDefined<Cd>, F, D>
-where
-    T: Component,
-    F: Fn(D::Value) -> T,
-    D: Definition,
-{
-    pub fn with_child_data(child_data: Cd, create_fn: F, defs: D) -> Self {
-        Self {
-            _comp: PhantomData,
-            child_data: ChildDataDefined(child_data),
-            create_fn,
-            defs,
-        }
-    }
-}
-
 pub trait Component: Default + 'static {
     fn create(self, watcher_list: &mut WatcherList) -> impl VNode<()> + use<Self>;
 }

@@ -23,6 +23,10 @@ pub struct LayoutChild<'a, Cd> {
 }
 
 impl<Cd> LayoutChild<'_, Cd> {
+    pub fn data(&self) -> &Cd {
+        &self.child.child_data
+    }
+
     pub fn measure(&self, constraint: Size<SpaceConstraint>) -> Size<f32> {
         self.child
             .element
@@ -63,11 +67,14 @@ impl<'a, Cd> LayoutChildren<'a, Cd> {
         })
     }
 
-    pub fn get(&self, index: usize) -> Option<LayoutChild<Cd>> {
-        self.children.get(index).map(|child| LayoutChild {
-            child,
+    pub fn get(&self, index: usize) -> LayoutChild<Cd> {
+        LayoutChild {
+            child: self
+                .children
+                .get(index)
+                .expect("child id {index} is out of bounds"),
             length_standard: self.length_standard,
-        })
+        }
     }
 
     pub fn len(&self) -> usize {

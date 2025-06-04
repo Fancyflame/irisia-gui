@@ -2,14 +2,14 @@ use crate::component::FieldAssignMethod;
 
 use super::{
     BlockStmt, BuildMacro, ComponentStmt, FieldAssignment, ForStmt, IfStmt, MatchArm, MatchStmt,
-    Stmt, UseExprStmt, WhileStmt, check_has_parent_props_assigned,
+    Stmt, UseExprStmt, WhileStmt,
 };
 
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::TokenStream;
 use syn::{
-    Error, Expr, Ident, Pat, Path, Result, Token, braced, bracketed, parenthesized,
+    Error, Expr, Ident, Pat, Result, Token, braced, parenthesized,
     parse::{Parse, ParseStream},
-    token::{Brace, Bracket, Paren},
+    token::{Brace, Paren},
 };
 
 mod kw {
@@ -20,33 +20,10 @@ mod kw {
 
 impl Parse for BuildMacro {
     fn parse(input: ParseStream) -> Result<Self> {
-        let virtual_parent = parse_virtual_parent(input)?;
-        let stmts = parse_stmts(input)?;
-        if virtual_parent.is_none() && stmts.iter().any(check_has_parent_props_assigned) {
-            return Err(Error::new(
-                Span::call_site(),
-                "parent-property declaration is not allowed at root \
-                when there is no parent type provided, which is default to be `()`. \
-                consider using `in path::to::Type;` to declare a virtual parent.",
-            ));
-        }
-
         Ok(Self {
-            stmts,
-            virtual_parent,
+            stmts: parse_stmts(input)?,
         })
     }
-}
-
-fn parse_virtual_parent(input: ParseStream) -> Result<Option<Path>> {
-    if !input.peek(Token![in]) {
-        return Ok(None);
-    }
-
-    input.parse::<Token![in]>()?;
-    let path: Path = input.parse()?;
-    input.parse::<Token![;]>()?;
-    Ok(Some(path))
 }
 
 fn parse_stmts(input: ParseStream) -> Result<Vec<Stmt>> {
@@ -160,38 +137,32 @@ fn parse_while_stmt(input: ParseStream) -> Result<WhileStmt> {
     })
 }
 
-fn parse_field_assignment(input: ParseStream) -> Result<Option<FieldAssignment>> {
-    let mut method = if input.peek(Bracket) {
-        FieldAssignMethod::ParentProp
-    } else if input.peek(Ident) {
-        FieldAssignMethod::HostingSignal
-    } else {
+enum FieldAssignmentName {
+    Super(Token![super]),
+    Ident(Ident),
+}
+
+fn parse_field_assignment(
+    input: ParseStream,
+) -> Result<Option<FieldAssignment<FieldAssignmentName>>> {
+    if !((input.peek(Ident) || input.peek(Token![super])) && input.peek2(Token![:])) {
         return Ok(None);
     };
 
-    if !input.peek2(Token![:]) {
-        return Ok(None);
-    }
-
-    let name: Ident = if let FieldAssignMethod::ParentProp = method {
-        let content;
-        bracketed!(content in input);
-        content.parse()?
+    let name = if input.peek(Token![super]) {
+        FieldAssignmentName::Super(input.parse()?)
     } else {
-        input.parse()?
+        FieldAssignmentName::Ident(input.parse()?)
     };
+
     input.parse::<Token![:]>()?;
 
-    if input.peek(Token![=]) {
-        let eq_token = input.parse::<Token![=]>()?;
-        if let FieldAssignMethod::ParentProp = method {
-            return Err(Error::new_spanned(
-                eq_token,
-                "direct-assign mode is not available when declaring parent prop",
-            ));
-        }
-        method = FieldAssignMethod::Direct;
-    }
+    let method = if input.peek(Token![=]) {
+        input.parse::<Token![=]>()?;
+        FieldAssignMethod::Direct
+    } else {
+        FieldAssignMethod::HostingSignal
+    };
 
     let value = input.parse()?;
     input.parse::<Token![,]>()?;
@@ -210,12 +181,38 @@ fn parse_component(input: ParseStream) -> Result<ComponentStmt> {
     braced!(content in input);
 
     let mut fields = Vec::new();
+    let mut child_data = None;
+
     while let Some(fa) = parse_field_assignment(&content)? {
-        fields.push(fa);
+        match fa.name {
+            FieldAssignmentName::Ident(ident) => fields.push(FieldAssignment {
+                name: ident,
+                value: fa.value,
+                method: fa.method,
+            }),
+            FieldAssignmentName::Super(super_token) => match child_data {
+                Some(_) => {
+                    return Err(Error::new_spanned(
+                        super_token,
+                        "cannot define child data duplicatedly",
+                    ));
+                }
+                None => match fa.method {
+                    FieldAssignMethod::HostingSignal => child_data = Some(fa.value),
+                    FieldAssignMethod::Direct => {
+                        return Err(Error::new_spanned(
+                            super_token,
+                            "cannot use `:=` on child data",
+                        ));
+                    }
+                },
+            },
+        }
     }
 
     Ok(ComponentStmt {
         comp_type,
+        child_data,
         fields,
         body: parse_stmts(&content)?,
     })

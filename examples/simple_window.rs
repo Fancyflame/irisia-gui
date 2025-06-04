@@ -4,10 +4,10 @@ use irisia::{
     build2, coerce_hook,
     hook::Signal,
     model::{
-        VModel, VNode,
+        VNode,
         component::Component,
         control_flow::common_vmodel::DynVModel,
-        prim::{Block, Text},
+        prim::{Block, DefaultLayouter, Text},
     },
     prim_element::{
         block::{BlockLayout, BlockStyle, layout::LayoutChildren},
@@ -34,7 +34,7 @@ async fn main() -> Result<()> {
     .await;
 }
 
-fn app() -> impl VNode<ParentProps = ()> {
+fn app() -> impl VNode<()> {
     let red_rect = Signal::state(false);
     let switch_color: Signal<dyn Fn(PointerEvent)> = {
         let red_rect = red_rect.clone();
@@ -58,7 +58,7 @@ fn app() -> impl VNode<ParentProps = ()> {
             let switch_color = switch_color.clone();
             move |&is_red| {
                 build2! {
-                    Block {
+                    Block::<()> {
                         on := switch_color.clone(),
                         style: BlockStyle {
                             width: 0.5 * VMIN,
@@ -72,12 +72,16 @@ fn app() -> impl VNode<ParentProps = ()> {
                             border_color: Color::GRAY,
                             ..BlockStyle::DEFAULT
                         },
+                        super: AvgProps {
+                            foo: 123,
+                        },
                     }
                 }
             }
         },
         red_rect.to_signal(),
     );
+
     let text = Signal::memo_ncmp(
         |&is_red| {
             format!(
@@ -107,11 +111,13 @@ fn app() -> impl VNode<ParentProps = ()> {
                     font_color: Color::MAGENTA,
                 },
 
-                // [foo]: 2, // emitted
+                super: AvgProps {
+                    foo: 1
+                },
             }
 
             for i in 0..2, key = i {
-                Block {
+                Block::<()> {
                     style: BlockStyle {
                         width: 1 * PCT,
                         height: 10 * PX,
@@ -119,7 +125,6 @@ fn app() -> impl VNode<ParentProps = ()> {
                         border_radius: Corner::all(50.0),
                         ..BlockStyle::DEFAULT
                     },
-                    [foo]: 3,
                 }
             }
 
@@ -132,7 +137,7 @@ fn app() -> impl VNode<ParentProps = ()> {
                         font_size: 20.0,
                     },
                     text: "match表达式".to_string(),
-                    [foo]: 4,
+                    // [foo]: 4,
                 },
             }
         }
@@ -142,12 +147,12 @@ fn app() -> impl VNode<ParentProps = ()> {
 #[derive(Default)]
 struct CustomComp {
     vertical: Option<Signal<bool>>,
-    children: Option<Signal<DynVModel<CustomProps>>>,
+    children: Option<Signal<DynVModel<AvgProps>>>,
 }
 
 #[allow(unused)]
 #[derive(Default, Debug, Clone)]
-struct CustomProps {
+struct AvgProps {
     foo: i32,
 }
 
@@ -156,8 +161,6 @@ impl Component for CustomComp {
         self,
         _watcher_list: &mut irisia::hook::watcher::WatcherList,
     ) -> impl VNode<()> + use<> {
-        dbg!(&styles);
-
         let layout = Signal::memo(
             |vertical| AverageDivideLayout {
                 vertical: vertical.copied().unwrap_or(false),
@@ -166,14 +169,14 @@ impl Component for CustomComp {
         );
 
         build2! {
-            Block {
+            Block::<_> {
                 display := coerce_hook!(layout),
                 style: BlockStyle {
                     width: 0.7 * PCT,
                     height: 0.7 * PCT,
                     ..Default::default()
                 },
-                (self.children.clear_parent_props())
+                (self.children)
             }
         }
     }
@@ -213,12 +216,16 @@ impl AverageDivideLayout {
     }
 }
 
-impl BlockLayout for AverageDivideLayout {
+impl BlockLayout<AvgProps> for AverageDivideLayout {
     fn compute_layout(
         &self,
-        children: LayoutChildren,
+        children: LayoutChildren<AvgProps>,
         constraint: Size<SpaceConstraint>,
     ) -> Size<f32> {
+        for i in 0..children.len() {
+            println!("AvgProp#{i}: {:?}", children.get(i).data());
+        }
+
         let (main_axis_constraint, sub_axis_constraint) = self.get_axis(constraint);
 
         let main_axis_len = main_axis_constraint.get_numerical().unwrap_or(0.0);

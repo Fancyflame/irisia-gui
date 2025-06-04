@@ -1,6 +1,6 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{Path, Token};
+use syn::Token;
 
 use crate::component::{ForStmt, IfStmt, Stmt};
 
@@ -17,18 +17,13 @@ const_quote! {
 
 impl BuildMacro {
     pub fn gen_code(&self) -> TokenStream {
-        GenerationEnv {
-            parent_component: self.virtual_parent.as_ref(),
-        }
-        .gen_rc_chained(&self.stmts)
+        (GenerationEnv {}).gen_rc_chained(&self.stmts)
     }
 }
 
-struct GenerationEnv<'a> {
-    parent_component: Option<&'a Path>,
-}
+struct GenerationEnv {}
 
-impl GenerationEnv<'_> {
+impl GenerationEnv {
     pub fn gen_code(&self, stmt: &Stmt) -> TokenStream {
         match stmt {
             Stmt::Block(block) => self.gen_chained(&block.stmts),
@@ -42,7 +37,7 @@ impl GenerationEnv<'_> {
     }
 }
 
-impl GenerationEnv<'_> {
+impl GenerationEnv {
     fn gen_rc_chained(&self, stmts: &[Stmt]) -> TokenStream {
         let chained = self.gen_chained(stmts);
         quote! {
@@ -116,11 +111,11 @@ impl GenerationEnv<'_> {
 
         quote! {
             if #condition {
-                #PATH_CONTROL_FLOW::branch::branch_a(
+                #PATH_CONTROL_FLOW::branch::Branch::A(
                     #then_branch
                 )
             } else {
-                #PATH_CONTROL_FLOW::branch::branch_b(
+                #PATH_CONTROL_FLOW::branch::Branch::B(
                     #else_branch
                 )
             }
@@ -167,11 +162,11 @@ impl GenerationEnv<'_> {
         for &branch_is_a in branch_stack.iter().rev() {
             arm_value = if branch_is_a {
                 quote! {
-                    #PATH_CONTROL_FLOW::branch::branch_a(#arm_value)
+                    #PATH_CONTROL_FLOW::branch::Branch::A(#arm_value)
                 }
             } else {
                 quote! {
-                    #PATH_CONTROL_FLOW::branch::branch_b(#arm_value)
+                    #PATH_CONTROL_FLOW::branch::Branch::B(#arm_value)
                 }
             }
         }
@@ -190,15 +185,8 @@ impl GenerationEnv<'_> {
     }
 
     fn gen_empty(&self) -> TokenStream {
-        let parent_prop_type = match self.parent_component {
-            Some(ty) => quote! {
-                #PATH_COMPONENT::GetChildProps<#ty>
-            },
-            None => quote! {_},
-        };
-
         quote! {
-            #PATH_CONTROL_FLOW::miscellaneous::Empty::<#parent_prop_type>::new()
+            ()
         }
     }
 }

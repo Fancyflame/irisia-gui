@@ -1,6 +1,6 @@
 use proc_macro2::TokenStream;
 use quote::{ToTokens, format_ident, quote};
-use syn::{Expr, Path};
+use syn::{Expr, Ident};
 
 use crate::component::{
     ComponentStmt, FieldAssignMethod, FieldAssignment,
@@ -13,42 +13,28 @@ const_quote! {
     const DEFAULT_TRAIT = { ::std::default::Default };
 }
 
-impl GenerationEnv<'_> {
+impl GenerationEnv {
     pub(super) fn gen_component(
         &self,
         ComponentStmt {
             comp_type,
             fields: all_fields,
             body,
+            child_data,
         }: &ComponentStmt,
     ) -> TokenStream {
-        let mut fields: Vec<&FieldAssignment> = Vec::with_capacity(all_fields.capacity());
-        let mut parent_prop_fields: Vec<&FieldAssignment> = Vec::new();
-        for field in all_fields {
-            if let FieldAssignMethod::ParentProp = field.method {
-                parent_prop_fields.push(field);
-            } else {
-                fields.push(field);
-            }
-        }
+        let mut fields: Vec<&FieldAssignment<Ident>> = Vec::from_iter(all_fields.iter());
 
         let mut _body_fa = None;
         if !body.is_empty() {
-            fields.push(
-                _body_fa.insert(FieldAssignment {
-                    name: format_ident!("children"),
-                    method: FieldAssignMethod::HostingSignal,
-                    value: Expr::Verbatim(
-                        GenerationEnv {
-                            parent_component: Some(comp_type),
-                        }
-                        .gen_rc_chained(&body),
-                    ),
-                }),
-            );
+            fields.push(_body_fa.insert(FieldAssignment {
+                name: format_ident!("children"),
+                method: FieldAssignMethod::HostingSignal,
+                value: Expr::Verbatim(GenerationEnv {}.gen_rc_chained(&body)),
+            }));
         };
 
-        let defs = field_asgn_binary_fold(&fields, &|fa| {
+        let defs_tuple = field_asgn_binary_fold(&fields, &|&fa| {
             let FieldAssignment {
                 name,
                 value,
@@ -68,11 +54,11 @@ impl GenerationEnv<'_> {
                         ).infer(#value)
                     }
                 }
-                FieldAssignMethod::ParentProp => unreachable!(),
             }
         });
 
         let names_tuple = field_asgn_binary_fold(&fields, &|fa| fa.name.to_token_stream());
+
         let prop_assignments = fields.iter().map(|fa| {
             let name = &fa.name;
             let value = match fa.method {
@@ -84,7 +70,6 @@ impl GenerationEnv<'_> {
                 FieldAssignMethod::Direct => {
                     quote! { #name }
                 }
-                FieldAssignMethod::ParentProp => unreachable!(),
             };
 
             quote! {
@@ -101,59 +86,27 @@ impl GenerationEnv<'_> {
             }
         };
 
-        let parent_prop_expr =
-            gen_parent_prop_expr(parent_prop_fields.iter().copied(), self.parent_component);
+        let append_child_data = child_data.as_ref().map(|child_data| {
+            quote! {
+                .set_child_data(#child_data)
+            }
+        });
 
         quote! {
-            {
-                #PATH_COMPONENT::UseComponent::<#comp_type, _, _, _>::new(
-                    #parent_prop_expr,
+            (
+                #PATH_COMPONENT::UseComponent::new(
                     #create_fn,
-                    #defs,
+                    #defs_tuple,
                 )
-            }
+                #append_child_data
+            )
         }
     }
 }
 
-pub(super) fn gen_parent_prop_expr<'a, I>(
-    parent_prop_fields: I,
-    parent_type: Option<&Path>,
-) -> TokenStream
+fn field_asgn_binary_fold<T, F>(slice: &[T], for_each: &F) -> TokenStream
 where
-    I: Iterator<Item = &'a FieldAssignment> + ExactSizeIterator + Clone,
-{
-    // let Some(parent_type) = parent_type else {
-    //     assert_eq!(parent_prop_fields.len(), 0);
-    //     return quote! {()};
-    // };
-
-    if parent_prop_fields.len() == 0 {
-        return match parent_type {
-            Some(parent_type) => quote! {
-                <#PATH_COMPONENT::GetChildProps::<#parent_type> as #DEFAULT_TRAIT>::default()
-            },
-            None => quote! {
-                #DEFAULT_TRAIT::default()
-            },
-        };
-    }
-
-    let names = parent_prop_fields.clone().map(|fa| &fa.name);
-    let values = parent_prop_fields.map(|fa| &fa.value);
-
-    let parent_type = parent_type.expect("parent type must be provided as parent-property defined");
-    quote! {
-        #PATH_COMPONENT::GetChildProps::<#parent_type> {
-            #(#names: #values,)*
-            ..#DEFAULT_TRAIT::default()
-        }
-    }
-}
-
-fn field_asgn_binary_fold<F>(slice: &[&FieldAssignment], for_each: &F) -> TokenStream
-where
-    F: Fn(&FieldAssignment) -> TokenStream,
+    F: Fn(&T) -> TokenStream,
 {
     match slice {
         [] => quote! {()},
