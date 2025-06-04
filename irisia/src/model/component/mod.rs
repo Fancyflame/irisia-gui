@@ -71,6 +71,7 @@ where
 
     fn update(&self, storage: &mut Self::Storage, _: &ModelCreateCtx) {
         self.defs.update(&mut storage.defs);
+        storage.child_data = self.child_data.clone();
     }
 }
 

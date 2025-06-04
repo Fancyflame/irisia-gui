@@ -73,7 +73,7 @@ fn app() -> impl VNode<()> {
                             ..BlockStyle::DEFAULT
                         },
                         super: AvgProps {
-                            foo: 123,
+                            foo: if is_red {1000} else {500},
                         },
                     }
                 }
