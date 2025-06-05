@@ -61,8 +61,8 @@ fn app() -> impl VNode<()> {
                     Block::<()> {
                         on := switch_color.clone(),
                         style: BlockStyle {
-                            width: 0.5 * VMIN,
-                            height: 0.5 * VMIN,
+                            // width: 0.5 * VMIN,
+                            // height: 0.5 * VMIN,
                             background: if is_red { Color::RED } else { Color::BLUE },
                             border_radius: Corner::all(50.0),
                             border_width: Rect {
@@ -82,15 +82,12 @@ fn app() -> impl VNode<()> {
         red_rect.to_signal(),
     );
 
-    let text = Signal::memo_ncmp(
-        |&is_red| {
-            format!(
-                "点击该文本或{0}色矩形切换颜色：当前显示{0}色",
-                if is_red { "红" } else { "蓝" }
-            )
-        },
-        red_rect.to_signal(),
-    );
+    let text = Signal::memo_ncmp(red_rect.to_signal(), |&is_red| {
+        format!(
+            "点击该文本或{0}色矩形切换颜色：当前显示{0}色",
+            if is_red { "红" } else { "蓝" }
+        )
+    });
 
     //let text: Signal<dyn AsRef<str>> = coerce_hook!(text);
 
@@ -119,8 +116,8 @@ fn app() -> impl VNode<()> {
             for i in 0..2, key = i {
                 Block::<()> {
                     style: BlockStyle {
-                        width: 1 * PCT,
-                        height: 10 * PX,
+                        // width: 1 * PCT,
+                        // height: 10 * PX,
                         background: Color::BLACK,
                         border_radius: Corner::all(50.0),
                         ..BlockStyle::DEFAULT
@@ -172,8 +169,8 @@ impl Component for CustomComp {
             Block {
                 display := coerce_hook!(layout),
                 style: BlockStyle {
-                    width: 0.7 * PCT,
-                    height: 0.7 * PCT,
+                    // width: 0.7 * PCT,
+                    // height: 0.7 * PCT,
                     ..Default::default()
                 },
                 (self.children)
@@ -235,10 +232,13 @@ impl BlockLayout<AvgProps> for AverageDivideLayout {
         //let mut sub_axis_len = 0f32;
 
         for (index, child) in children.iter().enumerate() {
-            let size = child.measure(self.set_axis(
-                SpaceConstraint::Exact(main_axis_each_space),
-                SpaceConstraint::Exact(sub_axis_len),
-            ));
+            let size = child.compute_layout(
+                self.set_axis(
+                    SpaceConstraint::Exact(main_axis_each_space),
+                    SpaceConstraint::Exact(sub_axis_len),
+                ),
+                children.parent_size(),
+            );
             //sub_axis_len = sub_axis_len.max(self.get_axis(size).1);
 
             let location = self

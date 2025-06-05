@@ -1,5 +1,7 @@
 use irisia_backend::{skia_safe::Point as SkiaPoint, winit::dpi::PhysicalPosition};
 
+use crate::primitive::line::Line;
+
 use super::{Size, rect::Rect};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -27,6 +29,28 @@ impl<T> Point<T> {
         Size {
             width: self.x,
             height: self.y,
+        }
+    }
+}
+
+impl<T> Point<Line<T>> {
+    pub fn merge_hv_components(self) -> Rect<T> {
+        let Self {
+            x: Line {
+                start: left,
+                end: right,
+            },
+            y: Line {
+                start: top,
+                end: bottom,
+            },
+        } = self;
+
+        Rect {
+            left,
+            top,
+            right,
+            bottom,
         }
     }
 }

@@ -32,4 +32,4 @@ path = "simple_window2.rs"
 tokio = { version = "1.40", features = ["sync", "rt-multi-thread", "macros"] }
 irisia = { path = "../irisia" }
 rand = "0.8"
-#irisia_widgets = { path = "../irisia-widgets" }
+irisia_widgets = { path = "../irisia-widgets" }

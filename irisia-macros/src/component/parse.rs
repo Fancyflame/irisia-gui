@@ -145,7 +145,10 @@ enum FieldAssignmentName {
 fn parse_field_assignment(
     input: ParseStream,
 ) -> Result<Option<FieldAssignment<FieldAssignmentName>>> {
-    if !((input.peek(Ident) || input.peek(Token![super])) && input.peek2(Token![:])) {
+    if !((input.peek(Ident) || input.peek(Token![super]))
+        && input.peek2(Token![:])
+        && !input.peek3(Token![:]))
+    {
         return Ok(None);
     };
 

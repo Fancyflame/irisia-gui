@@ -7,6 +7,7 @@ mod mul_dimensions;
 
 pub mod corner;
 pub mod length;
+pub mod line;
 pub mod point;
 pub mod rect;
 pub mod region;

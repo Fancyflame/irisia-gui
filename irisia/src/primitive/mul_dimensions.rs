@@ -33,6 +33,12 @@ macro_rules! impl_mul_dimensions {
                     $($dim: &self.$dim,)*
                 }
             }
+
+            pub fn as_mut(&mut self) -> $Type<&mut T> {
+                $Type {
+                    $($dim: &mut self.$dim,)*
+                }
+            }
         }
 
         impl<T, Rhs> std::ops::Add<$Type<Rhs>> for $Type<T>

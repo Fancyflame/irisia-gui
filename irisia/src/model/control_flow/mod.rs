@@ -11,7 +11,7 @@ pub mod repeat;
 pub mod signal;
 pub mod tuple;
 
-impl<T, Cd> From<Signal<T>> for Signal<dyn CommonVModel<Cd>>
+impl<T, Cd: 'static> From<Signal<T>> for Signal<dyn CommonVModel<Cd>>
 where
     T: VModel<Cd> + 'static,
 {

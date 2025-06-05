@@ -65,12 +65,9 @@ impl<Cd: 'static> VModel<()> for PrimitiveVnodeWrapper<Block<Cd>> {
             |this, _| this.layouter_updated(),
             self.0.display.clone(),
         )
-        .watch_borrow_mut(&model, |this, _| this.style_updated(), self.0.style.clone())
-        .watch_borrow_mut(
-            &model,
-            BlockModel::<Cd>::update_children,
-            self.0.children.clone(),
-        );
+        .watch_borrow_mut(&model, |this, _| this.style_updated(), self.0.style.clone());
+
+        // we don't need to care about if children mutates
 
         PrimitiveModel {
             model,
@@ -144,14 +141,6 @@ impl<Cd: 'static> BlockModel<Cd> {
 
     fn layouter_updated(&self) {
         self.el.borrow_mut().layouter_updated();
-    }
-
-    fn update_children(&mut self, children: Option<&DynVModel<Cd>>) {
-        let Some(vmodel) = children else {
-            return;
-        };
-        vmodel.update(&mut self.children, &self.ctx);
-        self.submit_children();
     }
 }
 

@@ -4,7 +4,7 @@ use rect::{DrawRRect, DrawRRectProps};
 
 use crate::{
     hook::Signal,
-    primitive::{Length, Point, corner::Corner, rect::Rect},
+    primitive::{Length, Point, corner::Corner, line::Line, rect::Rect},
 };
 
 use super::{
@@ -18,10 +18,8 @@ pub use layout::BlockLayout;
 pub mod layout;
 mod rect;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct BlockStyle {
-    pub width: Length,
-    pub height: Length,
     pub margin: Rect<Length>,
     pub background: Color,
     pub border_width: Rect<Length>,
@@ -40,8 +38,6 @@ pub enum BoxSizing {
 
 impl BlockStyle {
     pub const DEFAULT: Self = Self {
-        width: Length::Auto,
-        height: Length::Auto,
         margin: Rect::all(Length::Auto),
         background: Color::TRANSPARENT,
         border_width: Rect::all(Length::Auto),
@@ -145,8 +141,8 @@ impl<Cd: 'static> RenderTree for RenderBlock<Cd> {
         let padding = resolve_rect(style.padding);
 
         let white_space_size = (margin + border + padding)
-            .as_border_size()
-            .map(|(start, end)| start + end)
+            .split_into_hv_components()
+            .map(|Line { start, end }| start + end)
             .to_size();
 
         let content_constraint =

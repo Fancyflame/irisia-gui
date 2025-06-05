@@ -6,7 +6,11 @@ use crate::{
         block::Child,
         layout::{LayoutInput, SpaceConstraint},
     },
-    primitive::{Point, length::LengthStandard, size::Size},
+    primitive::{
+        Point,
+        length::{LengthStandard, LengthStandardGlobalPart},
+        size::Size,
+    },
 };
 
 pub trait BlockLayout<Cd>: Any {
@@ -19,21 +23,31 @@ pub trait BlockLayout<Cd>: Any {
 
 pub struct LayoutChild<'a, Cd> {
     child: &'a Child<Cd>,
-    length_standard: &'a Size<LengthStandard>,
+    length_standard: Size<LengthStandardGlobalPart>,
 }
 
-impl<Cd> LayoutChild<'_, Cd> {
-    pub fn data(&self) -> &Cd {
+impl<'a, Cd> LayoutChild<'a, Cd> {
+    pub fn data(&self) -> &'a Cd {
         &self.child.child_data
     }
 
-    pub fn measure(&self, constraint: Size<SpaceConstraint>) -> Size<f32> {
+    pub fn compute_layout(
+        &self,
+        constraint: Size<SpaceConstraint>,
+        percentage_reference: Size<f32>,
+    ) -> Size<f32> {
         self.child
             .element
             .borrow_mut()
             .compute_layout_cached(LayoutInput {
                 constraint,
-                length_standard: *self.length_standard,
+                length_standard: self.length_standard.map_with(
+                    percentage_reference,
+                    |global, pr| LengthStandard {
+                        global,
+                        percentage_reference: pr,
+                    },
+                ),
             })
     }
 
@@ -63,7 +77,7 @@ impl<'a, Cd> LayoutChildren<'a, Cd> {
     pub fn iter(&self) -> impl Iterator<Item = LayoutChild<'_, Cd>> + use<'_, 'a, Cd> {
         self.children.iter().map(|child| LayoutChild {
             child,
-            length_standard: self.length_standard,
+            length_standard: self.length_standard.as_ref().map(|ls| ls.global),
         })
     }
 
@@ -73,7 +87,7 @@ impl<'a, Cd> LayoutChildren<'a, Cd> {
                 .children
                 .get(index)
                 .expect("child id {index} is out of bounds"),
-            length_standard: self.length_standard,
+            length_standard: self.length_standard.as_ref().map(|ls| ls.global),
         }
     }
 
@@ -83,6 +97,14 @@ impl<'a, Cd> LayoutChildren<'a, Cd> {
 
     pub fn is_empty(&self) -> bool {
         self.children.is_empty()
+    }
+
+    pub fn parent_size(&self) -> Size<f32> {
+        self.length_standard.map(|ls| ls.percentage_reference)
+    }
+
+    pub fn length_standard(&self) -> &Size<LengthStandard> {
+        &self.length_standard
     }
 }
 
@@ -108,8 +130,16 @@ impl<Cd> BlockLayout<Cd> for DefaultLayouter {
             height: 0.0,
         };
 
+        let pct_ref = constraint.as_ref().map(|cons| {
+            if let SpaceConstraint::Exact(exact) = cons {
+                *exact
+            } else {
+                0.0
+            }
+        });
+
         for child in children.iter() {
-            let this_size = child.measure(constraint);
+            let this_size = child.compute_layout(constraint, pct_ref);
             final_size.width = this_size.width.max(final_size.width);
             final_size.height = this_size.height.max(final_size.height);
         }

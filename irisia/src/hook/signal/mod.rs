@@ -6,9 +6,9 @@ use std::{
 use builder::SignalBuilder;
 
 use super::{
-    signal_group::SignalGroup,
-    utils::{trace_cell::TraceRef, WriteGuard},
     Listener,
+    signal_group::SignalGroup,
+    utils::{WriteGuard, trace_cell::TraceRef},
 };
 use inner::Inner;
 
@@ -25,7 +25,7 @@ impl<T: 'static> Signal<T> {
         Self::builder(value).writable().build()
     }
 
-    pub fn memo<F, D>(generator: F, deps: D) -> Self
+    pub fn memo<F, D>(deps: D, generator: F) -> Self
     where
         T: PartialEq<T>,
         F: Fn(D::Data<'_>) -> T + 'static,
@@ -45,7 +45,7 @@ impl<T: 'static> Signal<T> {
             .build()
     }
 
-    pub fn memo_ncmp<F, D>(generator: F, deps: D) -> Self
+    pub fn memo_ncmp<F, D>(deps: D, generator: F) -> Self
     where
         F: Fn(D::Data<'_>) -> T + 'static,
         D: SignalGroup + 'static,

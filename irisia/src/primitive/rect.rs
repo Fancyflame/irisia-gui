@@ -1,5 +1,7 @@
 use irisia_backend::skia_safe;
 
+use crate::primitive::line::Line;
+
 use super::{Point, Region, Size};
 
 #[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
@@ -25,10 +27,16 @@ impl<T> Rect<T> {
         }
     }
 
-    pub fn as_border_size(self) -> Point<(T, T)> {
+    pub fn split_into_hv_components(self) -> Point<Line<T>> {
         Point {
-            x: (self.left, self.right),
-            y: (self.top, self.bottom),
+            x: Line {
+                start: self.left,
+                end: self.right,
+            },
+            y: Line {
+                start: self.top,
+                end: self.bottom,
+            },
         }
     }
 }
