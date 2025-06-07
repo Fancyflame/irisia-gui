@@ -83,6 +83,8 @@ fn app() -> impl VNode<()> {
                 ..Default::default()
             }),
 
+            (extra_blocks.to_signal())
+
             Block::<()> {
                 style: BlockStyle {
                     background: Color::RED,
@@ -128,8 +130,6 @@ fn app() -> impl VNode<()> {
                     ..Default::default()
                 },
             }
-
-            (extra_blocks.to_signal())
         }
     }
 }
@@ -139,6 +139,8 @@ fn create_block() -> impl VNode<FlexItemStyle> {
         Block::<()> {
             style: BlockStyle {
                 background: Color::RED,
+                border_width: Rect::all(1 * PX),
+                border_color: Color::BLACK,
                 ..Default::default()
             },
             super: FlexItemStyle {

@@ -39,7 +39,6 @@ impl ReflowScheduler {
     pub fn get_reflow_roots(&mut self) -> impl Iterator<Item = Element> {
         self.find_fixed_size_ancestors();
         self.remove_duplicated();
-        dbg!(self.pool.len());
 
         self.pool
             .drain()

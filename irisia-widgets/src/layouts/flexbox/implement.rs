@@ -1,16 +1,15 @@
 use irisia::{
-    prim_element::block::{layout::LayoutChildren, BlockLayout, BlockStyle},
-    primitive::{length::LengthStandard, Length},
+    prim_element::block::{layout::LayoutChildren, BlockLayout},
     Size,
 };
 use taffy::{
-    prelude::FromLength, AlignContent, AlignItems, AlignSelf, FlexDirection, FlexWrap,
-    JustifyContent, LayoutFlexboxContainer,
+    AlignContent, AlignItems, AlignSelf, FlexDirection, FlexWrap, JustifyContent,
+    LayoutFlexboxContainer,
 };
 
 use crate::layouts::{
-    assert_parent_node, base_style::ChildStyle, local_layout_input_to_taffy, size_to_local,
-    size_to_taffy, CoreStyleMigration, MyTree, ResolvedStyle, PARENT_NODE_ID,
+    assert_parent_node, local_layout_input_to_taffy, size_to_local, size_to_taffy,
+    CoreStyleMigration, MyTree, ResolvedStyle, PARENT_NODE_ID,
 };
 
 use super::{FlexContainerStyle, FlexItemStyle};
@@ -89,7 +88,7 @@ impl taffy::FlexboxContainerStyle for ResolvedStyle<'_, &FlexContainerStyle> {
     }
 
     fn align_items(&self) -> Option<AlignItems> {
-        Some(self.style.align_items)
+        self.style.align_items.to_taffy()
     }
 
     fn flex_direction(&self) -> FlexDirection {
@@ -124,7 +123,7 @@ impl<'a, 'b> CoreStyleMigration for ResolvedStyle<'a, AxisFlexItemStyle<'b>> {
 
 impl taffy::FlexboxItemStyle for ResolvedStyle<'_, AxisFlexItemStyle<'_>> {
     fn align_self(&self) -> Option<AlignSelf> {
-        Some(self.style.style.align_self)
+        self.style.style.align_self.to_taffy()
     }
 
     fn flex_basis(&self) -> taffy::Dimension {

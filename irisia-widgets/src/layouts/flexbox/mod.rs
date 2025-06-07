@@ -1,5 +1,5 @@
 use irisia::{
-    build2, coerce_hook,
+    build2,
     hook::Signal,
     model::{component::Component, control_flow::CommonVModel, prim::Block},
     prim_element::block::BlockStyle,
@@ -7,7 +7,7 @@ use irisia::{
     Size,
 };
 
-pub use taffy::{AlignContent, AlignItems, AlignSelf, FlexDirection, FlexWrap, JustifyContent};
+pub use taffy::{AlignContent, FlexDirection, FlexWrap, JustifyContent};
 
 use crate::layouts::{base_style::ChildStyle, flexbox::implement::FlexBlockLayout};
 
@@ -32,6 +32,8 @@ impl Component for Flex {
                         container_style: style,
                     },
                     style: style.base,
+
+                    // TODO: 避免多一次signal
                     (self.children.clone())
                 }
             }
@@ -56,7 +58,7 @@ impl FlexContainerStyle {
         flex_wrap: FlexWrap::Wrap,
         gap: Size::all(Length::Auto),
         align_content: AlignContent::FlexStart,
-        align_items: AlignItems::FlexStart,
+        align_items: AlignItems::Auto,
         justify_content: JustifyContent::FlexStart,
         base: BlockStyle::DEFAULT,
     };
@@ -82,7 +84,7 @@ impl FlexItemStyle {
         flex_basis: Length::Auto,
         flex_grow: 0.0,
         flex_shrink: 1.0,
-        align_self: AlignSelf::FlexStart,
+        align_self: AlignSelf::Auto,
         base: ChildStyle::DEFAULT,
     };
 }
@@ -92,3 +94,31 @@ impl Default for FlexItemStyle {
         Self::DEFAULT
     }
 }
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum AlignItems {
+    Start,
+    End,
+    FlexStart,
+    FlexEnd,
+    Center,
+    Baseline,
+    Stretch,
+    Auto,
+}
+
+impl AlignItems {
+    fn to_taffy(self) -> Option<taffy::AlignItems> {
+        macro_rules! map {
+            ($($Var:ident,)*) => {
+                match self {
+                    Self::Auto => None,
+                    $(Self::$Var => Some(taffy::AlignItems::$Var),)*
+                }
+            };
+        }
+        map![Start, End, FlexStart, FlexEnd, Center, Baseline, Stretch,]
+    }
+}
+
+pub type AlignSelf = AlignItems;

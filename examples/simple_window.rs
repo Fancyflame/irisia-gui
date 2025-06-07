@@ -53,34 +53,31 @@ fn app() -> impl VNode<()> {
         )
     };
 
-    let changing_rect = Signal::memo_ncmp(
-        {
-            let switch_color = switch_color.clone();
-            move |&is_red| {
-                build2! {
-                    Block::<()> {
-                        on := switch_color.clone(),
-                        style: BlockStyle {
-                            // width: 0.5 * VMIN,
-                            // height: 0.5 * VMIN,
-                            background: if is_red { Color::RED } else { Color::BLUE },
-                            border_radius: Corner::all(50.0),
-                            border_width: Rect {
-                                left: 10 * PX,
-                                ..Default::default()
-                            },
-                            border_color: Color::GRAY,
-                            ..BlockStyle::DEFAULT
+    let changing_rect = Signal::memo_ncmp(red_rect.to_signal(), {
+        let switch_color = switch_color.clone();
+        move |&is_red| {
+            build2! {
+                Block::<()> {
+                    on := switch_color.clone(),
+                    style: BlockStyle {
+                        // width: 0.5 * VMIN,
+                        // height: 0.5 * VMIN,
+                        background: if is_red { Color::RED } else { Color::BLUE },
+                        border_radius: Corner::all(50.0),
+                        border_width: Rect {
+                            left: 10 * PX,
+                            ..Default::default()
                         },
-                        super: AvgProps {
-                            foo: if is_red {1000} else {500},
-                        },
-                    }
+                        border_color: Color::GRAY,
+                        ..BlockStyle::DEFAULT
+                    },
+                    super: AvgProps {
+                        foo: if is_red {1000} else {500},
+                    },
                 }
             }
-        },
-        red_rect.to_signal(),
-    );
+        }
+    });
 
     let text = Signal::memo_ncmp(red_rect.to_signal(), |&is_red| {
         format!(
@@ -158,12 +155,9 @@ impl Component for CustomComp {
         self,
         _watcher_list: &mut irisia::hook::watcher::WatcherList,
     ) -> impl VNode<()> + use<> {
-        let layout = Signal::memo(
-            |vertical| AverageDivideLayout {
-                vertical: vertical.copied().unwrap_or(false),
-            },
-            self.vertical,
-        );
+        let layout = Signal::memo(self.vertical, |vertical| AverageDivideLayout {
+            vertical: vertical.copied().unwrap_or(false),
+        });
 
         build2! {
             Block {
