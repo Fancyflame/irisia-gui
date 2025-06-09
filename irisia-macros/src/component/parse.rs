@@ -147,7 +147,7 @@ fn parse_field_assignment(
 ) -> Result<Option<FieldAssignment<FieldAssignmentName>>> {
     if !((input.peek(Ident) || input.peek(Token![super]))
         && input.peek2(Token![:])
-        && !input.peek3(Token![:]))
+        && !input.peek2(Token![::]))
     {
         return Ok(None);
     };
