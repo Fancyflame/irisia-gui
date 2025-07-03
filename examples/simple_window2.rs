@@ -25,7 +25,8 @@ use irisia::{
 };
 use irisia_widgets::layouts::{
     AlignContent, AlignItems, FlexContainerStyle, FlexDirection, FlexItemStyle, JustifyContent,
-    base_style::ChildStyle, flexbox::Flex,
+    base_style::{ChildStyle, ChildStyleExt},
+    flexbox::Flex,
 };
 
 #[irisia::main]
@@ -90,14 +91,9 @@ fn app() -> impl VNode<()> {
                     background: Color::RED,
                     ..Default::default()
                 },
-                super: FlexItemStyle {
-                    base: ChildStyle {
-                        width: 60 * PX,
-                        height: 30 * PX,
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                },
+                super: FlexItemStyle::DEFAULT
+                    .width(60 * PX)
+                    .height(30 * PX),
             }
 
             Block::<()> {
@@ -106,14 +102,9 @@ fn app() -> impl VNode<()> {
                     ..Default::default()
                 },
                 on: on_click,
-                super: FlexItemStyle {
-                    base: ChildStyle {
-                        width: 0.2 * PCT,
-                        height: 0.3 * VH,
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                },
+                super: FlexItemStyle::DEFAULT
+                    .width(0.2 * PCT)
+                    .height(0.3 * VH),
             }
 
             Block::<()> {
@@ -121,14 +112,9 @@ fn app() -> impl VNode<()> {
                     background: Color::BLUE,
                     ..Default::default()
                 },
-                super: FlexItemStyle {
-                    base: ChildStyle {
-                        width: 0.2 * VW,
-                        height: 0.1 * PCT,
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                },
+                super: FlexItemStyle::DEFAULT
+                    .width(0.2 * VW)
+                    .height(0.1 * PCT),
             }
         }
     }

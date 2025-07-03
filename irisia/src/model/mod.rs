@@ -4,10 +4,13 @@ use crate::{
     prim_element::{EMCreateCtx, Element},
 };
 
+pub use style::UseStyle;
+
 pub mod component;
 pub mod control_flow;
 // pub mod map_parent_props;
 pub mod prim;
+pub mod style;
 
 pub trait VModel<Cd> {
     type Storage: Model<Cd>;

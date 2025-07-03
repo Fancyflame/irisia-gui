@@ -4,8 +4,9 @@ use proc_macro2::TokenStream as TokenStream2;
 use props2::CastProp;
 use quote::quote;
 use syn::{
+    DeriveInput, Item, Result,
     parse::{ParseStream, Parser},
-    parse_macro_input, DeriveInput, Item, Result,
+    parse_macro_input,
 };
 
 macro_rules! const_quote {
@@ -34,6 +35,7 @@ macro_rules! const_quote {
 mod build_macro;
 mod component;
 mod derive_props;
+mod generics_unbracketed;
 mod inner_impl_listen;
 mod main_macro;
 mod parse_incomplete;
@@ -42,11 +44,9 @@ mod props2;
 mod split_generics;
 mod style;
 
-#[proc_macro]
-pub fn style(input: TokenStream) -> TokenStream {
-    parse_macro_input!(input as style::StyleMacro)
-        .to_token_stream()
-        .into()
+#[proc_macro_attribute]
+pub fn style(attr: TokenStream, input: TokenStream) -> TokenStream {
+    result_into_stream(style::ImplStyle::parse(attr, input).map(|x| x.to_tokens()))
 }
 
 #[proc_macro_attribute]

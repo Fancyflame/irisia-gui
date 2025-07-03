@@ -1,10 +1,10 @@
 use irisia::{
     build2,
     hook::Signal,
-    model::{component::Component, control_flow::CommonVModel, prim::Block},
+    model::{component::Component, control_flow::CommonVModel, prim::Block, UseStyle},
     prim_element::block::BlockStyle,
     primitive::Length,
-    Size,
+    style, Size,
 };
 
 pub use taffy::{AlignContent, FlexDirection, FlexWrap, JustifyContent};
@@ -71,12 +71,24 @@ impl Default for FlexContainerStyle {
 }
 
 #[derive(Clone, Copy, PartialEq)]
+#[style(FlexItemStyleExtend)]
 pub struct FlexItemStyle {
     pub flex_basis: Length,
     pub flex_grow: f32,
     pub flex_shrink: f32,
     pub align_self: AlignSelf,
+
+    #[style(extend)]
     pub base: ChildStyle,
+}
+
+impl<T> UseStyle<T> for FlexItemStyle
+where
+    ChildStyle: UseStyle<T>,
+{
+    fn style_mut(&mut self) -> &mut T {
+        self.base.style_mut()
+    }
 }
 
 impl FlexItemStyle {

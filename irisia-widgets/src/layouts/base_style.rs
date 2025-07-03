@@ -1,11 +1,12 @@
 use irisia::{
     primitive::{length::LengthStandard, Length},
-    Point, Rect, Size,
+    style, Point, Rect, Size,
 };
 use taffy::{Overflow, Position};
 
 use crate::layouts::{point_to_taffy, rect_to_taffy, size_to_taffy, ResolvedStyle};
 
+#[style(ChildStyleExt)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct ChildStyle {
     pub width: Length,
