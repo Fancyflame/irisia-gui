@@ -1,7 +1,9 @@
 use irisia_backend::skia_safe::Color;
+use irisia_macros::style;
 use layout::{DefaultLayouter, LayoutChildren};
 use rect::{DrawRRect, DrawRRectProps};
 
+use crate as irisia;
 use crate::{
     hook::Signal,
     primitive::{Length, Point, corner::Corner, line::Line, rect::Rect},
@@ -18,6 +20,7 @@ pub use layout::BlockLayout;
 pub mod layout;
 mod rect;
 
+#[style(BlockStyleExt)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct BlockStyle {
     pub margin: Rect<Length>,

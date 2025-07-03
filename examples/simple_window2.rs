@@ -12,7 +12,7 @@ use irisia::{
         prim::{Block, Text},
     },
     prim_element::{
-        block::{BlockLayout, BlockStyle, layout::LayoutChildren},
+        block::{BlockLayout, BlockStyle, BlockStyleExt, layout::LayoutChildren},
         layout::SpaceConstraint,
         text::TextStyle,
     },
@@ -24,7 +24,8 @@ use irisia::{
     skia_safe::Color,
 };
 use irisia_widgets::layouts::{
-    AlignContent, AlignItems, FlexContainerStyle, FlexDirection, FlexItemStyle, JustifyContent,
+    AlignContent, AlignItems, FlexContainerStyle, FlexContainerStyleExt, FlexDirection,
+    FlexItemStyle, JustifyContent,
     base_style::{ChildStyle, ChildStyleExt},
     flexbox::Flex,
 };
@@ -72,46 +73,41 @@ fn app() -> impl VNode<()> {
 
     build2! {
         Flex {
-            style := Signal::memo(flex_direction.to_signal(), |&flex_direction| FlexContainerStyle {
-                flex_direction,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                align_content: AlignContent::Center,
-                base: BlockStyle {
-                    background: Color::GRAY,
-                    ..Default::default()
-                },
-                ..Default::default()
+            style := Signal::memo(flex_direction.to_signal(), |&flex_direction| {
+                FlexContainerStyle::DEFAULT
+                    .flex_direction(flex_direction)
+                    .justify_content(JustifyContent::Center)
+                    .align_items(AlignItems::Center)
+                    .align_content(AlignContent::Center)
+                    .background(Color::GRAY)
             }),
 
             (extra_blocks.to_signal())
 
             Block::<()> {
-                style: BlockStyle {
-                    background: Color::RED,
-                    ..Default::default()
-                },
+                style: BlockStyle::DEFAULT
+                    .background(Color::RED),
+
                 super: FlexItemStyle::DEFAULT
                     .width(60 * PX)
                     .height(30 * PX),
             }
 
             Block::<()> {
-                style: BlockStyle {
-                    background: Color::BLACK,
-                    ..Default::default()
-                },
                 on: on_click,
+
+                style: BlockStyle::DEFAULT
+                    .background(Color::BLACK),
+
                 super: FlexItemStyle::DEFAULT
                     .width(0.2 * PCT)
                     .height(0.3 * VH),
             }
 
             Block::<()> {
-                style: BlockStyle {
-                    background: Color::BLUE,
-                    ..Default::default()
-                },
+                style: BlockStyle::DEFAULT
+                    .background(Color::BLUE),
+
                 super: FlexItemStyle::DEFAULT
                     .width(0.2 * VW)
                     .height(0.1 * PCT),
@@ -123,20 +119,14 @@ fn app() -> impl VNode<()> {
 fn create_block() -> impl VNode<FlexItemStyle> {
     build2! {
         Block::<()> {
-            style: BlockStyle {
-                background: Color::RED,
-                border_width: Rect::all(1 * PX),
-                border_color: Color::BLACK,
-                ..Default::default()
-            },
-            super: FlexItemStyle {
-                base: ChildStyle {
-                    width: 60 * PX,
-                    height: 30 * PX,
-                    ..Default::default()
-                },
-                ..Default::default()
-            },
+            style: BlockStyle::DEFAULT
+                .background(Color::RED)
+                .border_width(Rect::all(1 * PX))
+                .border_color(Color::BLACK),
+
+            super: FlexItemStyle::DEFAULT
+                .width(60 * PX)
+                .height(30 * PX),
         }
     }
 }

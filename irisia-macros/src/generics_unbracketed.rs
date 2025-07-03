@@ -1,18 +1,18 @@
 use proc_macro2::TokenStream;
 use quote::{ToTokens, TokenStreamExt};
-use syn::{GenericParam, Generics, WhereClause};
+use syn::{GenericParam, Generics, Token};
 
 pub fn split_for_impl_unbracketed(
     g: &Generics,
 ) -> (
     ImplGenericsUnbracketed,
     TypeGenericsUnbracketed,
-    Option<&WhereClause>,
+    WhereClausePredicates,
 ) {
     (
         ImplGenericsUnbracketed(g),
         TypeGenericsUnbracketed(g),
-        g.where_clause.as_ref(),
+        WhereClausePredicates(g),
     )
 }
 
@@ -119,6 +119,22 @@ impl<'a> ToTokens for TypeGenericsUnbracketed<'a> {
 
             // Ensure the trailing punct
             tokens_or_default(tokens, param.punct().copied());
+        }
+    }
+}
+
+pub struct WhereClausePredicates<'a>(&'a Generics);
+
+impl ToTokens for WhereClausePredicates<'_> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let predicates = match &self.0.where_clause {
+            Some(w) => &w.predicates,
+            None => return,
+        };
+
+        predicates.to_tokens(tokens);
+        if !predicates.empty_or_trailing() {
+            <Token![,]>::default().to_tokens(tokens);
         }
     }
 }
