@@ -60,7 +60,7 @@ impl<'tree> LayoutFlexboxContainer for MyTree<'tree, FlexContainerStyle, FlexIte
         ResolvedStyle {
             length_standard: self.children.length_standard().as_ref(),
             style: AxisFlexItemStyle {
-                style: self.children.get(child_node_id.into()).data(),
+                flex_style: self.children.get(child_node_id.into()).data(),
                 is_vertical,
             },
         }
@@ -110,20 +110,21 @@ impl taffy::FlexboxContainerStyle for ResolvedStyle<'_, &FlexContainerStyle> {
     }
 }
 
+// we need this structure to generate flex-basis
 pub(crate) struct AxisFlexItemStyle<'a> {
-    style: &'a FlexItemStyle,
+    flex_style: &'a FlexItemStyle,
     is_vertical: bool,
 }
 
 impl<'a, 'b> CoreStyleMigration for ResolvedStyle<'a, AxisFlexItemStyle<'b>> {
     fn as_core_style(&self) -> impl taffy::CoreStyle + use<'_, 'a, 'b> {
-        self.wrap(&self.style.style.base)
+        self.wrap(&self.style.flex_style.base)
     }
 }
 
 impl taffy::FlexboxItemStyle for ResolvedStyle<'_, AxisFlexItemStyle<'_>> {
     fn align_self(&self) -> Option<AlignSelf> {
-        self.style.style.align_self.to_taffy()
+        self.style.flex_style.align_self.to_taffy()
     }
 
     fn flex_basis(&self) -> taffy::Dimension {
@@ -133,17 +134,17 @@ impl taffy::FlexboxItemStyle for ResolvedStyle<'_, AxisFlexItemStyle<'_>> {
             self.length_standard.width
         };
 
-        match ls.resolve(self.style.style.flex_basis) {
+        match ls.resolve(self.style.flex_style.flex_basis) {
             Some(value) => taffy::Dimension::length(value),
             None => taffy::Dimension::auto(),
         }
     }
 
     fn flex_grow(&self) -> f32 {
-        self.style.style.flex_grow
+        self.style.flex_style.flex_grow
     }
 
     fn flex_shrink(&self) -> f32 {
-        self.style.style.flex_grow
+        self.style.flex_style.flex_grow
     }
 }
