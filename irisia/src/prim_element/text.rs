@@ -4,14 +4,15 @@ use irisia_backend::skia_safe::{
         FontCollection, Paragraph, ParagraphBuilder, ParagraphStyle, TextStyle as SkTextStyle,
     },
 };
-
-use crate::{hook::Signal, primitive::Point};
+use irisia_macros::style;
 
 use super::{
     Common, EMCreateCtx, EventCallback, RenderTree, Size, WeakElement,
     layout::{LayoutInput, SpaceConstraint},
     read_or_default,
 };
+use crate as irisia;
+use crate::{hook::Signal, primitive::Point};
 
 pub type SignalStr = Signal<dyn AsRef<str>>;
 
@@ -22,6 +23,7 @@ pub struct RenderText {
     common: Common,
 }
 
+#[style(TextStyleExt)]
 #[derive(PartialEq, Clone)]
 pub struct TextStyle {
     pub font_size: f32,
@@ -29,7 +31,7 @@ pub struct TextStyle {
 }
 
 impl TextStyle {
-    const DEFAULT: Self = Self {
+    pub const DEFAULT: Self = Self {
         font_size: 20.0,
         font_color: Color::BLACK,
     };

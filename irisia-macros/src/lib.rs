@@ -4,7 +4,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use props2::CastProp;
 use quote::quote;
 use syn::{
-    DeriveInput, Item, Result,
+    DeriveInput, Item, ItemFn, Result,
     parse::{ParseStream, Parser},
     parse_macro_input,
 };
@@ -51,7 +51,8 @@ pub fn style(attr: TokenStream, input: TokenStream) -> TokenStream {
 
 #[proc_macro_attribute]
 pub fn main(_: TokenStream, input: TokenStream) -> TokenStream {
-    main_macro::main_macro(input)
+    let item_fn = parse_macro_input!(input as ItemFn);
+    result_into_stream(main_macro::main_macro(item_fn))
 }
 
 #[proc_macro_derive(Event)]

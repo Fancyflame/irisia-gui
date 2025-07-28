@@ -1,12 +1,13 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::{
+    Error, ItemFn, Result,
     parse::{Parse, Parser},
-    parse_quote, Error, ItemFn, Result,
+    parse_quote,
 };
 
-fn handle(mut item: ItemFn) -> Result<TokenStream2> {
+pub fn main_macro(mut item: ItemFn) -> Result<TokenStream2> {
     if item.sig.asyncness.take().is_none() {
         return Err(Error::new_spanned(
             &item.sig,
@@ -23,20 +24,4 @@ fn handle(mut item: ItemFn) -> Result<TokenStream2> {
     }};
 
     Ok(item.into_token_stream())
-}
-
-pub fn main_macro(input: TokenStream) -> TokenStream {
-    let input: TokenStream2 = input.into();
-
-    match ItemFn::parse.parse2(input.clone()).and_then(handle) {
-        Ok(result) => result,
-        Err(err) => {
-            let err = err.to_compile_error();
-            quote! {
-                #err
-                #input
-            }
-        }
-    }
-    .into()
 }

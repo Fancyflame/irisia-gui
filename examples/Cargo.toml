@@ -28,6 +28,10 @@ path = "simple_window.rs"
 name = "simple_window2"
 path = "simple_window2.rs"
 
+[[example]]
+name = "counter"
+path = "counter.rs"
+
 [dev-dependencies]
 tokio = { version = "1.40", features = ["sync", "rt-multi-thread", "macros"] }
 irisia = { path = "../irisia" }
