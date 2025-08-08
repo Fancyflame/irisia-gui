@@ -1,8 +1,9 @@
 use std::rc::Rc;
 
+use super::{Signal, WriteSignal, inner::Inner};
 use crate::hook::check_casted_rc;
 
-use super::{inner::Inner, Signal, WriteSignal};
+mod fast_coerce;
 
 type CoerceFn<T, U> = fn(Rc<Inner<T>>) -> Rc<Inner<U>>;
 

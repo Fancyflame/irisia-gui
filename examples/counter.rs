@@ -43,7 +43,7 @@ fn app() -> impl VNode<()> {
             CenterBox {
                 color: Color::BLUE,
                 Text {
-                    text := Signal::memo_ncmp(counter.to_signal(), |count| {
+                    text[=]: Signal::memo_ncmp(counter.to_signal(), |count| {
                         format!("You clicked {count} times")
                     }).into(),
                     style: TextStyle::DEFAULT
@@ -74,7 +74,7 @@ impl Component for CenterBox {
     fn create(self, _: &mut WatcherList) -> impl VNode<()> + use<> {
         build2! {
             Flex {
-                style := Signal::memo_ncmp(self.color, |color| {
+                style[=]: Signal::memo_ncmp(self.color, |color| {
                     FlexContainerStyle::DEFAULT
                         .justify_content(JustifyContent::Center)
                         .align_items(AlignItems::Center)
