@@ -58,7 +58,7 @@ fn app() -> impl VNode<()> {
         move |&is_red| {
             build2! {
                 Block::<()> {
-                    on := switch_color.clone(),
+                    on[=]: switch_color.clone(),
                     style: BlockStyle {
                         // width: 0.5 * VMIN,
                         // height: 0.5 * VMIN,
@@ -90,16 +90,16 @@ fn app() -> impl VNode<()> {
 
     build2! {
         CustomComp {
-            vertical := red_rect.to_signal(),
+            vertical[=]: red_rect.to_signal(),
 
             (changing_rect)
 
             Text {
-                on := switch_color,
+                on[=]: switch_color,
                 // on PointerEvent(foo) => {
 
                 // },
-                text := coerce_hook!(text),
+                text[=]: coerce_hook!(text),
                 style: TextStyle {
                     font_size: 40.0,
                     font_color: Color::MAGENTA,

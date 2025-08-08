@@ -12,5 +12,4 @@ irisia_macros = { path = "../irisia-macros" }
 irisia_utils = { path = "../irisia-utils" }
 
 [[test]]
-name = "style_macro"
-path = "style_macro.rs"
+

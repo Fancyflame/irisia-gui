@@ -2,9 +2,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::Token;
 
-use crate::component::{ForStmt, IfStmt, Stmt};
-
-use super::{BuildMacro, MatchArm, MatchStmt, UseExprStmt, WhileStmt};
+use crate::component::ast::*;
 
 mod use_component;
 
@@ -15,27 +13,13 @@ const_quote! {
     const PATH_OPTION = { ::core::option::Option };
 }
 
-impl BuildMacro {
-    pub fn gen_code(&self) -> TokenStream {
-        (GenerationEnv {}).gen_rc_chained(&self.stmts)
-    }
+pub fn gen_code(stmts: &[Stmt]) -> TokenStream {
+    GenerationEnv.gen_rc_chained(stmts)
 }
 
-struct GenerationEnv {}
-
-impl GenerationEnv {
-    pub fn gen_code(&self, stmt: &Stmt) -> TokenStream {
-        match stmt {
-            Stmt::Block(block) => self.gen_chained(&block.stmts),
-            Stmt::For(for_stmt) => self.gen_for(for_stmt),
-            Stmt::While(while_stmt) => self.gen_while(while_stmt),
-            Stmt::If(if_stmt) => self.gen_if(if_stmt),
-            Stmt::Match(match_stmt) => self.gen_match(match_stmt),
-            Stmt::Component(comp) => self.gen_component(comp),
-            Stmt::UseExpr(expr) => self.gen_use_expr(expr),
-        }
-    }
-}
+/// A struct that contains the environment for generating code.
+/// There is no environment for generating code for now.
+struct GenerationEnv;
 
 impl GenerationEnv {
     fn gen_rc_chained(&self, stmts: &[Stmt]) -> TokenStream {
@@ -48,7 +32,7 @@ impl GenerationEnv {
     fn gen_chained(&self, stmts: &[Stmt]) -> TokenStream {
         match stmts {
             [] => self.gen_empty(),
-            [one] => self.gen_code(one),
+            [one] => self.gen_stmt(one),
             _ => {
                 let (p1, p2) = stmts.split_at(stmts.len() / 2);
                 let p1 = self.gen_chained(p1);
@@ -57,6 +41,18 @@ impl GenerationEnv {
                     (#p1, #p2)
                 }
             }
+        }
+    }
+
+    fn gen_stmt(&self, stmt: &Stmt) -> TokenStream {
+        match stmt {
+            Stmt::Block(block) => self.gen_chained(&block.stmts),
+            Stmt::For(for_stmt) => self.gen_for(for_stmt),
+            Stmt::While(while_stmt) => self.gen_while(while_stmt),
+            Stmt::If(if_stmt) => self.gen_if(if_stmt),
+            Stmt::Match(match_stmt) => self.gen_match(match_stmt),
+            Stmt::Component(comp) => self.gen_component(comp),
+            Stmt::UseExpr(expr) => self.gen_use_expr(expr),
         }
     }
 
@@ -105,7 +101,7 @@ impl GenerationEnv {
     ) -> TokenStream {
         let then_branch = self.gen_chained(&then_branch.stmts);
         let else_branch = match else_branch {
-            Some(b) => self.gen_code(&b),
+            Some(b) => self.gen_stmt(&b),
             None => self.gen_empty(),
         };
 
@@ -158,7 +154,7 @@ impl GenerationEnv {
             }
         };
 
-        let mut arm_value = self.gen_code(body);
+        let mut arm_value = self.gen_stmt(body);
         for &branch_is_a in branch_stack.iter().rev() {
             arm_value = if branch_is_a {
                 quote! {

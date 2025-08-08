@@ -2,10 +2,9 @@ use proc_macro2::TokenStream;
 use quote::{ToTokens, format_ident, quote};
 use syn::{Expr, Ident};
 
-use crate::component::{
-    ComponentStmt, FieldAssignMethod, FieldAssignment,
-    to_tokens::{PATH_COMPONENT, PATH_OPTION},
-};
+use crate::component::ast::FieldDecoration;
+
+use super::{ComponentStmt, FieldAssignment, PATH_COMPONENT, PATH_OPTION};
 
 use super::GenerationEnv;
 
@@ -25,51 +24,53 @@ impl GenerationEnv {
     ) -> TokenStream {
         let mut fields: Vec<&FieldAssignment<Ident>> = Vec::from_iter(all_fields.iter());
 
-        let mut _body_fa = None;
+        let mut _cache = None;
         if !body.is_empty() {
-            fields.push(_body_fa.insert(FieldAssignment {
+            fields.push(_cache.insert(FieldAssignment {
                 name: format_ident!("children"),
-                method: FieldAssignMethod::HostingSignal,
+                decoration: FieldDecoration::None,
                 value: Expr::Verbatim(GenerationEnv {}.gen_rc_chained(&body)),
             }));
         };
 
-        let defs_tuple = field_asgn_binary_fold(&fields, &|&fa| {
+        let defs_tuple = binary_fold(&fields, &|&fa| {
             let FieldAssignment {
                 name,
                 value,
-                method,
+                decoration,
             } = fa;
 
-            match method {
-                FieldAssignMethod::HostingSignal => {
+            match decoration {
+                FieldDecoration::None => {
                     quote! {
                         #PATH_COMPONENT::proxy_signal_helper::check_eq(#value).get()
                     }
                 }
-                FieldAssignMethod::Direct => {
+                FieldDecoration::DirectAssign => {
                     quote! {
                         #PATH_COMPONENT::direct_assign_helper::type_infer(
                             |#comp_type { #name, .. }| #name
                         ).infer(#value)
                     }
                 }
+                FieldDecoration::Event => unimplemented!(),
             }
         });
 
-        let names_tuple = field_asgn_binary_fold(&fields, &|fa| fa.name.to_token_stream());
+        let names_tuple = binary_fold(&fields, &|fa| fa.name.to_token_stream());
 
         let prop_assignments = fields.iter().map(|fa| {
             let name = &fa.name;
-            let value = match fa.method {
-                FieldAssignMethod::HostingSignal => {
+            let value = match fa.decoration {
+                FieldDecoration::None => {
                     quote! {
                         irisia::coerce_hook!(#name)
                     }
                 }
-                FieldAssignMethod::Direct => {
+                FieldDecoration::DirectAssign => {
                     quote! { #name }
                 }
+                FieldDecoration::Event => unimplemented!(),
             };
 
             quote! {
@@ -104,7 +105,7 @@ impl GenerationEnv {
     }
 }
 
-fn field_asgn_binary_fold<T, F>(slice: &[T], for_each: &F) -> TokenStream
+fn binary_fold<T, F>(slice: &[T], for_each: &F) -> TokenStream
 where
     F: Fn(&T) -> TokenStream,
 {
@@ -113,8 +114,8 @@ where
         [one] => for_each(one),
         _ => {
             let (a, b) = slice.split_at(slice.len() / 2);
-            let a = field_asgn_binary_fold(a, for_each);
-            let b = field_asgn_binary_fold(b, for_each);
+            let a = binary_fold(a, for_each);
+            let b = binary_fold(b, for_each);
             quote! {(#a, #b)}
         }
     }

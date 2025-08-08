@@ -73,7 +73,7 @@ fn app() -> impl VNode<()> {
 
     build2! {
         Flex {
-            style := Signal::memo(flex_direction.to_signal(), |&flex_direction| {
+            style[=]: Signal::memo(flex_direction.to_signal(), |&flex_direction| {
                 FlexContainerStyle::DEFAULT
                     .flex_direction(flex_direction)
                     .justify_content(JustifyContent::Center)

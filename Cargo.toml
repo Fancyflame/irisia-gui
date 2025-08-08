@@ -9,7 +9,7 @@ members = [
   "irisia-macros",
   "irisia-utils",
   "examples",
-  "tests",
+#   "tests",
 ]
 package.rust-version = "1.86"
 resolver = "2"

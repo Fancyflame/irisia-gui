@@ -1,32 +1,21 @@
-use crate::component::FieldAssignMethod;
-
-use super::{
-    BlockStmt, BuildMacro, ComponentStmt, FieldAssignment, ForStmt, IfStmt, MatchArm, MatchStmt,
-    Stmt, UseExprStmt, WhileStmt,
-};
-
+use super::ast::*;
 use proc_macro2::TokenStream;
 use syn::{
-    Error, Expr, Ident, Pat, Result, Token, braced, parenthesized,
-    parse::{Parse, ParseStream},
+    Expr, Pat, Result, Token, braced, parenthesized,
+    parse::ParseStream,
     token::{Brace, Paren},
 };
+
+mod use_component;
 
 mod kw {
     use syn::custom_keyword;
 
     custom_keyword!(key);
+    custom_keyword!(event);
 }
 
-impl Parse for BuildMacro {
-    fn parse(input: ParseStream) -> Result<Self> {
-        Ok(Self {
-            stmts: parse_stmts(input)?,
-        })
-    }
-}
-
-fn parse_stmts(input: ParseStream) -> Result<Vec<Stmt>> {
+pub fn parse_stmts(input: ParseStream) -> Result<Vec<Stmt>> {
     let mut stmts = Vec::new();
     while !input.is_empty() {
         stmts.push(parse_stmt(input, true)?);
@@ -34,7 +23,7 @@ fn parse_stmts(input: ParseStream) -> Result<Vec<Stmt>> {
     Ok(stmts)
 }
 
-fn parse_stmt(input: ParseStream, multiple_mode: bool) -> Result<Stmt> {
+fn parse_stmt(input: ParseStream, _in_block_mode: bool) -> Result<Stmt> {
     if input.peek(Token![if]) {
         Ok(Stmt::If(parse_if_stmt(input)?))
     } else if input.peek(Token![match]) {
@@ -48,7 +37,7 @@ fn parse_stmt(input: ParseStream, multiple_mode: bool) -> Result<Stmt> {
     } else if input.peek(Paren) {
         Ok(Stmt::UseExpr(parse_use_expr(input)?))
     } else {
-        Ok(Stmt::Component(parse_component(input)?))
+        Ok(Stmt::Component(use_component::parse_component(input)?))
     }
 }
 
@@ -134,90 +123,6 @@ fn parse_while_stmt(input: ParseStream) -> Result<WhileStmt> {
     Ok(WhileStmt {
         condition: input.call(Expr::parse_without_eager_brace)?,
         body: parse_block(&input)?,
-    })
-}
-
-enum FieldAssignmentName {
-    Super(Token![super]),
-    Ident(Ident),
-}
-
-fn parse_field_assignment(
-    input: ParseStream,
-) -> Result<Option<FieldAssignment<FieldAssignmentName>>> {
-    if !((input.peek(Ident) || input.peek(Token![super]))
-        && input.peek2(Token![:])
-        && !input.peek2(Token![::]))
-    {
-        return Ok(None);
-    };
-
-    let name = if input.peek(Token![super]) {
-        FieldAssignmentName::Super(input.parse()?)
-    } else {
-        FieldAssignmentName::Ident(input.parse()?)
-    };
-
-    input.parse::<Token![:]>()?;
-
-    let method = if input.peek(Token![=]) {
-        input.parse::<Token![=]>()?;
-        FieldAssignMethod::Direct
-    } else {
-        FieldAssignMethod::HostingSignal
-    };
-
-    let value = input.parse()?;
-    input.parse::<Token![,]>()?;
-
-    Ok(Some(FieldAssignment {
-        name,
-        value,
-        method,
-    }))
-}
-
-fn parse_component(input: ParseStream) -> Result<ComponentStmt> {
-    let comp_type = input.parse()?;
-
-    let content;
-    braced!(content in input);
-
-    let mut fields = Vec::new();
-    let mut child_data = None;
-
-    while let Some(fa) = parse_field_assignment(&content)? {
-        match fa.name {
-            FieldAssignmentName::Ident(ident) => fields.push(FieldAssignment {
-                name: ident,
-                value: fa.value,
-                method: fa.method,
-            }),
-            FieldAssignmentName::Super(super_token) => match child_data {
-                Some(_) => {
-                    return Err(Error::new_spanned(
-                        super_token,
-                        "cannot define child data duplicatedly",
-                    ));
-                }
-                None => match fa.method {
-                    FieldAssignMethod::HostingSignal => child_data = Some(fa.value),
-                    FieldAssignMethod::Direct => {
-                        return Err(Error::new_spanned(
-                            super_token,
-                            "cannot use `:=` on child data",
-                        ));
-                    }
-                },
-            },
-        }
-    }
-
-    Ok(ComponentStmt {
-        comp_type,
-        child_data,
-        fields,
-        body: parse_stmts(&content)?,
     })
 }
 

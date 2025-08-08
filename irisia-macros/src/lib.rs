@@ -1,4 +1,3 @@
-use component::BuildMacro;
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use props2::CastProp;
@@ -110,5 +109,5 @@ pub fn derive_partial_eq(input: TokenStream) -> TokenStream {
 
 #[proc_macro]
 pub fn build2(input: TokenStream) -> TokenStream {
-    parse_macro_input!(input as BuildMacro).gen_code().into()
+    result_into_stream(component::build_macro.parse(input))
 }
