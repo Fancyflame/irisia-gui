@@ -1,6 +1,6 @@
 use crate::{
     WeakHandle,
-    model::prim::SubmitChildren,
+    model::{control_flow::elimate_child_data::ElimateChildData, prim::SubmitChildren},
     prim_element::{EMCreateCtx, Element},
 };
 
@@ -20,26 +20,12 @@ pub trait VModel<Cd> {
 
     // Provided
 
-    /*fn map_parent_props<F, U>(self, f: F) -> MapParentProps<F, Self>
+    fn elimate_child_data(self) -> ElimateChildData<Self, Cd>
     where
         Self: Sized,
-        F: Fn(&Self::ParentProps) -> &U,
     {
-        MapParentProps {
-            src_vmodel: self,
-            map: f,
-        }
+        ElimateChildData::new(self)
     }
-
-    fn clear_parent_props(self) -> MapParentProps<(), Self>
-    where
-        Self: Sized,
-    {
-        MapParentProps {
-            map: (),
-            src_vmodel: self,
-        }
-    }*/
 }
 
 pub trait Model<Cd>: 'static {

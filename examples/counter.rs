@@ -2,7 +2,7 @@ use irisia::{
     Result, Window, WinitWindow, build2,
     hook::{Signal, watcher::WatcherList},
     model::{
-        VNode,
+        VModel, VNode,
         component::Component,
         control_flow::CommonVModel,
         prim::{Block, Text},
@@ -54,11 +54,11 @@ fn app() -> impl VNode<()> {
 
             CenterBox {
                 color: Color::WHITE,
-                on: |event| {
-                    match event {
+                // on: |event| {
+                //     match event {
 
-                    }
-                },
+                //     }
+                // },
             }
         }
     }
@@ -67,7 +67,7 @@ fn app() -> impl VNode<()> {
 #[derive(Default)]
 struct CenterBox {
     pub color: Option<Signal<Color>>,
-    pub children: Option<Signal<dyn CommonVModel<FlexItemStyle>>>,
+    pub children: Option<Signal<dyn CommonVModel<()>>>,
 }
 
 impl Component for CenterBox {
@@ -81,7 +81,7 @@ impl Component for CenterBox {
                         .background(color.copied().unwrap())
                 }),
 
-                (self.children)
+                (self.children.elimate_child_data())
             }
         }
     }
