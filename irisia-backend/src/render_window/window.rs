@@ -4,8 +4,10 @@ use std::{
 };
 
 use anyhow::Result;
+use pixels::Pixels;
+use winit::event::WindowEvent;
 
-use crate::{runtime::rt_event::AppBuildFn, AppWindow, StaticWindowEvent, WinitWindow};
+use crate::{runtime::rt_event::AppBuildFn, AppWindow, WinitWindow};
 
 use super::renderer::Renderer;
 
@@ -17,10 +19,10 @@ pub struct RenderWindow {
 }
 
 impl RenderWindow {
-    pub fn new(app: AppBuildFn, window: Arc<WinitWindow>) -> Result<Self> {
+    pub fn new(app: AppBuildFn, pixels: Pixels, window: Arc<WinitWindow>) -> Result<Self> {
         Ok(RenderWindow {
             app: app(),
-            renderer: Renderer::new(&window)?,
+            renderer: Renderer::new(pixels, &window)?,
             window,
             last_frame_instant: None,
         })
@@ -41,14 +43,14 @@ impl RenderWindow {
 
         if let Err(err) = self
             .renderer
-            .render(|canvas| self.app.on_redraw(canvas, delta))
+            .render(|canvas| self.app.on_redraw(canvas, delta, self.window.inner_size()))
         {
             eprintln!("render error: {err}");
         }
     }
 
-    pub fn handle_event(&mut self, event: StaticWindowEvent) {
-        self.app.on_window_event(event);
+    pub fn handle_event(&mut self, event: WindowEvent) {
+        self.app.on_window_event(event, self.window.inner_size());
     }
 }
 

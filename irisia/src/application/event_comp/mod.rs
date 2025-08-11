@@ -1,7 +1,8 @@
 pub mod global;
 pub mod node;
 
-pub(crate) use self::{
-    global::{new_event::NewPointerEvent, GlobalEventMgr},
-    node::NodeEventMgr,
-};
+pub use global::new_event::IncomingPointerEvent;
+
+pub(crate) use self::{global::GlobalEventMgr, node::NodeEventMgr};
+
+use crate::primitive::Point;

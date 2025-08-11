@@ -1,125 +1,176 @@
-use std::collections::HashSet;
+use std::borrow::Cow;
 
-use case::CaseExt;
+use attr_parser_fn::{
+    meta::{key_str, ParseMetaExt},
+    ParseArgs, ParseAttrTrait,
+};
+
+use field::Defaulter;
 use proc_macro2::TokenStream;
-use quote::format_ident;
+use quote::{format_ident, quote, ToTokens};
 use syn::{
-    parse_quote, punctuated::Punctuated, spanned::Spanned, visit::Visit, Error, Fields,
-    GenericParam, Generics, Ident, ItemStruct, Result, Type,
+    parse::{ParseStream, Parser},
+    parse_quote, Error, Fields, FieldsNamed, Ident, Item, ItemStruct, Result,
 };
 
-use crate::derive_props::attrs::StructAttr;
+use self::field::FieldProps;
 
-use self::{
-    attrs::FieldAttr, impl_miscellaneous::impl_miscellaneous, impl_update_with::impl_update_with,
-};
+mod field;
 
-mod attrs;
-mod impl_miscellaneous;
-mod impl_update_with;
-
-#[non_exhaustive]
-struct GenHelper<'a> {
-    item: &'a ItemStruct,
+pub struct DeriveProps {
+    input: ItemStruct,
     struct_attr: StructAttr,
-    updater_generics: Generics,
-    fields: Vec<HandledField<'a>>,
+    props: Vec<FieldProps>,
 }
 
-struct HandledField<'a> {
-    ident: &'a Ident,
-    ty: &'a Type,
-    attr: FieldAttr,
+struct StructAttr {
+    rename: Option<Ident>,
 }
 
-impl<'a> GenHelper<'a> {
-    fn new(item: &'a ItemStruct, struct_attr: StructAttr, fields: Vec<HandledField<'a>>) -> Self {
-        Self {
-            item,
-            updater_generics: new_generics(item),
-            fields,
+impl DeriveProps {
+    pub fn parse(attr: TokenStream, input: Item) -> Result<Self> {
+        let input = match input {
+            Item::Struct(s) => s,
+            _ => return Err(Error::new_spanned(input, "only struct is supported")),
+        };
+
+        let props = match &input.fields {
+            Fields::Unnamed(f) => {
+                return Err(Error::new_spanned(
+                    f,
+                    format!(
+                        "fields are expected to have names. try using \
+                        `struct {struct_name} {{ field: Type, ... }}` to \
+                        define it",
+                        struct_name = input.ident
+                    ),
+                ))
+            }
+            Fields::Named(FieldsNamed { named: fields, .. }) => {
+                let mut vec = Vec::new();
+                for f in fields {
+                    vec.push(FieldProps::parse(f.clone())?);
+                }
+                vec
+            }
+            Fields::Unit => Vec::new(),
+        };
+
+        let struct_attr = parse_struct_attr.parse2(attr)?;
+
+        Ok(DeriveProps {
+            input,
             struct_attr,
-        }
-    }
-
-    fn generics_iter(&self) -> impl Iterator<Item = &Ident> + Clone {
-        self.updater_generics
-            .params
-            .iter()
-            .map(|param| match param {
-                GenericParam::Type(t) => &t.ident,
-                _ => unreachable!(
-                    "any `GenericParam` other than `GenericParam::Type` is not allowed"
-                ),
-            })
+            props,
+        })
     }
 }
 
-fn new_generics(stru: &ItemStruct) -> Generics {
-    let field_types: HashSet<&Ident> = {
-        struct IdentVisitor<'ast>(HashSet<&'ast Ident>);
-        impl<'ast> Visit<'ast> for IdentVisitor<'ast> {
-            fn visit_ident(&mut self, i: &'ast Ident) {
-                self.0.insert(i);
-            }
-        }
+fn parse_struct_attr(attr: ParseStream) -> Result<StructAttr> {
+    let (rename,) = ParseArgs::new()
+        .meta((("name", key_str::<Ident>()).optional(),))
+        .parse(attr)?
+        .meta;
 
-        let mut ident_visitor = IdentVisitor(HashSet::new());
-        syn::visit::visit_item_struct(&mut ident_visitor, stru);
-        ident_visitor.0
-    };
-
-    let param_iter = stru.fields.iter().map(|field| {
-        let raw_id = field
-            .ident
-            .as_ref()
-            .expect("expected named field")
-            .to_string()
-            .to_camel();
-
-        let mut id = format_ident!("Prop{raw_id}");
-        loop {
-            if !field_types.contains(&id) {
-                let gp: GenericParam = parse_quote!(#id);
-                break gp;
-            }
-            id = format_ident!("{id}Generic");
-        }
-    });
-
-    Generics {
-        params: Punctuated::from_iter(param_iter),
-        ..Default::default()
-    }
+    Ok(StructAttr { rename })
 }
 
-pub fn props(attr: TokenStream, item: ItemStruct) -> Result<TokenStream> {
-    if !matches!(item.fields, Fields::Named(_)) {
-        return Err(Error::new(
-            item.span(),
-            "expected a struct with named fields",
-        ));
+impl DeriveProps {
+    pub fn compile(&self) -> TokenStream {
+        [
+            self.remake_origin_struct(),
+            self.make_props_struct(),
+            self.make_impl_default(),
+            self.make_impl_user_props(),
+        ]
+        .into_iter()
+        .collect()
     }
 
-    let field_attrs: Vec<HandledField> = {
-        let mut attrs = Vec::new();
-        for field in item.fields.iter() {
-            let ident = field.ident.as_ref().unwrap();
-            attrs.push(HandledField {
-                ident,
-                ty: &field.ty,
-                attr: FieldAttr::parse_from(&field.attrs, ident)?,
-            });
+    fn struct_name(&self) -> Cow<Ident> {
+        match &self.struct_attr.rename {
+            Some(n) => Cow::Borrowed(n),
+            None => Cow::Owned(format_ident!("{}UserProps", self.input.ident).into()),
         }
-        attrs
-    };
+    }
 
-    let struct_attr = StructAttr::parse_from(attr, &field_attrs)?;
+    fn remake_origin_struct(&self) -> TokenStream {
+        let mut item = self.input.clone();
+        for (prop, field) in self.props.iter().zip(item.fields.iter_mut()) {
+            let old_ty = &field.ty;
+            let new_ty = parse_quote! {
+                ::irisia::data_flow::ReadWire<#old_ty>
+            };
 
-    let helper = GenHelper::new(&item, struct_attr, field_attrs);
+            field.ty = new_ty;
+            if let Defaulter::Optioned = prop.defaulter {
+                let old_ty = &field.ty;
+                field.ty = parse_quote! {
+                    ::std::option::Option<#old_ty>
+                };
+            }
 
-    let mut output = impl_miscellaneous(&helper);
-    output.extend(impl_update_with(&helper));
+            field.attrs.retain(|x| !x.path().is_ident("props"));
+        }
+        item.into_token_stream()
+    }
 
-    Ok(output)
+    fn make_props_struct(&self) -> TokenStream {
+        let struct_name = self.struct_name();
+
+        let generics = &self.input.generics;
+        let where_clause = &self.input.generics.where_clause;
+        let fields = self.props.iter().map(FieldProps::new_field);
+
+        quote! {
+            pub struct #struct_name #generics
+            #where_clause
+            {
+                #(pub #fields)*
+            }
+        }
+    }
+
+    fn make_impl_default(&self) -> TokenStream {
+        let struct_name = self.struct_name();
+
+        let (impl_g, type_g, where_clause) = self.input.generics.split_for_impl();
+        let fields = self.props.iter().map(FieldProps::default_field);
+
+        quote! {
+            impl #impl_g ::std::default::Default for #struct_name #type_g
+            #where_clause
+            {
+                fn default() -> Self {
+                    Self {
+                        #(#fields)*
+                    }
+                }
+            }
+        }
+    }
+
+    fn make_impl_user_props(&self) -> TokenStream {
+        let host_name = &self.input.ident;
+        let struct_name = self.struct_name();
+
+        let (impl_g, type_g, where_clause) = self.input.generics.split_for_impl();
+        let fields = self.props.iter().map(FieldProps::take_field);
+
+        quote! {
+            impl #impl_g ::irisia::element::FromUserProps for #host_name #type_g
+            #where_clause
+            {
+                type Props = #struct_name #type_g;
+
+                fn take(
+                    _props: Self::Props,
+                ) -> Self {
+                    Self {
+                        #(#fields)*
+                    }
+                }
+            }
+        }
+    }
 }

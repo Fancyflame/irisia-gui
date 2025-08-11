@@ -1,21 +1,23 @@
 [package]
 name = "irisia_backend"
 version = "1.0.0"
-edition = "2021"
+edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-winit = { version = "0.28", features = ["android-native-activity"] }
-pixels = "0.12"
-skia-safe = { version = "0.66", features = ["textlayout", "binary-cache"] }
-tokio = { version = "1.28", features = ["rt-multi-thread"] }
+winit = { version = "0.30", features = ["android-native-activity", "rwh_05"] }
+pixels = "0.14"
+skia-safe = { version = "0.80", features = ["textlayout", "binary-cache"] }
+tokio = { version = "1.40", features = ["rt-multi-thread", "sync"] }
 anyhow = "1"
 lazy_static = "1"
 futures = "0.3"
+dhat = { version = "0.3", optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger = "0.11.0"
 
 [features]
 fps_recorder = []
+dhat_heap = ["dhat"]

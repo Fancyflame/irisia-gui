@@ -1,111 +1,253 @@
 use irisia::{
-    application::Window,
-    build,
-    element::{Element, ElementUpdate},
-    event::standard::{CloseRequested, PointerDown},
+    Result, Window, WinitWindow,
+    application::PointerEvent,
+    build2, coerce_hook,
+    hook::Signal,
+    model::{
+        VNode,
+        component::Component,
+        control_flow::common_vmodel::DynVModel,
+        prim::{Block, Text},
+    },
+    prim_element::{
+        block::{BlockLayout, BlockStyle, layout::LayoutChildren},
+        layout::SpaceConstraint,
+        text::TextStyle,
+    },
+    primitive::{
+        Corner, Rect,
+        length::{PCT, PX, VMIN},
+        size::Size,
+    },
     skia_safe::Color,
-    style,
-    style::StyleColor,
-    ElModel,
 };
-use irisia_widgets::textbox::{
-    styles::{StyleFontSize, StyleFontWeight},
-    TextBox,
-};
-use window_backend::{Flex, Rectangle, StyleHeight, StyleWidth};
-
-mod window_backend;
 
 #[irisia::main]
-async fn main() {
-    Window::new::<App>("hello irisia")
-        .await
-        .unwrap()
-        .join()
-        .await;
+async fn main() -> Result<()> {
+    Window::new(
+        WinitWindow::default_attributes().with_title("hello irisia"),
+        app,
+    )
+    .await
+    .unwrap()
+    .join()
+    .await;
 }
 
-struct App {
-    rects: Vec<Option<Color>>,
-}
-
-impl Element for App {
-    type BlankProps = ();
-
-    fn set_children(&self, this: &ElModel!()) {
-        this.set_children(build! {
-            Flex {
-                TextBox {
-                    text: "Hello\nпpивeт\nこんにちは\n你好\n\nIrisia GUI🌺",
-                    user_select: true,
-                    +style: style! {
-                        if 1 + 1 == 2 {
-                            color: Color::MAGENTA;
-                        }
-                        font_weight: .bold;
-                        font_size: 30px;
-                    }
+fn app() -> impl VNode<()> {
+    let red_rect = Signal::state(false);
+    let switch_color: Signal<dyn Fn(PointerEvent)> = {
+        let red_rect = red_rect.clone();
+        coerce_hook!(
+            Signal::state(move |pe: PointerEvent| {
+                if let PointerEvent::PointerDown {
+                    is_current: true,
+                    position: _,
+                } = pe
+                {
+                    let mut w = red_rect.write();
+                    *w = !*w;
                 }
+            })
+            .to_signal()
+        )
+    };
 
-                for (index, color) in self.rects.iter().enumerate() {
-                    @key index;
-                    if let Some(color) = color {
-                        Rectangle {
-                            +style: style! {
-                                width: 100px;
-                                height: 100px + 40px * index as f32;
-                                color: *color;
-                            },
-                            +oncreate: move |em| {
-                                rect_rt(this, em, index);
-                            },
-                        }
-                    }
+    let changing_rect = Signal::memo_ncmp(red_rect.to_signal(), {
+        let switch_color = switch_color.clone();
+        move |&is_red| {
+            build2! {
+                Block::<()> {
+                    on[=]: switch_color.clone(),
+                    style: BlockStyle {
+                        // width: 0.5 * VMIN,
+                        // height: 0.5 * VMIN,
+                        background: if is_red { Color::RED } else { Color::BLUE },
+                        border_radius: Corner::all(50.0),
+                        border_width: Rect {
+                            left: 10 * PX,
+                            ..Default::default()
+                        },
+                        border_color: Color::GRAY,
+                        ..BlockStyle::DEFAULT
+                    },
+                    super: AvgProps {
+                        foo: if is_red {1000} else {500},
+                    },
                 }
             }
-        })
-        .layout_once(this.draw_region())
-        .unwrap();
+        }
+    });
+
+    let text = Signal::memo_ncmp(red_rect.to_signal(), |&is_red| {
+        format!(
+            "点击该文本或{0}色矩形切换颜色：当前显示{0}色",
+            if is_red { "红" } else { "蓝" }
+        )
+    });
+
+    //let text: Signal<dyn AsRef<str>> = coerce_hook!(text);
+
+    build2! {
+        CustomComp {
+            vertical[=]: red_rect.to_signal(),
+
+            (changing_rect)
+
+            Text {
+                on[=]: switch_color,
+                // on PointerEvent(foo) => {
+
+                // },
+                text[=]: coerce_hook!(text),
+                style: TextStyle {
+                    font_size: 40.0,
+                    font_color: Color::MAGENTA,
+                },
+
+                super: AvgProps {
+                    foo: 1
+                },
+            }
+
+            for i in 0..2, key = i {
+                Block::<()> {
+                    style: BlockStyle {
+                        // width: 1 * PCT,
+                        // height: 10 * PX,
+                        background: Color::BLACK,
+                        border_radius: Corner::all(50.0),
+                        ..BlockStyle::DEFAULT
+                    },
+                }
+            }
+
+            match 10 {
+                1 => (),
+                2 => (),
+                _ => Text {
+                    style: TextStyle {
+                        font_color: Color::BLACK,
+                        font_size: 20.0,
+                    },
+                    text: "match表达式".to_string(),
+                    // [foo]: 4,
+                },
+            }
+        }
     }
 }
 
-impl ElementUpdate<()> for App {
-    fn el_create(this: &ElModel!(), _: ()) -> Self {
-        this.global()
-            .event_dispatcher()
-            .listen()
-            .no_handle()
-            .spawn(|cr: CloseRequested| {
-                println!("close requsted");
-                cr.0.close();
-            });
+#[derive(Default)]
+struct CustomComp {
+    vertical: Option<Signal<bool>>,
+    children: Option<Signal<DynVModel<AvgProps>>>,
+}
 
-        Self {
-            rects: vec![
-                Some(Color::RED),
-                Some(Color::YELLOW),
-                Some(Color::BLUE),
-                Some(Color::GREEN),
-                Some(Color::BLACK),
-            ],
+#[allow(unused)]
+#[derive(Default, Debug, Clone)]
+struct AvgProps {
+    foo: i32,
+}
+
+impl Component for CustomComp {
+    fn create(
+        self,
+        _watcher_list: &mut irisia::hook::watcher::WatcherList,
+    ) -> impl VNode<()> + use<> {
+        let layout = Signal::memo(self.vertical, |vertical| AverageDivideLayout {
+            vertical: vertical.copied().unwrap_or(false),
+        });
+
+        build2! {
+            Block {
+                display := coerce_hook!(layout),
+                style: BlockStyle {
+                    // width: 0.7 * PCT,
+                    // height: 0.7 * PCT,
+                    ..Default::default()
+                },
+                (self.children)
+            }
+        }
+    }
+}
+
+// Layouter implementation
+
+#[derive(PartialEq, Eq)]
+struct AverageDivideLayout {
+    vertical: bool,
+}
+
+impl AverageDivideLayout {
+    fn get_axis<T>(&self, size: Size<T>) -> (T, T)
+    where
+        T: Copy,
+    {
+        if self.vertical {
+            (size.height, size.width)
+        } else {
+            (size.width, size.height)
         }
     }
 
-    fn el_update(&mut self, _: &ElModel!(), _: (), _: bool) -> bool {
-        true
+    fn set_axis<T>(&self, main: T, sub: T) -> Size<T> {
+        if self.vertical {
+            Size {
+                width: sub,
+                height: main,
+            }
+        } else {
+            Size {
+                width: main,
+                height: sub,
+            }
+        }
     }
 }
 
-fn rect_rt(this: &ElModel!(App), rect: &ElModel!(Rectangle), index: usize) {
-    println!("rectangle {index} got");
-    let this = this.clone();
-    rect.listen()
-        .trusted()
-        .no_handle()
-        .once()
-        .asyn()
-        .spawn(move |_: PointerDown| async move {
-            println!("rectangle {} deleted", index);
-            this.el_write().await.unwrap().rects[index].take();
-        });
+impl BlockLayout<AvgProps> for AverageDivideLayout {
+    fn compute_layout(
+        &self,
+        children: LayoutChildren<AvgProps>,
+        constraint: Size<SpaceConstraint>,
+    ) -> Size<f32> {
+        for i in 0..children.len() {
+            println!("AvgProp#{i}: {:?}", children.get(i).data());
+        }
+
+        let (main_axis_constraint, sub_axis_constraint) = self.get_axis(constraint);
+
+        let main_axis_len = main_axis_constraint.get_numerical().unwrap_or(0.0);
+        let sub_axis_len = sub_axis_constraint.get_numerical().unwrap_or(0.0);
+
+        let main_axis_each_space = main_axis_len / children.len() as f32;
+        //let mut sub_axis_len = 0f32;
+
+        for (index, child) in children.iter().enumerate() {
+            let size = child.compute_layout(
+                self.set_axis(
+                    SpaceConstraint::Exact(main_axis_each_space),
+                    SpaceConstraint::Exact(sub_axis_len),
+                ),
+                children.parent_size(),
+            );
+            //sub_axis_len = sub_axis_len.max(self.get_axis(size).1);
+
+            let location = self
+                .set_axis(
+                    index as f32 * main_axis_each_space,
+                    (sub_axis_len - self.get_axis(size).1).max(0.0) / 2.0,
+                )
+                .to_point();
+
+            child.set_location(location);
+        }
+
+        Size {
+            width: main_axis_len,
+            height: sub_axis_len,
+        }
+    }
 }

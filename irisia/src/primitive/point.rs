@@ -1,83 +1,94 @@
-use std::ops::{Add, AddAssign, Sub, SubAssign};
-
 use irisia_backend::{skia_safe::Point as SkiaPoint, winit::dpi::PhysicalPosition};
 
-use super::Pixel;
+use crate::primitive::line::Line;
 
-#[derive(Debug, Default, Clone, Copy, PartialEq)]
-pub struct Point(pub Pixel, pub Pixel);
+use super::{Size, rect::Rect};
 
-impl Add for Point {
-    type Output = Self;
-    #[inline]
-    fn add(self, rhs: Self) -> Self::Output {
-        Point(self.0 + rhs.0, self.1 + rhs.1)
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct Point<T = f32> {
+    pub x: T,
+    pub y: T,
+}
+
+impl_mul_dimensions!(Point x y);
+
+impl<T> Point<T> {
+    pub fn split_hv_to_rect(&self) -> Rect<T>
+    where
+        T: Clone,
+    {
+        Rect {
+            left: self.x.clone(),
+            top: self.y.clone(),
+            right: self.x.clone(),
+            bottom: self.y.clone(),
+        }
+    }
+
+    pub fn to_size(self) -> Size<T> {
+        Size {
+            width: self.x,
+            height: self.y,
+        }
     }
 }
 
-impl AddAssign for Point {
-    fn add_assign(&mut self, rhs: Self) {
-        *self = *self + rhs;
-    }
-}
+impl<T> Point<Line<T>> {
+    pub fn merge_hv_components(self) -> Rect<T> {
+        let Self {
+            x: Line {
+                start: left,
+                end: right,
+            },
+            y: Line {
+                start: top,
+                end: bottom,
+            },
+        } = self;
 
-impl Sub for Point {
-    type Output = Self;
-    #[inline]
-    fn sub(self, rhs: Self) -> Self::Output {
-        Point(self.0 - rhs.0, self.1 - rhs.1)
-    }
-}
-
-impl SubAssign for Point {
-    fn sub_assign(&mut self, rhs: Self) {
-        *self = *self - rhs;
+        Rect {
+            left,
+            top,
+            right,
+            bottom,
+        }
     }
 }
 
 impl Point {
-    pub fn abs_diff(self, other: Self) -> Pixel {
-        Pixel(((self.0 - other.0).0.powi(2) + (self.1 - other.1).0.powi(2)).sqrt())
+    pub const ZERO: Self = Point { x: 0.0, y: 0.0 };
+
+    pub fn abs_diff(self, other: Self) -> f32 {
+        ((self.x - other.x).powi(2) + (self.y - other.y).powi(2)).sqrt()
     }
 
     /// Absolutely greater than or equals
-    pub fn abs_ge(self, other: Self) -> bool {
-        self.0 >= other.0 && self.1 >= other.1
+    pub const fn abs_ge(self, other: Self) -> bool {
+        self.x >= other.x && self.y >= other.y
     }
 
     /// Absolutely less than or equals
-    pub fn abs_le(self, other: Self) -> bool {
-        self.0 <= other.0 && self.1 <= other.1
-    }
-}
-
-impl From<(Pixel, Pixel)> for Point {
-    #[inline]
-    fn from(f: (Pixel, Pixel)) -> Self {
-        Point(f.0, f.1)
-    }
-}
-
-impl From<Point> for (Pixel, Pixel) {
-    fn from(v: Point) -> Self {
-        (v.0, v.1)
+    pub const fn abs_le(self, other: Self) -> bool {
+        self.x <= other.x && self.y <= other.y
     }
 }
 
 impl From<PhysicalPosition<f64>> for Point {
     fn from(value: PhysicalPosition<f64>) -> Self {
-        Point(
-            Pixel::from_physical(value.x as _),
-            Pixel::from_physical(value.y as _),
-        )
+        assert!(value.x < f32::MAX as f64);
+        assert!(value.y < f32::MAX as f64);
+        Point {
+            x: value.x as f32,
+            y: value.y as f32,
+        }
     }
 }
 
 impl From<Point> for SkiaPoint {
     fn from(value: Point) -> Self {
         SkiaPoint {
-            x: value.0.to_physical(),
-            y: value.1.to_physical(),
+            x: value.x,
+            y: value.y,
         }
     }
 }

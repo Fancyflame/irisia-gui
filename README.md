@@ -3,6 +3,7 @@
 # Irisia GUI
 
 - [Irisia GUI](#irisia-gui)
+- [目前开发分支`dev`](#目前开发分支dev)
 - [简介](#简介)
   - [什么是GUI框架](#什么是gui框架)
   - [为什么选择Rust](#为什么选择rust)
@@ -16,7 +17,11 @@
   - [待解决的问题](#待解决的问题)
 - [贡献代码](#贡献代码)
 
-**目前开发分支`spec-field-upd-at-rt`**
+# 目前开发分支`dev`
+
+- 工作正在持续进行，有大量实验性功能并不会及时反映到`main`分支，**`dev`分支代表目前项目活跃度**。
+- example里不是所有示例都能运行，如果编译出错不一定是你的问题。可尝试升级rust版本到最新，如果仍然不行就代表是过时示例。
+- Irisia Book由于项目更改过大暂时不维护，但**安装运行irisia的步骤仍然有效**
 
 # 简介
 
@@ -101,7 +106,7 @@ struct App {
 impl Element for App {
     type BlankProps = ();
 
-    fn set_children(&self, this: &ElModel!()) {
+    fn set_children(&self, this: &RcElementModel<Self>) {
         this.set_children(build! {
             Flex {
                 TextBox {
@@ -139,7 +144,7 @@ impl Element for App {
 }
 
 impl ElementUpdate<()> for App {
-    fn el_create(this: &ElModel!(), _: ()) -> Self {
+    fn el_create(this: &RcElementModel<Self>, _: ()) -> Self {
         this.global()
             .event_dispatcher()
             .listen()
@@ -160,7 +165,7 @@ impl ElementUpdate<()> for App {
         }
     }
 
-    fn el_update(&mut self, _: &ElModel!(), _: (), _: bool) -> bool {
+    fn el_update(&mut self, _: &RcElementModel<Self>, _: (), _: bool) -> bool {
         true
     }
 }

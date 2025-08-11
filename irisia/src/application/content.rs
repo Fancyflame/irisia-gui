@@ -1,20 +1,23 @@
-use std::{cell::RefCell, rc::Rc, sync::Arc};
+use std::{cell::Cell, sync::Arc};
 
-use irisia_backend::{window_handle::CloseHandle, WinitWindow};
+use irisia_backend::{WinitWindow, window_handle::CloseHandle};
 
-use crate::event::EventDispatcher;
-
-use super::{
-    event_comp::global::focusing::Focusing,
-    redraw_scheduler::{RedrawObject, RedrawScheduler},
+use crate::{
+    event::EventDispatcher,
+    prim_element::{Element, RenderTree, WeakElement},
+    primitive::length::LengthStandardGlobalPart,
 };
+
+use super::{event_comp::global::focusing::Focusing, redraw_scheduler::RedrawScheduler};
 
 pub struct GlobalContent {
     pub(super) focusing: Focusing,
     pub(super) global_ed: EventDispatcher,
     pub(super) window: Arc<WinitWindow>,
+    pub(super) length_standard: Cell<LengthStandardGlobalPart>,
     pub(super) close_handle: CloseHandle,
-    pub(super) redraw_scheduler: RefCell<RedrawScheduler>,
+    pub(super) user_close: Cell<bool>,
+    pub(super) redraw_scheduler: RedrawScheduler,
 }
 
 impl GlobalContent {
@@ -26,8 +29,12 @@ impl GlobalContent {
         &self.focusing
     }
 
-    pub(crate) fn request_redraw(&self, ro: Rc<dyn RedrawObject>) {
-        self.redraw_scheduler.borrow_mut().request_redraw(ro)
+    pub(crate) fn request_repaint(&self, el: &WeakElement) {
+        self.redraw_scheduler.request_repaint(el)
+    }
+
+    pub(crate) fn request_reflow(&self, el: &WeakElement) {
+        self.redraw_scheduler.request_reflow(el)
     }
 
     /// Returns a reference to the global event dispatcher
@@ -48,5 +55,17 @@ impl GlobalContent {
     /// Returns a reference to the window
     pub fn window(&self) -> &WinitWindow {
         &self.window
+    }
+
+    pub fn length_standard_global_part(&self) -> LengthStandardGlobalPart {
+        self.length_standard.get()
+    }
+
+    pub fn user_close(&self) -> bool {
+        self.user_close.get()
+    }
+
+    pub fn set_user_close(&self, enable: bool) {
+        self.user_close.set(enable);
     }
 }

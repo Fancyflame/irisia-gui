@@ -1,0 +1,149 @@
+use super::ast::*;
+use proc_macro2::TokenStream;
+use syn::{
+    Expr, Pat, Result, Token, braced, parenthesized,
+    parse::ParseStream,
+    token::{Brace, Paren},
+};
+
+mod use_component;
+
+mod kw {
+    use syn::custom_keyword;
+
+    custom_keyword!(key);
+    custom_keyword!(event);
+}
+
+pub fn parse_stmts(input: ParseStream) -> Result<Vec<Stmt>> {
+    let mut stmts = Vec::new();
+    while !input.is_empty() {
+        stmts.push(parse_stmt(input, true)?);
+    }
+    Ok(stmts)
+}
+
+fn parse_stmt(input: ParseStream, _in_block_mode: bool) -> Result<Stmt> {
+    if input.peek(Token![if]) {
+        Ok(Stmt::If(parse_if_stmt(input)?))
+    } else if input.peek(Token![match]) {
+        Ok(Stmt::Match(parse_match_stmt(input)?))
+    } else if input.peek(Token![for]) {
+        Ok(Stmt::For(parse_for_stmt(input)?))
+    } else if input.peek(Token![while]) {
+        Ok(Stmt::While(parse_while_stmt(input)?))
+    } else if input.peek(Brace) {
+        Ok(Stmt::Block(parse_block(input)?))
+    } else if input.peek(Paren) {
+        Ok(Stmt::UseExpr(parse_use_expr(input)?))
+    } else {
+        Ok(Stmt::Component(use_component::parse_component(input)?))
+    }
+}
+
+fn parse_if_stmt(input: ParseStream) -> Result<IfStmt> {
+    input.parse::<Token![if]>()?;
+    let condition = syn::Expr::parse_without_eager_brace(input)?;
+    let body = parse_block(input)?;
+
+    let else_body = if input.peek(Token![else]) {
+        input.parse::<Token![else]>()?;
+
+        let lookahead = input.lookahead1();
+        let stmt = if lookahead.peek(Token![if]) {
+            Stmt::If(parse_if_stmt(input)?)
+        } else if lookahead.peek(Brace) {
+            Stmt::Block(parse_block(input)?)
+        } else {
+            return Err(lookahead.error());
+        };
+
+        Some(Box::new(stmt))
+    } else {
+        None
+    };
+
+    Ok(IfStmt {
+        condition,
+        then_branch: body,
+        else_branch: else_body,
+    })
+}
+
+fn parse_match_stmt(input: ParseStream) -> Result<MatchStmt> {
+    input.parse::<Token![match]>()?;
+    let expr = input.call(Expr::parse_without_eager_brace)?;
+    let content;
+    braced!(content in input);
+
+    let mut arms = Vec::new();
+    while !content.is_empty() {
+        arms.push(MatchArm {
+            pattern: content.call(Pat::parse_multi_with_leading_vert)?,
+            guard: if content.peek(Token![if]) {
+                content.parse::<Token![if]>()?;
+                Some(content.parse()?)
+            } else {
+                None
+            },
+            body: {
+                content.parse::<Token![=>]>()?;
+                parse_stmt(&content, false)?
+            },
+        });
+        content.parse::<Token![,]>()?;
+    }
+    Ok(MatchStmt { expr, arms })
+}
+
+fn parse_for_stmt(input: ParseStream) -> Result<ForStmt> {
+    input.parse::<Token![for]>()?;
+    let pattern = input.call(Pat::parse_multi_with_leading_vert)?;
+    input.parse::<Token![in]>()?;
+    let expr = input.call(Expr::parse_without_eager_brace)?;
+    let get_key = if input.peek(Token![,]) {
+        input.parse::<Token![,]>()?;
+        input.parse::<kw::key>()?;
+        input.parse::<Token![=]>()?;
+        Some(input.call(Expr::parse_without_eager_brace)?)
+    } else {
+        None
+    };
+
+    Ok(ForStmt {
+        pattern,
+        expr,
+        get_key,
+        body: parse_block(input)?,
+    })
+}
+
+fn parse_while_stmt(input: ParseStream) -> Result<WhileStmt> {
+    input.parse::<Token![while]>()?;
+    Ok(WhileStmt {
+        condition: input.call(Expr::parse_without_eager_brace)?,
+        body: parse_block(&input)?,
+    })
+}
+
+fn parse_block(input: ParseStream) -> Result<BlockStmt> {
+    let content;
+    braced!(content in input);
+
+    Ok(BlockStmt {
+        stmts: parse_stmts(&content)?,
+    })
+}
+
+fn parse_use_expr(input: ParseStream) -> Result<UseExprStmt> {
+    let paren_content;
+    parenthesized!(paren_content in input);
+    let expr_is_empty = paren_content.is_empty();
+    let value: Option<TokenStream> = if expr_is_empty {
+        None
+    } else {
+        Some(paren_content.parse()?)
+    };
+
+    Ok(UseExprStmt { value })
+}

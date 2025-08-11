@@ -1,15 +1,10 @@
 #[cfg(feature = "fps_recorder")]
-use std::{
-    sync::{atomic::AtomicU16, Arc},
-    time::Duration,
-};
+use std::{sync::atomic::AtomicU16, time::Duration};
 
-use anyhow::{anyhow, Result};
-use pixels::{
-    wgpu::{BlendState, DeviceDescriptor, Features, Limits},
-    Pixels, PixelsBuilder, SurfaceTexture,
-};
-use skia_safe::{Canvas, Color, ColorSpace, ColorType, ImageInfo, Surface};
+use anyhow::{Result, anyhow};
+use pixels::{Pixels, PixelsBuilder, SurfaceTexture, wgpu::BlendState};
+use skia_safe::{Canvas, ColorSpace, ColorType, ImageInfo, Surface};
+use std::sync::Arc;
 use winit::dpi::PhysicalSize;
 
 use crate::WinitWindow;
@@ -24,48 +19,33 @@ pub struct Renderer {
     counter: Arc<AtomicU16>,
 }
 
-#[cfg(feature = "fps_recorder")]
-fn fps_recorder() -> Arc<AtomicU16> {
-    let counter = Arc::new(AtomicU16::new(0));
-    let counter_cloned = counter.clone();
-
-    std::thread::spawn(move || loop {
-        std::thread::sleep(Duration::from_secs(2));
-        println!(
-            "{}fps",
-            counter.swap(0, std::sync::atomic::Ordering::Relaxed) / 2
-        );
-    });
-    counter_cloned
-}
-
 impl Renderer {
-    pub fn new(window: &Arc<WinitWindow>) -> Result<Self> {
+    pub fn create_pixels(window: &WinitWindow) -> Result<Pixels> {
         let PhysicalSize { width, height } = window.inner_size();
-
-        let (w2x, h2x) = to_size2x(window.inner_size());
-
-        let pixels =
-            PixelsBuilder::new(width, height, SurfaceTexture::new(width, height, &**window))
+        Ok(
+            PixelsBuilder::new(width, height, SurfaceTexture::new(width, height, window))
                 .blend_state(BlendState::REPLACE)
-                .enable_vsync(false)
-                .device_descriptor(DeviceDescriptor {
-                    label: Default::default(),
-                    features: Features::empty(),
-                    limits: Limits::downlevel_defaults().using_resolution(Limits::default()),
-                })
-                .clear_color(pixels::wgpu::Color::WHITE)
-                .build()?;
+                .enable_vsync(true)
+                .clear_color(pixels::wgpu::Color::BLUE)
+                .build()?,
+        )
+    }
+
+    pub fn new(pixels: Pixels, window: &Arc<WinitWindow>) -> Result<Self> {
+        let PhysicalSize { width, height } = window.inner_size();
+        println!("bar");
+        let (w2x, h2x) = to_size2x(window.inner_size());
 
         let image_info = ImageInfo::new(
             (width as _, height as _),
             ColorType::RGBA8888,
-            skia_safe::AlphaType::Opaque,
+            skia_safe::AlphaType::Premul,
             Some(ColorSpace::new_srgb()),
         );
 
-        let surface = skia_safe::surfaces::raster_n32_premul((w2x as _, h2x as _))
+        let surface = skia_safe::surfaces::raster(&image_info, None, None)
             .ok_or_else(|| anyhow!("skia surface not found"))?;
+        //dbg!(surface.image_info());
 
         Ok(Renderer {
             window_pixels: pixels,
@@ -81,10 +61,11 @@ impl Renderer {
 
     pub fn render<F>(&mut self, f: F) -> Result<()>
     where
-        F: FnOnce(&mut Canvas) -> Result<()>,
+        F: FnOnce(&Canvas) -> Result<()>,
     {
         let canvas = self.surface.canvas();
-        canvas.clear(Color::WHITE);
+        //canvas.clear(Color::TRANSPARENT);
+
         f(canvas)?;
 
         if !self.surface.read_pixels(
@@ -140,4 +121,21 @@ fn to_size2x(size: PhysicalSize<u32>) -> (u32, u32) {
         (width as f32 / 256.0).ceil() as u32 * 256,
         (height as f32 / 256.0).ceil() as u32 * 256,
     )
+}
+
+#[cfg(feature = "fps_recorder")]
+fn fps_recorder() -> Arc<AtomicU16> {
+    let counter = Arc::new(AtomicU16::new(0));
+    let counter_cloned = counter.clone();
+
+    std::thread::spawn(move || {
+        loop {
+            std::thread::sleep(Duration::from_secs(2));
+            println!(
+                "{}fps",
+                counter.swap(0, std::sync::atomic::Ordering::Relaxed) / 2
+            );
+        }
+    });
+    counter_cloned
 }

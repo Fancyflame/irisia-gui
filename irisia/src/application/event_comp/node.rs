@@ -6,10 +6,10 @@ use crate::{
         },
         EventDispatcher,
     },
-    primitive::{Pixel, Point, Region},
+    primitive::{Point, Region},
 };
 
-use super::{global::new_event::PointerStateChange, NewPointerEvent};
+use super::{global::new_event::PointerStateChange, IncomingPointerEvent};
 
 pub(crate) struct NodeEventMgr {
     ed: EventDispatcher,
@@ -33,23 +33,23 @@ impl NodeEventMgr {
 
     pub fn update_and_emit(
         &mut self,
-        update: &NewPointerEvent,
-        region: Option<Region>,
+        update: &IncomingPointerEvent,
+        region: Region,
         logically_entered: bool,
     ) -> bool {
-        let position = match (update.new_position, region) {
-            (Some(p), Some(region)) if p.abs_ge(region.0) && p.abs_le(region.1) => {
+        let position = if let Some(pos) = update.new_position {
+            if region.contains_point(pos) {
                 self.update_state(State::PhysicallyEnter);
-                p
-            }
-            (Some(p), None) if logically_entered => {
+            } else if logically_entered {
                 self.update_state(State::LogicallyEnter);
-                p
-            }
-            _ => {
+            } else {
                 self.update_state(State::Untracked);
                 return false;
             }
+            pos
+        } else {
+            self.update_state(State::Untracked);
+            return false;
         };
 
         self.emit_physical_pointer_event(
@@ -107,7 +107,7 @@ impl NodeEventMgr {
         &self,
         psc: PointerStateChange,
         position: Point,
-        delta: Option<(Pixel, Pixel)>,
+        delta: Option<(f32, f32)>,
         logically_entered: bool,
     ) {
         match psc {

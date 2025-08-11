@@ -8,5 +8,10 @@ edition = "2021"
 [dependencies]
 irisia = { path = "../irisia" }
 smallvec = "1.10"
-tokio = { version = "1.27", features = ["sync"] }
+tokio = { version = "*", features = ["sync"] }
 lazy_static = "1"
+
+[dependencies.taffy]
+version = "0.8"
+default-features = false
+features = ["block_layout", "flexbox", "grid", "content_size", "std"]

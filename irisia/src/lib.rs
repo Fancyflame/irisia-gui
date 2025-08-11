@@ -3,10 +3,8 @@ pub mod anyhow {
 }
 
 pub type Result<T> = anyhow::Result<T>;
-
-#[doc(hidden)]
-#[path = "private/mod.rs"]
-pub mod __private;
+type Handle<T> = Rc<RefCell<T>>;
+type WeakHandle<T> = Weak<RefCell<T>>;
 
 macro_rules! inner_error {
     ($($tt:tt)+) => {
@@ -15,21 +13,21 @@ macro_rules! inner_error {
 }
 
 pub mod application;
-pub(crate) mod dom;
-pub mod element;
 pub mod event;
+pub mod hook;
 pub mod log;
+pub mod model;
+pub mod prim_element;
 pub mod primitive;
-pub mod structure;
-pub mod style;
-pub mod update_with;
+
+use std::{
+    cell::RefCell,
+    rc::{Rc, Weak},
+};
 
 pub use application::Window;
-pub use element::Element;
 pub use event::Event;
-pub use irisia_backend::{
-    runtime::exit_app, skia_safe, start_runtime, winit, StaticWindowEvent, WinitWindow,
-};
-pub use irisia_macros::{build, main, props, style, Event, Style, StyleReader};
-pub use style::{reader::StyleReader, Style};
-pub use update_with::UpdateWith;
+pub use irisia_backend::{WinitWindow, runtime::exit_app, skia_safe, start_runtime, winit};
+pub use irisia_macros::{Event, PartialEq, build, build2, main, props, style, user_props};
+pub use primitive::{Corner, Point, Rect, Size};
+//pub use style::{ReadStyle, Style, WriteStyle};

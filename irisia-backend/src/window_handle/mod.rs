@@ -2,8 +2,6 @@ use std::{ops::Deref, sync::Arc};
 
 use crate::WinitWindow;
 
-pub use winit::window::WindowBuilder;
-
 pub use self::close_handle::CloseHandle;
 
 mod close_handle;

@@ -1,96 +1,57 @@
-use expr::state_block::stmts_to_tokens;
 use proc_macro::TokenStream;
+use proc_macro2::TokenStream as TokenStream2;
+use props2::CastProp;
 use quote::quote;
-use syn::{parse::Parser, parse_macro_input, DeriveInput, ItemFn, ItemStruct};
+use syn::{
+    DeriveInput, Item, ItemFn, Result,
+    parse::{ParseStream, Parser},
+    parse_macro_input,
+};
 
-mod dep_search;
-mod derive_props;
-mod derive_style;
-mod derive_style_reader;
-mod element;
-pub(crate) mod expr;
-mod inner_impl_listen;
-mod main_macro;
-mod style;
+macro_rules! const_quote {
+    (
+        $(
+            $vis:vis const $Name:ident = {
+                $($tt:tt)*
+            };
+        )*
+    ) => {
+        $(
+            #[doc = "## expand to"]
+            #[doc = stringify!($($tt)*)]
+            #[allow(non_camel_case_types)]
+            $vis struct $Name;
 
-/// To build a element tree visually. This macro will returns
-/// a type implements `StructureBuilder`. Call `into_rendering`
-/// on it to let it goes into rendering mode, which allows you
-/// rendering them on canvas.
-///
-/// # Syntax
-/// ### Example
-/// ```no_run
-/// irisia::build! {
-///     RootElement {
-///         prop1: "hello world",
-///         prop2: &self.some_field,
-///         +style: irisia::style!{
-///             ...
-///         },
-///         +listen: "you'll receive this str as key in your `event_dispatcher.recv()`",
-///         
-///         Element1;
-///         
-///         if 1 + 1 == 2 {
-///             match Some("this is some") {
-///                 Some(s) => Element2 {
-///                     display: s
-///                 },
-///                 None => {}
-///             }
-///         } else {
-///             Element3;
-///         }
-///         
-///         for _ in 0..3 {
-///             // @key _; // `key` command is optional
-///             Element3;
-///         }
-///
-///         while let Some(value_i32) = some_iter.next() {
-///             @key value_i32;
-///             Element4;
-///         }
-///
-///         @extend element_tree;
-///     }
-/// }
-/// ```
-///
-/// # Example
-/// ```no_run
-/// let element_tree = irisia::build! {
-///     ...
-/// };
-///
-/// element_tree.into_rendering().finish(drawing_region)?;
-/// ```
-#[proc_macro]
-pub fn build(input: TokenStream) -> TokenStream {
-    match element::build::build.parse(input) {
-        Ok(t) => t.into(),
-        Err(e) => e.to_compile_error().into(),
-    }
+            impl quote::ToTokens for $Name {
+                fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+                    quote! { $($tt)* }.to_tokens(tokens)
+                }
+            }
+        )*
+    };
 }
 
-#[proc_macro]
-pub fn style(input: TokenStream) -> TokenStream {
-    let stmts = match style::style.parse(input) {
-        Ok(stmts) => stmts,
-        Err(e) => return e.to_compile_error().into(),
-    };
+mod build_macro;
+mod component;
+mod derive_props;
+mod generics_unbracketed;
+mod inner_impl_listen;
+mod main_macro;
+mod parse_incomplete;
+mod partial_eq;
+mod props2;
+mod split_generics;
+mod style;
 
-    stmts_to_tokens(&stmts).into()
+#[proc_macro_attribute]
+pub fn style(attr: TokenStream, input: TokenStream) -> TokenStream {
+    result_into_stream(style::ImplStyle::parse(attr, input).map(|x| x.to_tokens()))
 }
 
 #[proc_macro_attribute]
 pub fn main(_: TokenStream, input: TokenStream) -> TokenStream {
     let item_fn = parse_macro_input!(input as ItemFn);
-    match main_macro::main_macro(item_fn) {
-        Ok(t) => t.into(),
-        Err(e) => e.to_compile_error().into(),
-    }
+    result_into_stream(main_macro::main_macro(item_fn))
 }
 
 #[proc_macro_derive(Event)]
@@ -109,25 +70,28 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
     .into()
 }
 
-#[proc_macro_derive(Style, attributes(style))]
-pub fn derive_style(input: TokenStream) -> TokenStream {
-    match derive_style::derive_style(parse_macro_input!(input as DeriveInput)) {
-        Ok(t) => t.into(),
-        Err(e) => e.to_compile_error().into(),
-    }
-}
-
-#[proc_macro_derive(StyleReader)]
-pub fn derive_style_reader(input: TokenStream) -> TokenStream {
-    match derive_style_reader::derive_style_reader(parse_macro_input!(input as DeriveInput)) {
-        Ok(t) => t.into(),
-        Err(e) => e.to_compile_error().into(),
-    }
+#[proc_macro_attribute]
+pub fn user_props(attr: TokenStream, input: TokenStream) -> TokenStream {
+    result_into_stream(
+        derive_props::DeriveProps::parse(attr.into(), parse_macro_input!(input as Item))
+            .map(|x| x.compile()),
+    )
 }
 
 #[proc_macro_attribute]
-pub fn props(attr: TokenStream, input: TokenStream) -> TokenStream {
-    match derive_props::props(attr.into(), parse_macro_input!(input as ItemStruct)) {
+pub fn props(_: TokenStream, input: TokenStream) -> TokenStream {
+    parse_macro_input!(input as CastProp).generate().into()
+}
+
+#[proc_macro]
+pub fn build(input: TokenStream) -> TokenStream {
+    let mut env = build_macro::Environment::new();
+    let parser = |input: ParseStream| env.parse_statements(input).map(|stream| quote! {{#stream}});
+    result_into_stream(parser.parse(input))
+}
+
+fn result_into_stream(result: Result<TokenStream2>) -> TokenStream {
+    match result {
         Ok(t) => t.into(),
         Err(e) => e.to_compile_error().into(),
     }
@@ -136,4 +100,14 @@ pub fn props(attr: TokenStream, input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn __inner_impl_listen(_: TokenStream) -> TokenStream {
     inner_impl_listen::impl_listen().into()
+}
+
+#[proc_macro_derive(PartialEq, attributes(partial_eq))]
+pub fn derive_partial_eq(input: TokenStream) -> TokenStream {
+    partial_eq::derive_partial_eq(input)
+}
+
+#[proc_macro]
+pub fn build2(input: TokenStream) -> TokenStream {
+    result_into_stream(component::build_macro.parse(input))
 }

@@ -1,150 +1,178 @@
 use irisia::{
-    element::{Element, ElementUpdate, LayoutElements, PropsUpdateWith},
-    event::standard::{ElementAbandoned, PointerDown, PointerEntered, PointerLeft, PointerOut},
-    exit_app,
-    primitive::{Pixel, Point},
-    read_style,
+    application::IncomingPointerEvent,
+    coerce_hook,
+    el_model::{EMCreateCtx, ElementAccess},
+    element::{children_utils::ChildrenUtils, ComponentTemplate, ElementInterfaces, Render},
+    event::standard::{PointerEntered, PointerOut},
+    hook::{Effect, Provider, Signal},
+    model::{iter::VisitModel, reactive::reactive},
+    primitive::{Point, Region},
     skia_safe::{Color, Color4f, Paint, Rect},
-    style,
-    style::StyleColor,
-    ElModel, Event, Result, StaticWindowEvent, Style, StyleReader,
+    Event, Result,
 };
-use tokio::select;
 
-#[derive(Style, Clone, Copy, PartialEq)]
-#[style(from)]
-pub struct StyleWidth(Pixel);
-
-#[derive(Style, Clone, Copy, PartialEq)]
-#[style(from)]
-pub struct StyleHeight(Pixel);
-
-#[irisia::props(updater = "RectProps", watch)]
 pub struct Rectangle {
-    #[props(default = "false")]
-    is_force: bool,
-
-    #[props(default = "Color::CYAN")]
-    force_color: Color,
-
-    #[props(read_style(stdin))]
-    style: RectStyles,
+    is_force: Signal<bool>,
+    props: RectProps,
+    access: ElementAccess,
 }
 
-#[derive(StyleReader, PartialEq)]
-struct RectStyles {
-    width: Option<StyleWidth>,
-    height: Option<StyleHeight>,
-    color: Option<StyleColor>,
+#[derive(Clone)]
+#[irisia::props]
+pub struct RectProps {
+    #[props(default)]
+    pub color: Option<Color>,
+    pub height: Option<f32>,
 }
 
-impl Element for Rectangle {
-    type BlankProps = RectProps;
+impl ElementInterfaces for Rectangle {
+    type Props = RectProps;
+    type ChildMapper = ();
+    const REQUIRE_INDEPENDENT_LAYER: bool = false;
 
-    fn render(
-        &mut self,
-        this: &ElModel!(),
-        mut content: irisia::element::RenderElement,
-    ) -> irisia::Result<()> {
-        let region = this.draw_region();
+    fn create<Slt>(
+        props: &Self::Props,
+        access: ElementAccess,
+        _: irisia::hook::ProviderObject<Slt>,
+        _: &EMCreateCtx,
+    ) -> Self
+    where
+        Slt: irisia::model::DesiredVModel<Self::ChildMapper> + 'static,
+    {
+        let is_force_sig = Signal::state(false);
 
-        let end_point = Point(
-            region.0 .0 + self.style.width.map(|x| x.0).unwrap_or(Pixel(50.0)),
-            region.0 .1 + self.style.height.map(|h| h.0).unwrap_or(Pixel(50.0)),
-        );
+        let is_force = is_force_sig.clone();
+        access.listen().trusted().spawn(move |_: PointerEntered| {
+            println!("entered");
+            is_force.set(true);
+        });
 
-        this.set_interact_region(Some((region.0, end_point)));
+        let is_force = is_force_sig.clone();
+        access.listen().trusted().spawn(move |_: PointerOut| {
+            is_force.set(false);
+        });
+
+        access.redraw_when((
+            is_force_sig.clone(),
+            props.color.clone(),
+            props.height.clone(),
+        ));
+
+        Self {
+            is_force: is_force_sig,
+            props: props.clone(),
+            access,
+        }
+    }
+
+    fn spread_event(&mut self, _: &IncomingPointerEvent) -> bool {
+        false
+    }
+
+    fn on_draw_region_change(&mut self) {}
+
+    fn render(&mut self, args: Render) -> Result<()> {
+        let region = self.access.draw_region().unwrap_or_default();
+
+        let height = self.props.height.read().unwrap_or(50.0);
+        let end_point = Point(region.left_top.0 + 80.0, region.left_top.1 + height);
+
+        self.access.set_interact_region(Region {
+            left_top: region.left_top,
+            right_bottom: end_point,
+        });
 
         let rect = Rect::new(
-            region.0 .0.to_physical(),
-            region.0 .1.to_physical(),
-            end_point.0.to_physical(),
-            end_point.1.to_physical(),
+            region.left_top.0,
+            region.left_top.1,
+            end_point.0,
+            end_point.1,
         );
 
-        let color = if self.is_force {
-            self.force_color
-        } else {
-            self.style.color.unwrap_or(StyleColor(Color::GREEN)).0
-        };
+        let mut color = Color::GREEN;
+        if !*self.is_force.read() {
+            if let Some(props_color) = self.props.color.read().as_ref().cloned() {
+                color = props_color;
+            }
+        }
 
         let paint = Paint::new(Color4f::from(color), None);
-        content.canvas().draw_rect(rect, &paint);
+        args.canvas.draw_rect(rect, &paint);
         Ok(())
-    }
-}
-
-impl<Pr> ElementUpdate<Pr> for Rectangle
-where
-    Self: PropsUpdateWith<Pr>,
-{
-    fn el_create(this: &ElModel!(), props: Pr) -> Self {
-        this.listen()
-            .trusted()
-            .asyn()
-            .spawn(|_: PointerEntered, this| async move {
-                this.el_write().await.unwrap().is_force = true;
-            });
-
-        this.listen()
-            .trusted()
-            .asyn()
-            .spawn(|_: PointerOut, this| async move {
-                this.el_write().await.unwrap().is_force = false;
-            });
-
-        Self::props_create_with(props)
-    }
-
-    fn el_update(&mut self, this: &ElModel!(), props: Pr, _: bool) -> bool {
-        self.props_update_with(props).unchanged
     }
 }
 
 #[derive(Event, Clone)]
 pub struct MyRequestClose;
 
-pub struct Flex;
-
-impl Element for Flex {
-    type BlankProps = ();
-
-    fn draw_region_changed(&mut self, this: &ElModel!(), _: irisia::primitive::Region) {
-        flex_layout(this, this.layout_children().unwrap()).unwrap();
-    }
-
-    fn set_children(&self, this: &ElModel!()) {
-        flex_layout(this, this.set_children(this.slot())).unwrap();
-    }
+pub struct Flex {
+    children: Signal<dyn VisitModel<()>>,
+    access: ElementAccess,
 }
 
-impl ElementUpdate<()> for Flex {
-    fn el_create(this: &ElModel!(), props: ()) -> Self {
-        Flex
-    }
+impl ElementInterfaces for Flex {
+    type Props = ();
+    type ChildMapper = ();
 
-    fn el_update(&mut self, this: &ElModel!(), props: (), equality_matters: bool) -> bool {
-        true
-    }
-}
-
-fn flex_layout(this: &ElModel!(Flex), layouter: LayoutElements) -> Result<()> {
-    let (start, end) = this.draw_region();
-    let abs = end - start;
-    let len = layouter.len();
-    let width = abs.0 / len as f32;
-
-    let mut index = 0;
-    layouter.layout(|()| {
-        if index >= len {
-            return None;
-        }
-
-        let region = (
-            Point(width * index as f32, start.1),
-            Point(width * (index + 1) as f32, end.1),
+    fn create<Slt>(
+        props: &Self::Props,
+        access: ElementAccess,
+        slot: irisia::hook::ProviderObject<Slt>,
+        ctx: &EMCreateCtx,
+    ) -> Self
+    where
+        Slt: irisia::model::DesiredVModel<Self::ChildMapper> + 'static,
+    {
+        access.redraw_when(slot.clone());
+        let r = reactive(
+            |packer, slot| {
+                packer.apply_model(slot);
+            },
+            ctx,
+            slot,
         );
-        index += 1;
-        Some(region)
-    })
+        Flex {
+            children: coerce_hook!(r),
+            access,
+        }
+    }
+
+    fn spread_event(&mut self, ipe: &IncomingPointerEvent) -> bool {
+        self.children.write().emit_event(ipe)
+    }
+
+    fn on_draw_region_change(&mut self) {}
+
+    fn render(&mut self, args: Render) -> Result<()> {
+        self.flex_layout()?;
+        self.children.write().render(args)
+    }
+}
+
+impl Flex {
+    fn flex_layout(&mut self) -> Result<()> {
+        let Region {
+            left_top: start,
+            right_bottom: end,
+        } = self.access.draw_region().unwrap_or_default();
+
+        let abs = end - start;
+        let len = self.children.read().compute_len();
+        let width = abs.0 / len as f32;
+
+        let mut index = 0;
+        self.children.write().layout(|_| {
+            if index >= len {
+                return None;
+            }
+
+            let region = Region::new(
+                Point(width * index as f32, start.1),
+                Point(width * (index + 1) as f32, end.1),
+            );
+            index += 1;
+            Some(region)
+        });
+        Ok(())
+    }
 }

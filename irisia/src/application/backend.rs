@@ -1,61 +1,117 @@
-use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
+use std::{cell::Cell, rc::Rc, sync::Arc, time::Duration};
 
 use irisia_backend::{
-    skia_safe::{colors::WHITE, Canvas},
-    window_handle::{RawWindowHandle, WindowBuilder},
-    winit::dpi::PhysicalSize,
-    AppWindow, StaticWindowEvent, WinitWindow,
+    AppWindow, WinitWindow,
+    skia_safe::Canvas,
+    window_handle::RawWindowHandle,
+    winit::{dpi::PhysicalSize, event::WindowEvent, window::WindowAttributes},
 };
 
 use crate::{
-    dom::{one_child, update::ElementModelUpdater, DropProtection, EMUpdateContent},
-    element::{Element, ElementUpdate},
-    event::{standard::WindowDestroyed, EventDispatcher},
-    primitive::{Pixel, Point, Region},
-    update_with::UpdateWith,
     Result,
+    event::{EventDispatcher, standard::WindowDestroyed},
+    model::{EleModel, ModelCreateCtx, VNode},
+    prim_element::{
+        EMCreateCtx, EmitEventArgs, RenderTreeExt, callback_queue::CallbackQueue,
+        layout::LayoutInput,
+    },
+    primitive::{
+        Point, Region,
+        length::{LengthStandard, LengthStandardGlobalPart},
+    },
 };
 
 use super::{
-    content::GlobalContent,
-    event_comp::{global::focusing::Focusing, GlobalEventMgr},
-    redraw_scheduler::RedrawScheduler,
     Window,
+    content::GlobalContent,
+    event_comp::global::focusing::Focusing,
+    event2::pointer_event::{PointerState, PointerStateDelta},
+    redraw_scheduler::RedrawScheduler,
+    window_size_to_constraint,
 };
 
-pub(super) struct BackendRuntime<El: Element> {
-    gem: GlobalEventMgr,
+pub(super) struct BackendRuntime {
+    pointer_state: PointerState,
     gc: Rc<GlobalContent>,
-    root_element: DropProtection<El, (), ()>,
+    root_model: Box<dyn EleModel<()>>,
+    window_resized: bool,
+    callback_queue: CallbackQueue,
 }
 
-impl<El> AppWindow for BackendRuntime<El>
-where
-    El: Element,
-{
-    fn on_redraw(&mut self, canvas: &mut Canvas, interval: Duration) -> Result<()> {
-        self.gc
-            .redraw_scheduler
-            .borrow_mut()
-            .redraw(canvas, interval)?;
+impl AppWindow for BackendRuntime {
+    fn on_redraw(
+        &mut self,
+        canvas: &Canvas,
+        interval: Duration,
+        window_inner_size: PhysicalSize<u32>,
+    ) -> Result<()> {
+        let redraw_root_inputs = if self.window_resized {
+            let mut lsgp = self.gc.length_standard_global_part();
+            lsgp.viewport_size = window_inner_size.into();
+            self.gc.length_standard.set(lsgp);
 
-        // composite
-        canvas.reset_matrix();
-        canvas.clear(WHITE);
-        self.root_element.composite(canvas)
+            Some(LayoutInput {
+                constraint: window_size_to_constraint(window_inner_size),
+                length_standard: lsgp.viewport_size.map(|x| LengthStandard {
+                    global: lsgp,
+                    percentage_reference: x as f32,
+                }),
+            })
+        } else {
+            None
+        };
+
+        self.gc.redraw_scheduler.redraw(
+            canvas,
+            interval,
+            &self.root_model.get_element().0,
+            redraw_root_inputs,
+        );
+
+        self.window_resized = false;
+        Ok(())
     }
 
-    fn on_window_event(&mut self, event: StaticWindowEvent) {
-        if let StaticWindowEvent::Resized(size) = &event {
-            self.root_element
-                .set_draw_region(window_size_to_draw_region(*size));
+    fn on_window_event(&mut self, event: WindowEvent, _window_inner_size: PhysicalSize<u32>) {
+        // TODO: watch dpi change
+        // if let WindowEvent::ScaleFactorChanged { scale_factor, inner_size_writer }
+
+        if let WindowEvent::Resized(_) = event {
+            self.window_resized = true;
         }
 
-        if let Some(npe) = self.gem.emit_event(event, &self.gc) {
-            if !self.root_element.emit_event(&npe) {
-                npe.focus_on(None);
-            }
-        }
+        let Some(next) = self.pointer_state.next(&event) else {
+            // TODO
+            return;
+        };
+
+        let delta = PointerStateDelta {
+            prev: self.pointer_state,
+            next,
+            cursor_may_over: true,
+        };
+        self.pointer_state = next;
+
+        self.root_model
+            .get_element()
+            .0
+            .borrow_mut()
+            .emit_event(&mut EmitEventArgs {
+                queue: &mut self.callback_queue,
+                delta,
+            });
+        self.callback_queue.execute();
+        // TODO
+        // if let WindowEvent::Resized(size) = &event {
+        //     self.root
+        //         .set_draw_region(Some(window_size_to_draw_region(*size)));
+        // }
+
+        // if let Some(ipe) = self.gem.emit_event(event, &self.gc) {
+        //     if !self.root.on_pointer_event(&ipe) {
+        //         ipe.focus_on(None);
+        //     }
+        // }
     }
 
     fn on_destroy(&mut self) {
@@ -64,19 +120,22 @@ where
 }
 
 fn window_size_to_draw_region(size: PhysicalSize<u32>) -> Region {
-    (
-        Point(Pixel(0.0), Pixel(0.0)),
-        Point(
-            Pixel::from_physical(size.width as _),
-            Pixel::from_physical(size.height as _),
-        ),
-    )
+    Region {
+        left_top: Point { x: 0.0, y: 0.0 },
+        right_bottom: Point {
+            x: size.width as f32,
+            y: size.height as f32,
+        },
+    }
 }
 
-pub(super) async fn new_window<El, F>(window_builder: F) -> Result<Window>
+pub(super) async fn new_window<F, T>(
+    window_attributes: WindowAttributes,
+    root_creator: F,
+) -> Result<Window>
 where
-    El: Element + ElementUpdate<()>,
-    F: FnOnce(WindowBuilder) -> WindowBuilder + Send + 'static,
+    F: FnOnce() -> T + Send + 'static,
+    T: VNode<()>,
 {
     let ev_disp = EventDispatcher::new();
 
@@ -89,28 +148,30 @@ where
             let gc = Rc::new(GlobalContent {
                 global_ed: ev_disp,
                 focusing: Focusing::new(),
+                length_standard: Cell::new(LengthStandardGlobalPart {
+                    viewport_size: window.inner_size().into(),
+                    dpi: window.scale_factor() as _,
+                }),
                 window,
-                redraw_scheduler: RefCell::new(redraw_scheduler),
+                redraw_scheduler,
                 close_handle,
+                user_close: Cell::new(true),
             });
 
-            let root_element = <DropProtection<El, (), ()> as UpdateWith<
-                ElementModelUpdater<'_, El, (), (), (), _>,
-            >>::create_with(ElementModelUpdater {
-                add_one: one_child((), (), (), |_: &_| {}),
-                content: EMUpdateContent {
-                    global_content: &gc,
-                    parent_layer: None,
-                },
-            });
+            let root_model = root_creator().create(&ModelCreateCtx::create_as_root(EMCreateCtx {
+                global_content: gc.clone(),
+                parent: None,
+            }));
 
-            root_element.set_draw_region(window_size_to_draw_region(gc.window().inner_size()));
-            gc.request_redraw(root_element.0.clone());
+            //root.set_draw_region(Some(window_size_to_draw_region(gc.window().inner_size())));
+            // root.
 
-            BackendRuntime::<El> {
-                root_element,
-                gem: GlobalEventMgr::new(),
+            BackendRuntime {
+                pointer_state: PointerState::new(),
                 gc,
+                root_model: Box::new(root_model),
+                callback_queue: CallbackQueue::new(),
+                window_resized: true,
             }
         }
     };
@@ -118,7 +179,7 @@ where
     let RawWindowHandle {
         raw_window,
         close_handle,
-    } = RawWindowHandle::create(create_app, window_builder).await?;
+    } = RawWindowHandle::create(create_app, window_attributes).await?;
 
     Ok(Window {
         winit_window: Arc::downgrade(&raw_window),

@@ -1,7 +1,7 @@
 [package]
 name = "irisia"
 version = "1.0.0"
-edition = "2021"
+edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -9,8 +9,7 @@ edition = "2021"
 anyhow = "1"
 take_mut = "0.2"
 smallvec = "1.9"
-async-trait = "0.1"
-tokio = { version = "1.32", features = [
+tokio = { version = "1.40", features = [
     "sync",
     "time",
     "macros",
@@ -19,3 +18,8 @@ tokio = { version = "1.32", features = [
 irisia_macros = { path = "../irisia-macros" }
 irisia_backend = { path = "../irisia-backend", features = ["fps_recorder"] }
 irisia_utils = { path = "../irisia-utils" }
+impl_variadics = "0.1.1"
+stack_box = "1"
+
+[features]
+dhat_heap = ["irisia_backend/dhat_heap"]

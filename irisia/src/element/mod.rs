@@ -1,62 +1,54 @@
-use crate::{dom::RenderMultiple, primitive::Region, Result};
+use std::time::Duration;
 
-pub use self::{props::PropsUpdateWith, render_element::RenderElement};
-pub use crate::{
-    application::content::GlobalContent,
-    dom::{one_child, pub_handle::LayoutElements, RcElementModel},
+use crate::{
+    application::event_comp::IncomingPointerEvent,
+    el_model::{EMCreateCtx, ElementAccess},
+    hook::ProviderObject,
+    model::{iter::ModelMapper, DesiredVModel},
+    Result,
 };
 
-pub mod props;
-mod render_element;
+pub use component::{Component, ComponentTemplate};
+use deps::AsEmptyProps;
+use irisia_backend::skia_safe::{Canvas, Region as SkRegion};
 
-#[macro_export]
-macro_rules! ElModel {
-    () => {
-        $crate::ElModel!(Self)
-    };
-    ($El: ty) => {
-        $crate::element::RcElementModel<
-            $El,
-            impl $crate::style::StyleContainer + 'static,
-            impl $crate::element::AsChildren + 'static
-        >
-    };
+pub mod children_utils;
+mod component;
+pub mod deps;
+
+#[derive(Clone, Copy)]
+pub struct Render<'a> {
+    pub canvas: &'a Canvas,
+    pub interval: Duration,
+    pub dirty_region: Option<&'a SkRegion>,
 }
-
 /// Element is a thing can draw itself on the given canvas,
 /// according to its properties, styles and given drawing region.
 /// This trait is close to the native rendering, if you are not a
 /// component maker, please using exist elements or macros to
 /// customize one.
-pub trait Element
+pub trait ElementInterfaces: Sized + 'static {
+    type Props: AsEmptyProps;
+    type ChildMapper: ModelMapper;
+    const REQUIRE_INDEPENDENT_LAYER: bool = false;
+
+    fn create<Slt>(
+        props: &Self::Props,
+        access: ElementAccess,
+        slot: ProviderObject<Slt>,
+        ctx: &EMCreateCtx,
+    ) -> Self
+    where
+        Slt: DesiredVModel<Self::ChildMapper> + 'static;
+
+    fn render(&mut self, args: Render) -> Result<()>;
+    fn spread_event(&mut self, ipe: &IncomingPointerEvent) -> bool;
+    fn on_draw_region_change(&mut self);
+}
+
+pub fn get_empty_props<El>() -> <El::Props as AsEmptyProps>::AsEmpty
 where
-    Self: Sized + 'static,
+    El: ElementInterfaces,
 {
-    type BlankProps: Default;
-
-    /// Draw to the canvas
-
-    fn render(&mut self, this: &ElModel!(), mut content: RenderElement) -> Result<()> {
-        let _ = this;
-        content.render_children()
-    }
-
-    fn set_children(&self, this: &ElModel!()) {
-        this.set_children(()).layout(|()| unreachable!()).unwrap();
-    }
-
-    fn draw_region_changed(&mut self, this: &ElModel!(), draw_region: Region) {
-        if let Some(lc) = this.layout_children() {
-            lc.layout_once(draw_region)
-                .expect("child elements are more than 1")
-        }
-    }
+    <El::Props as AsEmptyProps>::empty_props()
 }
-
-pub trait ElementUpdate<Pr>: Element + Sized {
-    fn el_create(this: &ElModel!(), props: Pr) -> Self;
-    fn el_update(&mut self, this: &ElModel!(), props: Pr, equality_matters: bool) -> bool;
-}
-
-pub trait AsChildren: RenderMultiple {}
-impl<T: RenderMultiple> AsChildren for T {}

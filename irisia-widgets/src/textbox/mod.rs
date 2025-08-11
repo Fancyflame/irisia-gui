@@ -1,14 +1,14 @@
 use std::ops::Range;
 
 use irisia::{
-    element::{props::PropsUpdateWith, Element, ElementUpdate, RenderElement},
+    data_flow::ReadWire,
+    element::ElementInterfaces,
     skia_safe::{
         font_style::Width,
         textlayout::{FontCollection, Paragraph, ParagraphBuilder, ParagraphStyle, TextStyle},
         Color, FontMgr, FontStyle, Point as SkiaPoint,
     },
-    style::{StyleColor, StyleContainer},
-    ElModel, StyleReader,
+    FromUserProps, ReadStyle, WriteStyle,
 };
 use irisia::{
     primitive::Region,
@@ -29,30 +29,31 @@ pub struct TextBox {
     //selection_rt_mgr: SelectionRtMgr,
 }
 
-#[derive(StyleReader, PartialEq)]
+#[derive(WriteStyle, PartialEq)]
 struct TextBoxStyles {
-    font_size: StyleFontSize,
-    slant: StyleFontSlant,
-    weight: StyleFontWeight,
-    color: Option<StyleColor>,
+    font_size: FontSize,
+    slant: FontSlant,
+    weight: FontWeight,
+    color: FontColor,
 }
 
-#[irisia::props(updater = "TextBoxProps", watch(exclude = "user_select"))]
+#[derive(UserProps)]
 pub struct OwnedProps {
-    #[props(updated, must_init)]
-    text: String,
+    #[props(required)]
+    text: ReadWire<String>,
 
-    #[props(default = "false")]
-    user_select: bool,
-
-    #[props(read_style(stdin))]
-    style: TextBoxStyles,
+    #[props(default = false)]
+    user_select: ReadWire<bool>,
 }
 
-impl Element for TextBox {
+impl ElementInterfaces for TextBox {
     type BlankProps = TextBoxProps;
 
-    fn render(&mut self, this: &ElModel!(), mut content: RenderElement) -> irisia::Result<()> {
+    fn render(
+        &mut self,
+        this: &RcElementModel<Self>,
+        mut content: RenderElement,
+    ) -> irisia::Result<()> {
         let draw_region = this.draw_region();
 
         if let Some(para) = &self.paragraph {
@@ -76,9 +77,8 @@ impl Element for TextBox {
         Ok(())
     }
 
-    fn draw_region_changed(&mut self, _: &ElModel!(), draw_region: Region) {
-        let Some(p) = &mut self.paragraph
-        else {
+    fn on_draw_region_change(&mut self, _: &RcElementModel<Self>, draw_region: Region) {
+        let Some(p) = &mut self.paragraph else {
             return;
         };
 
@@ -107,11 +107,11 @@ fn get_text_style(style: &TextBoxStyles) -> TextStyle {
     text_style
 }
 
-impl<Pr> ElementUpdate<Pr> for TextBox
+impl<Pr> ElementUpdateRaw<Pr> for TextBox
 where
     OwnedProps: PropsUpdateWith<Pr>,
 {
-    fn el_create(_: &ElModel!(), props: Pr) -> Self {
+    fn el_create(_: &RcElementModel<Self>, props: Pr) -> Self {
         let mut font_collection = FontCollection::new();
         font_collection.set_default_font_manager(FontMgr::new(), None);
         TextBox {
@@ -122,7 +122,7 @@ where
         }
     }
 
-    fn el_update(&mut self, _: &ElModel!(), props: Pr, _equality_matters: bool) -> bool {
+    fn el_update(&mut self, _: &RcElementModel<Self>, props: Pr, _equality_matters: bool) -> bool {
         let update_result = self.props.props_update_with(props);
         if !update_result.unchanged {
             self.paragraph.take();

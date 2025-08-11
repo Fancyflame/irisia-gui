@@ -2,21 +2,38 @@
 name = "examples"
 version = "0.0.0"
 publish = false
-edition = "2021"
+edition = "2024"
 
 # [[example]]
 # name = "window"
 # path = "window.rs"
 
 [[example]]
+name = "hook"
+path = "hook.rs"
+
+[[example]]
 name = "props_macro"
 path = "props_macro.rs"
+
+[[example]]
+name = "style_macro"
+path = "style_macro.rs"
 
 [[example]]
 name = "simple_window"
 path = "simple_window.rs"
 
+[[example]]
+name = "simple_window2"
+path = "simple_window2.rs"
+
+[[example]]
+name = "counter"
+path = "counter.rs"
+
 [dev-dependencies]
-tokio = { version = "1.27", features = ["sync", "rt-multi-thread", "macros"] }
+tokio = { version = "1.40", features = ["sync", "rt-multi-thread", "macros"] }
 irisia = { path = "../irisia" }
+rand = "0.8"
 irisia_widgets = { path = "../irisia-widgets" }

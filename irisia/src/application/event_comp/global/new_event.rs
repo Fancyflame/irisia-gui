@@ -1,21 +1,17 @@
 use std::cell::Cell;
 
-use irisia_backend::StaticWindowEvent;
+use irisia_backend::winit::event::WindowEvent;
 
-use crate::{
-    application::content::GlobalContent,
-    event::EventDispatcher,
-    primitive::{Pixel, Point},
-};
+use crate::{application::content::GlobalContent, event::EventDispatcher, primitive::Point};
 
 use super::{GlobalEventMgr, PointerState};
 
-pub struct NewPointerEvent<'a> {
-    pub(crate) event: StaticWindowEvent,
+pub struct IncomingPointerEvent<'a> {
+    pub(crate) event: WindowEvent,
     pub(crate) gem: &'a mut GlobalEventMgr,
     pub(crate) global_content: &'a GlobalContent,
     pub(crate) new_position: Option<Point>,
-    pub(crate) cursor_delta: Option<(Pixel, Pixel)>,
+    pub(crate) cursor_delta: Option<(f32, f32)>,
     new_focused: Cell<NewFocused>,
     pub(crate) new_pointer_state: PointerState,
     pub(crate) pointer_state_change: PointerStateChange,
@@ -36,9 +32,9 @@ pub(crate) enum PointerStateChange {
     EnterViewport,
 }
 
-impl<'a> NewPointerEvent<'a> {
+impl<'a> IncomingPointerEvent<'a> {
     pub(super) fn new(
-        event: StaticWindowEvent,
+        event: WindowEvent,
         gem: &'a mut GlobalEventMgr,
         gc: &'a GlobalContent,
         new_position: Option<Point>,
@@ -47,9 +43,9 @@ impl<'a> NewPointerEvent<'a> {
         let cursor_delta = gem
             .last_cursor_position
             .zip(new_position)
-            .map(|(old, new)| (new.0 - old.0, new.1 - old.1));
+            .map(|(old, new)| (new.x - old.x, new.y - old.y));
 
-        NewPointerEvent {
+        IncomingPointerEvent {
             event,
             new_position,
             cursor_delta,
@@ -88,7 +84,7 @@ impl PointerStateChange {
     }
 }
 
-impl Drop for NewPointerEvent<'_> {
+impl Drop for IncomingPointerEvent<'_> {
     fn drop(&mut self) {
         self.gem.last_cursor_position = self.new_position;
 

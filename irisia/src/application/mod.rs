@@ -1,21 +1,28 @@
 use std::sync::Weak;
 
-use irisia_backend::{window_handle::WindowBuilder, WinitWindow};
+use irisia_backend::{
+    WinitWindow,
+    winit::{dpi::PhysicalSize, window::WindowAttributes},
+};
 
 use crate::{
-    element::{Element, ElementUpdate},
-    event::{standard::WindowDestroyed, EventDispatcher},
     Result,
+    event::{EventDispatcher, standard::WindowDestroyed},
+    model::VNode,
+    prim_element::layout::SpaceConstraint,
+    primitive::size::Size,
 };
 
 mod backend;
 pub(crate) mod content;
+pub(crate) mod event2;
 pub(crate) mod event_comp;
 pub(crate) mod redraw_scheduler;
 
 use backend::new_window;
 
 pub use irisia_backend::window_handle::CloseHandle;
+pub use {event_comp::IncomingPointerEvent, event2::pointer_event::PointerEvent};
 
 #[derive(Clone)]
 pub struct Window {
@@ -25,20 +32,12 @@ pub struct Window {
 }
 
 impl Window {
-    pub async fn new<El>(title: impl Into<String>) -> Result<Self>
+    pub async fn new<F, T>(wa: WindowAttributes, dom: F) -> Result<Self>
     where
-        El: Element + ElementUpdate<()>,
+        F: FnOnce() -> T + Send + 'static,
+        T: VNode<()>,
     {
-        let title = title.into();
-        new_window::<El, _>(move |wb| wb.with_title(title)).await
-    }
-
-    pub async fn with_builder<El, F>(f: F) -> Result<Self>
-    where
-        El: Element + ElementUpdate<()>,
-        F: FnOnce(WindowBuilder) -> WindowBuilder + Send + 'static,
-    {
-        new_window::<El, _>(f).await
+        new_window(wa, dom).await
     }
 
     pub fn winit_window(&self) -> &Weak<WinitWindow> {
@@ -65,5 +64,12 @@ impl Window {
         self.event_dispatcher
             .recv_trusted::<WindowDestroyed>()
             .await;
+    }
+}
+
+fn window_size_to_constraint(size: PhysicalSize<u32>) -> Size<SpaceConstraint> {
+    Size {
+        width: SpaceConstraint::Exact(size.width as f32),
+        height: SpaceConstraint::Exact(size.height as f32),
     }
 }

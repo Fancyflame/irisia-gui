@@ -1,10 +1,15 @@
+[profile.release]
+debug = 1
+
 [workspace]
-resolver = "2"
 members = [
-    "irisia-widgets",
-    "irisia",
-    "irisia-backend",
-    "irisia-macros",
-    "irisia-utils",
-    "examples",
+  "irisia-widgets",
+  "irisia",
+  "irisia-backend",
+  "irisia-macros",
+  "irisia-utils",
+  "examples",
+#   "tests",
 ]
+package.rust-version = "1.86"
+resolver = "2"

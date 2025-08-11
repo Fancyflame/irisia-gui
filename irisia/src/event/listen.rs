@@ -1,5 +1,5 @@
 use irisia_macros::__inner_impl_listen;
-use std::future::Future;
+use std::{future::Future, marker::PhantomData};
 use tokio::task::JoinHandle;
 
 use crate::{
@@ -7,66 +7,78 @@ use crate::{
     Event,
 };
 
-#[derive(Debug, Clone)]
-pub struct Listen<'a, Ep, T0 = (), T1 = (), T2 = (), T3 = (), T4 = ()> {
+#[derive(Debug)]
+pub struct Listen<'a, Ep, Once, Trusted, Async, SubEv, WithHd> {
     ep: &'a Ep,
-    once: T0,
-    trusted: T1,
-    asyn: T2,
-    sub_event: T3,
-    no_handle: T4,
+    _phantom: PhantomData<(Once, Trusted, Async, SubEv, WithHd)>,
 }
 
-#[derive(Default, Clone, Copy)]
-pub struct FlagSet;
-
-impl<'a, Ep> Listen<'a, Ep> {
-    pub(crate) fn new(ep: &'a Ep) -> Self {
-        Listen {
-            ep,
-            once: (),
-            trusted: (),
-            asyn: (),
-            sub_event: (),
-            no_handle: (),
+impl<Ep, T0, T1, T2, T3, T4> Clone for Listen<'_, Ep, T0, T1, T2, T3, T4> {
+    fn clone(&self) -> Self {
+        Self {
+            ep: self.ep,
+            _phantom: PhantomData,
         }
     }
 }
 
+impl<Ep, T0, T1, T2, T3, T4> Copy for Listen<'_, Ep, T0, T1, T2, T3, T4> {}
+
+pub struct FlagSet(());
+
+pub trait ListenerOption<Ep, Event, Once, Trusted, Async, SubEv, WithHd>
+where
+    Ep: EdProvider,
+{
+    fn listen_from(self, l: Listen<Ep, Once, Trusted, Async, SubEv, WithHd>) -> JoinHandle<()>;
+}
+
+impl<'a, Ep, T0, T1, T2, T3, T4> Listen<'a, Ep, T0, T1, T2, T3, T4> {
+    pub(crate) fn new(ep: &'a Ep) -> Self {
+        Listen {
+            ep,
+            _phantom: PhantomData,
+        }
+    }
+
+    pub fn once(self) -> Listen<'a, Ep, FlagSet, T1, T2, T3, T4> {
+        Listen::new(self.ep)
+    }
+
+    pub fn trusted(self) -> Listen<'a, Ep, T0, FlagSet, T2, T3, T4> {
+        Listen::new(self.ep)
+    }
+}
+
+impl<'a, Ep, T0, T1, T2, T3, T4> Listen<'a, Ep, T0, T1, T2, T3, T4> {
+    pub fn spawn<F, E>(&self, trigger: F) -> JoinHandle<()>
+    where
+        Ep: EdProvider,
+        F: ListenerOption<Ep, E, T0, T1, T2, T3, T4>,
+    {
+        trigger.listen_from(*self)
+    }
+}
+
 macro_rules! auto_fn {
-    ($($name:ident: $t0:ident $t1:ident $t2:ident $t3:ident $t4:ident,)*) => {
+    ($($name:ident: <$($impl_gen: tt),*> <$($st_gen: tt),*>,)*) => {
         $(
-            pub fn $name(self) -> Listen<'a, Ep, $t0, $t1, $t2, $t3, $t4> {
-                Listen {
-                    ep: self.ep,
-                    once: choose_value!($t0 self.once),
-                    trusted: choose_value!($t1 self.trusted),
-                    asyn: choose_value!($t2 self.asyn),
-                    sub_event: choose_value!($t3 self.sub_event),
-                    no_handle: choose_value!($t4 self.no_handle),
+            impl<Ep, T0, T1, $($impl_gen),*> Listen<'_, Ep, T0, T1, $($st_gen),*> {
+                pub fn $name(self) -> Self {
+                    self
                 }
             }
         )*
     };
 }
 
-macro_rules! choose_value {
-    (FlagSet $expr:expr) => {
-        FlagSet
-    };
-    ($_:ident $expr:expr) => {
-        $expr
-    };
-}
-
-impl<'a, Ep, T0, T1, T2, T3, T4> Listen<'a, Ep, T0, T1, T2, T3, T4> {
-    auto_fn! {
-        once:           FlagSet T1 T2 T3 T4,
-        trusted:        T0 FlagSet T2 T3 T4,
-        asyn:           T0 T1 FlagSet T3 T4,
-        sub_event:      T0 T1 T2 FlagSet T4,
-        no_handle:      T0 T1 T2 T3 FlagSet,
-    }
+auto_fn! {
+    asyn:            <T3, T4> <FlagSet, T3, T4>,
+    sub_event:       <T2, T4> <T2, FlagSet, T4>,
+    with_handle:     <T2, T3> <T2, T3, FlagSet>,
+    sync:            <T3, T4> <(), T3, T4>,
+    normal_event:    <T2, T4> <T2, (), T4>,
+    no_handle:       <T2, T3> <T2, T3, ()>,
 }
 
 pub trait EdProvider: Clone + 'static {
@@ -97,3 +109,12 @@ impl EdProvider for EventDispatcher {
 }
 
 __inner_impl_listen!();
+
+#[cfg(test)]
+#[allow(unused)]
+fn test(ed: EventDispatcher) {
+    type Ev = super::standard::PointerMove;
+    ed.listen().once().spawn(|_: Ev| {});
+    ed.listen().spawn(|_: Ev, _: EventDispatcher| async {});
+    ed.listen().asyn().spawn(|_: Ev| async {});
+}
