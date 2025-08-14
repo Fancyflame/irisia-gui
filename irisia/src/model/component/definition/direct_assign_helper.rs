@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use super::definition::DirectAssign;
+use super::DirectAssign;
 
 pub fn type_infer<F, Arg, T>(_: F) -> TypeInfer<T>
 where

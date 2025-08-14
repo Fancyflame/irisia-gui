@@ -43,12 +43,12 @@ impl GenerationEnv {
             match decoration {
                 FieldDecoration::None => {
                     quote! {
-                        #PATH_COMPONENT::proxy_signal_helper::check_eq(#value).get()
+                        #PATH_COMPONENT::definition::proxy_signal_helper::check_eq(#value).get()
                     }
                 }
                 FieldDecoration::DirectAssign => {
                     quote! {
-                        #PATH_COMPONENT::direct_assign_helper::type_infer(
+                        #PATH_COMPONENT::definition::direct_assign_helper::type_infer(
                             |#comp_type { #name, .. }| #name
                         ).infer(#value)
                     }

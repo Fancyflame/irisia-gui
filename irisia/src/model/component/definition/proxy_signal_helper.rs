@@ -1,6 +1,6 @@
 use std::ops::{Deref, DerefMut};
 
-use super::definition::SignalProxied;
+use super::SignalProxied;
 
 pub struct CheckEq<T>(Fallback<T>);
 pub struct Fallback<T>(Option<T>);
@@ -13,7 +13,7 @@ pub fn check_eq<T>(value: T) -> CheckEq<T> {
 impl<T: PartialEq<T>> CheckEq<T> {
     pub fn get(self) -> SignalProxied<T> {
         SignalProxied {
-            value: self.0 .0.unwrap(),
+            value: self.0.0.unwrap(),
             eq_fn: T::eq,
         }
     }

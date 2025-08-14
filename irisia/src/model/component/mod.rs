@@ -7,8 +7,7 @@ use crate::{hook::watcher::WatcherList, prim_element::Element};
 use super::{EleModel, Model, ModelCreateCtx, VModel, VNode};
 
 pub mod definition;
-pub mod direct_assign_helper;
-pub mod proxy_signal_helper;
+pub mod property;
 
 pub struct UseComponent<T, Cd, F, D> {
     _comp: PhantomData<T>,
