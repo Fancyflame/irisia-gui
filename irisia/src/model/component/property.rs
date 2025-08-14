@@ -4,7 +4,7 @@ pub trait Property<Name> {
     fn set(self, value: Self::Value) -> Self::ReturnSelf;
 }
 
-pub struct Char<const C: char>;
+pub struct PChar<const C: char>;
 
 // struct Foo;
 

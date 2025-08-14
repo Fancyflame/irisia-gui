@@ -39,6 +39,7 @@ mod inner_impl_listen;
 mod main_macro;
 mod parse_incomplete;
 mod partial_eq;
+mod pname;
 mod props2;
 mod split_generics;
 mod style;
@@ -110,4 +111,9 @@ pub fn derive_partial_eq(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn build2(input: TokenStream) -> TokenStream {
     result_into_stream(component::build_macro.parse(input))
+}
+
+#[proc_macro]
+pub fn pname(input: TokenStream) -> TokenStream {
+    result_into_stream(pname::pname.parse(input))
 }
