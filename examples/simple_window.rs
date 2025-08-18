@@ -1,7 +1,7 @@
 use irisia::{
     Result, Window, WinitWindow,
     application::PointerEvent,
-    build2, coerce_hook,
+    build, coerce_hook,
     hook::Signal,
     model::{
         VNode,
@@ -56,7 +56,7 @@ fn app() -> impl VNode<()> {
     let changing_rect = Signal::memo_ncmp(red_rect.to_signal(), {
         let switch_color = switch_color.clone();
         move |&is_red| {
-            build2! {
+            build! {
                 Block::<()> {
                     on[=]: switch_color.clone(),
                     style: BlockStyle {
@@ -88,7 +88,7 @@ fn app() -> impl VNode<()> {
 
     //let text: Signal<dyn AsRef<str>> = coerce_hook!(text);
 
-    build2! {
+    build! {
         CustomComp {
             vertical[=]: red_rect.to_signal(),
 
@@ -159,9 +159,9 @@ impl Component for CustomComp {
             vertical: vertical.copied().unwrap_or(false),
         });
 
-        build2! {
+        build! {
             Block {
-                display := coerce_hook!(layout),
+                display[=]: coerce_hook!(layout),
                 style: BlockStyle {
                     // width: 0.7 * PCT,
                     // height: 0.7 * PCT,

@@ -2,7 +2,7 @@ use proc_macro2::TokenStream;
 use quote::{ToTokens, format_ident, quote};
 use syn::{Expr, Ident};
 
-use crate::component::ast::FieldDecoration;
+use crate::build_macro::ast::FieldDecoration;
 
 use super::{ComponentStmt, FieldAssignment, PATH_COMPONENT, PATH_OPTION};
 

@@ -3,7 +3,7 @@ use std::cell::Cell;
 use irisia::{
     Result, Window, WinitWindow,
     application::PointerEvent,
-    build2, coerce_hook,
+    build, coerce_hook,
     hook::Signal,
     model::{
         VNode,
@@ -71,7 +71,7 @@ fn app() -> impl VNode<()> {
         }
     };
 
-    build2! {
+    build! {
         Flex {
             style[=]: Signal::memo(flex_direction.to_signal(), |&flex_direction| {
                 FlexContainerStyle::DEFAULT
@@ -117,7 +117,7 @@ fn app() -> impl VNode<()> {
 }
 
 fn create_block() -> impl VNode<FlexItemStyle> {
-    build2! {
+    build! {
         Block::<()> {
             style: BlockStyle::DEFAULT
                 .background(Color::RED)

@@ -28,7 +28,7 @@ use std::{
 pub use application::Window;
 pub use event::Event;
 pub use irisia_backend::{WinitWindow, runtime::exit_app, skia_safe, start_runtime, winit};
-pub use irisia_macros::{Event, PartialEq, build, build2, main, pname, props, style, user_props};
+pub use irisia_macros::{Event, build, main, pname, props, style};
 pub use primitive::{Corner, Point, Rect, Size};
 
 #[doc(hidden)]

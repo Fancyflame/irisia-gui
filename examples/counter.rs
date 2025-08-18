@@ -1,5 +1,5 @@
 use irisia::{
-    Result, Window, WinitWindow, build2,
+    Result, Window, WinitWindow, build,
     hook::{Signal, watcher::WatcherList},
     model::{
         VModel, VNode,
@@ -33,7 +33,7 @@ async fn main() -> Result<()> {
 fn app() -> impl VNode<()> {
     let counter = Signal::state(0);
 
-    build2! {
+    build! {
         Flex {
             style: FlexContainerStyle::DEFAULT
                 .flex_direction(FlexDirection::Column)
@@ -72,7 +72,7 @@ struct CenterBox {
 
 impl Component for CenterBox {
     fn create(self, _: &mut WatcherList) -> impl VNode<()> + use<> {
-        build2! {
+        build! {
             Flex {
                 style[=]: Signal::memo_ncmp(self.color, |color| {
                     FlexContainerStyle::DEFAULT

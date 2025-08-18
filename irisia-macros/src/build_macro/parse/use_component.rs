@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::component::{ast::*, parse::parse_stmts};
+use crate::build_macro::{ast::*, parse::parse_stmts};
 use syn::{
     Error, Ident, Result, Token, braced, bracketed, parse::ParseStream, spanned::Spanned,
     token::Bracket,

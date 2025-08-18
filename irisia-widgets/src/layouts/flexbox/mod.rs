@@ -1,5 +1,5 @@
 use irisia::{
-    build2,
+    build,
     hook::Signal,
     model::{component::Component, control_flow::CommonVModel, prim::Block},
     prim_element::block::BlockStyle,
@@ -26,7 +26,7 @@ impl Component for Flex {
     ) -> impl irisia::model::VNode<()> + use<> {
         Signal::memo_ncmp(self.style, move |style| {
             let style = style.cloned().unwrap_or_default();
-            build2! {
+            build! {
                 Block {
                     display: FlexBlockLayout {
                         container_style: style,

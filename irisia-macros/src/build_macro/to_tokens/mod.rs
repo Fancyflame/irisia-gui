@@ -2,7 +2,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::Token;
 
-use crate::component::ast::*;
+use super::ast::*;
 
 mod use_component;
 
