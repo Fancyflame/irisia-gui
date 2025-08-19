@@ -1,16 +1,13 @@
+use super::ast::*;
+use crate::consts::*;
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::Token;
-
-use super::ast::*;
 
 mod use_component;
 
 const_quote! {
     const PATH_CONTROL_FLOW = { irisia::model::control_flow };
-    const PATH_COMPONENT = { irisia::model::component };
-    const PATH_RC = { ::std::rc::Rc };
-    const PATH_OPTION = { ::core::option::Option };
 }
 
 pub fn gen_code(stmts: &[Stmt]) -> TokenStream {

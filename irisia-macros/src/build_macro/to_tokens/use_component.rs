@@ -2,15 +2,9 @@ use proc_macro2::TokenStream;
 use quote::{ToTokens, format_ident, quote};
 use syn::{Expr, Ident};
 
-use crate::build_macro::ast::FieldDecoration;
+use crate::{build_macro::ast::FieldDecoration, consts::*};
 
-use super::{ComponentStmt, FieldAssignment, PATH_COMPONENT, PATH_OPTION};
-
-use super::GenerationEnv;
-
-const_quote! {
-    const DEFAULT_TRAIT = { ::std::default::Default };
-}
+use super::{ComponentStmt, FieldAssignment, GenerationEnv};
 
 impl GenerationEnv {
     pub(super) fn gen_component(
@@ -82,7 +76,7 @@ impl GenerationEnv {
             |#names_tuple| {
                 #comp_type {
                     #(#prop_assignments)*
-                    ..#DEFAULT_TRAIT::default()
+                    ..#TRAIT_DEFAULT::default()
                 }
             }
         };

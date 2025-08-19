@@ -2,7 +2,7 @@ use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use props2::CastProp;
 use quote::quote;
-use syn::{DeriveInput, Item, ItemFn, Result, parse::Parser, parse_macro_input};
+use syn::{DeriveInput, ItemFn, LitStr, Result, parse::Parser, parse_macro_input};
 
 macro_rules! const_quote {
     (
@@ -20,7 +20,7 @@ macro_rules! const_quote {
 
             impl quote::ToTokens for $Name {
                 fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-                    quote! { $($tt)* }.to_tokens(tokens)
+                    quote::quote! { $($tt)* }.to_tokens(tokens)
                 }
             }
         )*
@@ -28,11 +28,13 @@ macro_rules! const_quote {
 }
 
 mod build_macro;
+mod consts;
 mod generics_unbracketed;
 mod inner_impl_listen;
 mod main_macro;
 mod parse_incomplete;
 mod pname;
+mod property;
 mod props2;
 mod split_generics;
 mod style;
@@ -88,5 +90,12 @@ pub fn build(input: TokenStream) -> TokenStream {
 
 #[proc_macro]
 pub fn pname(input: TokenStream) -> TokenStream {
-    result_into_stream(pname::pname.parse(input))
+    let string = parse_macro_input!(input as LitStr);
+    pname::pname_inner(&string.value()).into()
+}
+
+#[proc_macro_derive(Property, attributes(prop))]
+pub fn derive_property(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    property::derive_prop(input).into()
 }
