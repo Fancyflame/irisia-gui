@@ -3,13 +3,13 @@ debug = 1
 
 [workspace]
 members = [
-  "irisia-widgets",
-  "irisia",
-  "irisia-backend",
-  "irisia-macros",
-  "irisia-utils",
-  "examples",
-#   "tests",
+    "irisia-widgets",
+    "irisia",
+    "irisia-backend",
+    "irisia-macros",
+    "irisia-utils",
+    "examples",
+    "tests",
 ]
 package.rust-version = "1.86"
 resolver = "2"
