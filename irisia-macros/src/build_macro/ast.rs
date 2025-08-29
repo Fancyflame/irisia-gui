@@ -57,13 +57,13 @@ pub struct UseExprStmt {
 
 pub struct FieldAssignment<Name> {
     pub name: Name,
-    pub value: Expr,
-    pub decoration: FieldDecoration,
+    pub value: FieldValue,
 }
 
-#[derive(Clone, Copy)]
-pub enum FieldDecoration {
-    None,
-    DirectAssign,
+#[derive(Clone)]
+pub enum FieldValue {
+    Proxied(Expr),
+    DirectAssign(Expr),
     Event,
+    UseNested,
 }

@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use crate::build_macro::{ast::*, parse::parse_stmts};
 use syn::{
-    Error, Ident, Result, Token, braced, bracketed, parse::ParseStream, spanned::Spanned,
+    Error, Ident, Result, Token, braced, bracketed, parse::ParseStream,
     token::Bracket,
 };
 
@@ -40,7 +40,6 @@ pub fn parse_component(input: ParseStream) -> Result<ComponentStmt> {
                 fields.push(FieldAssignment {
                     name: ident,
                     value: fa.value,
-                    decoration: fa.decoration,
                 })
             }
             FieldAssignmentName::Super(super_token) => {
@@ -50,13 +49,15 @@ pub fn parse_component(input: ParseStream) -> Result<ComponentStmt> {
                         "cannot define `super` property duplicatedly",
                     ));
                 }
-                if !matches!(fa.decoration, FieldDecoration::None) {
+
+                if let FieldValue::Proxied(expr) = fa.value {
+                    child_data = Some(expr);
+                } else {
                     return Err(Error::new_spanned(
                         super_token,
                         "cannot use decoration on `super` property",
                     ));
                 }
-                child_data = Some(fa.value);
             }
         }
     }
@@ -79,26 +80,27 @@ pub fn parse_component(input: ParseStream) -> Result<ComponentStmt> {
     })
 }
 
-fn parse_decoration(input: ParseStream) -> Result<FieldDecoration> {
-    let content;
-    let bracketed_token = bracketed!(content in input);
-
-    let decoration = if content.is_empty() {
-        FieldDecoration::None
-    } else if content.peek(kw::event) {
-        content.parse::<kw::event>()?;
-        FieldDecoration::Event
-    } else if content.peek(Token![=]) {
-        content.parse::<Token![=]>()?;
-        FieldDecoration::DirectAssign
-    } else {
-        return Err(Error::new(
-            bracketed_token.span.span(),
-            "unknown decoration",
-        ));
+fn parse_field_value(flag: Option<ParseStream>, input: ParseStream) -> Result<FieldValue> {
+    let flag = match flag {
+        Some(flag) if !flag.is_empty() => flag,
+        _ => return input.parse().map(FieldValue::Proxied),
     };
 
-    Ok(decoration)
+    if flag.peek(kw::event) {
+        flag.parse::<kw::event>()?;
+        Ok(FieldValue::Event)
+    } else if flag.peek(Token![=]) {
+        flag.parse::<Token![=]>()?;
+        input.parse().map(FieldValue::DirectAssign)
+    } else if flag.peek(Token![..]) {
+        flag.parse::<Token![..]>()?;
+        Ok(FieldValue::UseNested)
+    } else {
+        Err(Error::new(
+            flag.span(),
+            "unknown decoration",
+        ))
+    }
 }
 
 #[rustfmt::skip]
@@ -124,20 +126,17 @@ fn parse_field_assignment(
         FieldAssignmentName::Ident(input.parse()?)
     };
 
-    let decoration = if input.peek(Bracket) {
-        parse_decoration(input)?
+    let flag = if input.peek(Bracket) {
+        let content;
+        bracketed!(content in input);
+        Some(content)
     } else {
-        FieldDecoration::None
+        None
     };
 
     input.parse::<Token![:]>()?;
-
-    let value = input.parse()?;
+    let value = parse_field_value(flag.as_ref(), input)?;
     input.parse::<Token![,]>()?;
 
-    Ok(Some(FieldAssignment {
-        name,
-        value,
-        decoration,
-    }))
+    Ok(Some(FieldAssignment { name, value }))
 }
