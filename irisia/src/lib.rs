@@ -28,9 +28,5 @@ use std::{
 pub use application::Window;
 pub use event::Event;
 pub use irisia_backend::{WinitWindow, runtime::exit_app, skia_safe, start_runtime, winit};
-pub use irisia_macros::{Event, Property, build, main, pname, props, style};
+pub use irisia_macros::{Event, build, main, style};
 pub use primitive::{Corner, Point, Rect, Size};
-
-#[doc(hidden)]
-pub use model::component::property::PChar;
-//pub use style::{ReadStyle, Style, WriteStyle};

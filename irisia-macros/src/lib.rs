@@ -1,6 +1,5 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
-use props2::CastProp;
 use quote::quote;
 use syn::{DeriveInput, ItemFn, LitStr, Result, parse::Parser, parse_macro_input};
 
@@ -33,9 +32,7 @@ mod generics_unbracketed;
 mod inner_impl_listen;
 mod main_macro;
 mod parse_incomplete;
-mod pname;
 mod property;
-mod props2;
 mod split_generics;
 mod style;
 
@@ -66,11 +63,6 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
     .into()
 }
 
-#[proc_macro_attribute]
-pub fn props(_: TokenStream, input: TokenStream) -> TokenStream {
-    parse_macro_input!(input as CastProp).generate().into()
-}
-
 fn result_into_stream(result: Result<TokenStream2>) -> TokenStream {
     match result {
         Ok(t) => t.into(),
@@ -86,16 +78,4 @@ pub fn __inner_impl_listen(_: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn build(input: TokenStream) -> TokenStream {
     result_into_stream(build_macro::build_macro.parse(input))
-}
-
-#[proc_macro]
-pub fn pname(input: TokenStream) -> TokenStream {
-    let string = parse_macro_input!(input as LitStr);
-    pname::pname_inner(&string.value()).into()
-}
-
-#[proc_macro_derive(Property, attributes(prop))]
-pub fn derive_property(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    property::derive_prop(input).into()
 }
