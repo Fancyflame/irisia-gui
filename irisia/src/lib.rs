@@ -27,6 +27,7 @@ use std::{
 
 pub use application::Window;
 pub use event::Event;
+pub use hook::Signal;
 pub use irisia_backend::{WinitWindow, runtime::exit_app, skia_safe, start_runtime, winit};
 pub use irisia_macros::{Event, build, main, style};
 pub use primitive::{Corner, Point, Rect, Size};

@@ -42,6 +42,10 @@ trait MergeInto<From> {
     fn merge(self, other: From) -> Self::Output;
 }
 
+trait PropFrom<T> {
+    fn prop_from(from: T) -> Self;
+}
+
 // Start Example
 
 struct Foo<T, U> {
