@@ -14,6 +14,11 @@ pub trait PropertyMutator {
     const GET: Self;
 }
 
+pub trait PropertyBuildFinish {
+    type Output;
+    fn checked_finish(self) -> Self::Output;
+}
+
 pub trait PropFrom<T> {
     fn prop_from(from: T) -> Self;
 }

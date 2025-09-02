@@ -28,7 +28,11 @@ const_quote! {
 
 pub fn derive_prop(input: DeriveInput) -> Result<TokenStream> {
     let input = parse_derive(input)?;
-    let tokens = [input.make_prop_struct(), input.make_mutator()];
+    let tokens = [
+        input.make_prop_struct(),
+        input.make_mutator(),
+        input.make_impl_merge_prop(),
+    ];
 
     Ok(tokens.into_iter().collect())
 }
@@ -96,6 +100,7 @@ impl MacroInput {
             impl #impl_g #PATH_PROPERTY::PropertyMutator for #mutator_name #type_g
             #where_clause {
                 const GET: Self = Self(#PHANTOM_DATA);
+
             }
 
             impl #impl_g #mutator_name #type_g
@@ -147,6 +152,74 @@ impl MacroInput {
                 #prop_struct_ident {
                     __irisia_phantom: #PHANTOM_DATA,
                     #(#init_prop_fields,)*
+                }
+            }
+        }
+    }
+
+    fn make_impl_merge_prop(&self) -> TokenStream {
+        let Self {
+            generics: orig_generics,
+            prop_ident,
+            fields,
+            ..
+        } = self;
+
+        // Original generics split
+        let (orig_impl_g, orig_type_g, orig_where_bounds) =
+            split_for_impl_unbracketed(orig_generics);
+
+        // Create side generic idents for src and other for each field
+        let self_generics: Vec<Ident> = (0..fields.len())
+            .map(|i| format_ident!("__IrisiaS{}", i + 1))
+            .collect();
+        let other_generics: Vec<Ident> = (0..fields.len())
+            .map(|i| format_ident!("__IrisiaO{}", i + 1))
+            .collect();
+
+        // Where predicates: each O_i: TypeOption<FieldTy>
+        let where_bounds: Vec<TokenStream> = fields
+            .iter()
+            .zip(other_generics.iter())
+            .map(|(f, o)| {
+                let ty = &f.ty;
+                quote! { #o: #PATH_PROPERTY::type_option::TypeOption<#ty> }
+            })
+            .collect();
+
+        // Output generics: O_i::OrOutput<S_i>
+        let output_generics = self_generics
+            .iter()
+            .zip(other_generics.iter())
+            .map(|(s, o)| {
+                quote! { #o::OrOutput<#s> }
+            });
+
+        // Field construction: self.field.or(other.field)
+        let field_inits = fields.iter().map(|f| {
+            let ident = &f.ident;
+            quote! { #ident: other.#ident.or(self.#ident) }
+        });
+
+        quote! {
+            impl <#orig_impl_g #(#self_generics,)* #(#other_generics,)*>
+                #PATH_PROPERTY::MergePropertiesFrom<
+                    #prop_ident<#orig_type_g #(#other_generics,)*>
+                > for #prop_ident<#orig_type_g #(#self_generics,)*>
+            where
+                #orig_where_bounds
+                #(#where_bounds,)*
+            {
+                type Output = #prop_ident<
+                    #orig_type_g
+                    #(#output_generics,)*
+                >;
+
+                fn merge(self, other: #prop_ident<#orig_type_g #(#other_generics,)*>) -> Self::Output {
+                    #prop_ident {
+                        __irisia_phantom: #PHANTOM_DATA,
+                        #(#field_inits,)*
+                    }
                 }
             }
         }

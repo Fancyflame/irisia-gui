@@ -5,15 +5,15 @@ pub struct TSome<T>(pub T);
 pub struct TNone;
 
 pub trait TypeOption<T> {
-    type ThenOutput<Other>;
-    fn then<Other>(self, other: Other) -> Self::ThenOutput<Other>;
+    type OrOutput<Other>;
+    fn or<Other>(self, other: Other) -> Self::OrOutput<Other>;
 
     fn unwrap_or_else(self, get_value: impl Fn() -> T) -> T;
 }
 
 impl<T> TypeOption<T> for TSome<T> {
-    type ThenOutput<Other> = Self;
-    fn then<Other>(self, _: Other) -> Self {
+    type OrOutput<Other> = Self;
+    fn or<Other>(self, _: Other) -> Self {
         self
     }
 
@@ -23,8 +23,8 @@ impl<T> TypeOption<T> for TSome<T> {
 }
 
 impl<T> TypeOption<T> for TNone {
-    type ThenOutput<Other> = Other;
-    fn then<Other>(self, other: Other) -> Other {
+    type OrOutput<Other> = Other;
+    fn or<Other>(self, other: Other) -> Other {
         other
     }
 

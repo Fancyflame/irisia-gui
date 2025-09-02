@@ -11,15 +11,15 @@ struct TSome<T>(pub T);
 struct TNone;
 
 trait StaticOption<T> {
-    type ThenOutput<Other>;
-    fn then<Other>(self, other: Other) -> Self::ThenOutput<Other>;
+    type OrOutput<Other>;
+    fn or<Other>(self, other: Other) -> Self::OrOutput<Other>;
 
     fn unwrap_or_else(self, get_value: impl Fn() -> T) -> T;
 }
 
 impl<T> StaticOption<T> for TSome<T> {
-    type ThenOutput<Other> = Self;
-    fn then<Other>(self, other: Other) -> Self {
+    type OrOutput<Other> = Self;
+    fn or<Other>(self, _: Other) -> Self {
         self
     }
 
@@ -29,8 +29,8 @@ impl<T> StaticOption<T> for TSome<T> {
 }
 
 impl<T> StaticOption<T> for TNone {
-    type ThenOutput<Other> = Other;
-    fn then<Other>(self, other: Other) -> Other {
+    type OrOutput<Other> = Other;
+    fn or<Other>(self, other: Other) -> Other {
         other
     }
 
@@ -92,20 +92,20 @@ where
     type Output = FooTemplate<
         T,
         U,
-        _O1::ThenOutput<_S1>,
-        _O2::ThenOutput<_S2>,
-        _O3::ThenOutput<_S3>,
-        _O4::ThenOutput<_S4>,
+        _O1::OrOutput<_S1>,
+        _O2::OrOutput<_S2>,
+        _O3::OrOutput<_S3>,
+        _O4::OrOutput<_S4>,
     >;
 
     #[rustfmt::skip]
     fn merge(self, other: FooTemplate<T, U, _S1, _S2, _S3, _S4>) -> Self::Output {
         FooTemplate {
             _phantom: PhantomData,
-            specific: self.specific.then(other.specific),
-            generic: self.generic.then(other.generic),
-            optional_specific: self.optional_specific.then(other.optional_specific),
-            optional_generic: self.optional_generic.then(other.optional_generic),
+            specific: self.specific.or(other.specific),
+            generic: self.generic.or(other.generic),
+            optional_specific: self.optional_specific.or(other.optional_specific),
+            optional_generic: self.optional_generic.or(other.optional_generic),
         }
     }
 }
