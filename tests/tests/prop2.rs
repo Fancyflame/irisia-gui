@@ -1,5 +1,7 @@
 use std::{default, marker::PhantomData};
 
+use irisia::Property;
+
 // Start Prop
 
 #[derive(Default)]
@@ -48,7 +50,11 @@ trait PropFrom<T> {
 
 // Start Example
 
-struct Foo<T, U> {
+#[derive(Property)]
+struct Foo<T: Sized, U>
+where
+    U: Sized,
+{
     specific: u32,
     generic: Box<T>,
     optional_specific: u32,

@@ -5,9 +5,9 @@ use syn::{GenericParam, Generics, Token};
 pub fn split_for_impl_unbracketed(
     g: &Generics,
 ) -> (
-    ImplGenericsUnbracketed,
-    TypeGenericsUnbracketed,
-    WhereClausePredicates,
+    ImplGenericsUnbracketed<'_>,
+    TypeGenericsUnbracketed<'_>,
+    WhereClausePredicates<'_>,
 ) {
     (
         ImplGenericsUnbracketed(g),

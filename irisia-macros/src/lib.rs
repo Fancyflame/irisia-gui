@@ -79,3 +79,9 @@ pub fn __inner_impl_listen(_: TokenStream) -> TokenStream {
 pub fn build(input: TokenStream) -> TokenStream {
     result_into_stream(build_macro::build_macro.parse(input))
 }
+
+#[proc_macro_derive(Property, attributes(prop))]
+pub fn derive_property(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    property::derive_prop(input).into()
+}
