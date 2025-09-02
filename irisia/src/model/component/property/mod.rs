@@ -10,6 +10,10 @@ pub trait MergePropertiesFrom<Src> {
     fn merge(self, src: Src) -> Self::Output;
 }
 
+pub trait PropertyMutator {
+    const GET: Self;
+}
+
 pub trait PropFrom<T> {
     fn prop_from(from: T) -> Self;
 }

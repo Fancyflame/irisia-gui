@@ -83,5 +83,5 @@ pub fn build(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(Property, attributes(prop))]
 pub fn derive_property(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    property::derive_prop(input).into()
+    result_into_stream(property::derive_prop(input))
 }
