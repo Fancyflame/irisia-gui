@@ -7,8 +7,7 @@ pub struct TNone;
 pub trait TypeOption<T> {
     type OrOutput<Other>;
     fn or<Other>(self, other: Other) -> Self::OrOutput<Other>;
-
-    fn unwrap_or_else(self, get_value: impl Fn() -> T) -> T;
+    fn into_value(self) -> Option<T>;
 }
 
 impl<T> TypeOption<T> for TSome<T> {
@@ -16,9 +15,8 @@ impl<T> TypeOption<T> for TSome<T> {
     fn or<Other>(self, _: Other) -> Self {
         self
     }
-
-    fn unwrap_or_else(self, _: impl Fn() -> T) -> T {
-        self.0
+    fn into_value(self) -> Option<T> {
+        Some(self.0)
     }
 }
 
@@ -27,8 +25,7 @@ impl<T> TypeOption<T> for TNone {
     fn or<Other>(self, other: Other) -> Other {
         other
     }
-
-    fn unwrap_or_else(self, get_value: impl Fn() -> T) -> T {
-        get_value()
+    fn into_value(self) -> Option<T> {
+        None
     }
 }

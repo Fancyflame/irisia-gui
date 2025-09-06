@@ -30,8 +30,10 @@ pub fn derive_prop(input: DeriveInput) -> Result<TokenStream> {
     let input = parse_derive(input)?;
     let tokens = [
         input.make_prop_struct(),
+        input.impl_prop_empty(),
         input.make_mutator(),
-        input.make_impl_merge_prop(),
+        input.impl_prop_update(),
+        input.impl_prop_cast(),
     ];
 
     Ok(tokens.into_iter().collect())
@@ -62,8 +64,7 @@ impl MacroInput {
         } = self;
 
         let field_names = self.fields.iter().map(|x| &x.ident);
-        let new_field_generics = self.fields.iter().map(|x| &x.prop_type);
-        let new_field_generics2 = new_field_generics.clone();
+        let new_field_generics: Vec<&Ident> = self.fields.iter().map(|x| &x.prop_type).collect();
 
         let orig_generics_unbracketed = UnbracketedGenerics(orig_generics);
         let (_, orig_struct_type_generics, _) = orig_generics.split_for_impl();
@@ -74,7 +75,39 @@ impl MacroInput {
             #where_clause
             {
                 __irisia_phantom: #PHANTOM_DATA<#orig_struct_name #orig_struct_type_generics>,
-                #(#field_names: #new_field_generics2,)*
+                #(#field_names: #new_field_generics,)*
+            }
+        }
+    }
+
+    fn impl_prop_empty(&self) -> TokenStream {
+        let Self {
+            ident, prop_ident, ..
+        } = self;
+
+        let (impl_g, type_g, where_clause) = split_for_impl_unbracketed(&self.generics);
+        let field_types = self.fields.iter().map(|f| &f.ty);
+        let field_init = self.fields.iter().map(|f| {
+            let FieldInput { ident, ty, .. } = f;
+            quote! {
+                #ident: <#ty as #PATH_PROPERTY::PropEmpty>::EMPTY,
+            }
+        });
+
+        let path_property = PATH_PROPERTY;
+        quote! {
+            impl<#impl_g> #PATH_PROPERTY::PropEmpty for #ident<#type_g>
+            #where_clause
+            {
+                type Empty = #prop_ident<
+                    #type_g
+                    #(<#field_types as #path_property::PropEmpty>::Empty,)*
+                >;
+
+                const EMPTY: Self::Empty = Self::Empty {
+                    __irisia_phantom: #PHANTOM_DATA,
+                    #(#field_init)*
+                };
             }
         }
     }
@@ -93,14 +126,16 @@ impl MacroInput {
         );
 
         let (impl_g, type_g, where_clause) = generics.split_for_impl();
-        let functions = (0..self.fields.len()).map(|i| self.make_mutator_set_prop(i));
+        let functions = (0..self.fields.len()).map(|i| self.make_mutator_function(i));
 
         quote! {
+            #[doc(hidden)]
             pub struct #mutator_name #generics(#PHANTOM_DATA<#orig_struct_name #type_g>);
-            impl #impl_g #PATH_PROPERTY::PropertyMutator for #mutator_name #type_g
-            #where_clause {
-                const GET: Self = Self(#PHANTOM_DATA);
 
+            impl #impl_g #PATH_PROPERTY::PropertyMutator for #orig_struct_name #type_g
+            #where_clause {
+                type Mutator = #mutator_name #type_g;
+                const GET: Self::Mutator = #mutator_name(#PHANTOM_DATA);
             }
 
             impl #impl_g #mutator_name #type_g
@@ -111,7 +146,7 @@ impl MacroInput {
         }
     }
 
-    fn make_mutator_set_prop(&self, index: usize) -> TokenStream {
+    fn make_mutator_function(&self, index: usize) -> TokenStream {
         let Self {
             generics,
             prop_ident: prop_struct_ident,
@@ -119,46 +154,51 @@ impl MacroInput {
             ..
         } = self;
 
-        let FieldInput {
-            ident, ty, rename, ..
-        } = &all_fields[index];
+        let FieldInput { ident, rename, .. } = &all_fields[index];
 
         let (_, generics, _) = split_for_impl_unbracketed(generics);
         let function_name = rename.as_ref().unwrap_or(ident);
 
-        let tsome_type = quote! {#TSOME<#ty>};
+        let return_prop_types = all_fields
+            .iter()
+            .enumerate()
+            .map(|(i, FieldInput { ty, .. })| {
+                if i == index {
+                    quote! {__IrisiaValue}
+                } else {
+                    quote! {<#ty as #PATH_PROPERTY::PropEmpty>::Empty}
+                }
+            });
 
-        let return_prop_generics = (0..all_fields.len()).map(|i| {
-            if i == index {
-                &tsome_type as &dyn ToTokens
-            } else {
-                &TNONE
-            }
-        });
-
-        let init_prop_fields = all_fields.iter().enumerate().map(|(i, f)| {
-            let ident = &f.ident;
-            if i == index {
-                quote! {#ident: #TSOME(value)}
-            } else {
-                quote! {#ident: #TNONE}
-            }
-        });
+        let init_prop_fields = all_fields
+            .iter()
+            .enumerate()
+            .filter(|&(i, _)| i != index)
+            .map(|(_, f)| {
+                let FieldInput { ident, ty, .. } = f;
+                quote! {
+                    #ident: <#ty as #PATH_PROPERTY::PropEmpty>::EMPTY,
+                }
+            });
 
         quote! {
-            pub fn #function_name(value: #ty) -> #prop_struct_ident<
-                #generics #(#return_prop_generics,)*
-            > {
+            pub fn #function_name<__IrisiaValue>(&self, value: __IrisiaValue)
+                -> #prop_struct_ident<#generics #(#return_prop_types,)*>
+            // where
+                // #ty: #PATH_PROPERTY::PropUpdate<#prop_type, __IrisiaValue>,
+            {
                 #prop_struct_ident {
                     __irisia_phantom: #PHANTOM_DATA,
-                    #(#init_prop_fields,)*
+                    #ident: value,
+                    #(#init_prop_fields)*
                 }
             }
         }
     }
 
-    fn make_impl_merge_prop(&self) -> TokenStream {
+    fn impl_prop_update(&self) -> TokenStream {
         let Self {
+            ident: orig_struct_name,
             generics: orig_generics,
             prop_ident,
             fields,
@@ -171,54 +211,104 @@ impl MacroInput {
 
         // Create side generic idents for src and other for each field
         let self_generics: Vec<Ident> = (0..fields.len())
-            .map(|i| format_ident!("__IrisiaS{}", i + 1))
+            .map(|i| format_ident!("__IrisiaS{i}"))
             .collect();
         let other_generics: Vec<Ident> = (0..fields.len())
-            .map(|i| format_ident!("__IrisiaO{}", i + 1))
+            .map(|i| format_ident!("__IrisiaO{i}"))
             .collect();
 
-        // Where predicates: each O_i: TypeOption<FieldTy>
-        let where_bounds: Vec<TokenStream> = fields
-            .iter()
-            .zip(other_generics.iter())
-            .map(|(f, o)| {
-                let ty = &f.ty;
-                quote! { #o: #PATH_PROPERTY::type_option::TypeOption<#ty> }
-            })
-            .collect();
-
-        // Output generics: O_i::OrOutput<S_i>
         let output_generics = self_generics
             .iter()
             .zip(other_generics.iter())
-            .map(|(s, o)| {
-                quote! { #o::OrOutput<#s> }
+            .zip(fields.iter())
+            .map(|((s, o), FieldInput { ty, .. })| {
+                quote! {
+                    <#ty as #PATH_PROPERTY::PropUpdate<#s, #o>>::Output,
+                }
             });
 
         // Field construction: self.field.or(other.field)
-        let field_inits = fields.iter().map(|f| {
-            let ident = &f.ident;
-            quote! { #ident: other.#ident.or(self.#ident) }
+        let field_inits = fields.iter().map(|FieldInput { ident, ty, .. }| {
+            quote! {
+                #ident: <#ty as #PATH_PROPERTY::PropUpdate<_, _>>::prop_update(
+                    this.#ident,
+                    other.#ident,
+                ),
+            }
         });
 
+        let field_types = fields.iter().map(|f| &f.ty);
+
+        let path_property = PATH_PROPERTY;
         quote! {
             impl <#orig_impl_g #(#self_generics,)* #(#other_generics,)*>
-                #PATH_PROPERTY::MergePropertiesFrom<
-                    #prop_ident<#orig_type_g #(#other_generics,)*>
-                > for #prop_ident<#orig_type_g #(#self_generics,)*>
+                #PATH_PROPERTY::PropUpdate<
+                    #prop_ident<#orig_type_g #(#self_generics,)*>,
+                    #prop_ident<#orig_type_g #(#other_generics,)*>,
+                > for #orig_struct_name<#orig_type_g>
             where
                 #orig_where_bounds
-                #(#where_bounds,)*
+                #(#field_types: #path_property::PropUpdate<
+                    #self_generics,
+                    #other_generics,
+                >,)*
             {
                 type Output = #prop_ident<
                     #orig_type_g
-                    #(#output_generics,)*
+                    #(#output_generics)*
                 >;
 
-                fn merge(self, other: #prop_ident<#orig_type_g #(#other_generics,)*>) -> Self::Output {
+                fn prop_update(
+                    this: #prop_ident<#orig_type_g #(#self_generics,)*>,
+                    other: #prop_ident<#orig_type_g #(#other_generics,)*>
+                ) -> Self::Output {
                     #prop_ident {
                         __irisia_phantom: #PHANTOM_DATA,
-                        #(#field_inits,)*
+                        #(#field_inits)*
+                    }
+                }
+            }
+        }
+    }
+
+    fn impl_prop_cast(&self) -> TokenStream {
+        let Self {
+            ident: orig_ident,
+            prop_ident,
+            ..
+        } = self;
+
+        let (impl_g, type_g, where_bounds) = split_for_impl_unbracketed(&self.generics);
+        let field_generics: Vec<&Ident> = self.fields.iter().map(|f| &f.prop_type).collect();
+
+        let field_where_bounds = self.fields.iter().map(|f| {
+            let FieldInput { ty, prop_type, .. } = f;
+            quote! {
+                #ty: #PATH_PROPERTY::PropCast<#prop_type>,
+            }
+        });
+
+        let final_struct_init_field = self.fields.iter().map(|f| {
+            let ident = &f.ident;
+            quote! {
+                #ident: #PATH_PROPERTY::PropCast::prop_cast(value.#ident),
+            }
+        });
+
+        let value_prop = quote! {
+            #prop_ident<#type_g #(#field_generics,)*>
+        };
+
+        quote! {
+            impl<#impl_g #(#field_generics,)*> #PATH_PROPERTY::PropCast<#value_prop>
+                for #orig_ident<#type_g>
+            where
+                #where_bounds
+                #(#field_where_bounds)*
+            {
+                fn prop_cast(value: #value_prop) -> Self {
+                    Self {
+                        #(#final_struct_init_field)*
                     }
                 }
             }

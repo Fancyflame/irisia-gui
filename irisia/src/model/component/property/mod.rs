@@ -1,6 +1,6 @@
 use crate::{
     Signal,
-    model::component::property::type_option::{TNone, TSome},
+    model::component::property::type_option::{TNone, TSome, TypeOption},
 };
 
 pub mod type_option;
@@ -11,32 +11,92 @@ pub trait MergePropertiesFrom<Src> {
 }
 
 pub trait PropertyMutator {
-    const GET: Self;
+    type Mutator;
+    const GET: Self::Mutator;
 }
 
-pub trait PropertyBuildFinish {
+pub trait PropEmpty {
+    type Empty;
+    const EMPTY: Self::Empty;
+}
+
+pub trait PropUpdate<T, U> {
     type Output;
-    fn checked_finish(self) -> Self::Output;
+    fn prop_update(old: T, update: U) -> Self::Output;
 }
 
-pub trait PropFrom<T> {
-    fn prop_from(from: T) -> Self;
+pub trait PropCast<T> {
+    fn prop_cast(from: T) -> Self;
 }
 
-impl<T> PropFrom<TSome<Signal<T>>> for Signal<T> {
-    fn prop_from(from: TSome<Signal<T>>) -> Self {
-        from.0
+// Implementations for Signal<T>
+
+impl<T: ?Sized> PropEmpty for Signal<T> {
+    type Empty = ();
+    const EMPTY: Self::Empty = ();
+}
+
+impl<T, Old> PropUpdate<Old, ()> for Signal<T>
+where
+    T: ?Sized,
+{
+    type Output = Old;
+    fn prop_update(old: Old, _: ()) -> Old {
+        old
     }
 }
 
-impl<T> PropFrom<TSome<Signal<T>>> for Option<Signal<T>> {
-    fn prop_from(from: TSome<Signal<T>>) -> Self {
-        Some(from.0)
+impl<T, Old> PropUpdate<Old, Self> for Signal<T>
+where
+    T: ?Sized,
+{
+    type Output = Self;
+    fn prop_update(_: Old, new: Self) -> Self::Output {
+        new
     }
 }
 
-impl<T> PropFrom<TNone> for Option<Signal<T>> {
-    fn prop_from(_: TNone) -> Self {
+impl<T: ?Sized> PropCast<Signal<T>> for Signal<T> {
+    fn prop_cast(from: Signal<T>) -> Self {
+        from
+    }
+}
+
+// Implementations for Option<Signal<T>>
+
+impl<T: ?Sized> PropEmpty for Option<Signal<T>> {
+    type Empty = ();
+    const EMPTY: Self::Empty = ();
+}
+
+impl<T, Old> PropUpdate<Old, ()> for Option<Signal<T>>
+where
+    T: ?Sized,
+{
+    type Output = Old;
+    fn prop_update(old: Old, _: ()) -> Old {
+        old
+    }
+}
+
+impl<T, Old> PropUpdate<Old, Signal<T>> for Option<Signal<T>>
+where
+    T: ?Sized,
+{
+    type Output = Signal<T>;
+    fn prop_update(_: Old, value: Signal<T>) -> Self::Output {
+        value
+    }
+}
+
+impl<T: ?Sized> PropCast<Signal<T>> for Option<Signal<T>> {
+    fn prop_cast(from: Signal<T>) -> Self {
+        Some(from)
+    }
+}
+
+impl<T: ?Sized> PropCast<()> for Option<Signal<T>> {
+    fn prop_cast(_: ()) -> Self {
         None
     }
 }
