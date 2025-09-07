@@ -1,14 +1,4 @@
-use crate::{
-    Signal,
-    model::component::property::type_option::{TNone, TSome, TypeOption},
-};
-
-pub mod type_option;
-
-pub trait MergePropertiesFrom<Src> {
-    type Output;
-    fn merge(self, src: Src) -> Self::Output;
-}
+use crate::Signal;
 
 pub trait PropertyMutator {
     type Mutator;
@@ -31,17 +21,20 @@ pub trait PropCast<T> {
 
 // Implementations for Signal<T>
 
+pub struct ThereIsARequiredPropertyIsMissing;
+type Missing = ThereIsARequiredPropertyIsMissing;
+
 impl<T: ?Sized> PropEmpty for Signal<T> {
-    type Empty = ();
-    const EMPTY: Self::Empty = ();
+    type Empty = Missing;
+    const EMPTY: Self::Empty = Missing {};
 }
 
-impl<T, Old> PropUpdate<Old, ()> for Signal<T>
+impl<T, Old> PropUpdate<Old, Missing> for Signal<T>
 where
     T: ?Sized,
 {
     type Output = Old;
-    fn prop_update(old: Old, _: ()) -> Old {
+    fn prop_update(old: Old, _: Missing) -> Old {
         old
     }
 }

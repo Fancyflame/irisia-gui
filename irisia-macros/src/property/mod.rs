@@ -16,14 +16,6 @@ const_quote! {
     const PHANTOM_DATA = {
         ::core::marker::PhantomData
     };
-
-    const TSOME = {
-        #PATH_PROPERTY::type_option::TSome
-    };
-
-    const TNONE = {
-        #PATH_PROPERTY::type_option::TNone
-    };
 }
 
 pub fn derive_prop(input: DeriveInput) -> Result<TokenStream> {
