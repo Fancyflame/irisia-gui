@@ -1,16 +1,14 @@
 use crate::Signal;
 
-pub trait PropertyMutator {
+pub trait Property {
     type Mutator;
-    const GET: Self::Mutator;
-}
+    const MUTATOR: Self::Mutator;
 
-pub trait PropEmpty {
     type Empty;
     const EMPTY: Self::Empty;
 }
 
-pub trait PropUpdate<T, U> {
+pub trait PropUpdate<T, U, SourceFrom = Self> {
     type Output;
     fn prop_update(old: T, update: U) -> Self::Output;
 }
@@ -19,12 +17,17 @@ pub trait PropCast<T> {
     fn prop_cast(from: T) -> Self;
 }
 
+pub struct SignalsCannotBeExtended;
+
 // Implementations for Signal<T>
 
-pub struct ThereIsARequiredPropertyIsMissing;
-type Missing = ThereIsARequiredPropertyIsMissing;
+pub struct ThisPropertyIsRequiredButNotProvided;
+type Missing = ThisPropertyIsRequiredButNotProvided;
 
-impl<T: ?Sized> PropEmpty for Signal<T> {
+impl<T: ?Sized> Property for Signal<T> {
+    type Mutator = SignalsCannotBeExtended;
+    const MUTATOR: Self::Mutator = SignalsCannotBeExtended;
+
     type Empty = Missing;
     const EMPTY: Self::Empty = Missing {};
 }
@@ -57,7 +60,10 @@ impl<T: ?Sized> PropCast<Signal<T>> for Signal<T> {
 
 // Implementations for Option<Signal<T>>
 
-impl<T: ?Sized> PropEmpty for Option<Signal<T>> {
+impl<T: ?Sized> Property for Option<Signal<T>> {
+    type Mutator = SignalsCannotBeExtended;
+    const MUTATOR: Self::Mutator = SignalsCannotBeExtended;
+
     type Empty = ();
     const EMPTY: Self::Empty = ();
 }

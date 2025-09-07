@@ -2,7 +2,7 @@ use super::{FieldInput, MacroInput};
 use case::CaseExt;
 use darling::{FromDeriveInput, FromField, ast, util::Flag};
 use quote::format_ident;
-use syn::{DeriveInput, Error, Ident, LitStr, Result};
+use syn::{DeriveInput, Error, Ident, LitStr, Result, Visibility};
 
 type MacroFields = ast::Data<(), FieldOpts>;
 
@@ -53,11 +53,14 @@ pub(super) fn parse_derive(input: DeriveInput) -> Result<MacroInput> {
     }
 
     let prop_ident = format_ident!("__IrisiaProp{}", opts.ident, span = opts.ident.span());
+    let mutator_ident = format_ident!("__IrisiaMutator{}", opts.ident, span = opts.ident.span());
 
     Ok(MacroInput {
+        vis: opts.vis,
         ident: opts.ident,
         generics: opts.generics,
         prop_ident,
+        mutator_ident,
         extend_field_index: extend_field.map(|(index, _)| index),
         fields,
     })
@@ -66,6 +69,7 @@ pub(super) fn parse_derive(input: DeriveInput) -> Result<MacroInput> {
 #[derive(Debug, FromDeriveInput)]
 #[darling(attributes(prop), supports(struct_named))]
 struct MacroOpts {
+    vis: Visibility,
     ident: syn::Ident,
     generics: syn::Generics,
     data: MacroFields,

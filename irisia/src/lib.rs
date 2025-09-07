@@ -30,4 +30,5 @@ pub use event::Event;
 pub use hook::Signal;
 pub use irisia_backend::{WinitWindow, runtime::exit_app, skia_safe, start_runtime, winit};
 pub use irisia_macros::{Event, Property, build, main, style};
+pub use model::component::property::Property;
 pub use primitive::{Corner, Point, Rect, Size};

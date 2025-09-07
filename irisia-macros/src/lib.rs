@@ -12,9 +12,9 @@ macro_rules! const_quote {
         )*
     ) => {
         $(
+            #[allow(non_camel_case_types)]
             #[doc = "## expand to"]
             #[doc = stringify!($($tt)*)]
-            #[allow(non_camel_case_types)]
             $vis struct $Name;
 
             impl quote::ToTokens for $Name {
