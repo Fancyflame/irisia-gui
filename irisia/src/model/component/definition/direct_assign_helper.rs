@@ -28,6 +28,6 @@ fn test() {
     }
 
     let string = Signal::state(12345);
-    let casted: _ = type_infer(|v: Props| v.foo).infer(coerce_hook!(string.to_signal()));
+    let casted: _ = type_infer(|v: Props| v.foo).infer(coerce_hook!(string.to_read()));
     let _: DirectAssign<Signal<dyn Display>> = casted;
 }

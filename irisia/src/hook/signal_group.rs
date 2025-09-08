@@ -1,6 +1,8 @@
 use impl_variadics::impl_variadics;
 
-use super::{utils::trace_cell::TraceRef, Listener, Signal};
+use crate::hook::signal::WriteSignal;
+
+use super::{Listener, Signal, utils::trace_cell::TraceRef};
 
 pub trait SignalGroup {
     type DataWrapper<'a>
@@ -48,6 +50,36 @@ where
     }
 }
 
+impl<T> SignalGroup for WriteSignal<T>
+where
+    T: ?Sized,
+{
+    type DataWrapper<'a>
+        = TraceRef<'a, T>
+    where
+        Self: 'a;
+
+    type Data<'a>
+        = &'a T
+    where
+        Self: 'a;
+
+    fn read_many(&self) -> Self::DataWrapper<'_> {
+        self.read()
+    }
+
+    fn deref_wrapper<'a, 'b>(wrapper: &'a Self::DataWrapper<'b>) -> Self::Data<'a>
+    where
+        Self: 'b,
+    {
+        &*wrapper
+    }
+
+    fn dependent_many(&self, listener: Listener) {
+        self.as_read().dependent(listener);
+    }
+}
+
 impl<T> SignalGroup for Option<T>
 where
     T: SignalGroup,
@@ -80,10 +112,10 @@ where
     }
 }
 
-pub trait RefProviderGroup {
-    type ToOwned: SignalGroup;
-    fn to_owned(self) -> Self::ToOwned;
-}
+// pub trait RefProviderGroup {
+//     type ToOwned: SignalGroup;
+//     fn to_owned(self) -> Self::ToOwned;
+// }
 
 impl_variadics! {
     ..=20 "T*" => {

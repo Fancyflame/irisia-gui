@@ -71,7 +71,7 @@ impl<T: 'static> Signal<T> {
 }
 
 impl<T: ?Sized> Signal<T> {
-    pub fn read(&self) -> TraceRef<T> {
+    pub fn read(&self) -> TraceRef<'_, T> {
         self.inner.read()
     }
 
@@ -87,7 +87,7 @@ impl<T: ?Sized> Signal<T> {
 pub struct WriteSignal<T: ?Sized>(Signal<T>);
 
 impl<T: ?Sized> WriteSignal<T> {
-    pub fn write(&self) -> WriteGuard<T> {
+    pub fn write(&self) -> WriteGuard<'_, T> {
         WriteGuard::new(
             self.0.inner.value.borrow_mut().unwrap(),
             &self.0.inner.listeners,
@@ -101,12 +101,16 @@ impl<T: ?Sized> WriteSignal<T> {
         *self.write() = data;
     }
 
-    pub fn read(&self) -> TraceRef<T> {
+    pub fn read(&self) -> TraceRef<'_, T> {
         self.0.read()
     }
 
-    pub fn to_signal(&self) -> Signal<T> {
+    pub fn to_read(&self) -> Signal<T> {
         self.0.clone()
+    }
+
+    pub(crate) fn as_read(&self) -> &Signal<T> {
+        &self.0
     }
 }
 

@@ -30,7 +30,7 @@ impl<T: Clone + 'static> Definition for SignalProxied<T> {
             SignalHoster {
                 signal: signal.clone(),
             },
-            signal.to_signal(),
+            signal.to_read(),
         )
     }
 

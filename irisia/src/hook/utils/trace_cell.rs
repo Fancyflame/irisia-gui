@@ -1,7 +1,7 @@
 use std::{
     backtrace::Backtrace,
     cell::{Ref, RefCell, RefMut},
-    collections::{hash_map::Entry, HashMap},
+    collections::{HashMap, hash_map::Entry},
     fmt::Write,
     ops::{Deref, DerefMut},
 };
@@ -48,21 +48,21 @@ impl<T: ?Sized> TraceCell<T> {
         anyhow::Error::msg(msg)
     }
 
-    pub fn borrow(&self) -> Result<TraceRef<T>> {
+    pub fn borrow(&self) -> Result<TraceRef<'_, T>> {
         Ok(TraceRef {
             inner_ref: self.value.try_borrow().map_err(|_| self.get_error())?,
             trace: DropTrace::record(&self.borrow_traces),
         })
     }
 
-    pub fn try_borrow_mut(&self) -> Option<TraceMut<T>> {
+    pub fn try_borrow_mut(&self) -> Option<TraceMut<'_, T>> {
         Some(TraceMut {
             inner_ref: self.value.try_borrow_mut().ok()?,
             trace: DropTrace::record(&self.borrow_traces),
         })
     }
 
-    pub fn borrow_mut(&self) -> Result<TraceMut<T>> {
+    pub fn borrow_mut(&self) -> Result<TraceMut<'_, T>> {
         self.try_borrow_mut().ok_or_else(|| self.get_error())
     }
 }

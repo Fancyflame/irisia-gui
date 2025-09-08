@@ -49,11 +49,11 @@ fn app() -> impl VNode<()> {
                     *w = !*w;
                 }
             })
-            .to_signal()
+            .to_read()
         )
     };
 
-    let changing_rect = Signal::memo_ncmp(red_rect.to_signal(), {
+    let changing_rect = Signal::memo_ncmp(red_rect.to_read(), {
         let switch_color = switch_color.clone();
         move |&is_red| {
             build! {
@@ -79,7 +79,7 @@ fn app() -> impl VNode<()> {
         }
     });
 
-    let text = Signal::memo_ncmp(red_rect.to_signal(), |&is_red| {
+    let text = Signal::memo_ncmp(red_rect.to_read(), |&is_red| {
         format!(
             "点击该文本或{0}色矩形切换颜色：当前显示{0}色",
             if is_red { "红" } else { "蓝" }
@@ -90,7 +90,7 @@ fn app() -> impl VNode<()> {
 
     build! {
         CustomComp {
-            vertical[=]: red_rect.to_signal(),
+            vertical[=]: red_rect.to_read(),
 
             (changing_rect)
 

@@ -43,7 +43,7 @@ fn app() -> impl VNode<()> {
             CenterBox {
                 color: Color::BLUE,
                 Text {
-                    text[=]: Signal::memo_ncmp(counter.to_signal(), |count| {
+                    text[=]: Signal::memo_ncmp(counter.to_read(), |count| {
                         format!("You clicked {count} times")
                     }).into(),
                     style: TextStyle::DEFAULT

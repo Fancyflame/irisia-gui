@@ -40,10 +40,10 @@ macro_rules! init_prop {
 fn main() {
     let foo = init_prop! {
         Foo {
-            generic: Signal::state(Box::new(true)).to_signal(),
-            optional_generic: Signal::state("wow").to_signal(),
-            specific: Signal::state(10).to_signal(),
-            wawa: Signal::state("pig".into()).to_signal(),
+            generic: Signal::state(Box::new(true)).to_read(),
+            optional_generic: Signal::state("wow").to_read(),
+            specific: Signal::state(10).to_read(),
+            wawa: Signal::state("pig".into()).to_read(),
             // bar: init_prop! {
             //     Bar {
             //         // wawa: Signal::state("pig".into()).to_signal(),
