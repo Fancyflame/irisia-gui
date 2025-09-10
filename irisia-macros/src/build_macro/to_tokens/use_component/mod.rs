@@ -26,7 +26,7 @@ impl GenerationEnv {
             }));
         };
 
-        let defs_tuple = binary_fold(&fields, &|fa| make_memorize_tuple(comp_type, fa));
+        let defs_tuple = binary_fold(&fields, &make_memorize_tuple_item);
         let names_tuple = binary_fold(&fields, &|fa| fa.name.to_token_stream());
 
         let prop_assignments = fields.iter().map(|fa| {
@@ -76,8 +76,8 @@ impl GenerationEnv {
     }
 }
 
-fn make_memorize_tuple(comp_type: &syn::Path, fa: &FieldAssignment<Ident>) -> TokenStream {
-    let FieldAssignment { name, value } = fa;
+fn make_memorize_tuple_item(&fa: &&FieldAssignment<Ident>) -> TokenStream {
+    let FieldAssignment { name: _, value } = fa;
     match value {
         FieldValue::Proxied(expr) => {
             quote! {
@@ -86,9 +86,7 @@ fn make_memorize_tuple(comp_type: &syn::Path, fa: &FieldAssignment<Ident>) -> To
         }
         FieldValue::DirectAssign(expr) => {
             quote! {
-                #PATH_COMPONENT::definition::direct_assign_helper::type_infer(
-                    |#comp_type { #name, .. }| #name
-                ).infer(#expr)
+                #PATH_COMPONENT::definition::DirectAssign(#expr)
             }
         }
         FieldValue::UseNested => unimplemented!(),
@@ -110,4 +108,12 @@ where
             quote! {(#a, #b)}
         }
     }
+}
+
+fn create_prop(comp_type: &syn::Path, fields: &[&FieldAssignment<Ident>]) -> TokenStream {
+    quote! {{
+        let value = <#comp_type as #PATH_PROPERTY>::EMPTY;
+        let mutator = <#comp_type as #PATH_PROPERTY>::MUTATOR;
+
+    }}
 }

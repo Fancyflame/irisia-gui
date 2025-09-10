@@ -9,10 +9,6 @@ use crate::{
 mod parse;
 
 const_quote! {
-    const PATH_PROPERTY = {
-        #PATH_COMPONENT::property
-    };
-
     const PHANTOM_DATA = {
         ::core::marker::PhantomData
     };

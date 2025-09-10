@@ -1,45 +1,54 @@
-use super::{PropCast, PropUpdate, Property, SignalsCannotBeExtended};
-use crate::Signal;
+use super::{PropCast, PropUpdate, Property, SignalPropAgent};
+use crate::{Signal, model::component::property::PropertyAgent};
+
+type Agent<T> = SignalPropAgent<Option<Signal<T>>>;
 
 impl<T: ?Sized> Property for Option<Signal<T>> {
-    type Mutator = SignalsCannotBeExtended;
-    const MUTATOR: Self::Mutator = SignalsCannotBeExtended;
+    type Agent = Agent<T>;
+    const __IRISIA_PROP_AGENT: Self::Agent = Agent::GET;
+}
+
+impl<T> PropertyAgent for Agent<T>
+where
+    T: ?Sized,
+{
+    type CastTarget = Option<Signal<T>>;
 
     type Empty = ();
-    const EMPTY: Self::Empty = ();
+    fn get_empty(&self) {}
 }
 
 // allow any -> any
-impl<T, Old> PropUpdate<Old, ()> for Option<Signal<T>>
+impl<T, Old> PropUpdate<Old, ()> for Agent<T>
 where
     T: ?Sized,
 {
     type Output = Old;
-    fn prop_update(old: Old, _: ()) -> Old {
+    fn prop_update(&self, old: Old, _: ()) -> Old {
         old
     }
 }
 
 // allow    undefined -> defined
 // disallow defined   -> defined
-impl<T> PropUpdate<(), Signal<T>> for Option<Signal<T>>
+impl<T> PropUpdate<(), Signal<T>> for Agent<T>
 where
     T: ?Sized,
 {
     type Output = Signal<T>;
-    fn prop_update(_: (), value: Signal<T>) -> Self::Output {
+    fn prop_update(&self, _: (), value: Signal<T>) -> Self::Output {
         value
     }
 }
 
-impl<T: ?Sized> PropCast<Signal<T>> for Option<Signal<T>> {
-    fn prop_cast(from: Signal<T>) -> Self {
+impl<T: ?Sized> PropCast<Signal<T>> for Agent<T> {
+    fn prop_cast(&self, from: Signal<T>) -> Self::CastTarget {
         Some(from)
     }
 }
 
-impl<T: ?Sized> PropCast<()> for Option<Signal<T>> {
-    fn prop_cast(_: ()) -> Self {
+impl<T: ?Sized> PropCast<()> for Agent<T> {
+    fn prop_cast(&self, _: ()) -> Self::CastTarget {
         None
     }
 }

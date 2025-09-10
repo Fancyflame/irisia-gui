@@ -1,6 +1,6 @@
 use crate::hook::{Signal, signal::WriteSignal};
 
-pub mod direct_assign_helper;
+// pub mod direct_assign_helper;
 pub mod proxy_signal_helper;
 
 pub trait Definition {
@@ -42,7 +42,7 @@ impl<T: Clone + 'static> Definition for SignalProxied<T> {
     }
 }
 
-pub struct DirectAssign<T: Clone>(pub T);
+pub struct DirectAssign<T>(pub T);
 
 impl<T: Clone> Definition for DirectAssign<T> {
     type Value = T;
