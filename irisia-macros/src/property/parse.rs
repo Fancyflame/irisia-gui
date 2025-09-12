@@ -52,15 +52,15 @@ pub(super) fn parse_derive(input: DeriveInput) -> Result<MacroInput> {
         });
     }
 
-    let prop_ident = format_ident!("__IrisiaProp{}", opts.ident, span = opts.ident.span());
-    let mutator_ident = format_ident!("__IrisiaMutator{}", opts.ident, span = opts.ident.span());
+    let template_ident = format_ident!("__IrisiaProp{}", opts.ident, span = opts.ident.span());
+    let agent_ident = format_ident!("__IrisiaPropAgent{}", opts.ident, span = opts.ident.span());
 
     Ok(MacroInput {
         vis: opts.vis,
-        ident: opts.ident,
+        struct_ident: opts.ident,
         generics: opts.generics,
-        prop_ident,
-        mutator_ident,
+        template_ident,
+        agent_ident,
         extend_field_index: extend_field.map(|(index, _)| index),
         fields,
     })

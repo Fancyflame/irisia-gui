@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use irisia::{
     Property, Signal,
-    model::component::property::{PropCast, PropUpdate},
+    model::component::property::{PropCast, PropUpdate, PropertyAgent},
 };
 
 #[derive(Property, Debug)]
@@ -25,12 +25,12 @@ macro_rules! init_prop {
     ($Type:ident {
         $($ident:ident: $value:expr,)*
     }) => {{
-        let value = $Type::EMPTY;
-        let mutator = $Type::MUTATOR;
+        let agent = $Type::__irisia_prop_agent();
+        let value = agent.get_empty();
         $(
-            let value = $Type::prop_update(
+            let value = agent.prop_update(
                 value,
-                mutator.$ident($value),
+                agent.$ident($value),
             );
         )*
         value
@@ -51,5 +51,5 @@ fn main() {
             // },
         }
     };
-    let foo = Foo::prop_cast(foo);
+    let foo = Foo::__irisia_prop_agent().prop_cast(foo);
 }

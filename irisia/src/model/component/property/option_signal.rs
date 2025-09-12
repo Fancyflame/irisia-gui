@@ -5,7 +5,12 @@ type Agent<T> = SignalPropAgent<Option<Signal<T>>>;
 
 impl<T: ?Sized> Property for Option<Signal<T>> {
     type Agent = Agent<T>;
-    const __IRISIA_PROP_AGENT: Self::Agent = Agent::GET;
+    fn __irisia_prop_agent<'a>() -> &'a Self::Agent
+    where
+        Self::Agent: 'a,
+    {
+        &Agent::GET
+    }
 }
 
 impl<T> PropertyAgent for Agent<T>

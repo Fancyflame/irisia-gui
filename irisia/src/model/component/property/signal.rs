@@ -8,7 +8,9 @@ type Missing = ThisPropertyIsRequiredButNotProvided;
 
 impl<T: ?Sized> Property for Signal<T> {
     type Agent = Agent<T>;
-    const __IRISIA_PROP_AGENT: Self::Agent = Agent::GET;
+    fn __irisia_prop_agent<'a>() -> &'a Self::Agent {
+        &Agent::GET
+    }
 }
 
 impl<T> PropertyAgent for Agent<T>

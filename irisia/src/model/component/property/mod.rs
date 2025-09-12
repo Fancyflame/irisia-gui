@@ -1,11 +1,13 @@
 use std::marker::PhantomData;
 
+pub mod macro_utils;
 pub mod option_signal;
 pub mod signal;
 
 pub trait Property {
-    type Agent;
-    const __IRISIA_PROP_AGENT: Self::Agent;
+    type Agent: PropertyAgent<CastTarget = Self>;
+    // const __IRISIA_PROP_AGENT: &'static Self::Agent;
+    fn __irisia_prop_agent<'a>() -> &'a Self::Agent;
 }
 
 pub trait PropertyAgent {
