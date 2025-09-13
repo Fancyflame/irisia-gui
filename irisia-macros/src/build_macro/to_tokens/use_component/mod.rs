@@ -1,10 +1,14 @@
 use proc_macro2::TokenStream;
-use quote::{ToTokens, format_ident, quote};
-use syn::{Expr, Ident};
+use quote::format_ident;
 
-use crate::{build_macro::ast::FieldValue, consts::*};
+use crate::build_macro::{
+    ast::FieldValue,
+    to_tokens::use_component::low_level::{LlExpr, LlField, LlGenerator},
+};
 
 use super::{ComponentStmt, FieldAssignment, GenerationEnv};
+
+mod low_level;
 
 impl GenerationEnv {
     pub(super) fn gen_component(
@@ -16,104 +20,39 @@ impl GenerationEnv {
             child_data,
         }: &ComponentStmt,
     ) -> TokenStream {
-        let mut fields: Vec<&FieldAssignment<Ident>> = Vec::from_iter(all_fields.iter());
+        let mut ll_fields: Vec<LlField> = Vec::with_capacity(all_fields.len() + 1);
 
-        let mut _cache = None;
+        for FieldAssignment { name, value } in all_fields {
+            match value {
+                FieldValue::DirectAssign(d) => ll_fields.push(LlField {
+                    name,
+                    expr: LlExpr::UserDefined(d),
+                    mode: low_level::Mode::Direct,
+                }),
+                FieldValue::Proxied(p) => ll_fields.push(LlField {
+                    name,
+                    expr: LlExpr::UserDefined(p),
+                    mode: low_level::Mode::Proxied,
+                }),
+                _ => unimplemented!(),
+            }
+        }
+
+        let mut _children_ident = None;
         if !body.is_empty() {
-            fields.push(_cache.insert(FieldAssignment {
-                name: format_ident!("children"),
-                value: FieldValue::Proxied(Expr::Verbatim(GenerationEnv {}.gen_rc_chained(&body))),
-            }));
+            ll_fields.push(LlField {
+                name: _children_ident.insert(format_ident!("children")),
+                expr: LlExpr::Complex(GenerationEnv {}.gen_rc_chained(&body)),
+                mode: low_level::Mode::Proxied,
+            });
         };
 
-        let defs_tuple = binary_fold(&fields, &make_memorize_tuple_item);
-        let names_tuple = binary_fold(&fields, &|fa| fa.name.to_token_stream());
-
-        let prop_assignments = fields.iter().map(|fa| {
-            let name = &fa.name;
-            let value = match &fa.value {
-                FieldValue::Proxied(_) => {
-                    quote! {
-                        irisia::coerce_hook!(#name)
-                    }
-                }
-                FieldValue::DirectAssign(_) => {
-                    quote! { #name }
-                }
-                FieldValue::Event => unimplemented!(),
-                FieldValue::UseNested => unimplemented!(),
-            };
-
-            quote! {
-                #name: #PATH_OPTION::Some(#value),
-            }
-        });
-
-        let create_fn = quote! {
-            |#names_tuple| {
-                #comp_type {
-                    #(#prop_assignments)*
-                    ..#TRAIT_DEFAULT::default()
-                }
-            }
+        let ll_generator = LlGenerator {
+            component_path: comp_type,
+            fields: ll_fields,
+            child_data: child_data.as_ref(),
         };
 
-        let append_child_data = child_data.as_ref().map(|child_data| {
-            quote! {
-                .set_child_data(#child_data)
-            }
-        });
-
-        quote! {
-            (
-                #PATH_COMPONENT::UseComponent::new(
-                    #create_fn,
-                    #defs_tuple,
-                )
-                #append_child_data
-            )
-        }
+        ll_generator.generate()
     }
-}
-
-fn make_memorize_tuple_item(&fa: &&FieldAssignment<Ident>) -> TokenStream {
-    let FieldAssignment { name: _, value } = fa;
-    match value {
-        FieldValue::Proxied(expr) => {
-            quote! {
-                #PATH_COMPONENT::definition::proxy_signal_helper::check_eq(#expr).get()
-            }
-        }
-        FieldValue::DirectAssign(expr) => {
-            quote! {
-                #PATH_COMPONENT::definition::DirectAssign(#expr)
-            }
-        }
-        FieldValue::UseNested => unimplemented!(),
-        FieldValue::Event => unimplemented!(),
-    }
-}
-
-fn binary_fold<T, F>(slice: &[T], for_each: &F) -> TokenStream
-where
-    F: Fn(&T) -> TokenStream,
-{
-    match slice {
-        [] => quote! {()},
-        [one] => for_each(one),
-        _ => {
-            let (a, b) = slice.split_at(slice.len() / 2);
-            let a = binary_fold(a, for_each);
-            let b = binary_fold(b, for_each);
-            quote! {(#a, #b)}
-        }
-    }
-}
-
-fn create_prop(comp_type: &syn::Path, fields: &[&FieldAssignment<Ident>]) -> TokenStream {
-    quote! {{
-        let value = <#comp_type as #PATH_PROPERTY>::EMPTY;
-        let mutator = <#comp_type as #PATH_PROPERTY>::MUTATOR;
-
-    }}
 }
