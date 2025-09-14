@@ -1,3 +1,5 @@
+use crate as irisia;
+use irisia_macros::Property;
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{
@@ -14,7 +16,7 @@ use crate::{
 
 use super::{PrimitiveModel, PrimitiveVnodeWrapper, panic_when_call_unreachable};
 
-#[derive(Default)]
+#[derive(Default, Property)]
 pub struct Text {
     pub text: Option<SignalStr>,
     pub style: Option<Signal<TextStyle>>,

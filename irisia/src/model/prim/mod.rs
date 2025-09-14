@@ -1,6 +1,5 @@
-use crate::{Handle, hook::watcher::WatcherList, prim_element::Element};
-
 use super::{EleModel, Model};
+use crate::{Handle, hook::watcher::WatcherList, prim_element::Element};
 
 pub use self::{block::Block, text::Text};
 pub use crate::prim_element::block::layout::DefaultLayouter;

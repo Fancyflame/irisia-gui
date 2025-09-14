@@ -1,3 +1,5 @@
+use crate as irisia;
+use irisia_macros::Property;
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{
@@ -22,6 +24,7 @@ use crate::{
 
 use super::{PrimitiveModel, PrimitiveVnodeWrapper, panic_when_call_unreachable};
 
+#[derive(Property)]
 pub struct Block<Cd> {
     pub display: Option<Signal<dyn BlockLayout<Cd>>>,
     pub style: Option<Signal<BlockStyle>>,

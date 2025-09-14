@@ -81,7 +81,7 @@ impl<'a, Cd> LayoutChildren<'a, Cd> {
         })
     }
 
-    pub fn get(&self, index: usize) -> LayoutChild<Cd> {
+    pub fn get(&self, index: usize) -> LayoutChild<'_, Cd> {
         LayoutChild {
             child: self
                 .children

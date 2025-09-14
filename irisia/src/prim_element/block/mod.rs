@@ -103,7 +103,7 @@ impl<Cd> RenderBlock<Cd> {
         self.common.request_repaint();
     }
 
-    pub fn update_children(&mut self) -> RedrawGuard<ElementList<Cd>> {
+    pub fn update_children(&mut self) -> RedrawGuard<'_, ElementList<Cd>> {
         self.common.request_reflow();
         self.children.0.clear();
         RedrawGuard::new(&mut self.children, &mut self.common)

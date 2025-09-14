@@ -1,19 +1,20 @@
 use irisia::{
-    build,
+    build, coerce_hook,
     hook::Signal,
     model::{component::Component, control_flow::CommonVModel, prim::Block},
-    prim_element::block::BlockStyle,
+    prim_element::block::{BlockLayout, BlockStyle},
     primitive::Length,
-    style, Size,
+    style, Property, Size,
 };
 
+use taffy::FlexboxItemStyle;
 pub use taffy::{AlignContent, FlexDirection, FlexWrap, JustifyContent};
 
 use crate::layouts::{base_style::ChildStyle, flexbox::implement::FlexBlockLayout};
 
 mod implement;
 
-#[derive(Default)]
+#[derive(Default, Property)]
 pub struct Flex {
     pub style: Option<Signal<FlexContainerStyle>>,
     pub children: Option<Signal<dyn CommonVModel<FlexItemStyle>>>,
@@ -27,14 +28,12 @@ impl Component for Flex {
         Signal::memo_ncmp(self.style, move |style| {
             let style = style.cloned().unwrap_or_default();
             build! {
-                Block {
+                Block::<FlexItemStyle> {
                     display: FlexBlockLayout {
                         container_style: style,
                     },
                     style: style.base,
-
-                    // TODO: 避免多一次signal
-                    (self.children.clone())
+                    children[=]: self.children.clone(),
                 }
             }
         })

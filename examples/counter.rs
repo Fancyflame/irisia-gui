@@ -1,5 +1,5 @@
 use irisia::{
-    Result, Window, WinitWindow, build,
+    Property, Result, Window, WinitWindow, build,
     hook::{Signal, watcher::WatcherList},
     model::{
         VModel, VNode,
@@ -43,11 +43,11 @@ fn app() -> impl VNode<()> {
             CenterBox {
                 color: Color::BLUE,
                 Text {
-                    text[=]: Signal::memo_ncmp(counter.to_read(), |count| {
+                    text[=]: Signal::<dyn AsRef<str>>::from(Signal::memo_ncmp(counter.to_read(), |count| {
                         format!("You clicked {count} times")
-                    }).into(),
+                    })),
                     style: TextStyle::DEFAULT
-                        .font_size(20.0)
+                        .font_size(30.0)
                         .font_color(Color::WHITE),
                 }
             }
@@ -64,9 +64,9 @@ fn app() -> impl VNode<()> {
     }
 }
 
-#[derive(Default)]
+#[derive(Property)]
 struct CenterBox {
-    pub color: Option<Signal<Color>>,
+    pub color: Signal<Color>,
     pub children: Option<Signal<dyn CommonVModel<()>>>,
 }
 
@@ -78,7 +78,7 @@ impl Component for CenterBox {
                     FlexContainerStyle::DEFAULT
                         .justify_content(JustifyContent::Center)
                         .align_items(AlignItems::Center)
-                        .background(color.copied().unwrap())
+                        .background(*color)
                 }),
 
                 (self.children.elimate_child_data())

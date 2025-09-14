@@ -41,7 +41,7 @@ where
     }
 }
 
-pub trait Component: Default + 'static {
+pub trait Component: 'static {
     fn create(self, watcher_list: &mut WatcherList) -> impl VNode<()> + use<Self>;
 }
 
