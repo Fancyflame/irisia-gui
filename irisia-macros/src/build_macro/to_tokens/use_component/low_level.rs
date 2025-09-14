@@ -77,7 +77,7 @@ impl<'a> LlGenerator<'a> {
     }
 }
 
-fn make_definition_tuple_item(LlField { expr, mode, .. }: &LlField) -> TokenStream {
+fn make_definition_tuple_item(LlField { expr, mode, name }: &LlField) -> TokenStream {
     match mode {
         Mode::Proxied => {
             quote! {
@@ -92,12 +92,21 @@ fn make_definition_tuple_item(LlField { expr, mode, .. }: &LlField) -> TokenStre
     }
 }
 
-fn init_field(LlField { name, .. }: &LlField) -> TokenStream {
+fn init_field(LlField { name, mode, .. }: &LlField) -> TokenStream {
+    let value = match mode {
+        Mode::Direct => quote! {#name},
+        Mode::Proxied => quote! {
+            #PATH_PROPERTY::macro_utils::coerce_signal_helper(
+                |sig| { __irisia_agent.#name(sig); }
+            )(#COERCE_HOOK(#name))
+        },
+    };
+
     quote! {
         let __irisia_value = #PATH_PROPERTY::PropUpdate::<_, _>::prop_update(
             __irisia_agent,
             __irisia_value,
-            __irisia_agent.#name(#name),
+            __irisia_agent.#name(#value),
         );
     }
 }

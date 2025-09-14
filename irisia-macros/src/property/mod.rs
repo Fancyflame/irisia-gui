@@ -166,7 +166,12 @@ impl MacroInput {
             ..
         } = self;
 
-        let FieldInput { ident, rename, .. } = &all_fields[index];
+        let FieldInput {
+            ident,
+            rename,
+            ty: field_type,
+            prop_type: field_generic,
+        } = &all_fields[index];
 
         let (_, generics, _) = split_for_impl_unbracketed(generics);
         let function_name = rename.as_ref().unwrap_or(ident);
@@ -196,8 +201,9 @@ impl MacroInput {
         quote! {
             pub fn #function_name<__IrisiaValue>(&self, value: __IrisiaValue)
                 -> #prop_struct_ident<#generics #(#return_prop_types,)*>
-            // where
-                // #ty: #PATH_PROPERTY::PropUpdate<#prop_type, __IrisiaValue>,
+            where
+                #MACRO_UTILS::AgentOf<#field_type>:
+                    #PATH_PROPERTY::PropCast<__IrisiaValue>,
             {
                 #prop_struct_ident {
                     __irisia_phantom: #PHANTOM_DATA,
