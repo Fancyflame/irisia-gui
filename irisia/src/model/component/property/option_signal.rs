@@ -1,5 +1,8 @@
 use super::{PropCast, PropUpdate, Property, SignalPropAgent};
-use crate::{Signal, model::component::property::PropertyAgent};
+use crate::{
+    Signal,
+    model::component::{definition::UsingDefault, property::PropertyAgent},
+};
 
 type Agent<T> = SignalPropAgent<Option<Signal<T>>>;
 
@@ -19,8 +22,10 @@ where
 {
     type CastTarget = Option<Signal<T>>;
 
-    type Empty = ();
-    fn get_empty(&self) {}
+    type Empty = UsingDefault<T>;
+    fn get_empty(&self) -> Self::Empty {
+        UsingDefault::GET
+    }
 }
 
 // allow any -> any
