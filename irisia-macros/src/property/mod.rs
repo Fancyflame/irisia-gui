@@ -29,7 +29,8 @@ pub fn derive_prop(input: DeriveInput) -> Result<TokenStream> {
         input.make_prop_agent(),
         input.impl_prop_functions(),
         // input.impl_prop_update(),
-        input.impl_prop_cast(),
+        // input.impl_prop_cast(),
+        input.impl_definition(),
         input.make_extend(),
     ];
 
@@ -340,7 +341,7 @@ impl MacroInput {
         } = self;
 
         let (impl_g, type_g, where_bounds) = split_for_impl_unbracketed(&self.generics);
-        let field_generics: Vec<&Ident> = self.fields.iter().map(|f| &f.prop_type).collect();
+        let field_generics: Vec<&Ident> = self.field_generics().collect();
 
         let field_where_bounds = self.fields.iter().map(|f| {
             let FieldInput { ty, prop_type, .. } = f;
@@ -373,6 +374,74 @@ impl MacroInput {
                     Self::CastTarget {
                         #(#final_struct_init_field)*
                     }
+                }
+            }
+        }
+    }
+
+    fn impl_definition(&self) -> TokenStream {
+        let Self {
+            template_ident,
+            struct_ident,
+            ..
+        } = self;
+
+        let (_, orig_type_g, _) = split_for_impl_unbracketed(&self.generics);
+        let (impl_g, type_g, where_bounds) = self.split_for_impl_template();
+
+        let field_where_bounds = self.fields.iter().map(|f| {
+            let FieldInput { ty, prop_type, .. } = f;
+            quote! {
+                #prop_type: #PATH_PRIVATE::Definition,
+                #ty: #PATH_PROPERTY::PropAssign<#prop_type>,
+            }
+        });
+
+        let init_final_value_field = self.fields.iter().map(|f| {
+            let FieldInput { ident, ty, .. } = f;
+            quote! {
+                #ident: <#ty as #PATH_PROPERTY::PropAssign<_>>::prop_assign(#ident.1),
+            }
+        });
+
+        let field_generics = self.field_generics();
+        let field_names: Vec<&Ident> = self.fields.iter().map(|f| &f.ident).collect();
+
+        quote! {
+            impl<#impl_g> #PATH_PRIVATE::Definition for #template_ident<#type_g>
+            where
+                Self: 'static,
+                #where_bounds
+                #(#field_where_bounds)*
+            {
+                type Value = #struct_ident<#orig_type_g>;
+                type Storage = #template_ident<
+                    #orig_type_g
+                    #(#field_generics::Storage,)*
+                >;
+
+                fn create(&self) -> (Self::Storage, Self::Value) {
+                    let (
+                        #(#field_names,)*
+                    ) = (
+                        #(self.#field_names.create(),)*
+                    );
+
+                    (
+                        #template_ident {
+                            __irisia_phantom: #PHANTOM_DATA,
+                            #(#field_names: #field_names.0,)*
+                        },
+                        #struct_ident {
+                            #(#init_final_value_field)*
+                        }
+                    )
+                }
+
+                fn update(&self, storage: &mut Self::Storage) {
+                    #(
+                        self.#field_names.update(&mut storage.#field_names);
+                    )*
                 }
             }
         }
@@ -466,10 +535,14 @@ impl MacroInput {
         }
     }
 
+    fn field_generics(&self) -> impl Iterator<Item = &Ident> {
+        self.fields.iter().map(|f| &f.prop_type)
+    }
+
     fn split_for_impl_template(&self) -> (TokenStream, TokenStream, WhereClausePredicates<'_>) {
         let (impl_g, type_g, where_bounds) = split_for_impl_unbracketed(&self.generics);
-        let field_generics = self.fields.iter().map(|f| &f.prop_type);
-        let field_generics2 = field_generics.clone();
+        let field_generics = self.field_generics();
+        let field_generics2 = self.field_generics();
 
         (
             quote! { #impl_g #(#field_generics,)* },

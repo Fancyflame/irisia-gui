@@ -1,7 +1,5 @@
 use std::ops::{Deref, DerefMut};
 
-use crate::Signal;
-
 use super::SignalProxied;
 
 pub struct CheckEq<T>(Fallback<T>);

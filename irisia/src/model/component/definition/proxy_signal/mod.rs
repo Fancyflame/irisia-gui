@@ -71,16 +71,6 @@ where
     }
 }
 
-impl<T, U> PropAssign<SignalProxied<T, U>> for Signal<U>
-where
-    T: Clone + 'static,
-    U: ?Sized,
-{
-    fn prop_assign(value: Signal<U>) -> Self {
-        value
-    }
-}
-
 impl<T, U> PropAssign<SignalProxied<T, U>> for Option<Signal<U>>
 where
     T: Clone + 'static,

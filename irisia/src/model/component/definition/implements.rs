@@ -1,7 +1,4 @@
-use crate::{
-    hook::Signal,
-    model::component::{definition::Definition, property::PropAssign},
-};
+use crate::{hook::Signal, model::component::definition::Definition};
 use std::marker::PhantomData;
 
 // DirectAssign
@@ -17,15 +14,6 @@ impl<T: Clone> Definition for DirectAssign<T> {
     }
 
     fn update(&self, _: &mut Self::Storage) {}
-}
-
-impl<T> PropAssign<DirectAssign<T>> for T
-where
-    T: Clone,
-{
-    fn prop_assign(value: T) -> Self {
-        value
-    }
 }
 
 // UsingDefault

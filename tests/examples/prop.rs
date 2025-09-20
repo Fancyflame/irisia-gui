@@ -7,7 +7,7 @@ use irisia::{
     __private::new_proxy_signal,
     Property, Signal, coerce_hook,
     model::component::{
-        definition::{DirectAssign, SignalProxied},
+        definition::{Definition, DirectAssign, SignalProxied},
         property::{PropCast, PropExtend, PropUpdate, PropertyAgent},
     },
 };
@@ -99,6 +99,8 @@ fn main() {
             .apply(value);
         value
     };
+    let (_, foo) = Definition::create(&foo);
+    dbg!(foo);
 
     // let foo = Foo::__irisia_prop_agent().prop_cast(foo);
 }

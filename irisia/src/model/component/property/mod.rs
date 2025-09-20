@@ -38,3 +38,12 @@ impl<T> SignalPropAgent<T> {
 pub trait PropAssign<T: Definition> {
     fn prop_assign(value: T::Value) -> Self;
 }
+
+impl<T, D> PropAssign<D> for T
+where
+    D: Definition<Value = T>,
+{
+    fn prop_assign(value: T) -> Self {
+        value
+    }
+}
