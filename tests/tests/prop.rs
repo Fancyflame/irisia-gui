@@ -26,7 +26,14 @@ struct Foo<T, U: Display> {
 struct Bar {
     #[prop(rename = "wawa")]
     a: Option<Signal<dyn Debug>>,
-    accept_string: Signal<String>,
+
+    #[prop(extend)]
+    baz: Baz,
+}
+
+#[derive(Property, Debug)]
+struct Baz {
+    baz_desc: Signal<dyn Debug>,
 }
 
 macro_rules! init_prop {
@@ -86,11 +93,9 @@ fn main() {
             .apply(value);
 
         let value = value
-            .accept_string(new_proxy_signal("hello".into()).get().coerce_unsize_helped(
-                |x| {
-                    value.accept_string(x);
-                },
-            )(|x| coerce_hook!(x)))
+            .baz_desc(new_proxy_signal("hello").get().coerce_unsize_helped(|x| {
+                value.baz_desc(x);
+            })(|x| coerce_hook!(x)))
             .apply(value);
         value
     };

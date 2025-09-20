@@ -24,7 +24,7 @@ pub fn derive_prop(input: DeriveInput) -> Result<TokenStream> {
     let input = parse_derive(input)?;
     let tokens = [
         input.impl_property(),
-        input.impl_template_owned_by(),
+        input.impl_permitted_prop_extend(),
         input.make_prop_struct(),
         input.make_prop_agent(),
         input.impl_prop_functions(),
@@ -101,7 +101,7 @@ impl MacroInput {
         }
     }
 
-    fn impl_template_owned_by(&self) -> TokenStream {
+    fn impl_permitted_prop_extend(&self) -> TokenStream {
         let Self {
             struct_ident,
             template_ident,
@@ -111,12 +111,11 @@ impl MacroInput {
         let (impl_g, type_g, where_bounds) = self.split_for_impl_template();
 
         quote! {
-            impl<#impl_g> #PATH_PROPERTY::PropOwnedBy for #template_ident<#type_g>
+            impl<#impl_g> #PATH_PROPERTY::PermittedPropExtend<#template_ident<#type_g>>
+                for #struct_ident<#orig_type_g>
             where
                 #where_bounds
-            {
-                type Owner = #struct_ident<#orig_type_g>;
-            }
+            {}
         }
     }
 
@@ -393,7 +392,11 @@ impl MacroInput {
             None => return TokenStream::new(),
         };
 
-        let Self { template_ident, .. } = self;
+        let Self {
+            template_ident,
+            struct_ident,
+            ..
+        } = self;
 
         let (impl_g, type_g, where_bounds) = self.split_for_impl_template();
 
@@ -420,7 +423,7 @@ impl MacroInput {
             }
         });
 
-        let (_, orig_type_g, _) = split_for_impl_unbracketed(&self.generics);
+        let (orig_impl_g, orig_type_g, _) = split_for_impl_unbracketed(&self.generics);
 
         quote! {
             impl<#impl_g> ::core::ops::Deref for #template_ident<#type_g>
@@ -438,7 +441,7 @@ impl MacroInput {
             where
                 #where_bounds
                 #field_generic: #PATH_PROPERTY::PropExtend<__IrisiaChild>,
-                __IrisiaChild: #PATH_PROPERTY::PropOwnedBy<Owner = #field_type>,
+                #field_type: #PATH_PROPERTY::PermittedPropExtend<__IrisiaChild>,
             {
                 type Output<__IrisiaExt> = #template_ident<#orig_type_g #(#output_type_args,)*>;
                 fn prop_extend<__IrisiaExt>(
@@ -453,6 +456,13 @@ impl MacroInput {
                     }
                 }
             }
+
+            impl<__IrisiaChild, #orig_impl_g> #PATH_PROPERTY::PermittedPropExtend<__IrisiaChild>
+                for #struct_ident<#orig_type_g>
+            where
+                #where_bounds
+                #field_type: #PATH_PROPERTY::PermittedPropExtend<__IrisiaChild>,
+            {}
         }
     }
 

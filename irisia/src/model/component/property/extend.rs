@@ -10,9 +10,7 @@ impl<T> PropExtend<T> for T {
     }
 }
 
-pub trait PropOwnedBy {
-    type Owner;
-}
+pub trait PermittedPropExtend<T> {}
 
 pub struct ExtendHelper<Src, Value, Dst> {
     pub(crate) value: Value,
