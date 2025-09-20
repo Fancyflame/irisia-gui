@@ -6,17 +6,51 @@ use crate::{
 
 pub mod helper;
 
-pub struct SignalProxied<T> {
-    pub(super) value: T,
-    pub(super) eq_fn: fn(&T, &T) -> bool,
+pub struct SignalProxied<T, U = T>
+where
+    U: ?Sized,
+{
+    value: T,
+    eq_fn: fn(&T, &T) -> bool,
+    map_value: fn(Signal<T>) -> Signal<U>,
+}
+
+impl<T, U> SignalProxied<T, U>
+where
+    U: ?Sized,
+{
+    pub fn coerce_unsize<U2>(self, f: fn(Signal<T>) -> Signal<U2>) -> SignalProxied<T, U2>
+    where
+        U2: ?Sized,
+    {
+        SignalProxied {
+            value: self.value,
+            eq_fn: self.eq_fn,
+            map_value: f,
+        }
+    }
+
+    pub fn coerce_unsize_helped<U2>(
+        self,
+        _: impl Fn(SignalProxied<(), U2>),
+    ) -> impl FnOnce(fn(Signal<T>) -> Signal<U2>) -> SignalProxied<T, U2>
+    where
+        U2: ?Sized,
+    {
+        |f| self.coerce_unsize(f)
+    }
 }
 
 pub struct SignalHoster<T> {
     signal: WriteSignal<T>,
 }
 
-impl<T: Clone + 'static> Definition for SignalProxied<T> {
-    type Value = Signal<T>;
+impl<T, U> Definition for SignalProxied<T, U>
+where
+    T: Clone + 'static,
+    U: ?Sized,
+{
+    type Value = Signal<U>;
     type Storage = SignalHoster<T>;
 
     fn create(&self) -> (Self::Storage, Self::Value) {
@@ -25,7 +59,7 @@ impl<T: Clone + 'static> Definition for SignalProxied<T> {
             SignalHoster {
                 signal: signal.clone(),
             },
-            signal.to_read(),
+            (self.map_value)(signal.to_read()),
         )
     }
 
@@ -37,20 +71,22 @@ impl<T: Clone + 'static> Definition for SignalProxied<T> {
     }
 }
 
-impl<T> PropAssign<SignalProxied<T>> for Signal<T>
+impl<T, U> PropAssign<SignalProxied<T, U>> for Signal<U>
 where
     T: Clone + 'static,
+    U: ?Sized,
 {
-    fn prop_assign(value: Signal<T>) -> Self {
+    fn prop_assign(value: Signal<U>) -> Self {
         value
     }
 }
 
-impl<T> PropAssign<SignalProxied<T>> for Option<Signal<T>>
+impl<T, U> PropAssign<SignalProxied<T, U>> for Option<Signal<U>>
 where
     T: Clone + 'static,
+    U: ?Sized,
 {
-    fn prop_assign(value: Signal<T>) -> Self {
+    fn prop_assign(value: Signal<U>) -> Self {
         Some(value)
     }
 }

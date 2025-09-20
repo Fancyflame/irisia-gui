@@ -1,5 +1,5 @@
 use crate::{
-    Property, Signal,
+    Property,
     model::component::property::{PropCast, PropExtend, PropUpdate, PropertyAgent},
 };
 
@@ -50,12 +50,4 @@ where
     AgentOf<P>: PropCast<T>,
 {
     P::__irisia_prop_agent().prop_cast(from)
-}
-
-pub fn coerce_signal_helper<T, F>(_: F) -> impl FnOnce(Signal<T>) -> Signal<T>
-where
-    T: ?Sized,
-    F: FnOnce(Signal<T>),
-{
-    |s| s
 }

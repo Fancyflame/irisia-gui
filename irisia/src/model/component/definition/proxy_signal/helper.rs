@@ -1,5 +1,7 @@
 use std::ops::{Deref, DerefMut};
 
+use crate::Signal;
+
 use super::SignalProxied;
 
 pub struct CheckEq<T>(Fallback<T>);
@@ -15,6 +17,7 @@ impl<T: PartialEq<T>> CheckEq<T> {
         SignalProxied {
             value: self.0.0.unwrap(),
             eq_fn: T::eq,
+            map_value: |x| x,
         }
     }
 }
@@ -37,9 +40,20 @@ impl<T> Fallback<T> {
         SignalProxied {
             value: self.0.take().unwrap(),
             eq_fn: |_, _| EQ_FALLBACK_TO,
+            map_value: |x| x,
         }
     }
 }
+
+// type MapSignalFn<T, U> = fn(Signal<T>) -> Signal<U>;
+// pub fn coerce_proxy_signal_helper<T, U>(
+//     _: impl Fn(SignalProxied<(), U>),
+// ) -> fn(MapSignalFn<T, U>) -> MapSignalFn<T, U>
+// where
+//     U: ?Sized,
+// {
+//     |x| x
+// }
 
 #[test]
 fn test() {

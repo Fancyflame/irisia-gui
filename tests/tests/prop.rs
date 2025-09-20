@@ -7,10 +7,8 @@ use irisia::{
     __private::new_proxy_signal,
     Property, Signal, coerce_hook,
     model::component::{
-        definition::DirectAssign,
-        property::{
-            PropCast, PropExtend, PropUpdate, PropertyAgent, macro_utils::coerce_signal_helper,
-        },
+        definition::{DirectAssign, SignalProxied},
+        property::{PropCast, PropExtend, PropUpdate, PropertyAgent},
     },
 };
 
@@ -28,6 +26,7 @@ struct Foo<T, U: Display> {
 struct Bar {
     #[prop(rename = "wawa")]
     a: Option<Signal<dyn Debug>>,
+    accept_string: Signal<String>,
 }
 
 macro_rules! init_prop {
@@ -79,19 +78,22 @@ fn main() {
         let value = value
             .specific(DirectAssign((Signal::state(10).to_read())))
             .apply(value);
+
         let value = value
-            .wawa(coerce_hook!(new_proxy_signal("pig").get()))
+            .wawa(new_proxy_signal("pig").get().coerce_unsize_helped(|x| {
+                value.wawa(x);
+            })(|x| coerce_hook!(x)))
+            .apply(value);
+
+        let value = value
+            .accept_string(new_proxy_signal("hello".into()).get().coerce_unsize_helped(
+                |x| {
+                    value.accept_string(x);
+                },
+            )(|x| coerce_hook!(x)))
             .apply(value);
         value
     };
 
     // let foo = Foo::__irisia_prop_agent().prop_cast(foo);
-}
-
-fn get_sig<T, F>(_: F) -> impl FnOnce(Signal<T>) -> Signal<T>
-where
-    T: ?Sized,
-    F: FnOnce(Signal<T>),
-{
-    |sig| sig
 }
