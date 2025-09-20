@@ -1,5 +1,8 @@
+use crate::model::component::definition::Definition;
+pub use extend::*;
 use std::marker::PhantomData;
 
+pub mod extend;
 pub mod macro_utils;
 pub mod option_signal;
 pub mod signal;
@@ -30,4 +33,8 @@ pub struct SignalPropAgent<T>(PhantomData<T>);
 
 impl<T> SignalPropAgent<T> {
     const GET: Self = Self(PhantomData);
+}
+
+pub trait PropAssign<T: Definition> {
+    fn prop_assign(value: T::Value) -> Self;
 }

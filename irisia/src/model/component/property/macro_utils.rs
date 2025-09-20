@@ -1,6 +1,6 @@
 use crate::{
     Property, Signal,
-    model::component::property::{PropCast, PropUpdate, PropertyAgent},
+    model::component::property::{PropCast, PropExtend, PropUpdate, PropertyAgent},
 };
 
 pub type AgentOf<T> = <T as Property>::Agent;
@@ -10,6 +10,9 @@ pub type PropUpdateResultAny<P, Old, Updator, SourceFrom> =
     <AgentOf<P> as PropUpdate<Old, Updator, SourceFrom>>::Output;
 
 pub type PropUpdateResult<P, Old, Updator> = PropUpdateResultAny<P, Old, Updator, AgentOf<P>>;
+
+pub type PropExtendResult<Src, Updator, UpdatorReturn> =
+    <Src as PropExtend<Updator>>::Output<UpdatorReturn>;
 
 pub fn get_agent<'a, T>() -> &'a T::Agent
 where

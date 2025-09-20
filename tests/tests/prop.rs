@@ -4,9 +4,13 @@ use std::{
 };
 
 use irisia::{
+    __private::new_proxy_signal,
     Property, Signal, coerce_hook,
-    model::component::property::{
-        PropCast, PropUpdate, PropertyAgent, macro_utils::coerce_signal_helper,
+    model::component::{
+        definition::DirectAssign,
+        property::{
+            PropCast, PropExtend, PropUpdate, PropertyAgent, macro_utils::coerce_signal_helper,
+        },
     },
 };
 
@@ -28,15 +32,14 @@ struct Bar {
 
 macro_rules! init_prop {
     ($Type:ident {
-        $($ident:ident: $value:expr,)*
+        $($ident:ident: $expr:expr,)*
     }) => {{
         let agent = $Type::__irisia_prop_agent();
         let value = agent.get_empty();
         $(
-            let value = agent.prop_update(
-                value,
-                agent.$ident($value),
-            );
+            let value = value.$ident(
+                DirectAssign($expr)
+            ).apply(value);
         )*
         value
     }};
@@ -46,7 +49,7 @@ fn main() {
     // let foo = init_prop! {
     //     Foo {
     //         generic: Signal::state(Box::new(true)).to_read(),
-    //         optional_generic: Signal::state("wow").to_read(),
+    //         optional_generic: coerce_hook!(Signal::state("wow").to_read()),
     //         specific: Signal::state(10).to_read(),
     //         wawa: {
     //             let mut rc = None;
@@ -67,25 +70,22 @@ fn main() {
     let foo = {
         let agent = Foo::__irisia_prop_agent();
         let value = agent.get_empty();
-        let value = agent.prop_update(
-            value,
-            agent.generic((Signal::state(Box::new(true)).to_read())),
-        );
-        let value = agent.prop_update(
-            value,
-            agent.optional_generic((Signal::state("wow").to_read())),
-        );
-        let value = agent.prop_update(value, agent.specific((Signal::state(10).to_read())));
-        let value = agent.prop_update(
-            value,
-            agent.wawa(coerce_signal_helper(|sig| {
-                agent.wawa(sig);
-            })(coerce_hook!(Signal::state("pig").to_read()))),
-        );
+        let value = value
+            .generic(DirectAssign((Signal::state(Box::new(true)).to_read())))
+            .apply(value);
+        let value = value
+            .optional_generic(new_proxy_signal("waw").get())
+            .apply(value);
+        let value = value
+            .specific(DirectAssign((Signal::state(10).to_read())))
+            .apply(value);
+        let value = value
+            .wawa(coerce_hook!(new_proxy_signal("pig").get()))
+            .apply(value);
         value
     };
 
-    let foo = Foo::__irisia_prop_agent().prop_cast(foo);
+    // let foo = Foo::__irisia_prop_agent().prop_cast(foo);
 }
 
 fn get_sig<T, F>(_: F) -> impl FnOnce(Signal<T>) -> Signal<T>

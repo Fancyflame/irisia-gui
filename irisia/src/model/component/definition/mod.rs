@@ -1,4 +1,5 @@
 pub use implements::*;
+pub use proxy_signal::SignalProxied;
 
 // pub mod direct_assign_helper;
 pub mod implements;

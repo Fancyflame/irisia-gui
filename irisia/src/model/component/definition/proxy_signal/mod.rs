@@ -1,4 +1,8 @@
-use crate::{Signal, hook::signal::WriteSignal, model::component::definition::Definition};
+use crate::{
+    Signal,
+    hook::signal::WriteSignal,
+    model::component::{definition::Definition, property::PropAssign},
+};
 
 pub mod helper;
 
@@ -30,5 +34,23 @@ impl<T: Clone + 'static> Definition for SignalProxied<T> {
         if !(self.eq_fn)(&*w, &self.value) {
             *w = self.value.clone();
         }
+    }
+}
+
+impl<T> PropAssign<SignalProxied<T>> for Signal<T>
+where
+    T: Clone + 'static,
+{
+    fn prop_assign(value: Signal<T>) -> Self {
+        value
+    }
+}
+
+impl<T> PropAssign<SignalProxied<T>> for Option<Signal<T>>
+where
+    T: Clone + 'static,
+{
+    fn prop_assign(value: Signal<T>) -> Self {
+        Some(value)
     }
 }
