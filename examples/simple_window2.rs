@@ -73,14 +73,14 @@ fn app() -> impl VNode<()> {
 
     build! {
         Flex {
-            style[=]: Signal::memo(flex_direction.to_read(), |&flex_direction| {
+            style[=]: Some(Signal::memo(flex_direction.to_read(), |&flex_direction| {
                 FlexContainerStyle::DEFAULT
                     .flex_direction(flex_direction)
                     .justify_content(JustifyContent::Center)
                     .align_items(AlignItems::Center)
                     .align_content(AlignContent::Center)
                     .background(Color::GRAY)
-            }),
+            })),
 
             (extra_blocks.to_read())
 

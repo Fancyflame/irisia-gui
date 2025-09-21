@@ -28,8 +28,7 @@ pub struct LlGenerator<'a> {
 
 impl<'a> LlGenerator<'a> {
     pub fn generate(&self) -> TokenStream {
-        let defs_tuple = binary_fold(&self.fields, &make_definition_tuple_item);
-        let names_tuple = binary_fold(&self.fields, &|f| f.name.to_token_stream());
+        let prop_assignments = self.fields.iter().map(assign_prop);
 
         let append_child_data = self.child_data.map(|child_data| {
             quote! {
@@ -37,77 +36,55 @@ impl<'a> LlGenerator<'a> {
             }
         });
 
-        let agent = self.get_agent();
-        let template_prop = self.generate_template_prop();
+        let empty = self.get_empty();
 
         quote! {
             (
-                #PATH_COMPONENT::UseComponent::new(
-                    |#names_tuple| #PATH_PROPERTY::PropCast::<_>::prop_cast(
-                        #agent,
-                        #template_prop
-                    ),
-                    #defs_tuple,
-                )
+                #PATH_COMPONENT::UseComponent::new({
+                    let __irisia_value = #empty;
+                    #(#prop_assignments)*
+                    __irisia_value
+                })
                 #append_child_data
             )
         }
     }
 
-    fn get_agent(&self) -> TokenStream {
+    fn get_empty(&self) -> TokenStream {
         let comp_path = self.component_path;
         quote! {
             {
                 use #PATH_PROPERTY::Property as _;
-                #comp_path::__irisia_prop_agent()
+                #PATH_PROPERTY::PropertyAgent::get_empty(
+                    #comp_path::__irisia_prop_agent()
+                )
             }
         }
     }
-
-    pub fn generate_template_prop(&self) -> TokenStream {
-        let agent = self.get_agent();
-        let init_field = self.fields.iter().map(init_field);
-
-        quote! {{
-            let __irisia_agent = #agent;
-            let __irisia_value = #PATH_PROPERTY::PropertyAgent::get_empty(__irisia_agent);
-            #(#init_field)*
-            __irisia_value
-        }}
-    }
 }
 
-fn make_definition_tuple_item(LlField { expr, mode, name }: &LlField) -> TokenStream {
-    match mode {
+fn assign_prop(LlField { expr, mode, name }: &LlField) -> TokenStream {
+    let definition = match mode {
         Mode::Proxied => {
             quote! {
-                #PATH_COMPONENT::definition::proxy_signal_helper::check_eq(#expr).get()
+                #PATH_PRIVATE::new_proxy_signal(#expr)
+                    .get()
+                    .coerce_unsize_helped(|x| {
+                        __irisia_value.#name(x);
+                    })(|x| #COERCE_HOOK(x))
             }
         }
         Mode::Direct => {
             quote! {
-                #PATH_COMPONENT::definition::DirectAssign(#expr)
+                #PATH_PRIVATE::DirectAssign(#expr)
             }
         }
-    }
-}
-
-fn init_field(LlField { name, mode, .. }: &LlField) -> TokenStream {
-    let value = match mode {
-        Mode::Direct => quote! {#name},
-        Mode::Proxied => quote! {
-            #PATH_PROPERTY::macro_utils::coerce_signal_helper(
-                |sig| { __irisia_agent.#name(sig); }
-            )(#COERCE_HOOK(#name))
-        },
     };
 
     quote! {
-        let __irisia_value = #PATH_PROPERTY::PropUpdate::<_, _>::prop_update(
-            __irisia_agent,
-            __irisia_value,
-            __irisia_agent.#name(#value),
-        );
+        let __irisia_value = __irisia_value
+            .#name(#definition)
+            .apply(__irisia_value);
     }
 }
 
