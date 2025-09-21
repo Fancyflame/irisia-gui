@@ -1,7 +1,7 @@
 use crate::consts::*;
 use proc_macro2::TokenStream;
-use quote::{ToTokens, quote};
-use syn::{Expr, Ident, Path};
+use quote::{ToTokens, quote, quote_spanned};
+use syn::{Expr, Ident, Path, spanned::Spanned};
 
 #[derive(Clone, Copy)]
 pub enum Mode {
@@ -37,16 +37,16 @@ impl<'a> LlGenerator<'a> {
         });
 
         let empty = self.get_empty();
+        let span = self.component_path.span();
 
-        quote! {
-            (
-                #PATH_COMPONENT::UseComponent::new({
-                    let __irisia_value = #empty;
-                    #(#prop_assignments)*
-                    __irisia_value
-                })
+        quote_spanned! {span=>
+            {
+                let __irisia_value = #empty;
+                #(#prop_assignments)*
+
+                #PATH_COMPONENT::UseComponent::new(__irisia_value)
                 #append_child_data
-            )
+            }
         }
     }
 
@@ -64,24 +64,28 @@ impl<'a> LlGenerator<'a> {
 }
 
 fn assign_prop(LlField { expr, mode, name }: &LlField) -> TokenStream {
+    let span = expr.span();
+    let path_private = PATH_PRIVATE.spanned(span);
+    let coerce_hook = COERCE_HOOK.spanned(span);
+
     let definition = match mode {
         Mode::Proxied => {
-            quote! {
-                #PATH_PRIVATE::new_proxy_signal(#expr)
+            quote_spanned! {span=>
+                #path_private::new_proxy_signal(#expr)
                     .get()
                     .coerce_unsize_helped(|x| {
                         __irisia_value.#name(x);
-                    })(|x| #COERCE_HOOK(x))
+                    })(|x| #coerce_hook(x))
             }
         }
         Mode::Direct => {
-            quote! {
-                #PATH_PRIVATE::DirectAssign(#expr)
+            quote_spanned! {span=>
+                #path_private::DirectAssign(#expr)
             }
         }
     };
 
-    quote! {
+    quote_spanned! {span=>
         let __irisia_value = __irisia_value
             .#name(#definition)
             .apply(__irisia_value);

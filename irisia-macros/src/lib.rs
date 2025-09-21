@@ -22,6 +22,13 @@ macro_rules! const_quote {
                     quote::quote! { $($tt)* }.to_tokens(tokens)
                 }
             }
+
+            impl $Name {
+                #[allow(dead_code)]
+                pub fn spanned(&self, __span: proc_macro2::Span) -> proc_macro2::TokenStream {
+                    quote::quote_spanned! {__span=> $($tt)* }
+                }
+            }
         )*
     };
 }
