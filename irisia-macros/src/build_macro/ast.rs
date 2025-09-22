@@ -47,8 +47,9 @@ pub struct BlockStmt {
 pub struct ComponentStmt {
     pub comp_type: syn::Path,
     pub fields: Vec<FieldAssignment<Ident>>,
+    pub assign_self: Option<Expr>,
     pub child_data: Option<Expr>,
-    pub body: Vec<Stmt>,
+    pub children: Vec<Stmt>,
 }
 
 pub struct UseExprStmt {

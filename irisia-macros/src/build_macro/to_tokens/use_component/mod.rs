@@ -3,7 +3,7 @@ use quote::format_ident;
 
 use crate::build_macro::{
     ast::FieldValue,
-    to_tokens::use_component::low_level::{LlExpr, LlField, LlGenerator},
+    to_tokens::use_component::low_level::{LlExpr, LlField, LlFields, LlGenerator},
 };
 
 use super::{ComponentStmt, FieldAssignment, GenerationEnv};
@@ -16,8 +16,9 @@ impl GenerationEnv {
         ComponentStmt {
             comp_type,
             fields: all_fields,
-            body,
+            children,
             child_data,
+            assign_self,
         }: &ComponentStmt,
     ) -> TokenStream {
         let mut ll_fields: Vec<LlField> = Vec::with_capacity(all_fields.len() + 1);
@@ -39,17 +40,20 @@ impl GenerationEnv {
         }
 
         let mut _children_ident = None;
-        if !body.is_empty() {
+        if !children.is_empty() {
             ll_fields.push(LlField {
                 name: _children_ident.insert(format_ident!("children")),
-                expr: LlExpr::Complex(GenerationEnv {}.gen_rc_chained(&body)),
+                expr: LlExpr::Generated(GenerationEnv {}.gen_rc_chained(&children)),
                 mode: low_level::Mode::Proxied,
             });
         };
 
         let ll_generator = LlGenerator {
             component_path: comp_type,
-            fields: ll_fields,
+            fields: match assign_self {
+                Some(assign_self) => LlFields::AllFromValue(assign_self),
+                None => LlFields::Detailed(ll_fields),
+            },
             child_data: child_data.as_ref(),
         };
 

@@ -13,7 +13,7 @@ use crate::layouts::{base_style::ChildStyle, flexbox::implement::FlexBlockLayout
 
 mod implement;
 
-#[derive(Default, Property)]
+#[derive(Default, Property, Clone)]
 pub struct Flex {
     pub style: Option<Signal<FlexContainerStyle>>,
     pub children: Option<Signal<dyn CommonVModel<FlexItemStyle>>>,

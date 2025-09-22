@@ -74,15 +74,17 @@ struct CenterBox {
 
 impl Component for CenterBox {
     fn create(self, _: &mut WatcherList) -> impl VNode<()> + use<> {
+        let mut flex = self.flex;
+        flex.style = Some(Signal::memo_ncmp(self.color, |color| {
+            FlexContainerStyle::DEFAULT
+                .justify_content(JustifyContent::Center)
+                .align_items(AlignItems::Center)
+                .background(*color)
+        }));
+
         build! {
             Flex {
-                style[=]: Some(Signal::memo_ncmp(self.color, |color| {
-                    FlexContainerStyle::DEFAULT
-                        .justify_content(JustifyContent::Center)
-                        .align_items(AlignItems::Center)
-                        .background(*color)
-                })),
-                children[=]: self.flex.children,
+                self: flex,
             }
         }
     }

@@ -11,7 +11,12 @@ pub enum Mode {
 
 pub enum LlExpr<'a> {
     UserDefined(&'a Expr),
-    Complex(TokenStream),
+    Generated(TokenStream),
+}
+
+pub enum LlFields<'a> {
+    AllFromValue(&'a Expr),
+    Detailed(Vec<LlField<'a>>),
 }
 
 pub struct LlField<'a> {
@@ -22,13 +27,20 @@ pub struct LlField<'a> {
 
 pub struct LlGenerator<'a> {
     pub component_path: &'a Path,
-    pub fields: Vec<LlField<'a>>,
+    pub fields: LlFields<'a>,
     pub child_data: Option<&'a Expr>,
 }
 
 impl<'a> LlGenerator<'a> {
     pub fn generate(&self) -> TokenStream {
-        let prop_assignments = self.fields.iter().map(assign_prop);
+        let span = self.component_path.span();
+
+        let get_value = match &self.fields {
+            LlFields::AllFromValue(v) => quote_spanned! {span=>
+                let __irisia_value = #PATH_PRIVATE::DirectAssign(#v);
+            },
+            LlFields::Detailed(d) => self.value_from_detailed_fields(d),
+        };
 
         let append_child_data = self.child_data.map(|child_data| {
             quote! {
@@ -36,27 +48,26 @@ impl<'a> LlGenerator<'a> {
             }
         });
 
-        let empty = self.get_empty();
-        let span = self.component_path.span();
-
         quote_spanned! {span=>
             {
-                let __irisia_value = #empty;
-                #(#prop_assignments)*
-
+                #get_value
                 #PATH_COMPONENT::UseComponent::new(__irisia_value)
                 #append_child_data
             }
         }
     }
 
-    fn get_empty(&self) -> TokenStream {
+    fn value_from_detailed_fields(&self, detailed: &Vec<LlField>) -> TokenStream {
         let comp_path = self.component_path;
-        quote! {
-            {
+        let prop_assignments = detailed.iter().map(assign_prop);
+        let span = comp_path.span();
+
+        quote_spanned! {span=>
+            let __irisia_value = {
                 use #PATH_PROPERTY::Property as _;
                 #comp_path::__IRISIA_EMPTY_PROP
-            }
+            };
+            #(#prop_assignments)*
         }
     }
 }
@@ -110,7 +121,7 @@ impl ToTokens for LlExpr<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self {
             Self::UserDefined(e) => e.to_tokens(tokens),
-            Self::Complex(t) => t.to_tokens(tokens),
+            Self::Generated(t) => t.to_tokens(tokens),
         }
     }
 }

@@ -45,3 +45,7 @@ impl<T: ?Sized> Definition for UsingDefault<T> {
     }
     fn update(&self, _: &mut Self::Storage) {}
 }
+
+// MapValue
+
+pub struct 

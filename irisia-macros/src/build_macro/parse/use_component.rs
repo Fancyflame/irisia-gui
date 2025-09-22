@@ -1,8 +1,9 @@
 use std::collections::HashSet;
 
 use crate::build_macro::{ast::*, parse::parse_stmts};
+use proc_macro2::Span;
 use syn::{
-    Error, Ident, Result, Token, braced, bracketed, parse::ParseStream,
+    Error, Expr, Ident, Result, Token, braced, bracketed, parse::ParseStream, spanned::Spanned,
     token::Bracket,
 };
 
@@ -14,18 +15,21 @@ mod kw {
 
 enum FieldAssignmentName {
     Super(Token![super]),
+    AssignSelf(Token![self]),
     Ident(Ident),
 }
 
 pub fn parse_component(input: ParseStream) -> Result<ComponentStmt> {
-    let comp_type = input.parse()?;
+    let comp_type: syn::Path = input.parse()?;
 
     let content;
     braced!(content in input);
 
     let mut fields = Vec::new();
     let mut field_pool = HashSet::new();
+
     let mut child_data = None;
+    let mut assign_self = None;
 
     while let Some(fa) = parse_field_assignment(&content)? {
         match fa.name {
@@ -40,32 +44,28 @@ pub fn parse_component(input: ParseStream) -> Result<ComponentStmt> {
                 fields.push(FieldAssignment {
                     name: ident,
                     value: fa.value,
-                })
+                });
             }
             FieldAssignmentName::Super(super_token) => {
-                if child_data.is_some() {
-                    return Err(Error::new_spanned(
-                        super_token,
-                        "cannot define `super` property duplicatedly",
-                    ));
-                }
-
-                if let FieldValue::Proxied(expr) = fa.value {
-                    child_data = Some(expr);
-                } else {
-                    return Err(Error::new_spanned(
-                        super_token,
-                        "cannot use decoration on `super` property",
-                    ));
-                }
+                assign_special_property(&mut child_data, "super", super_token.span, fa.value)?;
+            }
+            FieldAssignmentName::AssignSelf(self_token) => {
+                assign_special_property(&mut assign_self, "self", self_token.span, fa.value)?;
             }
         }
     }
 
     let body_span = content.span();
-    let body = parse_stmts(&content)?;
+    let children = parse_stmts(&content)?;
 
-    if !body.is_empty() && field_pool.contains("children") {
+    if assign_self.is_some() && (!field_pool.is_empty() || !children.is_empty()) {
+        return Err(Error::new(
+            comp_type.span(),
+            "cannot define common properties (including children) because `self` property has been defined",
+        ));
+    }
+
+    if !children.is_empty() && field_pool.contains("children") {
         return Err(Error::new(
             body_span,
             "cannot define child elements because `children` property has been defined manually",
@@ -75,9 +75,33 @@ pub fn parse_component(input: ParseStream) -> Result<ComponentStmt> {
     Ok(ComponentStmt {
         comp_type,
         child_data,
+        assign_self,
         fields,
-        body,
+        children,
     })
+}
+
+fn assign_special_property(
+    place: &mut Option<Expr>,
+    name: &str,
+    span: Span,
+    expr: FieldValue,
+) -> Result<()> {
+    if place.is_some() {
+        return Err(Error::new(
+            span,
+            format!("cannot define `{name}` property duplicatedly"),
+        ));
+    }
+    if let FieldValue::Proxied(expr) = expr {
+        *place = Some(expr);
+    } else {
+        return Err(Error::new(
+            span,
+            format!("cannot use flag on `{name}` property"),
+        ));
+    }
+    Ok(())
 }
 
 fn parse_field_value(flag: Option<ParseStream>, input: ParseStream) -> Result<FieldValue> {
@@ -96,20 +120,19 @@ fn parse_field_value(flag: Option<ParseStream>, input: ParseStream) -> Result<Fi
         flag.parse::<Token![..]>()?;
         Ok(FieldValue::UseNested)
     } else {
-        Err(Error::new(
-            flag.span(),
-            "unknown decoration",
-        ))
+        Err(Error::new(flag.span(), "unknown decoration"))
     }
 }
 
 #[rustfmt::skip]
 fn peek_prop(input: ParseStream) -> bool {
-    (input.peek(Ident) || 
-    input.peek(Token![super])) &&
     (
-        (input.peek2(Token![:]) && !input.peek2(Token![::])) ||
-        input.peek2(Bracket)
+        input.peek(Ident)
+        || input.peek(Token![super])
+        || input.peek(Token![self])
+    ) && (
+        (input.peek2(Token![:]) && !input.peek2(Token![::]))
+        || input.peek2(Bracket)
     )
 }
 
@@ -122,6 +145,8 @@ fn parse_field_assignment(
 
     let name = if input.peek(Token![super]) {
         FieldAssignmentName::Super(input.parse()?)
+    } else if input.peek(Token![self]) {
+        FieldAssignmentName::AssignSelf(input.parse()?)
     } else {
         FieldAssignmentName::Ident(input.parse()?)
     };
