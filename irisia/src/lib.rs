@@ -1,7 +1,3 @@
-pub mod anyhow {
-    pub use anyhow::*;
-}
-
 pub type Result<T> = anyhow::Result<T>;
 type Handle<T> = Rc<RefCell<T>>;
 type WeakHandle<T> = Weak<RefCell<T>>;
@@ -11,6 +7,10 @@ macro_rules! inner_error {
         ::std::panic!("[IRISIA_INNER_ERROR {}: {}] {}", ::std::file!(), ::std::line!(), ::std::format!($($tt)+))
     };
 }
+
+#[doc(hidden)]
+#[path = "private.rs"]
+pub mod __private;
 
 pub mod application;
 pub mod event;
@@ -25,6 +25,7 @@ use std::{
     rc::{Rc, Weak},
 };
 
+pub use anyhow;
 pub use application::Window;
 pub use event::Event;
 pub use hook::Signal;

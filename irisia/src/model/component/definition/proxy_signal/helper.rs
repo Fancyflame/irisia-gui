@@ -15,6 +15,7 @@ impl<T: PartialEq<T>> CheckEq<T> {
         SignalProxied {
             value: self.0.0.unwrap(),
             eq_fn: T::eq,
+            map_value: |x| x,
         }
     }
 }
@@ -37,6 +38,7 @@ impl<T> Fallback<T> {
         SignalProxied {
             value: self.0.take().unwrap(),
             eq_fn: |_, _| EQ_FALLBACK_TO,
+            map_value: |x| x,
         }
     }
 }

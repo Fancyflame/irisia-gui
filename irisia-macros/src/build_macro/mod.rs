@@ -1,6 +1,5 @@
-use ast::Stmt;
 use proc_macro2::TokenStream;
-use syn::parse::{Parse, ParseStream};
+use syn::parse::ParseStream;
 
 mod ast;
 mod parse;

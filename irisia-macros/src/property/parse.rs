@@ -53,14 +53,12 @@ pub(super) fn parse_derive(input: DeriveInput) -> Result<MacroInput> {
     }
 
     let template_ident = format_ident!("__IrisiaProp{}", opts.ident, span = opts.ident.span());
-    let agent_ident = format_ident!("__IrisiaPropAgent{}", opts.ident, span = opts.ident.span());
 
     Ok(MacroInput {
         vis: opts.vis,
         struct_ident: opts.ident,
         generics: opts.generics,
         template_ident,
-        agent_ident,
         extend_field_index: extend_field.map(|(index, _)| index),
         fields,
     })

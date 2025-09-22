@@ -9,33 +9,29 @@ use super::{EleModel, Model, ModelCreateCtx, VModel, VNode};
 pub mod definition;
 pub mod property;
 
-pub struct UseComponent<T, Cd, F, D> {
+pub struct UseComponent<T, Cd, D> {
     _comp: PhantomData<T>,
     child_data: Cd,
-    create_fn: F,
     defs: D,
 }
 
-impl<T, F, D> UseComponent<T, ChildDataUndefined, F, D>
+impl<T, D> UseComponent<T, ChildDataUndefined, D>
 where
     T: Component,
-    F: Fn(D::Value) -> T,
     D: Definition,
 {
-    pub fn new(create_fn: F, defs: D) -> Self {
+    pub fn new(defs: D) -> Self {
         Self {
             _comp: PhantomData,
             child_data: ChildDataUndefined,
-            create_fn,
             defs,
         }
     }
 
-    pub fn set_child_data<Cd>(self, child_data: Cd) -> UseComponent<T, ChildDataDefined<Cd>, F, D> {
+    pub fn set_child_data<Cd>(self, child_data: Cd) -> UseComponent<T, ChildDataDefined<Cd>, D> {
         UseComponent {
             _comp: PhantomData,
             child_data: ChildDataDefined(child_data),
-            create_fn: self.create_fn,
             defs: self.defs,
         }
     }
@@ -45,19 +41,18 @@ pub trait Component: 'static {
     fn create(self, watcher_list: &mut WatcherList) -> impl VNode<()> + use<Self>;
 }
 
-impl<T, Cdmd, Cd, F, D> VModel<Cd> for UseComponent<T, Cdmd, F, D>
+impl<T, Cdmd, Cd, D> VModel<Cd> for UseComponent<T, Cdmd, D>
 where
     Cdmd: ChildDataMaybeDefined<Cd> + Clone + 'static,
-    F: Fn(D::Value) -> T,
     T: Component,
-    D: Definition,
+    D: Definition<Value = T>,
 {
     type Storage = UseComponentModel<D::Storage, Cdmd>;
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
         let (def_storages, def_values) = self.defs.create();
         let mut watcher_list = WatcherList::new();
-        let vmodel = T::create((self.create_fn)(def_values), &mut watcher_list);
+        let vmodel = T::create(def_values, &mut watcher_list);
 
         let model = Box::new(vmodel.create(ctx));
         UseComponentModel {

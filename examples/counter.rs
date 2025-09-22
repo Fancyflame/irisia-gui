@@ -43,9 +43,9 @@ fn app() -> impl VNode<()> {
             CenterBox {
                 color: Color::BLUE,
                 Text {
-                    text[=]: Signal::<dyn AsRef<str>>::from(Signal::memo_ncmp(counter.to_read(), |count| {
+                    text[=]: Some(Signal::<dyn AsRef<str>>::from(Signal::memo_ncmp(counter.to_read(), |count| {
                         format!("You clicked {count} times")
-                    })),
+                    }))),
                     style: TextStyle::DEFAULT
                         .font_size(30.0)
                         .font_color(Color::WHITE),
@@ -67,21 +67,22 @@ fn app() -> impl VNode<()> {
 #[derive(Property)]
 struct CenterBox {
     pub color: Signal<Color>,
-    pub children: Option<Signal<dyn CommonVModel<()>>>,
+    // pub children: Option<Signal<dyn CommonVModel<()>>>,
+    #[prop(extend)]
+    pub flex: Flex,
 }
 
 impl Component for CenterBox {
     fn create(self, _: &mut WatcherList) -> impl VNode<()> + use<> {
         build! {
             Flex {
-                style[=]: Signal::memo_ncmp(self.color, |color| {
+                style[=]: Some(Signal::memo_ncmp(self.color, |color| {
                     FlexContainerStyle::DEFAULT
                         .justify_content(JustifyContent::Center)
                         .align_items(AlignItems::Center)
                         .background(*color)
-                }),
-
-                (self.children.elimate_child_data())
+                })),
+                children[=]: self.flex.children,
             }
         }
     }
