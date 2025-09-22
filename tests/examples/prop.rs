@@ -6,10 +6,7 @@ use std::{
 use irisia::{
     __private::new_proxy_signal,
     Property, Signal, coerce_hook,
-    model::component::{
-        definition::{Definition, DirectAssign, SignalProxied},
-        property::{PropCast, PropExtend, PropUpdate, PropertyAgent},
-    },
+    model::component::definition::{Definition, DirectAssign, SignalProxied},
 };
 
 #[derive(Property, Debug)]
@@ -74,8 +71,7 @@ fn main() {
     //     }
     // };
     let foo = {
-        let agent = Foo::__irisia_prop_agent();
-        let value = agent.get_empty();
+        let value = Foo::__IRISIA_EMPTY_PROP;
         let value = value
             .generic(DirectAssign((Signal::state(Box::new(true)).to_read())))
             .apply(value);

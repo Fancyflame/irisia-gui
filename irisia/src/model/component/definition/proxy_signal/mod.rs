@@ -1,8 +1,4 @@
-use crate::{
-    Signal,
-    hook::signal::WriteSignal,
-    model::component::{definition::Definition, property::PropAssign},
-};
+use crate::{Signal, hook::signal::WriteSignal, model::component::definition::Definition};
 
 pub mod helper;
 
@@ -68,15 +64,5 @@ where
         if !(self.eq_fn)(&*w, &self.value) {
             *w = self.value.clone();
         }
-    }
-}
-
-impl<T, U> PropAssign<SignalProxied<T, U>> for Option<Signal<U>>
-where
-    T: Clone + 'static,
-    U: ?Sized,
-{
-    fn prop_assign(value: Signal<U>) -> Self {
-        Some(value)
     }
 }

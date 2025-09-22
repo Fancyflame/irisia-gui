@@ -43,16 +43,6 @@ impl<T> Fallback<T> {
     }
 }
 
-// type MapSignalFn<T, U> = fn(Signal<T>) -> Signal<U>;
-// pub fn coerce_proxy_signal_helper<T, U>(
-//     _: impl Fn(SignalProxied<(), U>),
-// ) -> fn(MapSignalFn<T, U>) -> MapSignalFn<T, U>
-// where
-//     U: ?Sized,
-// {
-//     |x| x
-// }
-
 #[test]
 fn test() {
     let _ = check_eq(100).get();

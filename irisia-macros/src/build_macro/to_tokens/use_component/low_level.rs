@@ -55,9 +55,7 @@ impl<'a> LlGenerator<'a> {
         quote! {
             {
                 use #PATH_PROPERTY::Property as _;
-                #PATH_PROPERTY::PropertyAgent::get_empty(
-                    #comp_path::__irisia_prop_agent()
-                )
+                #comp_path::__IRISIA_EMPTY_PROP
             }
         }
     }
@@ -92,7 +90,7 @@ fn assign_prop(LlField { expr, mode, name }: &LlField) -> TokenStream {
     }
 }
 
-fn binary_fold<T, F>(slice: &[T], for_each: &F) -> TokenStream
+/* fn binary_fold<T, F>(slice: &[T], for_each: &F) -> TokenStream
 where
     F: Fn(&T) -> TokenStream,
 {
@@ -106,7 +104,7 @@ where
             quote! {(#a, #b)}
         }
     }
-}
+} */
 
 impl ToTokens for LlExpr<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
