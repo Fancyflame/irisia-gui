@@ -85,30 +85,27 @@ impl MacroInput {
         } = self;
         let (impl_g, type_g, where_clause) = generics.split_for_impl();
         let empty = self.impl_property_empty();
+        let clone = self.impl_property_clone();
 
         quote! {
             impl #impl_g #PATH_PROPERTY::Property for #orig_struct_name #type_g
             #where_clause {
                 #empty
+                #clone
             }
         }
     }
 
-    fn impl_permitted_prop_extend(&self) -> TokenStream {
-        let Self {
-            struct_ident,
-            template_ident,
-            ..
-        } = self;
-        let (_, orig_type_g, _) = split_for_impl_unbracketed(&self.generics);
-        let (impl_g, type_g, where_bounds) = self.split_for_impl_template();
+    fn impl_property_clone(&self) -> TokenStream {
+        let fields: Vec<&Ident> = self.fields.iter().map(|f| &f.ident).collect();
+        let path_property = PATH_PROPERTY;
 
         quote! {
-            impl<#impl_g> #PATH_PROPERTY::PermittedPropExtend<#template_ident<#type_g>>
-                for #struct_ident<#orig_type_g>
-            where
-                #where_bounds
-            {}
+            fn property_clone(&self) -> Self {
+                Self {
+                    #(#fields: #path_property::Property::property_clone(&self.#fields),)*
+                }
+            }
         }
     }
 
@@ -135,6 +132,24 @@ impl MacroInput {
                 __irisia_phantom: #PHANTOM_DATA,
                 #(#field_init)*
             };
+        }
+    }
+
+    fn impl_permitted_prop_extend(&self) -> TokenStream {
+        let Self {
+            struct_ident,
+            template_ident,
+            ..
+        } = self;
+        let (_, orig_type_g, _) = split_for_impl_unbracketed(&self.generics);
+        let (impl_g, type_g, where_bounds) = self.split_for_impl_template();
+
+        quote! {
+            impl<#impl_g> #PATH_PROPERTY::PermittedPropExtend<#template_ident<#type_g>>
+                for #struct_ident<#orig_type_g>
+            where
+                #where_bounds
+            {}
         }
     }
 

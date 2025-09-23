@@ -14,11 +14,6 @@ pub enum LlExpr<'a> {
     Generated(TokenStream),
 }
 
-pub enum LlFields<'a> {
-    AllFromValue(&'a Expr),
-    Detailed(Vec<LlField<'a>>),
-}
-
 pub struct LlField<'a> {
     pub name: &'a Ident,
     pub expr: LlExpr<'a>,
@@ -27,20 +22,17 @@ pub struct LlField<'a> {
 
 pub struct LlGenerator<'a> {
     pub component_path: &'a Path,
-    pub fields: LlFields<'a>,
+    pub fields: Vec<LlField<'a>>,
+    pub assign_self: Option<&'a Expr>,
     pub child_data: Option<&'a Expr>,
 }
 
 impl<'a> LlGenerator<'a> {
     pub fn generate(&self) -> TokenStream {
-        let span = self.component_path.span();
+        let comp_path = self.component_path;
 
-        let get_value = match &self.fields {
-            LlFields::AllFromValue(v) => quote_spanned! {span=>
-                let __irisia_value = #PATH_PRIVATE::DirectAssign(#v);
-            },
-            LlFields::Detailed(d) => self.value_from_detailed_fields(d),
-        };
+        let field_assignments = self.fields.iter().map(assign_prop);
+        let rest = self.assign_self.map(|rest| self.make_rest_fields(rest));
 
         let append_child_data = self.child_data.map(|child_data| {
             quote! {
@@ -48,26 +40,36 @@ impl<'a> LlGenerator<'a> {
             }
         });
 
-        quote_spanned! {span=>
+        quote_spanned! {comp_path.span()=>
             {
-                #get_value
+                let __irisia_value = {
+                    use #PATH_PROPERTY::Property as _;
+                    #comp_path::__IRISIA_EMPTY_PROP
+                };
+                #(#field_assignments)*
+
+                #rest
+
                 #PATH_COMPONENT::UseComponent::new(__irisia_value)
                 #append_child_data
             }
         }
     }
 
-    fn value_from_detailed_fields(&self, detailed: &Vec<LlField>) -> TokenStream {
-        let comp_path = self.component_path;
-        let prop_assignments = detailed.iter().map(assign_prop);
-        let span = comp_path.span();
+    fn make_rest_fields(&self, value: &Expr) -> TokenStream {
+        let span = value.span();
+        let path_private = PATH_PRIVATE.spanned(span);
+        let detail_fields = self.fields.iter().map(|f| f.name);
 
         quote_spanned! {span=>
-            let __irisia_value = {
-                use #PATH_PROPERTY::Property as _;
-                #comp_path::__IRISIA_EMPTY_PROP
-            };
-            #(#prop_assignments)*
+            let __irisia_value = #path_private::map_definition(
+                __irisia_value,
+                #value,
+                |mut rest, overwrite| {
+                    #(rest.#detail_fields = overwrite.#detail_fields;)*
+                    rest
+                }
+            );
         }
     }
 }

@@ -3,8 +3,7 @@ use std::collections::HashSet;
 use crate::build_macro::{ast::*, parse::parse_stmts};
 use proc_macro2::Span;
 use syn::{
-    Error, Expr, Ident, Result, Token, braced, bracketed, parse::ParseStream, spanned::Spanned,
-    token::Bracket,
+    Error, Expr, Ident, Result, Token, braced, bracketed, parse::ParseStream, token::Bracket,
 };
 
 mod kw {
@@ -57,13 +56,6 @@ pub fn parse_component(input: ParseStream) -> Result<ComponentStmt> {
 
     let body_span = content.span();
     let children = parse_stmts(&content)?;
-
-    if assign_self.is_some() && (!field_pool.is_empty() || !children.is_empty()) {
-        return Err(Error::new(
-            comp_type.span(),
-            "cannot define common properties (including children) because `self` property has been defined",
-        ));
-    }
 
     if !children.is_empty() && field_pool.contains("children") {
         return Err(Error::new(

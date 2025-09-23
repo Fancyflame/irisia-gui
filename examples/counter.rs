@@ -1,5 +1,5 @@
 use irisia::{
-    Property, Result, Window, WinitWindow, build,
+    Property, Result, Window, WinitWindow, build, coerce_hook,
     hook::{Signal, watcher::WatcherList},
     model::{
         VModel, VNode,
@@ -15,7 +15,7 @@ use irisia::{
 };
 use irisia_widgets::layouts::{
     AlignContent, AlignItems, Flex, FlexContainerStyle, FlexContainerStyleExt, FlexDirection,
-    FlexItemStyle, JustifyContent,
+    JustifyContent,
 };
 
 #[irisia::main]
@@ -43,9 +43,9 @@ fn app() -> impl VNode<()> {
             CenterBox {
                 color: Color::BLUE,
                 Text {
-                    text[=]: Some(Signal::<dyn AsRef<str>>::from(Signal::memo_ncmp(counter.to_read(), |count| {
+                    text[=]: Some(Signal::memo_ncmp(counter.to_read(), |count| {
                         format!("You clicked {count} times")
-                    }))),
+                    }).into()),
                     style: TextStyle::DEFAULT
                         .font_size(30.0)
                         .font_color(Color::WHITE),
@@ -74,17 +74,15 @@ struct CenterBox {
 
 impl Component for CenterBox {
     fn create(self, _: &mut WatcherList) -> impl VNode<()> + use<> {
-        let mut flex = self.flex;
-        flex.style = Some(Signal::memo_ncmp(self.color, |color| {
-            FlexContainerStyle::DEFAULT
-                .justify_content(JustifyContent::Center)
-                .align_items(AlignItems::Center)
-                .background(*color)
-        }));
-
         build! {
             Flex {
-                self: flex,
+                self: self.flex,
+                style[=]: Some(Signal::memo_ncmp(self.color, |color| {
+                    FlexContainerStyle::DEFAULT
+                        .justify_content(JustifyContent::Center)
+                        .align_items(AlignItems::Center)
+                        .background(*color)
+                })),
             }
         }
     }

@@ -3,7 +3,7 @@ use quote::format_ident;
 
 use crate::build_macro::{
     ast::FieldValue,
-    to_tokens::use_component::low_level::{LlExpr, LlField, LlFields, LlGenerator},
+    to_tokens::use_component::low_level::{LlExpr, LlField, LlGenerator},
 };
 
 use super::{ComponentStmt, FieldAssignment, GenerationEnv};
@@ -50,10 +50,8 @@ impl GenerationEnv {
 
         let ll_generator = LlGenerator {
             component_path: comp_type,
-            fields: match assign_self {
-                Some(assign_self) => LlFields::AllFromValue(assign_self),
-                None => LlFields::Detailed(ll_fields),
-            },
+            fields: ll_fields,
+            assign_self: assign_self.as_ref(),
             child_data: child_data.as_ref(),
         };
 
