@@ -3,7 +3,7 @@ use std::{
     rc::Rc,
 };
 
-use super::{inner::StrongListenerList, Inner, Signal, WriteSignal};
+use super::{Inner, Signal, inner::StrongListenerList};
 use crate::hook::{
     signal_group::SignalGroup,
     utils::{DirtyCount, ListenerList, TraceCell},
@@ -13,17 +13,16 @@ use smallvec::SmallVec;
 
 mod callback_chain;
 
-pub struct SignalBuilder<T, C, W> {
+pub struct SignalBuilder<T, C> {
     pub(super) value: T,
     pub(super) callbacks: C,
-    pub(super) writable: W,
 }
 
-impl<T, C, W> SignalBuilder<T, C, W>
+impl<T, C> SignalBuilder<T, C>
 where
     T: 'static,
 {
-    pub fn dep<F, D>(self, callback: F, deps: D) -> SignalBuilder<T, CallbackNode<F, D, C>, W>
+    pub fn dep<F, D>(self, callback: F, deps: D) -> SignalBuilder<T, CallbackNode<F, D, C>>
     where
         F: Fn(Setter<T>, D::Data<'_>) + 'static,
         D: SignalGroup + 'static,
@@ -35,15 +34,6 @@ where
                 callback,
                 next: self.callbacks,
             },
-            writable: self.writable,
-        }
-    }
-
-    pub fn writable(self) -> SignalBuilder<T, C, WriteMode> {
-        SignalBuilder {
-            value: self.value,
-            callbacks: self.callbacks,
-            writable: WriteMode,
         }
     }
 
@@ -52,7 +42,7 @@ where
         callback: F,
         deps: D,
         enable: bool,
-    ) -> SignalBuilder<T, CallbackNode<F, D, C>, W>
+    ) -> SignalBuilder<T, CallbackNode<F, D, C>>
     where
         F: Fn(Setter<T>, D::Data<'_>) + 'static,
         D: SignalGroup + 'static,
@@ -71,23 +61,11 @@ where
     }
 }
 
-impl<T, C> SignalBuilder<T, C, ()>
+impl<T, C> SignalBuilder<T, C>
 where
     T: 'static,
 {
     pub fn build(self) -> Signal<T>
-    where
-        C: CallbackChain<T> + 'static,
-    {
-        self.writable().build().0
-    }
-}
-
-impl<T, C> SignalBuilder<T, C, WriteMode>
-where
-    T: 'static,
-{
-    pub fn build(self) -> WriteSignal<T>
     where
         C: CallbackChain<T> + 'static,
     {
@@ -102,7 +80,7 @@ where
             }
         });
 
-        WriteSignal(Signal { inner })
+        Signal { inner }
     }
 }
 
@@ -130,5 +108,3 @@ impl<'a, T> Setter<'a, T> {
         Self { r, mutated }
     }
 }
-
-pub struct WriteMode;

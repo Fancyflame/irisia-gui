@@ -24,7 +24,7 @@ pub struct Signal<T: ?Sized> {
 
 impl<T: 'static> Signal<T> {
     pub fn state(value: T) -> WriteSignal<T> {
-        Self::builder(value).writable().build()
+        WriteSignal(Self::builder(value).build())
     }
 
     pub fn memo<F, D>(deps: D, generator: F) -> Self
@@ -63,11 +63,10 @@ impl<T: 'static> Signal<T> {
             .build()
     }
 
-    pub fn builder(value: T) -> SignalBuilder<T, (), ()> {
+    pub fn builder(value: T) -> SignalBuilder<T, ()> {
         SignalBuilder {
             value,
             callbacks: (),
-            writable: (),
         }
     }
 }
