@@ -9,7 +9,7 @@ use crate::{
         Signal,
         watcher::{WatcherGuard, WatcherList},
     },
-    model::{EleModel, Model, ModelCreateCtx, VModel},
+    model::{UnitModel, Model, ModelCreateCtx, VModel},
     prim_element::Element,
 };
 
@@ -79,9 +79,9 @@ where
     }
 }
 
-impl<T, Cd> EleModel<Cd> for SignalModel<T>
+impl<T, Cd> UnitModel<Cd> for SignalModel<T>
 where
-    T: EleModel<Cd>,
+    T: UnitModel<Cd>,
 {
     fn get_element(&self) -> (Element, Cd) {
         self.model.as_ref().unwrap().borrow().get_element()

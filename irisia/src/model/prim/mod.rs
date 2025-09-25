@@ -1,4 +1,4 @@
-use super::{EleModel, Model};
+use super::{UnitModel, Model};
 use crate::{Handle, hook::watcher::WatcherList, prim_element::Element};
 
 pub use self::{block::Block, text::Text};
@@ -25,9 +25,9 @@ where
     }
 }
 
-impl<T, Cd> EleModel<Cd> for PrimitiveModel<T>
+impl<T, Cd> UnitModel<Cd> for PrimitiveModel<T>
 where
-    T: EleModel<Cd>,
+    T: UnitModel<Cd>,
 {
     fn get_element(&self) -> (Element, Cd) {
         self.model.borrow().get_element()

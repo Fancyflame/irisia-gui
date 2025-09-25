@@ -1,4 +1,4 @@
-use crate::model::{EleModel, Model, ModelCreateCtx, VModel};
+use crate::model::{UnitModel, Model, ModelCreateCtx, VModel};
 use crate::prim_element::Element;
 
 #[derive(PartialEq)]
@@ -80,10 +80,10 @@ where
     }
 }
 
-impl<A, B, Cd> EleModel<Cd> for Branch<A, B>
+impl<A, B, Cd> UnitModel<Cd> for Branch<A, B>
 where
-    A: EleModel<Cd>,
-    B: EleModel<Cd>,
+    A: UnitModel<Cd>,
+    B: UnitModel<Cd>,
 {
     fn get_element(&self) -> (Element, Cd) {
         match self {

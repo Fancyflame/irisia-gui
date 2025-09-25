@@ -10,7 +10,7 @@ use irisia_backend::{
 use crate::{
     Result,
     event::{EventDispatcher, standard::WindowDestroyed},
-    model::{EleModel, ModelCreateCtx, VNode},
+    model::{ModelCreateCtx, UnitModel, VNode},
     prim_element::{
         EMCreateCtx, EmitEventArgs, RenderTreeExt, callback_queue::CallbackQueue,
         layout::LayoutInput,
@@ -33,7 +33,7 @@ use super::{
 pub(super) struct BackendRuntime {
     pointer_state: PointerState,
     gc: Rc<GlobalContent>,
-    root_model: Box<dyn EleModel<()>>,
+    root_model: Box<dyn UnitModel>,
     window_resized: bool,
     callback_queue: CallbackQueue,
 }
@@ -135,7 +135,7 @@ pub(super) async fn new_window<F, T>(
 ) -> Result<Window>
 where
     F: FnOnce() -> T + Send + 'static,
-    T: VNode<()>,
+    T: VNode,
 {
     let ev_disp = EventDispatcher::new();
 

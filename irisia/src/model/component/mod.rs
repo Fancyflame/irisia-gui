@@ -4,7 +4,7 @@ use definition::Definition;
 
 use crate::{hook::watcher::WatcherList, prim_element::Element};
 
-use super::{EleModel, Model, ModelCreateCtx, VModel, VNode};
+use super::{Model, ModelCreateCtx, UnitModel, VModel, VNode};
 
 pub mod definition;
 pub mod property;
@@ -38,7 +38,7 @@ where
 }
 
 pub trait Component: 'static {
-    fn create(self, watcher_list: &mut WatcherList) -> impl VNode<()> + use<Self>;
+    fn create(self, watcher_list: &mut WatcherList) -> impl VNode + use<Self>;
 }
 
 impl<T, Cdmd, Cd, D> VModel<Cd> for UseComponent<T, Cdmd, D>
@@ -73,7 +73,7 @@ pub struct UseComponentModel<D, Cdmd> {
     _watcher_list: WatcherList,
     defs: D,
     child_data: Cdmd,
-    model: Box<dyn EleModel<()>>,
+    model: Box<dyn UnitModel<()>>,
 }
 
 impl<D, Cdmd, Cd> Model<Cd> for UseComponentModel<D, Cdmd>
@@ -87,7 +87,7 @@ where
     }
 }
 
-impl<D, Cdmd, Cd> EleModel<Cd> for UseComponentModel<D, Cdmd>
+impl<D, Cdmd, Cd> UnitModel<Cd> for UseComponentModel<D, Cdmd>
 where
     Cdmd: ChildDataMaybeDefined<Cd>,
     Self: 'static,

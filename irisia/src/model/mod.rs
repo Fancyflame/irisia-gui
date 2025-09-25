@@ -28,9 +28,16 @@ pub trait VModel<Cd> {
     }
 }
 
-pub trait Model<Cd>: 'static {
-    fn visit(&self, f: &mut dyn FnMut(Element, Cd));
+pub trait Model<Data = ()>: 'static {
+    fn visit(&self, f: &mut dyn FnMut(Element, Data));
 }
+
+pub trait UnitModel<Data = ()>: Model<Data> {
+    fn get_element(&self) -> (Element, Data);
+}
+
+pub trait VNode<Data = ()>: VModel<Data, Storage: UnitModel<Data>> {}
+impl<Data, T> VNode<Data> for T where T: VModel<Data, Storage: UnitModel<Data>> + ?Sized {}
 
 #[derive(Clone)]
 pub struct ModelCreateCtx {
@@ -45,12 +52,4 @@ impl ModelCreateCtx {
             parent: None,
         }
     }
-}
-
-/// VModel provides guaranteed only 1 element
-pub trait VNode<Cd>: VModel<Cd, Storage: EleModel<Cd>> {}
-impl<Cd, T> VNode<Cd> for T where T: VModel<Cd, Storage: EleModel<Cd>> {}
-
-pub trait EleModel<Cd>: Model<Cd> {
-    fn get_element(&self) -> (Element, Cd);
 }

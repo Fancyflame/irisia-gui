@@ -7,7 +7,7 @@ use crate::{
         Signal,
         watcher::{WatcherGuard, WatcherList},
     },
-    model::{EleModel, Model, ModelCreateCtx, VModel, VNode, component::Component},
+    model::{Model, ModelCreateCtx, UnitModel, VModel, VNode, component::Component},
     prim_element::{
         Element, EventCallback,
         text::{RenderText, SignalStr, TextStyle},
@@ -80,7 +80,7 @@ impl TextModel {
     }
 }
 
-impl EleModel<()> for TextModel {
+impl UnitModel<()> for TextModel {
     fn get_element(&self) -> (Element, ()) {
         (self.el.clone(), ())
     }

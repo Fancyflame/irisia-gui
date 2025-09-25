@@ -9,7 +9,7 @@ use crate::{
         watcher::{WatcherGuard, WatcherList},
     },
     model::{
-        EleModel, Model, ModelCreateCtx, VModel, VNode,
+        Model, ModelCreateCtx, UnitModel, VModel, VNode,
         component::Component,
         control_flow::{
             CommonVModel,
@@ -153,7 +153,7 @@ impl<Cd: 'static> Model<()> for BlockModel<Cd> {
     }
 }
 
-impl<Cd: 'static> EleModel<()> for BlockModel<Cd> {
+impl<Cd: 'static> UnitModel<()> for BlockModel<Cd> {
     fn get_element(&self) -> (Element, ()) {
         (self.el.clone(), ())
     }

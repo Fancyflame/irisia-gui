@@ -45,7 +45,7 @@ fn app() -> impl VNode<()> {
                 Text {
                     text[=]: Some(Signal::memo_ncmp(counter.to_read(), |count| {
                         format!("You clicked {count} times")
-                    }).into()),
+                    }).cast()),
                     style: TextStyle::DEFAULT
                         .font_size(30.0)
                         .font_color(Color::WHITE),

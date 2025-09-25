@@ -20,7 +20,7 @@ where
     }
 }
 
-pub trait CommonVModel<Cd> {
+pub trait CommonVModel<Cd = ()> {
     fn common_create(&self, ctx: &ModelCreateCtx) -> BoxedModel<Cd>;
     fn common_update(&self, storage: &mut BoxedModel<Cd>, ctx: &ModelCreateCtx);
 }

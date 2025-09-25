@@ -1,5 +1,5 @@
 use crate::{
-    model::{EleModel, Model, ModelCreateCtx, VModel, VNode},
+    model::{Model, ModelCreateCtx, UnitModel, VModel, VNode},
     prim_element::Element,
 };
 
@@ -7,11 +7,11 @@ use std::any::Any;
 
 pub struct BoxedNode<Cd>(Box<dyn AnyNode<Cd>>);
 
-trait AnyNode<Cd>: Any + EleModel<Cd> {}
+trait AnyNode<Cd>: Any + UnitModel<Cd> {}
 
-impl<T, Cd> AnyNode<Cd> for T where T: Any + EleModel<Cd> {}
+impl<T, Cd> AnyNode<Cd> for T where T: Any + UnitModel<Cd> {}
 
-pub trait CommonVNode<Cd> {
+pub trait CommonVNode<Cd = ()> {
     fn common_create_node(&self, ctx: &ModelCreateCtx) -> BoxedNode<Cd>;
     fn common_update_node(&self, storage: &mut BoxedNode<Cd>, ctx: &ModelCreateCtx);
 }
@@ -49,7 +49,7 @@ impl<Cd: 'static> Model<Cd> for BoxedNode<Cd> {
     }
 }
 
-impl<Cd: 'static> EleModel<Cd> for BoxedNode<Cd> {
+impl<Cd: 'static> UnitModel<Cd> for BoxedNode<Cd> {
     fn get_element(&self) -> (Element, Cd) {
         self.0.get_element()
     }

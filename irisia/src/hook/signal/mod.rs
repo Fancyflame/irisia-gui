@@ -12,6 +12,8 @@ use super::{
 };
 use inner::Inner;
 
+pub use coerce::SignalCast;
+
 mod builder;
 mod coerce;
 mod inner;
@@ -77,6 +79,13 @@ impl<T: ?Sized> Signal<T> {
 
     pub fn dependent(&self, l: Listener) {
         self.inner.dependent(l);
+    }
+
+    pub fn cast<U: ?Sized>(&self) -> Signal<U>
+    where
+        T: SignalCast<U>,
+    {
+        T::cast(self.clone())
     }
 
     pub(crate) fn addr(&self) -> *const () {
