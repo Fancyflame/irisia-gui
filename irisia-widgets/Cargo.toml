@@ -6,12 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-irisia = { path = "../irisia" }
-smallvec = "1.10"
-tokio = { version = "*", features = ["sync"] }
-lazy_static = "1"
-
-[dependencies.taffy]
-version = "0.8"
-default-features = false
-features = ["block_layout", "flexbox", "grid", "content_size", "std"]
+irisia = { workspace = true }
+smallvec = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
+lazy_static = { workspace = true }
+taffy = { workspace = true }

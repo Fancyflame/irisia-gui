@@ -5,8 +5,8 @@ edition = "2024"
 publish = false
 
 [dev-dependencies]
-# irisia_widgets = { path = "../irisia-widgets" }
-irisia = { path = "../irisia" }
-irisia_backend = { path = "../irisia-backend" }
-irisia_macros = { path = "../irisia-macros" }
-irisia_utils = { path = "../irisia-utils" }
+# irisia_widgets = { workspace = true }
+irisia = { workspace = true }
+irisia_backend = { workspace = true }
+irisia_macros = { workspace = true }
+irisia_utils = { workspace = true }

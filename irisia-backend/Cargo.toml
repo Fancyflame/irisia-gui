@@ -6,17 +6,17 @@ edition = "2024"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-winit = { version = "0.30", features = ["android-native-activity", "rwh_05"] }
-pixels = "0.14"
-skia-safe = { version = "0.80", features = ["textlayout", "binary-cache"] }
-tokio = { version = "1.40", features = ["rt-multi-thread", "sync"] }
-anyhow = "1"
-lazy_static = "1"
-futures = "0.3"
-dhat = { version = "0.3", optional = true }
+winit = { workspace = true, features = ["android-native-activity", "rwh_05"] }
+pixels = { workspace = true }
+skia-safe = { workspace = true, features = ["textlayout", "binary-cache"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "sync"] }
+anyhow = { workspace = true }
+lazy_static = { workspace = true }
+futures = { workspace = true }
+dhat = { workspace = true, optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
-android_logger = "0.11.0"
+android_logger = { workspace = true }
 
 [features]
 fps_recorder = []

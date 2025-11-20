@@ -9,17 +9,17 @@ proc-macro = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-syn = { version = ">=2.0.38", features = [
+syn = { workspace = true, features = [
     "full",
     "extra-traits",
     "visit",
     "visit-mut",
 ] }
-quote = "1.0"
-proc-macro2 = "1.0"
-case = "1.0"
-attr-parser-fn = { git = "https://github.com/Fancyflame/attr-parser-fn.git" }
-darling = "0.21"
+quote = { workspace = true }
+proc-macro2 = { workspace = true }
+case = { workspace = true }
+attr-parser-fn = { workspace = true }
+darling = { workspace = true }
 
 [features]
 default = ["macro-dep-guessing"]
