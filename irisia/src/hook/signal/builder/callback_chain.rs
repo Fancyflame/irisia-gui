@@ -1,7 +1,7 @@
 use std::rc::Weak;
 
 use crate::hook::{
-    signal::inner::StrongListenerList, signal_group::SignalGroup, utils::CallbackAction, Listener,
+    Listener, signal::inner::StrongListenerList, signal_group::SignalGroup, utils::CallbackAction,
 };
 
 use super::{Inner, Setter};
@@ -28,10 +28,9 @@ where
     Next: CallbackChain<T>,
 {
     fn listen(self, weak_src: Weak<Inner<T>>, store_list: &mut StrongListenerList) {
-        let strong_listener = Listener::new(|listener| {
-            self.deps.dependent_many(listener);
+        let strong_listener = {
             let weak_src = weak_src.clone();
-            move |action| {
+            Listener::new(self.deps, move |action, deps| {
                 let src = weak_src.upgrade().unwrap();
 
                 if !action.is_update() {
@@ -46,7 +45,7 @@ where
                         &mut src.value.borrow_mut().expect("failed updating signal"),
                         &mut mutated,
                     ),
-                    D::deref_wrapper(&self.deps.read_many()),
+                    D::deref_wrapper(&deps.read_many()),
                 );
 
                 src.push_action(if mutated {
@@ -56,8 +55,8 @@ where
                 });
 
                 true
-            }
-        });
+            })
+        };
 
         store_list.0.push(strong_listener);
         self.next.listen(weak_src, store_list);

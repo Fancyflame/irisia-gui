@@ -1,5 +1,6 @@
 use std::{
     fmt::{Debug, Formatter},
+    marker::PhantomData,
     rc::Rc,
 };
 
@@ -24,7 +25,7 @@ pub struct Signal<T: ?Sized> {
 
 impl<T: 'static> Signal<T> {
     pub fn state(value: T) -> WriteSignal<T> {
-        WriteSignal(Self::builder(value).build())
+        WriteSignal(Self::builder().build(value))
     }
 
     pub fn memo<F, D>(deps: D, generator: F) -> Self
@@ -33,8 +34,8 @@ impl<T: 'static> Signal<T> {
         F: Fn(D::Data<'_>) -> T + 'static,
         D: SignalGroup + 'static,
     {
-        let builder = Self::builder(generator(D::deref_wrapper(&deps.read_many())));
-        builder
+        let value = generator(D::deref_wrapper(&deps.read_many()));
+        Self::builder()
             .dep(
                 move |mut this, data| {
                     let new_value = generator(data);
@@ -44,7 +45,7 @@ impl<T: 'static> Signal<T> {
                 },
                 deps,
             )
-            .build()
+            .build(value)
     }
 
     pub fn memo_ncmp<F, D>(deps: D, generator: F) -> Self
@@ -52,20 +53,20 @@ impl<T: 'static> Signal<T> {
         F: Fn(D::Data<'_>) -> T + 'static,
         D: SignalGroup + 'static,
     {
-        let builder = Self::builder(generator(D::deref_wrapper(&deps.read_many())));
-        builder
+        let value = generator(D::deref_wrapper(&deps.read_many()));
+        Self::builder()
             .dep(
                 move |mut this, data| {
                     *this = generator(data);
                 },
                 deps,
             )
-            .build()
+            .build(value)
     }
 
-    pub fn builder(value: T) -> SignalBuilder<T, ()> {
+    pub fn builder() -> SignalBuilder<T, ()> {
         SignalBuilder {
-            value,
+            _value: PhantomData,
             callbacks: (),
         }
     }

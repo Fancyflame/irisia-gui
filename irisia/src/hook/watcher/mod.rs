@@ -40,33 +40,31 @@ pub trait WatcherGuard {
         Return: WatcherCallbackReturn,
     {
         let mark_cancel = Cell::new(false);
-        let strong_listener = Listener::new(|listener| {
-            deps.dependent_many(listener);
-            let callback_cell = RefCell::new(Some((callback, deps)));
+        let callback_cell = RefCell::new(Some(callback));
 
-            move |action| {
-                if !action.is_update() {
-                    return true;
-                }
+        let strong_listener = Listener::new(deps, move |action, deps| {
+            if !action.is_update() {
+                return true;
+            }
 
-                let keep_alive = if let Some((callback, deps)) = &*callback_cell.borrow() {
-                    callback(D::deref_wrapper(&deps.read_many())).keep_alive()
-                } else {
-                    return false;
+            let keep_alive = if let Some(callback) = &*callback_cell.borrow() {
+                callback(D::deref_wrapper(&deps.read_many())).keep_alive()
+            } else {
+                return false;
+            };
+
+            if mark_cancel.get() || !keep_alive {
+                match callback_cell.try_borrow_mut() {
+                    Ok(mut cb) => *cb = None,
+                    Err(_) => mark_cancel.set(true),
                 };
-
-                if mark_cancel.get() || !keep_alive {
-                    match callback_cell.try_borrow_mut() {
-                        Ok(mut cb) => *cb = None,
-                        Err(_) => mark_cancel.set(true),
-                    };
-                    false
-                } else {
-                    true
-                }
+                false
+            } else {
+                true
             }
         });
 
+        strong_listener.start_listen();
         self.push(Watcher(strong_listener));
         self
     }
@@ -106,23 +104,20 @@ pub trait WatcherGuard {
         D: SignalGroup + 'static,
         F: FnOnce(D::Data<'_>) -> Return + 'static,
     {
-        let strong_listener = Listener::new(|listener| {
-            deps.dependent_many(listener);
-            let callback_cell = Cell::new(Some((callback, deps)));
-
-            move |action| {
-                if !action.is_update() {
-                    return true;
-                }
-
-                if let Some((callback, deps)) = callback_cell.take() {
-                    callback(D::deref_wrapper(&deps.read_many()));
-                };
-
-                false
+        let callback_cell = Cell::new(Some(callback));
+        let strong_listener = Listener::new(deps, move |action, deps| {
+            if !action.is_update() {
+                return true;
             }
+
+            if let Some(callback) = callback_cell.take() {
+                callback(D::deref_wrapper(&deps.read_many()));
+            };
+
+            false
         });
 
+        strong_listener.start_listen();
         self.push(Watcher(strong_listener));
         self
     }

@@ -1,29 +1,35 @@
 use std::rc::{Rc, Weak};
 
+use crate::hook::signal_group::SignalGroup;
+
 use super::utils::{CallbackAction, DirtyCount};
 
-type Core = Inner<dyn Fn(CallbackAction) -> bool>;
+#[derive(Clone)]
+pub struct Listener(Weak<dyn ListenerInner>);
 
-pub struct Listener(Weak<Core>);
+/// DON'T FORGET to call `start_listen()`.
+#[derive(Clone)]
+pub(crate) struct StrongListener(#[allow(dead_code)] Rc<dyn ListenerInner>);
 
-pub(crate) struct StrongListener(#[allow(dead_code)] Rc<Core>);
-
-// impl StrongListener {
-//     pub fn downgrade(&self) -> Listener {
-//         Listener(Rc::downgrade(&self.0))
-//     }
-// }
+impl StrongListener {
+    pub fn start_listen(&self) {
+        self.0.start_listen(self);
+    }
+}
 
 impl Listener {
-    /// The callback ***must NOT capture hooks*** or will cause underlying memory leaks
-    pub(crate) fn new<Maker, F>(make_callback: Maker) -> StrongListener
+    /// The callback **must NOT capture hooks** or will cause underlying memory leaks.
+    ///
+    /// And **DONT FORGET** to call `start_listen()`
+    pub(crate) fn new<D, F>(deps: D, callback: F) -> StrongListener
     where
-        Maker: FnOnce(Listener) -> F,
-        F: Fn(CallbackAction) -> bool + 'static,
+        D: SignalGroup + 'static,
+        F: Fn(CallbackAction, &D) -> bool + 'static,
     {
-        let inner = Rc::new_cyclic(|weak_inner| Inner {
+        let inner = Rc::new(Inner {
             dirty_count: DirtyCount::new(),
-            callback: make_callback(Listener(weak_inner.clone() as _)),
+            callback,
+            deps,
         });
 
         StrongListener(inner)
@@ -33,22 +39,35 @@ impl Listener {
         let Some(rc) = self.0.upgrade() else {
             return false;
         };
-
-        let Some(spread_action) = rc.dirty_count.push(action) else {
-            return true;
-        };
-
-        (rc.callback)(spread_action)
+        rc.push_action(action)
     }
 }
 
-struct Inner<F: ?Sized> {
+struct Inner<F, D> {
     dirty_count: DirtyCount,
     callback: F,
+    deps: D,
 }
 
-impl Clone for Listener {
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
+pub(super) trait ListenerInner {
+    fn push_action(&self, action: CallbackAction) -> bool;
+    fn start_listen(&self, self_as_listener: &StrongListener);
+}
+
+impl<F, D> ListenerInner for Inner<F, D>
+where
+    F: Fn(CallbackAction, &D) -> bool,
+    D: SignalGroup,
+{
+    fn push_action(&self, action: CallbackAction) -> bool {
+        match self.dirty_count.push(action) {
+            Some(spread_action) => (self.callback)(spread_action, &self.deps),
+            None => true,
+        }
+    }
+
+    fn start_listen(&self, self_as_listener: &StrongListener) {
+        self.deps
+            .dependent_many(Listener(Rc::downgrade(&self_as_listener.0)));
     }
 }

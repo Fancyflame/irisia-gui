@@ -1,4 +1,5 @@
 use std::{
+    marker::PhantomData,
     ops::{Deref, DerefMut},
     rc::Rc,
 };
@@ -14,7 +15,7 @@ use smallvec::SmallVec;
 mod callback_chain;
 
 pub struct SignalBuilder<T, C> {
-    pub(super) value: T,
+    pub(super) _value: PhantomData<T>,
     pub(super) callbacks: C,
 }
 
@@ -28,7 +29,7 @@ where
         D: SignalGroup + 'static,
     {
         SignalBuilder {
-            value: self.value,
+            _value: PhantomData,
             callbacks: CallbackNode {
                 deps,
                 callback,
@@ -36,36 +37,13 @@ where
             },
         }
     }
-
-    pub fn dep_call<F, D>(
-        mut self,
-        callback: F,
-        deps: D,
-        enable: bool,
-    ) -> SignalBuilder<T, CallbackNode<F, D, C>>
-    where
-        F: Fn(Setter<T>, D::Data<'_>) + 'static,
-        D: SignalGroup + 'static,
-    {
-        if enable {
-            callback(
-                Setter {
-                    r: &mut self.value,
-                    mutated: &mut true,
-                },
-                D::deref_wrapper(&deps.read_many()),
-            );
-        }
-
-        self.dep(callback, deps)
-    }
 }
 
 impl<T, C> SignalBuilder<T, C>
 where
     T: 'static,
 {
-    pub fn build(self) -> Signal<T>
+    pub fn build(self, value: T) -> Signal<T>
     where
         C: CallbackChain<T> + 'static,
     {
@@ -73,7 +51,7 @@ where
             let mut store_list = StrongListenerList(SmallVec::new());
             self.callbacks.listen(weak.clone(), &mut store_list);
             Inner {
-                value: TraceCell::new(self.value),
+                value: TraceCell::new(value),
                 global_dirty_count: DirtyCount::new(),
                 _store_list: store_list,
                 listeners: ListenerList::new(),
