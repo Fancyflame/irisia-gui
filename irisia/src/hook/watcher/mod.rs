@@ -64,7 +64,6 @@ pub trait WatcherGuard {
             }
         });
 
-        strong_listener.start_listen();
         self.push(Watcher(strong_listener));
         self
     }
@@ -117,7 +116,6 @@ pub trait WatcherGuard {
             false
         });
 
-        strong_listener.start_listen();
         self.push(Watcher(strong_listener));
         self
     }

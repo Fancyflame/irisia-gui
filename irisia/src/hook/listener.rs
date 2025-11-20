@@ -11,12 +11,6 @@ pub struct Listener(Weak<dyn ListenerInner>);
 #[derive(Clone)]
 pub(crate) struct StrongListener(#[allow(dead_code)] Rc<dyn ListenerInner>);
 
-impl StrongListener {
-    pub fn start_listen(&self) {
-        self.0.start_listen(self);
-    }
-}
-
 impl Listener {
     /// The callback **must NOT capture hooks** or will cause underlying memory leaks.
     ///
@@ -32,6 +26,7 @@ impl Listener {
             deps,
         });
 
+        inner.start_listen(Listener(Rc::downgrade(&inner) as _));
         StrongListener(inner)
     }
 
@@ -51,7 +46,7 @@ struct Inner<F, D> {
 
 pub(super) trait ListenerInner {
     fn push_action(&self, action: CallbackAction) -> bool;
-    fn start_listen(&self, self_as_listener: &StrongListener);
+    fn start_listen(&self, self_as_listener: Listener);
 }
 
 impl<F, D> ListenerInner for Inner<F, D>
@@ -66,8 +61,7 @@ where
         }
     }
 
-    fn start_listen(&self, self_as_listener: &StrongListener) {
-        self.deps
-            .dependent_many(Listener(Rc::downgrade(&self_as_listener.0)));
+    fn start_listen(&self, self_as_listener: Listener) {
+        self.deps.dependent_many(self_as_listener);
     }
 }
