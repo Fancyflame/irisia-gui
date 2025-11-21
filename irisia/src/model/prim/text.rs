@@ -1,12 +1,9 @@
-use crate as irisia;
+use crate::{self as irisia, hook::watcher::Watcher};
 use irisia_macros::Property;
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{
-    hook::{
-        Signal,
-        watcher::{WatcherGuard, WatcherList},
-    },
+    hook::Signal,
     model::{Model, ModelCreateCtx, UnitModel, VModel, VNode, component::Component},
     prim_element::{
         Element, EventCallback,
@@ -24,7 +21,7 @@ pub struct Text {
 }
 
 impl Component for Text {
-    fn create(self, _watcher_list: &mut WatcherList) -> impl VNode<()> + use<> {
+    fn create(self, _watcher_list: &mut Vec<Watcher>) -> impl VNode<()> + use<> {
         PrimitiveVnodeWrapper(self)
     }
 }
@@ -45,12 +42,11 @@ impl VModel<()> for PrimitiveVnodeWrapper<Text> {
             }),
         }));
 
-        let mut wl = WatcherList::new();
-        wl.watch_borrow_mut(
+        let wl = vec![Watcher::with(
             &model,
-            TextModel::update_text_and_style,
             (self.0.text.clone(), self.0.style.clone()),
-        );
+            TextModel::update_text_and_style,
+        )];
 
         PrimitiveModel {
             _watcher_list: wl,

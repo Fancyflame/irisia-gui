@@ -1,4 +1,4 @@
-use crate::hook::utils::{trace_cell::TraceMut, CallbackAction, ListenerList};
+use crate::hook::utils::{CallbackAction, ListenerList, trace_cell::TraceMut};
 use std::ops::{Deref, DerefMut};
 
 pub struct WriteGuard<'a, T: ?Sized> {

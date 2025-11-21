@@ -1,4 +1,6 @@
 use std::{
+    cell::RefCell,
+    collections::VecDeque,
     marker::PhantomData,
     ops::{Deref, DerefMut},
     rc::Rc,
@@ -9,10 +11,10 @@ use crate::hook::{
     signal_group::SignalGroup,
     utils::{DirtyCount, ListenerList, TraceCell},
 };
-use callback_chain::{CallbackChain, CallbackNode};
+pub use dep_chain::{BuilderDepChain, BuilderDepNode};
 use smallvec::SmallVec;
 
-mod callback_chain;
+mod dep_chain;
 
 pub struct SignalBuilder<T, C> {
     pub(super) _value: PhantomData<T>,
@@ -23,14 +25,14 @@ impl<T, C> SignalBuilder<T, C>
 where
     T: 'static,
 {
-    pub fn dep<F, D>(self, callback: F, deps: D) -> SignalBuilder<T, CallbackNode<F, D, C>>
+    pub fn dep<F, D>(self, callback: F, deps: D) -> SignalBuilder<T, BuilderDepNode<F, D, C>>
     where
         F: Fn(Setter<T>, D::Data<'_>) + 'static,
         D: SignalGroup + 'static,
     {
         SignalBuilder {
             _value: PhantomData,
-            callbacks: CallbackNode {
+            callbacks: BuilderDepNode {
                 deps,
                 callback,
                 next: self.callbacks,
@@ -45,7 +47,7 @@ where
 {
     pub fn build(self, value: T) -> Signal<T>
     where
-        C: CallbackChain<T> + 'static,
+        C: BuilderDepChain<T> + 'static,
     {
         let inner = Rc::new_cyclic(|weak| {
             let mut store_list = StrongListenerList(SmallVec::new());
@@ -53,7 +55,8 @@ where
             Inner {
                 value: TraceCell::new(value),
                 global_dirty_count: DirtyCount::new(),
-                _store_list: store_list,
+                dep_list: store_list,
+                delay_update_indexes: RefCell::new(VecDeque::new()),
                 listeners: ListenerList::new(),
             }
         });

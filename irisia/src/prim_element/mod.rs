@@ -10,7 +10,7 @@ use crate::{
         content::GlobalContent,
         event2::pointer_event::{PointerEvent, PointerStateDelta},
     },
-    hook::{Signal, utils::trace_cell::TraceRef},
+    hook::{Signal, signal::SignalRef},
     primitive::{Point, Rect, Region, size::Size},
 };
 
@@ -150,7 +150,7 @@ fn read_or_default<'a, T: ?Sized>(
 ) -> impl Deref<Target = T> + use<'a, T> {
     enum Ref<'a, T: ?Sized> {
         Ref(&'a T),
-        TRef(TraceRef<'a, T>),
+        TRef(SignalRef<'a, T>),
     }
 
     impl<T: ?Sized> Deref for Ref<'_, T> {

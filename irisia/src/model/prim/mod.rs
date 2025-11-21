@@ -1,5 +1,5 @@
-use super::{UnitModel, Model};
-use crate::{Handle, hook::watcher::WatcherList, prim_element::Element};
+use super::{Model, UnitModel};
+use crate::{Handle, hook::watcher::Watcher, prim_element::Element};
 
 pub use self::{block::Block, text::Text};
 pub use crate::prim_element::block::layout::DefaultLayouter;
@@ -13,7 +13,7 @@ struct PrimitiveVnodeWrapper<T>(T);
 
 pub struct PrimitiveModel<T> {
     model: Handle<T>,
-    _watcher_list: WatcherList,
+    _watcher_list: Vec<Watcher>,
 }
 
 impl<T, Cd> Model<Cd> for PrimitiveModel<T>

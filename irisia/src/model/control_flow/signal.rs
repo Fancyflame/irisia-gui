@@ -5,11 +5,8 @@ use std::{
 
 use crate::{
     Handle,
-    hook::{
-        Signal,
-        watcher::{WatcherGuard, WatcherList},
-    },
-    model::{UnitModel, Model, ModelCreateCtx, VModel},
+    hook::{Signal, watcher::Watcher},
+    model::{Model, ModelCreateCtx, UnitModel, VModel},
     prim_element::Element,
 };
 
@@ -42,20 +39,17 @@ where
 {
     let ctx = ctx.clone();
     let model = init_state.clone();
-    let mut watcher_list = WatcherList::new();
+    let mut watcher_list = Vec::new();
 
-    watcher_list.watch(
-        {
-            let model = model.clone();
-            move |vmodel: &T| {
-                vmodel.update(&mut model.borrow_mut(), &ctx);
-                if let Some(parent) = ctx.parent.as_ref().and_then(Weak::upgrade) {
-                    parent.borrow_mut().submit_children();
-                }
+    watcher_list.push(Watcher::watch(vmodel.clone(), {
+        let model = model.clone();
+        move |vmodel: &T| {
+            vmodel.update(&mut model.borrow_mut(), &ctx);
+            if let Some(parent) = ctx.parent.as_ref().and_then(Weak::upgrade) {
+                parent.borrow_mut().submit_children();
             }
-        },
-        vmodel.clone(),
-    );
+        }
+    }));
 
     SignalModel {
         vmodel_addr: vmodel.addr(),
@@ -66,7 +60,7 @@ where
 
 pub struct SignalModel<T> {
     vmodel_addr: *const (),
-    _watcher_list: WatcherList,
+    _watcher_list: Vec<Watcher>,
     model: Option<Handle<T>>,
 }
 

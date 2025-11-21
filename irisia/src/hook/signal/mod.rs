@@ -1,6 +1,7 @@
 use std::{
     fmt::{Debug, Formatter},
     marker::PhantomData,
+    ops::Deref,
     rc::Rc,
 };
 
@@ -73,8 +74,11 @@ impl<T: 'static> Signal<T> {
 }
 
 impl<T: ?Sized> Signal<T> {
-    pub fn read(&self) -> TraceRef<'_, T> {
-        self.inner.read()
+    pub fn read(&self) -> SignalRef<'_, T> {
+        SignalRef {
+            r: self.inner.read(),
+            _drop: SignalRefDrop(self),
+        }
     }
 
     pub fn dependent(&self, l: Listener) {
@@ -110,7 +114,7 @@ impl<T: ?Sized> WriteSignal<T> {
         *self.write() = data;
     }
 
-    pub fn read(&self) -> TraceRef<'_, T> {
+    pub fn read(&self) -> SignalRef<'_, T> {
         self.0.read()
     }
 
@@ -171,4 +175,29 @@ fn debug_signal<T: Debug + ?Sized>(
         .field("value", value)
         .field("addr", &signal.addr())
         .finish()
+}
+
+pub struct SignalRef<'a, T: ?Sized> {
+    r: TraceRef<'a, T>,
+    _drop: SignalRefDrop<'a, T>,
+}
+
+impl<T: ?Sized> Deref for SignalRef<'_, T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.r
+    }
+}
+
+struct SignalRefDrop<'a, T: ?Sized>(&'a Signal<T>);
+
+impl<T: ?Sized> Drop for SignalRefDrop<'_, T> {
+    fn drop(&mut self) {
+        let inner = &self.0.inner;
+        // occupy the lock to prevent cyclic update
+        let mut list = inner.delay_update_indexes.borrow_mut();
+        for index in list.drain(..) {
+            inner.dep_list.0[index].manual_update();
+        }
+    }
 }

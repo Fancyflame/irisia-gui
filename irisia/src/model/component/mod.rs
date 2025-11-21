@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use definition::Definition;
 
-use crate::{hook::watcher::WatcherList, prim_element::Element};
+use crate::{hook::watcher::Watcher, prim_element::Element};
 
 use super::{Model, ModelCreateCtx, UnitModel, VModel, VNode};
 
@@ -38,7 +38,7 @@ where
 }
 
 pub trait Component: 'static {
-    fn create(self, watcher_list: &mut WatcherList) -> impl VNode + use<Self>;
+    fn create(self, watcher_list: &mut Vec<Watcher>) -> impl VNode + use<Self>;
 }
 
 impl<T, Cdmd, Cd, D> VModel<Cd> for UseComponent<T, Cdmd, D>
@@ -51,7 +51,7 @@ where
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
         let (def_storages, def_values) = self.defs.create();
-        let mut watcher_list = WatcherList::new();
+        let mut watcher_list = Vec::new();
         let vmodel = T::create(def_values, &mut watcher_list);
 
         let model = Box::new(vmodel.create(ctx));
@@ -70,7 +70,7 @@ where
 }
 
 pub struct UseComponentModel<D, Cdmd> {
-    _watcher_list: WatcherList,
+    _watcher_list: Vec<Watcher>,
     defs: D,
     child_data: Cdmd,
     model: Box<dyn UnitModel<()>>,

@@ -1,8 +1,8 @@
 use impl_variadics::impl_variadics;
 
-use crate::hook::signal::WriteSignal;
+use crate::hook::signal::{SignalRef, WriteSignal};
 
-use super::{Listener, Signal, utils::trace_cell::TraceRef};
+use super::{Listener, Signal};
 
 pub trait SignalGroup {
     type DataWrapper<'a>
@@ -25,7 +25,7 @@ where
     T: ?Sized,
 {
     type DataWrapper<'a>
-        = TraceRef<'a, T>
+        = SignalRef<'a, T>
     where
         Self: 'a;
 
@@ -55,7 +55,7 @@ where
     T: ?Sized,
 {
     type DataWrapper<'a>
-        = TraceRef<'a, T>
+        = SignalRef<'a, T>
     where
         Self: 'a;
 

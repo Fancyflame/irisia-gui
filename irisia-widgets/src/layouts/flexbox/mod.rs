@@ -1,6 +1,6 @@
 use irisia::{
     build,
-    hook::Signal,
+    hook::{watcher::Watcher, Signal},
     model::{component::Component, control_flow::CommonVModel, prim::Block},
     prim_element::block::BlockStyle,
     primitive::Length,
@@ -21,10 +21,7 @@ pub struct Flex {
 }
 
 impl Component for Flex {
-    fn create(
-        self,
-        _watcher_list: &mut irisia::hook::watcher::WatcherList,
-    ) -> impl irisia::model::VNode<()> + use<> {
+    fn create(self, _watcher_list: &mut Vec<Watcher>) -> impl irisia::model::VNode<()> + use<> {
         Signal::memo_ncmp(self.style, move |style| {
             let style = style.cloned().unwrap_or_default();
             build! {

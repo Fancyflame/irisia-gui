@@ -1,13 +1,10 @@
-use crate as irisia;
+use crate::{self as irisia, hook::watcher::Watcher};
 use irisia_macros::Property;
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     WeakHandle,
-    hook::{
-        Signal,
-        watcher::{WatcherGuard, WatcherList},
-    },
+    hook::Signal,
     model::{
         Model, ModelCreateCtx, UnitModel, VModel, VNode,
         component::Component,
@@ -50,7 +47,7 @@ pub struct BlockModel<Cd> {
 }
 
 impl<Cd: 'static> Component for Block<Cd> {
-    fn create(self, _watcher_list: &mut WatcherList) -> impl VNode<()> + use<Cd> {
+    fn create(self, _watcher_list: &mut Vec<Watcher>) -> impl VNode<()> + use<Cd> {
         PrimitiveVnodeWrapper(self)
     }
 }
@@ -59,16 +56,15 @@ impl<Cd: 'static> VModel<()> for PrimitiveVnodeWrapper<Block<Cd>> {
     type Storage = PrimitiveModel<BlockModel<Cd>>;
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
-        let mut wl = WatcherList::new();
         let model =
             Rc::new_cyclic(|weak| RefCell::new(BlockModel::create(weak, &self.0, &ctx.el_ctx)));
 
-        wl.watch_borrow_mut(
-            &model,
-            |this, _| this.layouter_updated(),
-            self.0.display.clone(),
-        )
-        .watch_borrow_mut(&model, |this, _| this.style_updated(), self.0.style.clone());
+        let wl = vec![
+            Watcher::with(&model, self.0.display.clone(), |this, _| {
+                this.layouter_updated()
+            }),
+            Watcher::with(&model, self.0.style.clone(), |this, _| this.style_updated()),
+        ];
 
         // we don't need to care about if children mutates
 

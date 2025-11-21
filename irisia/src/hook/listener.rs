@@ -1,33 +1,22 @@
 use std::rc::{Rc, Weak};
 
-use crate::hook::signal_group::SignalGroup;
-
 use super::utils::{CallbackAction, DirtyCount};
 
 #[derive(Clone)]
-pub struct Listener(Weak<dyn ListenerInner>);
-
-/// DON'T FORGET to call `start_listen()`.
-#[derive(Clone)]
-pub(crate) struct StrongListener(#[allow(dead_code)] Rc<dyn ListenerInner>);
+pub struct Listener(Weak<dyn ListenerInnerTrait>);
 
 impl Listener {
     /// The callback **must NOT capture hooks** or will cause underlying memory leaks.
     ///
     /// And **DONT FORGET** to call `start_listen()`
-    pub(crate) fn new<D, F>(deps: D, callback: F) -> StrongListener
+    pub(super) fn new<F>(callback: F) -> Rc<ListenerInner<F>>
     where
-        D: SignalGroup + 'static,
-        F: Fn(CallbackAction, &D) -> bool + 'static,
+        F: ListenerCallback,
     {
-        let inner = Rc::new(Inner {
+        Rc::new(ListenerInner {
             dirty_count: DirtyCount::new(),
             callback,
-            deps,
-        });
-
-        inner.start_listen(Listener(Rc::downgrade(&inner) as _));
-        StrongListener(inner)
+        })
     }
 
     pub(crate) fn callback(&self, action: CallbackAction) -> bool {
@@ -38,30 +27,36 @@ impl Listener {
     }
 }
 
-struct Inner<F, D> {
+pub(super) struct ListenerInner<F: ?Sized> {
     dirty_count: DirtyCount,
-    callback: F,
-    deps: D,
+    pub callback: F,
 }
 
-pub(super) trait ListenerInner {
-    fn push_action(&self, action: CallbackAction) -> bool;
-    fn start_listen(&self, self_as_listener: Listener);
-}
-
-impl<F, D> ListenerInner for Inner<F, D>
+impl<F> ListenerInner<F>
 where
-    F: Fn(CallbackAction, &D) -> bool,
-    D: SignalGroup,
+    F: ListenerCallback,
+{
+    pub fn to_listener(self: &Rc<Self>) -> Listener {
+        Listener(Rc::downgrade(self) as _)
+    }
+}
+
+trait ListenerInnerTrait {
+    fn push_action(&self, action: CallbackAction) -> bool;
+}
+
+impl<F> ListenerInnerTrait for ListenerInner<F>
+where
+    F: ListenerCallback + ?Sized,
 {
     fn push_action(&self, action: CallbackAction) -> bool {
         match self.dirty_count.push(action) {
-            Some(spread_action) => (self.callback)(spread_action, &self.deps),
+            Some(spread_action) => self.callback.call(spread_action),
             None => true,
         }
     }
+}
 
-    fn start_listen(&self, self_as_listener: Listener) {
-        self.deps.dependent_many(self_as_listener);
-    }
+pub(super) trait ListenerCallback: 'static {
+    fn call(&self, action: CallbackAction) -> bool;
 }
