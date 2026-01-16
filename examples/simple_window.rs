@@ -1,8 +1,8 @@
 use irisia::{
-    Result, Window, WinitWindow,
+    Property, Result, Window, WinitWindow,
     application::PointerEvent,
     build, coerce_hook,
-    hook::Signal,
+    hook::{Signal, watcher::Watcher},
     model::{
         VNode,
         component::Component,
@@ -58,7 +58,7 @@ fn app() -> impl VNode<()> {
         move |&is_red| {
             build! {
                 Block::<()> {
-                    on[=]: switch_color.clone(),
+                    on[=]: Some(switch_color.clone()),
                     style: BlockStyle {
                         // width: 0.5 * VMIN,
                         // height: 0.5 * VMIN,
@@ -90,16 +90,16 @@ fn app() -> impl VNode<()> {
 
     build! {
         CustomComp {
-            vertical[=]: red_rect.to_read(),
+            vertical[=]: Some(red_rect.to_read()),
 
             (changing_rect)
 
             Text {
-                on[=]: switch_color,
+                on[=]: Some(switch_color),
                 // on PointerEvent(foo) => {
 
                 // },
-                text[=]: coerce_hook!(text),
+                text[=]: Some(coerce_hook!(text)),
                 style: TextStyle {
                     font_size: 40.0,
                     font_color: Color::MAGENTA,
@@ -138,7 +138,7 @@ fn app() -> impl VNode<()> {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Property)]
 struct CustomComp {
     vertical: Option<Signal<bool>>,
     children: Option<Signal<DynVModel<AvgProps>>>,
@@ -151,17 +151,14 @@ struct AvgProps {
 }
 
 impl Component for CustomComp {
-    fn create(
-        self,
-        _watcher_list: &mut irisia::hook::watcher::WatcherList,
-    ) -> impl VNode<()> + use<> {
+    fn create(self, _watcher_list: &mut Vec<Watcher>) -> impl VNode<()> + use<> {
         let layout = Signal::memo(self.vertical, |vertical| AverageDivideLayout {
             vertical: vertical.copied().unwrap_or(false),
         });
 
         build! {
             Block {
-                display[=]: coerce_hook!(layout),
+                display[=]: Some(coerce_hook!(layout)),
                 style: BlockStyle {
                     // width: 0.7 * PCT,
                     // height: 0.7 * PCT,

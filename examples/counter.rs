@@ -1,6 +1,6 @@
 use irisia::{
     Property, Result, Window, WinitWindow, build, coerce_hook,
-    hook::{Signal, watcher::WatcherList},
+    hook::{Signal, watcher::Watcher},
     model::{
         VModel, VNode,
         component::Component,
@@ -73,7 +73,7 @@ struct CenterBox {
 }
 
 impl Component for CenterBox {
-    fn create(self, _: &mut WatcherList) -> impl VNode<()> + use<> {
+    fn create(self, _: &mut Vec<Watcher>) -> impl VNode<()> + use<> {
         build! {
             Flex {
                 self: self.flex,
