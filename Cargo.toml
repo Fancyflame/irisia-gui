@@ -9,7 +9,7 @@ members = [
     "irisia-macros",
     "irisia-utils",
     "examples",
-    "tests",
+    "tests", "irisia-log",
 ]
 resolver = "3"
 
@@ -52,3 +52,4 @@ taffy = { version = "0.8", default-features = false, features = [
 thiserror = "1.0"
 tokio = "1.40"
 winit = "0.30"
+tracing = "0.1"

@@ -6,9 +6,9 @@ use irisia::{
     build, coerce_hook,
     hook::Signal,
     model::{
-        VNode,
+        VUnitModel,
         component::Component,
-        control_flow::common_vmodel::DynVModel,
+        control_flow::general::DynVModel,
         prim::{Block, Text},
     },
     prim_element::{
@@ -42,7 +42,7 @@ async fn main() -> Result<()> {
     .await;
 }
 
-fn app() -> impl VNode<()> {
+fn app() -> impl VUnitModel<()> {
     let flex_direction = Signal::state(FlexDirection::Row);
 
     let is_row_cell = Cell::new(true);
@@ -116,7 +116,7 @@ fn app() -> impl VNode<()> {
     }
 }
 
-fn create_block() -> impl VNode<FlexItemStyle> {
+fn create_block() -> impl VUnitModel<FlexItemStyle> {
     build! {
         Block::<()> {
             style: BlockStyle::DEFAULT

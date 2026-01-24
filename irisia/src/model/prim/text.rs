@@ -4,7 +4,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     hook::Signal,
-    model::{Model, ModelCreateCtx, UnitModel, VModel, VNode, component::Component},
+    model::{Model, ModelCreateCtx, UnitModel, VModel, VUnitModel, component::Component},
     prim_element::{
         Element, EventCallback,
         text::{RenderText, SignalStr, TextStyle},
@@ -21,7 +21,7 @@ pub struct Text {
 }
 
 impl Component for Text {
-    fn create(self, _watcher_list: &mut Vec<Watcher>) -> impl VNode<()> + use<> {
+    fn create(self, _watcher_list: &mut Vec<Watcher>) -> impl VUnitModel<()> + use<> {
         PrimitiveVnodeWrapper(self)
     }
 }
@@ -77,13 +77,13 @@ impl TextModel {
 }
 
 impl UnitModel<()> for TextModel {
-    fn get_element(&self) -> (Element, ()) {
+    fn visit_unit_raw(&self) -> (Element, ()) {
         (self.el.clone(), ())
     }
 }
 
 impl Model<()> for TextModel {
-    fn visit(&self, f: &mut dyn FnMut(Element, ())) {
+    fn visit_raw(&self, f: &mut dyn FnMut(Element, ())) {
         f(self.el.clone(), ())
     }
 }

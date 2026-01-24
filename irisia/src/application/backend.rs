@@ -10,7 +10,7 @@ use irisia_backend::{
 use crate::{
     Result,
     event::{EventDispatcher, standard::WindowDestroyed},
-    model::{ModelCreateCtx, UnitModel, VNode},
+    model::{ModelCreateCtx, UnitVModel, control_flow::general::BoxedUnitModel},
     prim_element::{
         EMCreateCtx, EmitEventArgs, RenderTreeExt, callback_queue::CallbackQueue,
         layout::LayoutInput,
@@ -33,7 +33,7 @@ use super::{
 pub(super) struct BackendRuntime {
     pointer_state: PointerState,
     gc: Rc<GlobalContent>,
-    root_model: Box<dyn UnitModel>,
+    root_model: BoxedUnitModel,
     window_resized: bool,
     callback_queue: CallbackQueue,
 }
@@ -64,7 +64,7 @@ impl AppWindow for BackendRuntime {
         self.gc.redraw_scheduler.redraw(
             canvas,
             interval,
-            &self.root_model.get_element().0,
+            &self.root_model.visit_unit_raw().0,
             redraw_root_inputs,
         );
 
@@ -93,7 +93,7 @@ impl AppWindow for BackendRuntime {
         self.pointer_state = next;
 
         self.root_model
-            .get_element()
+            .visit_unit_raw()
             .0
             .borrow_mut()
             .emit_event(&mut EmitEventArgs {
@@ -135,7 +135,7 @@ pub(super) async fn new_window<F, T>(
 ) -> Result<Window>
 where
     F: FnOnce() -> T + Send + 'static,
-    T: VNode,
+    T: UnitVModel,
 {
     let ev_disp = EventDispatcher::new();
 

@@ -1,10 +1,13 @@
-use std::marker::PhantomData;
+use std::{any::Any, marker::PhantomData};
 
 use definition::Definition;
 
-use crate::{hook::watcher::Watcher, prim_element::Element};
+use crate::{
+    hook::watcher::Watcher,
+    model::{UnitAssertion, UnitVModel, VisitModelFn, control_flow::general::BoxedUnitModel},
+};
 
-use super::{Model, ModelCreateCtx, UnitModel, VModel, VNode};
+use super::{Model, ModelCreateCtx, VModel};
 
 pub mod definition;
 pub mod property;
@@ -15,7 +18,7 @@ pub struct UseComponent<T, Cd, D> {
     defs: D,
 }
 
-impl<T, D> UseComponent<T, ChildDataUndefined, D>
+impl<T, D> UseComponent<T, ChildDataNone, D>
 where
     T: Component,
     D: Definition,
@@ -23,27 +26,27 @@ where
     pub fn new(defs: D) -> Self {
         Self {
             _comp: PhantomData,
-            child_data: ChildDataUndefined,
+            child_data: ChildDataNone,
             defs,
         }
     }
 
-    pub fn set_child_data<Cd>(self, child_data: Cd) -> UseComponent<T, ChildDataDefined<Cd>, D> {
+    pub fn set_child_data<Cd>(self, child_data: Cd) -> UseComponent<T, ChildDataSome<Cd>, D> {
         UseComponent {
             _comp: PhantomData,
-            child_data: ChildDataDefined(child_data),
+            child_data: ChildDataSome(child_data),
             defs: self.defs,
         }
     }
 }
 
 pub trait Component: 'static {
-    fn create(self, watcher_list: &mut Vec<Watcher>) -> impl VNode + use<Self>;
+    fn create(self, watcher_list: &mut Vec<Watcher>) -> impl UnitVModel + use<Self>;
 }
 
-impl<T, Cdmd, Cd, D> VModel<Cd> for UseComponent<T, Cdmd, D>
+impl<T, Cdmd, D> VModel for UseComponent<T, Cdmd, D>
 where
-    Cdmd: ChildDataMaybeDefined<Cd> + Clone + 'static,
+    Cdmd: ChildDataMaybeDefined + Clone + 'static,
     T: Component,
     D: Definition<Value = T>,
 {
@@ -73,50 +76,41 @@ pub struct UseComponentModel<D, Cdmd> {
     _watcher_list: Vec<Watcher>,
     defs: D,
     child_data: Cdmd,
-    model: Box<dyn UnitModel<()>>,
+    model: BoxedUnitModel,
 }
 
-impl<D, Cdmd, Cd> Model<Cd> for UseComponentModel<D, Cdmd>
+impl<D, Cdmd> Model for UseComponentModel<D, Cdmd>
 where
-    Cdmd: ChildDataMaybeDefined<Cd>,
+    Cdmd: ChildDataMaybeDefined,
     Self: 'static,
 {
-    fn visit(&self, f: &mut dyn FnMut(Element, Cd)) {
-        let (el, cd) = self.get_element();
-        f(el, cd)
+    fn visit_raw(&self, f: VisitModelFn) {
+        self.model.visit_raw(|el, _| f(el, self.child_data.get()));
     }
 }
 
-impl<D, Cdmd, Cd> UnitModel<Cd> for UseComponentModel<D, Cdmd>
-where
-    Cdmd: ChildDataMaybeDefined<Cd>,
-    Self: 'static,
-{
-    fn get_element(&self) -> (Element, Cd) {
-        (self.model.get_element().0, self.child_data.get_child_data())
-    }
-}
+impl<D, Cdmd> UnitAssertion for UseComponentModel<D, Cdmd> {}
 
 // Child Data
 
 #[derive(Clone)]
-pub struct ChildDataDefined<T>(T);
+pub struct ChildDataSome<T>(T);
 
 #[derive(Clone, Copy)]
-pub struct ChildDataUndefined;
+pub struct ChildDataNone;
 
-pub trait ChildDataMaybeDefined<T> {
-    fn get_child_data(&self) -> T;
+pub trait ChildDataMaybeDefined {
+    fn get(&self) -> Option<&dyn Any>;
 }
 
-impl<T: Clone> ChildDataMaybeDefined<T> for ChildDataDefined<T> {
-    fn get_child_data(&self) -> T {
-        self.0.clone()
+impl<T: 'static> ChildDataMaybeDefined for ChildDataSome<T> {
+    fn get(&self) -> Option<&dyn Any> {
+        Some(&self.0)
     }
 }
 
-impl<T: Default> ChildDataMaybeDefined<T> for ChildDataUndefined {
-    fn get_child_data(&self) -> T {
-        T::default()
+impl ChildDataMaybeDefined for ChildDataNone {
+    fn get(&self) -> Option<&dyn Any> {
+        None
     }
 }

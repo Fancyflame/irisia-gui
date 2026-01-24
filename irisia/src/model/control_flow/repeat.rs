@@ -3,14 +3,14 @@ use std::{
     hash::Hash,
 };
 
-use crate::{model::ModelCreateCtx, prim_element::Element};
+use crate::model::{ModelCreateCtx, VisitModelFn};
 
 use crate::model::{Model, VModel};
 
-impl<K, T, Cd> VModel<Cd> for Vec<(K, T)>
+impl<K, T> VModel for Vec<(K, T)>
 where
     K: Hash + Eq + Clone + 'static,
-    T: VModel<Cd>,
+    T: VModel,
 {
     type Storage = RepeatModel<K, T::Storage>;
 
@@ -74,14 +74,14 @@ struct Item<T> {
     value: T,
 }
 
-impl<K, T, Cd> Model<Cd> for RepeatModel<K, T>
+impl<K, T> Model for RepeatModel<K, T>
 where
     K: Hash + Eq + 'static,
-    T: Model<Cd>,
+    T: Model,
 {
-    fn visit(&self, f: &mut dyn FnMut(Element, Cd)) {
+    fn visit_raw(&self, f: VisitModelFn) {
         for key in &self.order {
-            self.map[key].value.visit(f);
+            self.map[key].value.visit_raw(f);
         }
     }
 }

@@ -6,13 +6,12 @@ use std::{
 use crate::{
     Handle,
     hook::{Signal, watcher::Watcher},
-    model::{Model, ModelCreateCtx, UnitModel, VModel},
-    prim_element::Element,
+    model::{Model, ModelCreateCtx, VModel, VisitModelFn, unit::UnitAssertion},
 };
 
-impl<T, Cd> VModel<Cd> for Signal<T>
+impl<T> VModel for Signal<T>
 where
-    T: VModel<Cd> + ?Sized + 'static,
+    T: VModel + ?Sized + 'static,
 {
     type Storage = SignalModel<T::Storage>;
 
@@ -29,13 +28,13 @@ where
     }
 }
 
-fn make_model<T, Cd>(
+fn make_model<T>(
     vmodel: &Signal<T>,
     init_state: Rc<RefCell<T::Storage>>,
     ctx: &ModelCreateCtx,
 ) -> SignalModel<T::Storage>
 where
-    T: VModel<Cd> + ?Sized + 'static,
+    T: VModel + ?Sized + 'static,
 {
     let ctx = ctx.clone();
     let model = init_state.clone();
@@ -64,20 +63,13 @@ pub struct SignalModel<T> {
     model: Option<Handle<T>>,
 }
 
-impl<T, Cd> Model<Cd> for SignalModel<T>
+impl<T> Model for SignalModel<T>
 where
-    T: Model<Cd>,
+    T: Model,
 {
-    fn visit(&self, f: &mut dyn FnMut(Element, Cd)) {
-        self.model.as_ref().unwrap().borrow().visit(f);
+    fn visit_raw(&self, f: VisitModelFn) {
+        self.model.as_ref().unwrap().borrow().visit_raw(f);
     }
 }
 
-impl<T, Cd> UnitModel<Cd> for SignalModel<T>
-where
-    T: UnitModel<Cd>,
-{
-    fn get_element(&self) -> (Element, Cd) {
-        self.model.as_ref().unwrap().borrow().get_element()
-    }
-}
+impl<T> UnitAssertion for SignalModel<T> where T: UnitAssertion {}

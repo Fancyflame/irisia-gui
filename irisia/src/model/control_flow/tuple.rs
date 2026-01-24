@@ -1,12 +1,9 @@
-use crate::{
-    model::{Model, ModelCreateCtx, VModel},
-    prim_element::Element,
-};
+use crate::model::{Model, ModelCreateCtx, VModel, VisitModelFn};
 
-impl<A, B, Cd> VModel<Cd> for (A, B)
+impl<A, B> VModel for (A, B)
 where
-    A: VModel<Cd>,
-    B: VModel<Cd>,
+    A: VModel,
+    B: VModel,
 {
     type Storage = (A::Storage, B::Storage);
 
@@ -20,24 +17,24 @@ where
     }
 }
 
-impl<A, B, Cd> Model<Cd> for (A, B)
+impl<A, B> Model for (A, B)
 where
-    A: Model<Cd>,
-    B: Model<Cd>,
+    A: Model,
+    B: Model,
 {
-    fn visit(&self, f: &mut dyn FnMut(Element, Cd)) {
-        self.0.visit(f);
-        self.1.visit(f);
+    fn visit_raw(&self, f: VisitModelFn) {
+        self.0.visit_raw(f);
+        self.1.visit_raw(f);
     }
 }
 
-impl<Cd> VModel<Cd> for () {
+impl VModel for () {
     type Storage = ();
 
     fn create(&self, _: &ModelCreateCtx) -> Self::Storage {}
     fn update(&self, _: &mut Self::Storage, _: &ModelCreateCtx) {}
 }
 
-impl<Cd> Model<Cd> for () {
-    fn visit(&self, _: &mut dyn FnMut(Element, Cd)) {}
+impl Model for () {
+    fn visit_raw(&self, _: VisitModelFn) {}
 }

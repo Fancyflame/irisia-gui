@@ -2,9 +2,9 @@ use irisia::{
     Property, Result, Window, WinitWindow, build, coerce_hook,
     hook::{Signal, watcher::Watcher},
     model::{
-        VModel, VNode,
+        VModel, VUnitModel,
         component::Component,
-        control_flow::CommonVModel,
+        control_flow::GeneralVModel,
         prim::{Block, Text},
     },
     prim_element::{
@@ -30,7 +30,7 @@ async fn main() -> Result<()> {
     .await;
 }
 
-fn app() -> impl VNode<()> {
+fn app() -> impl VUnitModel<()> {
     let counter = Signal::state(0);
 
     build! {
@@ -73,7 +73,7 @@ struct CenterBox {
 }
 
 impl Component for CenterBox {
-    fn create(self, _: &mut Vec<Watcher>) -> impl VNode<()> + use<> {
+    fn create(self, _: &mut Vec<Watcher>) -> impl VUnitModel<()> + use<> {
         build! {
             Flex {
                 self: self.flex,

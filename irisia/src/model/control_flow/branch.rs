@@ -1,5 +1,4 @@
-use crate::model::{UnitModel, Model, ModelCreateCtx, VModel};
-use crate::prim_element::Element;
+use crate::model::{Model, ModelCreateCtx, VModel, VisitModelFn, unit::UnitAssertion};
 
 #[derive(PartialEq)]
 pub enum Branch<A, B> {
@@ -7,9 +6,9 @@ pub enum Branch<A, B> {
     B(B),
 }
 
-impl<T, Cd> VModel<Cd> for Option<T>
+impl<T> VModel for Option<T>
 where
-    T: VModel<Cd>,
+    T: VModel,
 {
     type Storage = Branch<T::Storage, ()>;
 
@@ -30,10 +29,10 @@ where
     }
 }
 
-impl<A, B, Cd> VModel<Cd> for Branch<A, B>
+impl<A, B> VModel for Branch<A, B>
 where
-    A: VModel<Cd>,
-    B: VModel<Cd>,
+    A: VModel,
+    B: VModel,
 {
     type Storage = Branch<A::Storage, B::Storage>;
 
@@ -67,28 +66,22 @@ where
     }
 }
 
-impl<A, B, Cd> Model<Cd> for Branch<A, B>
+impl<A, B> Model for Branch<A, B>
 where
-    A: Model<Cd>,
-    B: Model<Cd>,
+    A: Model,
+    B: Model,
 {
-    fn visit(&self, f: &mut dyn FnMut(Element, Cd)) {
+    fn visit_raw(&self, f: VisitModelFn) {
         match self {
-            Self::A(a) => a.visit(f),
-            Self::B(b) => b.visit(f),
+            Self::A(a) => a.visit_raw(f),
+            Self::B(b) => b.visit_raw(f),
         }
     }
 }
 
-impl<A, B, Cd> UnitModel<Cd> for Branch<A, B>
+impl<A, B> UnitAssertion for Branch<A, B>
 where
-    A: UnitModel<Cd>,
-    B: UnitModel<Cd>,
+    A: UnitAssertion,
+    B: UnitAssertion,
 {
-    fn get_element(&self) -> (Element, Cd) {
-        match self {
-            Self::A(a) => a.get_element(),
-            Self::B(b) => b.get_element(),
-        }
-    }
 }

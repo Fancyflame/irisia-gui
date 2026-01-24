@@ -8,7 +8,7 @@ use irisia_backend::{
 use crate::{
     Result,
     event::{EventDispatcher, standard::WindowDestroyed},
-    model::VNode,
+    model::UnitVModel,
     prim_element::layout::SpaceConstraint,
     primitive::size::Size,
 };
@@ -35,7 +35,7 @@ impl Window {
     pub async fn new<F, T>(wa: WindowAttributes, dom: F) -> Result<Self>
     where
         F: FnOnce() -> T + Send + 'static,
-        T: VNode,
+        T: UnitVModel,
     {
         new_window(wa, dom).await
     }

@@ -4,9 +4,9 @@ use irisia::{
     build, coerce_hook,
     hook::{Signal, watcher::Watcher},
     model::{
-        VNode,
+        VUnitModel,
         component::Component,
-        control_flow::common_vmodel::DynVModel,
+        control_flow::general::DynVModel,
         prim::{Block, Text},
     },
     prim_element::{
@@ -34,7 +34,7 @@ async fn main() -> Result<()> {
     .await;
 }
 
-fn app() -> impl VNode<()> {
+fn app() -> impl VUnitModel<()> {
     let red_rect = Signal::state(false);
     let switch_color: Signal<dyn Fn(PointerEvent)> = {
         let red_rect = red_rect.clone();
@@ -151,7 +151,7 @@ struct AvgProps {
 }
 
 impl Component for CustomComp {
-    fn create(self, _watcher_list: &mut Vec<Watcher>) -> impl VNode<()> + use<> {
+    fn create(self, _watcher_list: &mut Vec<Watcher>) -> impl VUnitModel<()> + use<> {
         let layout = Signal::memo(self.vertical, |vertical| AverageDivideLayout {
             vertical: vertical.copied().unwrap_or(false),
         });

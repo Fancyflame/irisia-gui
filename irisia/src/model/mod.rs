@@ -1,43 +1,45 @@
+use std::any::Any;
+
 use crate::{
     WeakHandle,
-    model::{control_flow::elimate_child_data::ElimateChildData, prim::SubmitChildren},
+    model::prim::SubmitChildren,
     prim_element::{EMCreateCtx, Element},
 };
 
 pub use style::UseStyle;
+pub use unit::*;
 
 pub mod component;
 pub mod control_flow;
-// pub mod map_parent_props;
 pub mod prim;
 pub mod style;
+mod unit;
 
-pub trait VModel<Cd> {
-    type Storage: Model<Cd>;
+type VisitModelFn<'a> = &'a mut (dyn FnMut(Element, Option<&dyn Any>) + 'a);
+
+pub trait VModel {
+    type Storage: Model;
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage;
     fn update(&self, storage: &mut Self::Storage, ctx: &ModelCreateCtx);
+}
 
-    // Provided
+pub trait Model: 'static {
+    fn visit_raw(&self, f: VisitModelFn);
+}
 
-    fn elimate_child_data(self) -> ElimateChildData<Self, Cd>
+pub trait ModelExt: Model {
+    fn visit<F, Data>(&self, mut f: F)
     where
-        Self: Sized,
+        F: FnMut(Element, Option<&Data>),
+        Data: 'static,
     {
-        ElimateChildData::new(self)
+        self.visit_raw(&mut |el, optioned_data| {
+            f(el, optioned_data.and_then(|data| data.downcast_ref()))
+        });
     }
 }
-
-pub trait Model<Data = ()>: 'static {
-    fn visit(&self, f: &mut dyn FnMut(Element, Data));
-}
-
-pub trait UnitModel<Data = ()>: Model<Data> {
-    fn get_element(&self) -> (Element, Data);
-}
-
-pub trait VNode<Data = ()>: VModel<Data, Storage: UnitModel<Data>> {}
-impl<Data, T> VNode<Data> for T where T: VModel<Data, Storage: UnitModel<Data>> + ?Sized {}
+impl<T: Model + ?Sized> ModelExt for T {}
 
 #[derive(Clone)]
 pub struct ModelCreateCtx {

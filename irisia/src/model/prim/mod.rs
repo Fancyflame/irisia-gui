@@ -20,8 +20,8 @@ impl<T, Cd> Model<Cd> for PrimitiveModel<T>
 where
     T: Model<Cd>,
 {
-    fn visit(&self, f: &mut dyn FnMut(Element, Cd)) {
-        self.model.borrow().visit(f);
+    fn visit_raw(&self, f: &mut dyn FnMut(Element, Cd)) {
+        self.model.borrow().visit_raw(f);
     }
 }
 
@@ -29,8 +29,8 @@ impl<T, Cd> UnitModel<Cd> for PrimitiveModel<T>
 where
     T: UnitModel<Cd>,
 {
-    fn get_element(&self) -> (Element, Cd) {
-        self.model.borrow().get_element()
+    fn visit_unit_raw(&self) -> (Element, Cd) {
+        self.model.borrow().visit_unit_raw()
     }
 }
 

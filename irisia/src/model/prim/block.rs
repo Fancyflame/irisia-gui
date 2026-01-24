@@ -6,12 +6,8 @@ use crate::{
     WeakHandle,
     hook::Signal,
     model::{
-        Model, ModelCreateCtx, UnitModel, VModel, VNode,
-        component::Component,
-        control_flow::{
-            CommonVModel,
-            common_vmodel::{BoxedModel, DynVModel},
-        },
+        Model, ModelCreateCtx, UnitModel, VModel, component::Component,
+        control_flow::general::GeneralVModel,
     },
     prim_element::{
         EMCreateCtx, Element, EventCallback,
@@ -22,10 +18,10 @@ use crate::{
 use super::{PrimitiveModel, PrimitiveVnodeWrapper, panic_when_call_unreachable};
 
 #[derive(Property)]
-pub struct Block<Cd> {
+pub struct Block {
     pub display: Option<Signal<dyn BlockLayout<Cd>>>,
     pub style: Option<Signal<BlockStyle>>,
-    pub children: Option<Signal<DynVModel<Cd>>>,
+    pub children: Option<Signal<dyn GeneralVModel>>,
     pub on: Option<EventCallback>,
 }
 
@@ -47,13 +43,13 @@ pub struct BlockModel<Cd> {
 }
 
 impl<Cd: 'static> Component for Block<Cd> {
-    fn create(self, _watcher_list: &mut Vec<Watcher>) -> impl VNode<()> + use<Cd> {
+    fn create(self, _watcher_list: &mut Vec<Watcher>) -> impl VUnitModel<()> + use<Cd> {
         PrimitiveVnodeWrapper(self)
     }
 }
 
-impl<Cd: 'static> VModel<()> for PrimitiveVnodeWrapper<Block<Cd>> {
-    type Storage = PrimitiveModel<BlockModel<Cd>>;
+impl<Cd: 'static> VModel for PrimitiveVnodeWrapper<Block<Cd>> {
+    type Storage = PrimitiveModel<BlockModel>;
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
         let model =
@@ -84,7 +80,7 @@ where
     T: Model<Cd>,
 {
     let mut vec = ElementList::new();
-    model.visit(&mut |el, cd| vec.push(el, cd));
+    model.visit_raw(&mut |el, cd| vec.push(el, cd));
     vec
 }
 
@@ -144,13 +140,13 @@ impl<Cd: 'static> BlockModel<Cd> {
 }
 
 impl<Cd: 'static> Model<()> for BlockModel<Cd> {
-    fn visit(&self, f: &mut dyn FnMut(Element, ())) {
+    fn visit_raw(&self, f: &mut dyn FnMut(Element, ())) {
         f(self.el.clone(), ())
     }
 }
 
 impl<Cd: 'static> UnitModel<()> for BlockModel<Cd> {
-    fn get_element(&self) -> (Element, ()) {
+    fn visit_unit_raw(&self) -> (Element, ()) {
         (self.el.clone(), ())
     }
 }
@@ -163,6 +159,6 @@ impl<Cd: 'static> SubmitChildren for BlockModel<Cd> {
     fn submit_children(&self) {
         let mut guard = self.el.borrow_mut();
         let mut guard2 = guard.update_children();
-        self.children.visit(&mut |el, cd| guard2.push(el, cd));
+        self.children.visit_raw(&mut |el, cd| guard2.push(el, cd));
     }
 }

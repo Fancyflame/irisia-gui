@@ -1,7 +1,7 @@
 use irisia::{
     build,
     hook::{watcher::Watcher, Signal},
-    model::{component::Component, control_flow::CommonVModel, prim::Block},
+    model::{component::Component, control_flow::GeneralVModel, prim::Block},
     prim_element::block::BlockStyle,
     primitive::Length,
     style, Property, Size,
@@ -16,12 +16,15 @@ mod implement;
 #[derive(Default, Property)]
 pub struct Flex {
     pub style: Option<Signal<FlexContainerStyle>>,
-    pub children: Option<Signal<dyn CommonVModel<FlexItemStyle>>>,
+    pub children: Option<Signal<dyn GeneralVModel<FlexItemStyle>>>,
     pub display: (),
 }
 
 impl Component for Flex {
-    fn create(self, _watcher_list: &mut Vec<Watcher>) -> impl irisia::model::VNode<()> + use<> {
+    fn create(
+        self,
+        _watcher_list: &mut Vec<Watcher>,
+    ) -> impl irisia::model::VUnitModel<()> + use<> {
         Signal::memo_ncmp(self.style, move |style| {
             let style = style.cloned().unwrap_or_default();
             build! {

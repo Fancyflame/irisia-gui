@@ -1,0 +1,8 @@
+[package]
+name = "irisia-log"
+rust-version.workspace = true
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+tracing = { workspace = true }

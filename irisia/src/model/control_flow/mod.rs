@@ -1,12 +1,9 @@
 use std::rc::Rc;
 
-pub use self::common_vmodel::CommonVModel;
-
 use super::{ModelCreateCtx, VModel};
 
 pub mod branch;
-pub mod common_vmodel;
-pub mod elimate_child_data;
+pub mod general;
 pub mod repeat;
 pub mod signal;
 pub mod tuple;
@@ -14,9 +11,9 @@ pub mod tuple;
 macro_rules! impl_vmodel_for_refs {
     ($($T:ty),*) => {
         $(
-            impl<T, Cd> VModel<Cd> for $T
+            impl<T> VModel for $T
             where
-                T: VModel<Cd> + ?Sized,
+                T: VModel + ?Sized,
             {
                 type Storage = T::Storage;
 
