@@ -14,6 +14,7 @@ pub struct BoxedModel {
     vmodel_name: &'static str,
 }
 
+/// 通用虚模型：擦除生成的模型的类型，用于解决VModel不能做成trait object的问题
 pub trait GeneralVModel {
     fn dyn_create(&self, ctx: &ModelCreateCtx) -> BoxedModel;
     fn dyn_update(&self, storage: &mut BoxedModel, ctx: &ModelCreateCtx);
@@ -34,7 +35,7 @@ where
         match inner.downcast_mut::<T::Storage>() {
             Some(inner_storage) => self.update(inner_storage, ctx),
             None => {
-                log_error("BoxedModel", storage.vmodel_name, type_name::<Self>());
+                log_error(storage.vmodel_name, type_name::<Self>());
                 *storage = self.dyn_create(ctx);
             }
         }
@@ -57,9 +58,9 @@ impl Model for BoxedModel {
     }
 }
 
-fn log_error(box_name: &str, expect_name: &str, got_name: &str) {
+fn log_error(expect_name: &str, got_name: &str) {
     error!(
-        "type mismatch detected when updating `{box_name}`. \
+        "different type detected when updating BoxedModel or BoxedUnitModel. \
         expected `{expect_name}`, but got `{got_name}`. creating a new one instead.",
     );
 }

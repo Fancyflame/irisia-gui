@@ -6,6 +6,7 @@ use crate::{
 pub(super) use __sealed::UnitAssertion;
 
 mod __sealed {
+    /// 单元素模型断言标记
     pub trait UnitAssertion {}
 }
 

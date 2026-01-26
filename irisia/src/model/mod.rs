@@ -2,7 +2,10 @@ use std::any::Any;
 
 use crate::{
     WeakHandle,
-    model::prim::SubmitChildren,
+    model::{
+        control_flow::general::{GeneralUnitVModel, GeneralVModel},
+        prim::SubmitChildren,
+    },
     prim_element::{EMCreateCtx, Element},
 };
 
@@ -22,6 +25,20 @@ pub trait VModel {
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage;
     fn update(&self, storage: &mut Self::Storage, ctx: &ModelCreateCtx);
+
+    fn as_general(&self) -> &dyn GeneralVModel
+    where
+        Self: Sized,
+    {
+        self
+    }
+
+    fn as_general_unit(&self) -> &dyn GeneralUnitVModel
+    where
+        Self: UnitVModel + Sized,
+    {
+        self
+    }
 }
 
 pub trait Model: 'static {

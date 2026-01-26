@@ -10,7 +10,10 @@ use irisia_backend::{
 use crate::{
     Result,
     event::{EventDispatcher, standard::WindowDestroyed},
-    model::{ModelCreateCtx, UnitVModel, control_flow::general::BoxedUnitModel},
+    model::{
+        ModelCreateCtx, UnitVModel, VModel,
+        control_flow::general::{BoxedUnitModel, GeneralUnitVModel, GeneralVModel},
+    },
     prim_element::{
         EMCreateCtx, EmitEventArgs, RenderTreeExt, callback_queue::CallbackQueue,
         layout::LayoutInput,
@@ -158,10 +161,13 @@ where
                 user_close: Cell::new(true),
             });
 
-            let root_model = root_creator().create(&ModelCreateCtx::create_as_root(EMCreateCtx {
-                global_content: gc.clone(),
-                parent: None,
-            }));
+            let root_model =
+                root_creator()
+                    .as_general_unit()
+                    .create(&ModelCreateCtx::create_as_root(EMCreateCtx {
+                        global_content: gc.clone(),
+                        parent: None,
+                    }));
 
             //root.set_draw_region(Some(window_size_to_draw_region(gc.window().inner_size())));
             // root.
@@ -169,7 +175,7 @@ where
             BackendRuntime {
                 pointer_state: PointerState::new(),
                 gc,
-                root_model: Box::new(root_model),
+                root_model,
                 callback_queue: CallbackQueue::new(),
                 window_resized: true,
             }

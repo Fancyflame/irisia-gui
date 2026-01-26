@@ -1,10 +1,14 @@
-use crate::{self as irisia, hook::watcher::Watcher};
+use crate::{
+    self as irisia,
+    hook::watcher::Watcher,
+    model::{UnitVModel, VisitModelFn},
+};
 use irisia_macros::Property;
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     hook::Signal,
-    model::{Model, ModelCreateCtx, UnitModel, VModel, VUnitModel, component::Component},
+    model::{Model, ModelCreateCtx, UnitModel, VModel, component::Component},
     prim_element::{
         Element, EventCallback,
         text::{RenderText, SignalStr, TextStyle},
@@ -21,12 +25,12 @@ pub struct Text {
 }
 
 impl Component for Text {
-    fn create(self, _watcher_list: &mut Vec<Watcher>) -> impl VUnitModel<()> + use<> {
+    fn create(self, _watcher_list: &mut Vec<Watcher>) -> impl UnitVModel + use<> {
         PrimitiveVnodeWrapper(self)
     }
 }
 
-impl VModel<()> for PrimitiveVnodeWrapper<Text> {
+impl VModel for PrimitiveVnodeWrapper<Text> {
     type Storage = PrimitiveModel<TextModel>;
 
     fn create(&self, ctx: &ModelCreateCtx) -> Self::Storage {
@@ -76,14 +80,8 @@ impl TextModel {
     }
 }
 
-impl UnitModel<()> for TextModel {
-    fn visit_unit_raw(&self) -> (Element, ()) {
-        (self.el.clone(), ())
-    }
-}
-
-impl Model<()> for TextModel {
-    fn visit_raw(&self, f: &mut dyn FnMut(Element, ())) {
-        f(self.el.clone(), ())
+impl Model for TextModel {
+    fn visit_raw(&self, f: VisitModelFn) {
+        f(self.el.clone(), None)
     }
 }

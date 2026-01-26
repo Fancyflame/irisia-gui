@@ -1,5 +1,9 @@
-use super::{Model, UnitModel};
-use crate::{Handle, hook::watcher::Watcher, prim_element::Element};
+use super::Model;
+use crate::{
+    Handle,
+    hook::watcher::Watcher,
+    model::{UnitAssertion, VisitModelFn},
+};
 
 pub use self::{block::Block, text::Text};
 pub use crate::prim_element::block::layout::DefaultLayouter;
@@ -16,23 +20,16 @@ pub struct PrimitiveModel<T> {
     _watcher_list: Vec<Watcher>,
 }
 
-impl<T, Cd> Model<Cd> for PrimitiveModel<T>
+impl<T> Model for PrimitiveModel<T>
 where
-    T: Model<Cd>,
+    T: Model,
 {
-    fn visit_raw(&self, f: &mut dyn FnMut(Element, Cd)) {
+    fn visit_raw(&self, f: VisitModelFn) {
         self.model.borrow().visit_raw(f);
     }
 }
 
-impl<T, Cd> UnitModel<Cd> for PrimitiveModel<T>
-where
-    T: UnitModel<Cd>,
-{
-    fn visit_unit_raw(&self) -> (Element, Cd) {
-        self.model.borrow().visit_unit_raw()
-    }
-}
+impl<T> UnitAssertion for PrimitiveModel<T> {}
 
 fn panic_when_call_unreachable() -> ! {
     panic!(
