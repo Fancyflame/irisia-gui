@@ -13,10 +13,10 @@ use crate::{
     },
 };
 
-pub trait BlockLayout<Cd>: Any {
+pub trait Layouter<Cd>: Any {
     fn compute_layout(
         &self,
-        children: LayoutChildren<Cd>,
+        children: LayoutChildren,
         constraint: Size<SpaceConstraint>,
     ) -> Size<f32>;
 }
@@ -61,13 +61,13 @@ impl<'a, Cd> LayoutChild<'a, Cd> {
     }
 }
 
-pub struct LayoutChildren<'a, Cd> {
-    children: &'a [Child<Cd>],
+pub struct LayoutChildren<'a> {
+    children: &'a [Child],
     length_standard: &'a Size<LengthStandard>,
 }
 
-impl<'a, Cd> LayoutChildren<'a, Cd> {
-    pub(super) fn new(children: &'a [Child<Cd>], ls: &'a Size<LengthStandard>) -> Self {
+impl<'a> LayoutChildren<'a> {
+    pub(super) fn new(children: &'a [Child], ls: &'a Size<LengthStandard>) -> Self {
         Self {
             children,
             length_standard: ls,
@@ -119,7 +119,7 @@ impl<Cd> Drop for LayoutChildren<'_, Cd> {
 #[derive(Clone, Copy)]
 pub struct DefaultLayouter;
 
-impl<Cd> BlockLayout<Cd> for DefaultLayouter {
+impl<Cd> Layouter<Cd> for DefaultLayouter {
     fn compute_layout(
         &self,
         children: LayoutChildren<Cd>,

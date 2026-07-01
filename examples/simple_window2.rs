@@ -12,7 +12,7 @@ use irisia::{
         prim::{Block, Text},
     },
     prim_element::{
-        block::{BlockLayout, BlockStyle, BlockStyleExt, layout::LayoutChildren},
+        block::{Layouter, BlockStyle, BlockStyleExt, layout::LayoutChildren},
         layout::SpaceConstraint,
         text::TextStyle,
     },

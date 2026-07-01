@@ -11,7 +11,7 @@ use crate::{
     },
     prim_element::{
         EMCreateCtx, Element, EventCallback,
-        block::{BlockLayout, BlockStyle, ElementList, InitRenderBlock, RenderBlock},
+        block::{BlockStyle, ElementList, InitRenderBlock, Layouter, RenderBlock},
     },
 };
 
@@ -19,7 +19,7 @@ use super::{PrimitiveModel, PrimitiveVnodeWrapper, panic_when_call_unreachable};
 
 #[derive(Property)]
 pub struct Block {
-    pub display: Option<Signal<dyn BlockLayout<Cd>>>,
+    pub display: Option<Signal<dyn Layouter<Cd>>>,
     pub style: Option<Signal<BlockStyle>>,
     pub children: Option<Signal<dyn GeneralVModel>>,
     pub on: Option<EventCallback>,

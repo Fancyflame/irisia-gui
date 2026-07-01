@@ -10,7 +10,7 @@ use irisia::{
         prim::{Block, Text},
     },
     prim_element::{
-        block::{BlockLayout, BlockStyle, layout::LayoutChildren},
+        block::{Layouter, BlockStyle, layout::LayoutChildren},
         layout::SpaceConstraint,
         text::TextStyle,
     },
@@ -204,7 +204,7 @@ impl AverageDivideLayout {
     }
 }
 
-impl BlockLayout<AvgProps> for AverageDivideLayout {
+impl Layouter<AvgProps> for AverageDivideLayout {
     fn compute_layout(
         &self,
         children: LayoutChildren<AvgProps>,

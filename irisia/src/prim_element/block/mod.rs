@@ -15,7 +15,7 @@ use super::{
     redraw_guard::RedrawGuard,
 };
 
-pub use layout::BlockLayout;
+pub use layout::Layouter;
 
 pub mod layout;
 mod rect;
@@ -57,13 +57,13 @@ impl Default for BlockStyle {
     }
 }
 
-struct Child<Cd> {
+struct Child {
     element: Element,
-    child_data: Cd,
+    // child_data: Cd,
 }
 
 pub struct RenderBlock<Cd> {
-    layouter: Option<Signal<dyn BlockLayout<Cd>>>,
+    layouter: Option<Signal<dyn Layouter<Cd>>>,
     style: Option<Signal<BlockStyle>>,
     cached_background_rect: Option<DrawRRect>,
     children: ElementList<Cd>,
@@ -73,7 +73,7 @@ pub struct RenderBlock<Cd> {
 
 pub struct InitRenderBlock<'a, Cd = ()> {
     pub this: WeakElement,
-    pub layouter: Option<Signal<dyn BlockLayout<Cd>>>,
+    pub layouter: Option<Signal<dyn Layouter<Cd>>>,
     pub style: Option<Signal<BlockStyle>>,
     pub children: ElementList<Cd>,
     pub event_callback: Option<EventCallback>,

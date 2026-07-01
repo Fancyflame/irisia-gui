@@ -1,5 +1,5 @@
 use irisia::{
-    prim_element::block::{layout::LayoutChildren, BlockLayout},
+    prim_element::block::{layout::LayoutChildren, Layouter},
     Size,
 };
 use taffy::{
@@ -19,7 +19,7 @@ pub(super) struct FlexBlockLayout {
     pub container_style: FlexContainerStyle,
 }
 
-impl BlockLayout<FlexItemStyle> for FlexBlockLayout {
+impl Layouter<FlexItemStyle> for FlexBlockLayout {
     fn compute_layout(
         &self,
         children: LayoutChildren<FlexItemStyle>,
