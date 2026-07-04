@@ -2,21 +2,11 @@ use std::any::Any;
 
 use crate::{
     WeakHandle,
-    model::{
-        control_flow::general::{GeneralUnitVModel, GeneralVModel},
-        prim::SubmitChildren,
-    },
+    model::control_flow::general::GeneralVModel,
     prim_element::{EMCreateCtx, Element},
 };
 
-pub use style::UseStyle;
-pub use unit::*;
-
-pub mod component;
 pub mod control_flow;
-pub mod prim;
-pub mod style;
-mod unit;
 
 type VisitModelFn<'a> = &'a mut (dyn FnMut(Element, Option<&dyn Any>) + 'a);
 
@@ -29,13 +19,6 @@ pub trait VModel {
     fn as_general(&self) -> &dyn GeneralVModel
     where
         Self: Sized,
-    {
-        self
-    }
-
-    fn as_general_unit(&self) -> &dyn GeneralUnitVModel
-    where
-        Self: UnitVModel + Sized,
     {
         self
     }
@@ -61,14 +44,10 @@ impl<T: Model + ?Sized> ModelExt for T {}
 #[derive(Clone)]
 pub struct ModelCreateCtx {
     el_ctx: EMCreateCtx,
-    parent: Option<WeakHandle<dyn SubmitChildren>>,
 }
 
 impl ModelCreateCtx {
     pub(crate) fn create_as_root(ctx: EMCreateCtx) -> Self {
-        Self {
-            el_ctx: ctx,
-            parent: None,
-        }
+        Self { el_ctx: ctx }
     }
 }

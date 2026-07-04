@@ -1,4 +1,4 @@
-use crate::model::{Model, ModelCreateCtx, VModel, VisitModelFn, unit::UnitAssertion};
+use crate::model::{Model, ModelCreateCtx, VModel, VisitModelFn};
 
 #[derive(PartialEq)]
 pub enum Branch<A, B> {
@@ -77,11 +77,4 @@ where
             Self::B(b) => b.visit_raw(f),
         }
     }
-}
-
-impl<A, B> UnitAssertion for Branch<A, B>
-where
-    A: UnitAssertion,
-    B: UnitAssertion,
-{
 }

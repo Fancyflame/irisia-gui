@@ -6,7 +6,7 @@ use std::{
 use crate::{
     Handle,
     hook::{Signal, watcher::Watcher},
-    model::{Model, ModelCreateCtx, VModel, VisitModelFn, unit::UnitAssertion},
+    model::{Model, ModelCreateCtx, VModel, VisitModelFn},
 };
 
 impl<T> VModel for Signal<T>
@@ -71,5 +71,3 @@ where
         self.model.as_ref().unwrap().borrow().visit_raw(f);
     }
 }
-
-impl<T> UnitAssertion for SignalModel<T> where T: UnitAssertion {}

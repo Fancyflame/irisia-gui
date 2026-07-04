@@ -8,16 +8,10 @@ macro_rules! inner_error {
     };
 }
 
-#[doc(hidden)]
-#[path = "private.rs"]
-pub mod __private;
-
-pub mod application;
-pub mod event;
 pub mod hook;
 pub mod log;
 pub mod model;
-pub mod prim_element;
+// pub mod prim_element;
 pub mod primitive;
 
 use std::{
@@ -26,10 +20,7 @@ use std::{
 };
 
 pub use anyhow;
-pub use application::Window;
-pub use event::Event;
 pub use hook::Signal;
 pub use irisia_backend::{WinitWindow, runtime::exit_app, skia_safe, start_runtime, winit};
 pub use irisia_macros::{Event, Property, build, main, style};
-pub use model::component::property::Property;
 pub use primitive::{Corner, Point, Rect, Size};

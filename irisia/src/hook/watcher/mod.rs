@@ -11,11 +11,10 @@ use super::{Listener, signal_group::SignalGroup};
 pub struct Watcher(#[allow(unused)] Rc<dyn Any>);
 
 impl Watcher {
-    pub fn watch<F, Return, D>(deps: D, callback: F) -> Self
+    pub fn watch<F, D>(deps: D, callback: F) -> Self
     where
         D: SignalGroup + 'static,
-        F: Fn(D::Data<'_>) -> Return + 'static,
-        Return: WatcherCallbackReturn,
+        F: Fn(D::Data<'_>) -> bool + 'static,
     {
         let mark_cancel = Cell::new(false);
         let callback_cell = RefCell::new(Some(callback));
@@ -28,7 +27,7 @@ impl Watcher {
                 }
 
                 let keep_alive = if let Some(callback) = &*callback_cell.borrow() {
-                    callback(D::deref_wrapper(&deps.read_many())).keep_alive()
+                    callback(D::deref_wrapper(&deps.read_many()))
                 } else {
                     return false;
                 };
@@ -47,12 +46,11 @@ impl Watcher {
         .make()
     }
 
-    pub fn with<T, F, Return, D>(cell: &Rc<RefCell<T>>, deps: D, callback: F) -> Self
+    pub fn with<T, F, D>(cell: &Rc<RefCell<T>>, deps: D, callback: F) -> Self
     where
         T: 'static,
         D: SignalGroup + 'static,
-        F: Fn(&mut T, D::Data<'_>) -> Return + 'static,
-        Return: WatcherCallbackReturn,
+        F: Fn(&mut T, D::Data<'_>) -> bool + 'static,
     {
         let cell = cell.clone();
         Self::watch(deps, move |data| {
@@ -63,15 +61,15 @@ impl Watcher {
                     type_name::<F>()
                 );
             };
-            let ret = callback(&mut borrowed, data).keep_alive();
+            let ret = callback(&mut borrowed, data);
             ret
         })
     }
 
-    pub fn once<F, Return, D>(&mut self, deps: D, callback: F) -> Self
+    pub fn once<F, D>(&mut self, deps: D, callback: F) -> Self
     where
         D: SignalGroup + 'static,
-        F: FnOnce(D::Data<'_>) -> Return + 'static,
+        F: FnOnce(D::Data<'_>) + 'static,
     {
         let callback_cell = Cell::new(Some(callback));
         WatcherListenerCallback {
@@ -89,22 +87,6 @@ impl Watcher {
             },
         }
         .make()
-    }
-}
-
-pub trait WatcherCallbackReturn: 'static {
-    fn keep_alive(self) -> bool;
-}
-
-impl WatcherCallbackReturn for bool {
-    fn keep_alive(self) -> bool {
-        self
-    }
-}
-
-impl WatcherCallbackReturn for () {
-    fn keep_alive(self) -> bool {
-        true
     }
 }
 

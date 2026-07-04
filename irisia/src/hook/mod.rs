@@ -4,7 +4,7 @@ pub use {listener::Listener, signal::Signal};
 pub mod listener;
 pub mod signal;
 pub mod signal_group;
-pub mod utils;
+mod utils;
 pub mod watcher;
 
 #[macro_export]

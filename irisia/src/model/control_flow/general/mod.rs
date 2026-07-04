@@ -2,10 +2,6 @@ use crate::model::{Model, ModelCreateCtx, VModel, VisitModelFn};
 use irisia_log::error;
 use std::any::{Any, type_name};
 
-pub use unit::*;
-
-mod unit;
-
 trait BoxedModelInner: Model + Any {}
 impl<T: Model + Any> BoxedModelInner for T {}
 
