@@ -21,6 +21,7 @@ irisia_utils = { workspace = true }
 impl_variadics = { workspace = true }
 stack_box = { workspace = true }
 irisia-log = { version = "0.1.0", path = "../irisia-log" }
+thiserror.workspace = true
 
 [features]
 dhat_heap = ["irisia_backend/dhat_heap"]
