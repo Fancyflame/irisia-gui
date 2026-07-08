@@ -1,4 +1,4 @@
-use crate::{coerce_hook, hook::Signal, model::control_flow::general::GeneralVModel};
+use crate::{coerce_hook, hook::Signal}; //, model::control_flow::general::GeneralVModel};
 
 mod coerce_inner;
 
@@ -20,4 +20,4 @@ macro_rules! trait_cast {
 }
 
 trait_cast!(AsRef<str>);
-trait_cast!(GeneralVModel);
+// trait_cast!(GeneralVModel);

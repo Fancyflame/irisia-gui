@@ -1,29 +1,23 @@
-use anyhow::{Result, anyhow};
 pub use slot_ref::*;
 use std::{
     cell::{Cell, RefCell},
     fmt::Debug,
-    mem,
     rc::Rc,
 };
 
 mod slot_ref;
 
-const POOL_DEFAULT_CHUNK_SIZE: usize = 128;
-const _: () = const {
-    if POOL_DEFAULT_CHUNK_SIZE == 0 {
-        panic!("POOL_DEFAULT_CHUNK_SIZE cannot be 0");
-    }
-};
-
 type PoolVec<T> = Vec<Rc<[PoolSlot<T>]>>;
 
 pub(crate) struct Pool<T> {
-    first_vacant: Option<PoolId>,
+    first_chunk_size: usize,
+    first_vacant: Rc<Cell<Option<PoolId>>>,
     buffer: PoolVec<T>,
 }
 
 struct PoolSlot<T> {
+    // 当被引用时无法及时销毁，需要设置为true
+    should_destroy: Cell<bool>,
     version: Cell<u64>,
     content: RefCell<PoolSlotContent<T>>,
 }
@@ -38,17 +32,20 @@ impl<T> PoolSlotContent<T> {
 }
 
 impl<T> Pool<T> {
-    pub const fn new() -> Self {
+    pub fn new(first_chunk_size: usize) -> Self {
+        assert!(first_chunk_size > 0);
         Pool {
-            first_vacant: None,
+            first_chunk_size,
+            first_vacant: Default::default(),
             buffer: Vec::new(),
         }
     }
 
     pub fn insert(&mut self, value: T) -> PoolId {
         // 如果有空位，则复用空位
-        while let Some(pool_id) = self.first_vacant {
+        while let Some(pool_id) = self.first_vacant.get() {
             let slot = resolve(&self.buffer, pool_id).unwrap();
+            debug_assert!(!slot.should_destroy.get());
             let mut content = slot.content.borrow_mut();
 
             let PoolSlotContent::Vacant {
@@ -57,7 +54,7 @@ impl<T> Pool<T> {
             else {
                 unreachable!();
             };
-            self.first_vacant = next_empty;
+            self.first_vacant.set(next_empty);
 
             // 如果无法写入下一个版本，则弃用该位置，直接泄漏掉
             let Some(next_version) = slot.version.get().checked_add(1) else {
@@ -74,12 +71,13 @@ impl<T> Pool<T> {
 
         // 下一个分配的chunk是现在总容量的2倍
         let next_chunk_capacity =
-            POOL_DEFAULT_CHUNK_SIZE * (1 << self.buffer.len().saturating_sub(1));
+            self.first_chunk_size * (1 << self.buffer.len().saturating_sub(1));
 
         let chunk_index = self.buffer.len();
         let chunk = (0..next_chunk_capacity)
             .map(|slot_index| PoolSlot {
                 version: Cell::new(0),
+                should_destroy: Cell::new(false),
                 content: RefCell::new(PoolSlotContent::Vacant {
                     next_vacant: (slot_index + 1 < next_chunk_capacity).then_some(PoolId {
                         chunk_index,
@@ -92,44 +90,66 @@ impl<T> Pool<T> {
             .into();
 
         self.buffer.push(chunk);
-        self.first_vacant = Some(PoolId {
+        self.first_vacant.set(Some(PoolId {
             chunk_index,
             slot_index: 0,
             version: 0,
-        });
+        }));
 
         self.insert(value)
     }
 
-    pub fn remove(&mut self, id: PoolId) -> Result<()> {
+    /// 删除对象。如果成功删除则返回Some，如果本身就不存在或无法及时删除则返回None
+    pub fn remove(&mut self, id: PoolId, allow_delay: bool) -> Option<T> {
         let slot = resolve(&self.buffer, id)?;
-        let mut content = slot.content.try_borrow_mut().map_err(|_| {
-            anyhow!("cannot remove item because it is being borrowed. Pool ID: {id:?}")
-        })?;
-
-        let value = match &*content {
-            PoolSlotContent::Occupied { .. } => {
-                *content = PoolSlotContent::Vacant {
-                    next_vacant: self.first_vacant,
-                };
-            }
-            vacant @ PoolSlotContent::Vacant { .. } => {
-                return Ok(());
-            }
-        };
-        self.first_vacant = Some(id);
-
-        Ok(())
+        destroy_slot_in_place(id, slot, &self.first_vacant, allow_delay)
     }
 }
 
 #[must_use]
-const fn resolve<T>(pool: &PoolVec<T>, id: PoolId) -> Option<&PoolSlot<T>> {
+fn resolve<T>(pool: &PoolVec<T>, id: PoolId) -> Option<&PoolSlot<T>> {
     let slot = pool.get(id.chunk_index)?.get(id.slot_index)?;
     (slot.version.get() == id.version).then_some(slot)
 }
 
-#[derive(Clone, Copy)]
+fn destroy_slot_in_place<T>(
+    id: PoolId,
+    slot: &PoolSlot<T>,
+    vacant_chain: &Cell<Option<PoolId>>,
+    allow_delay: bool,
+) -> Option<T> {
+    let Ok(mut content) = slot.content.try_borrow_mut() else {
+        if allow_delay {
+            slot.should_destroy.set(true);
+            return None;
+        } else {
+            panic!("cannot delete object immediately as it is borrowed");
+        }
+    };
+
+    let value = match &*content {
+        PoolSlotContent::Occupied { .. } => {
+            let PoolSlotContent::Occupied { value } = std::mem::replace(
+                &mut *content,
+                PoolSlotContent::Vacant {
+                    next_vacant: vacant_chain.get(),
+                },
+            ) else {
+                unreachable!();
+            };
+            value
+        }
+        PoolSlotContent::Vacant { .. } => {
+            return None;
+        }
+    };
+
+    slot.should_destroy.set(false);
+    vacant_chain.set(Some(id));
+    Some(value)
+}
+
+#[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub(crate) struct PoolId {
     chunk_index: usize,
     slot_index: usize,
@@ -138,7 +158,6 @@ pub(crate) struct PoolId {
 
 impl Debug for PoolId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use std::fmt::Write;
         write!(
             f,
             "c{}s{}v{}",

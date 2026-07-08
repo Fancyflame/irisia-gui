@@ -8,10 +8,10 @@ macro_rules! inner_error {
     };
 }
 
-mod application;
+// mod application;
 pub mod hook;
 pub mod log;
-pub mod model;
+// pub mod model;
 // pub mod prim_element;
 pub mod global;
 pub mod primitive;
@@ -27,7 +27,7 @@ pub use irisia_backend::{WinitWindow, runtime::exit_app, skia_safe, start_runtim
 pub use irisia_macros::{Event, Property, build, main, style};
 pub use primitive::{Corner, Point, Rect, Size};
 
-pub trait Component {
+pub trait Component: 'static {
     /// 当前组件正在初始化自身，现在暂时不能访问该entity上其他的组件
     fn on_initialize(&mut self, id: (), entity_id: ()) {
         let _ = (id, entity_id);

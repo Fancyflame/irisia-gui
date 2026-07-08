@@ -1,7 +1,7 @@
 use smallvec::SmallVec;
 use std::cell::RefCell;
 
-use crate::hook::{utils::CallbackAction, Listener};
+use crate::hook::{Listener, utils::CallbackAction};
 
 /// Use it when implementing a provider
 #[derive(Default)]
@@ -16,11 +16,14 @@ impl ListenerList {
     }
 
     pub fn add_listener(&self, listener: Listener) {
-        match self.listeners.try_borrow_mut() { Ok(mut refmut) => {
-            refmut.push(listener);
-        } _ => {
-            self.delay_add.borrow_mut().push(listener);
-        }}
+        match self.listeners.try_borrow_mut() {
+            Ok(mut refmut) => {
+                refmut.push(listener);
+            }
+            _ => {
+                self.delay_add.borrow_mut().push(listener);
+            }
+        }
     }
 
     fn for_each_listeners<F>(&self, f: F)

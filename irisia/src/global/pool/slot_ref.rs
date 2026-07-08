@@ -1,12 +1,14 @@
 use std::{
-    cell::{Ref, RefMut},
+    cell::{Cell, Ref, RefMut},
     ops::{Deref, DerefMut},
-    rc::Rc,
+    rc::{Rc, Weak},
 };
 
 use thiserror::Error;
 
-use crate::global::pool::{Pool, PoolId, PoolSlot, PoolSlotContent, resolve};
+use crate::global::pool::{
+    Pool, PoolId, PoolSlot, PoolSlotContent, destroy_slot_in_place, resolve,
+};
 
 #[derive(Debug, Error)]
 pub(crate) enum PoolAccessError {
@@ -16,15 +18,15 @@ pub(crate) enum PoolAccessError {
     Borrowed,
 }
 
-pub struct SlotRef<T> {
+pub struct SlotRef<T: 'static> {
     // 字段顺序不可颠倒，Ref必须先Drop
     r: Ref<'static, T>,
-    slot: Rc<[PoolSlot<T>]>,
+    guard: CheckRemove<T>,
 }
 
 impl<T> Pool<T> {
     pub fn access(&self, id: PoolId) -> Result<SlotRef<T>, PoolAccessError> {
-        let (rc_chunk, slot) = unsafe { access_base(self, id)? };
+        let (guard, slot) = unsafe { access_base(self, id)? };
 
         let value_ref = Ref::filter_map(
             slot.content
@@ -42,7 +44,7 @@ impl<T> Pool<T> {
 
         Ok(SlotRef {
             r: value_ref,
-            slot: rc_chunk,
+            guard,
         })
     }
 }
@@ -54,15 +56,15 @@ impl<T> Deref for SlotRef<T> {
     }
 }
 
-pub struct SlotRefMut<T> {
+pub struct SlotRefMut<T: 'static> {
     // 字段顺序不可颠倒，Ref必须先Drop
     r: RefMut<'static, T>,
-    slot: Rc<[PoolSlot<T>]>,
+    guard: CheckRemove<T>,
 }
 
 impl<T> Pool<T> {
     pub fn access_mut(&self, id: PoolId) -> Result<SlotRefMut<T>, PoolAccessError> {
-        let (rc_chunk, slot) = unsafe { access_base(self, id)? };
+        let (guard, slot) = unsafe { access_base(self, id)? };
 
         let value_ref = RefMut::filter_map(
             slot.content
@@ -80,7 +82,7 @@ impl<T> Pool<T> {
 
         Ok(SlotRefMut {
             r: value_ref,
-            slot: rc_chunk,
+            guard,
         })
     }
 }
@@ -102,13 +104,41 @@ impl<T> DerefMut for SlotRefMut<T> {
 unsafe fn access_base<T>(
     this: &Pool<T>,
     id: PoolId,
-) -> Result<(Rc<[PoolSlot<T>]>, &'static PoolSlot<T>), PoolAccessError> {
-    (|| {
-        let rc_chunk = this.buffer.get(id.chunk_index)?;
+) -> Result<(CheckRemove<T>, &'static PoolSlot<T>), PoolAccessError> {
+    let rc_chunk = this
+        .buffer
+        .get(id.chunk_index)
+        .ok_or(PoolAccessError::NotFound)?;
 
-        let slot = resolve(&this.buffer, id)?;
+    let slot = resolve(&this.buffer, id).ok_or(PoolAccessError::NotFound)?;
 
-        Some((rc_chunk.clone(), unsafe { &*(slot as *const _) }))
-    })()
-    .ok_or(PoolAccessError::NotFound)
+    let check_remove = CheckRemove {
+        chunk: rc_chunk.clone(),
+        vacant_chain: Rc::downgrade(&this.first_vacant),
+        pid: id,
+    };
+
+    Ok((check_remove, unsafe { &*(slot as *const _) }))
+}
+
+struct CheckRemove<T> {
+    chunk: Rc<[PoolSlot<T>]>,
+    vacant_chain: Weak<Cell<Option<PoolId>>>,
+    pid: PoolId,
+}
+
+impl<T> Drop for CheckRemove<T> {
+    fn drop(&mut self) {
+        let slot = &self.chunk[self.pid.slot_index];
+
+        let Some(vacant_chain) = self.vacant_chain.upgrade() else {
+            return;
+        };
+
+        if !slot.should_destroy.get() {
+            return;
+        }
+
+        destroy_slot_in_place(self.pid, slot, &vacant_chain, true);
+    }
 }
