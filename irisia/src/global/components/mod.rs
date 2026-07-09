@@ -1,14 +1,17 @@
 use std::{
     any::{Any, TypeId},
+    cell::RefMut,
     collections::{HashMap, hash_map::Entry},
     ops::{Deref, DerefMut},
 };
 
 use anyhow::Result;
+use irisia_log::warn;
 
 use crate::{
     Component,
     global::pool::{Pool, PoolAccessError, PoolId, SlotRef, SlotRefMut},
+    log,
 };
 
 #[derive(Default)]
@@ -46,15 +49,6 @@ impl CompStock {
 
     /// 获取指定组件引用
     pub fn get<T: Component>(&self, id: &CompId) -> Result<Option<CompRef<T>>> {
-        /* let Some(pool) = self.get_pool(id) else {
-            return Ok(None);
-        };
-
-        match pool.access(id.pid) {
-            Ok(r) => Ok(Some(CompRef { inner: r })),
-            Err(PoolAccessError::NotFound) => Ok(None),
-            Err(err) => Err(err.into()),
-        } */
         self.get_comp_ref_with(id, |pool| {
             Ok(CompRef {
                 inner: pool.access(id.pid)?,
@@ -95,13 +89,17 @@ impl CompStock {
         }
     }
 
-    /// 删除组件
-    pub fn remove(&mut self, id: &CompId) {
-        let Some(pool) = self.stock.get_mut(&id.tid) else {
-            return;
-        };
+    /// 删除组件。
+    /// 设计成这样的原因是需要让RefMut在组件drop前drop
+    pub fn remove(this: RefMut<Self>, id: &CompId) {
+        // 我们要先调用该Pool的函数得到带类型信息的移除器，
+        // 然后调用该移除器正确析构组件
 
-        pool.remove_untyped(id.pid);
+        if let Ok(pool) =
+            RefMut::filter_map(this, |this| this.stock.get_mut(&id.tid).map(Box::as_mut))
+        {
+            pool.get_remover()(pool, id)
+        }
     }
 }
 
@@ -143,11 +141,25 @@ impl<T> DerefMut for CompRefMut<T> {
 }
 
 trait UntypedPool: Any {
-    fn remove_untyped(&mut self, id: PoolId);
+    fn get_remover(&self) -> fn(RefMut<dyn UntypedPool>, &CompId);
 }
 
 impl<T: 'static> UntypedPool for Pool<T> {
-    fn remove_untyped(&mut self, id: PoolId) {
-        self.remove(id, true);
+    fn get_remover(&self) -> fn(RefMut<dyn UntypedPool>, &CompId) {
+        remove_with_type::<T>
     }
+}
+
+fn remove_with_type<T: 'static>(mut this: RefMut<dyn UntypedPool>, id: &CompId) {
+    let pool = (&mut *this as &mut dyn Any)
+        .downcast_mut::<Pool<T>>()
+        .unwrap();
+    let value = pool.remove(id.pid, true);
+
+    if value.is_none() {
+        warn!("component does not drop immediately, maybe has been borrowed");
+    }
+
+    drop(this);
+    drop(value);
 }

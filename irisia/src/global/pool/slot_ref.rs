@@ -131,13 +131,13 @@ impl<T> Drop for CheckRemove<T> {
     fn drop(&mut self) {
         let slot = &self.chunk[self.pid.slot_index];
 
-        let Some(vacant_chain) = self.vacant_chain.upgrade() else {
-            return;
-        };
-
         if !slot.should_destroy.get() {
             return;
         }
+
+        let Some(vacant_chain) = self.vacant_chain.upgrade() else {
+            return;
+        };
 
         destroy_slot_in_place(self.pid, slot, &vacant_chain, true);
     }

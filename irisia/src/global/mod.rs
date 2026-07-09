@@ -25,9 +25,7 @@ pub struct Runtime {
 #[derive(Default)]
 pub(crate) struct EntityData {
     components: HashMap<TypeId, PoolId>,
-    parent: Option<EntityObject>,
     first_child: Option<EntityObject>,
-    prev_sibling: Option<EntityObject>,
     next_sibling: Option<EntityObject>,
 }
 
