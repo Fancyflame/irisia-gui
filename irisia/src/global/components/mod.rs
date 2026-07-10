@@ -10,14 +10,21 @@ use irisia_log::warn;
 
 use crate::{
     Component,
-    global::pool::{Pool, PoolAccessError, PoolId, SlotRef, SlotRefMut},
-    log,
+    global::{
+        entity::EntityObject,
+        pool::{Pool, PoolAccessError, PoolId, SlotRef, SlotRefMut},
+    },
 };
 
 #[derive(Default)]
 pub(super) struct CompStock {
     // HashMap<组件类型, Box<Pool<组件>>>
-    stock: HashMap<TypeId, Box<dyn UntypedPool>>,
+    stock: HashMap<TypeId, OneTypeComps>,
+}
+
+struct OneTypeComps {
+    boxed_pool: Box<dyn UntypedPool>,
+    attached_entity: EntityObject,
 }
 
 impl CompStock {
@@ -31,10 +38,9 @@ impl CompStock {
         T: Component,
         F: Fn(&Pool<T>) -> Result<R, PoolAccessError>,
     {
-        let pool: Option<&Pool<T>> = self
-            .stock
-            .get(&id.tid)
-            .and_then(|boxed| (boxed.as_ref() as &dyn UntypedPool as &dyn Any).downcast_ref());
+        let pool: Option<&Pool<T>> = self.stock.get(&id.tid).and_then(|boxed| {
+            (boxed.boxed_pool.as_ref() as &dyn UntypedPool as &dyn Any).downcast_ref()
+        });
 
         let Some(pool) = pool else {
             return Ok(None);
@@ -66,17 +72,19 @@ impl CompStock {
     }
 
     /// 插入组件
-    pub fn insert<T: Component>(&mut self, comp: T) -> CompId {
+    pub fn insert<T: Component>(&mut self, comp: T, attach_to: EntityObject) -> CompId {
         let pid = match self.stock.entry(TypeId::of::<T>()) {
             Entry::Vacant(vac) => {
                 let mut pool = Pool::new(1);
                 let comp_id = pool.insert(comp);
-                let rc_pool: Box<Pool<T>> = Box::new(pool);
-                vac.insert(rc_pool);
+                vac.insert(OneTypeComps {
+                    boxed_pool: Box::new(pool),
+                    attached_entity: attach_to,
+                });
                 comp_id
             }
             Entry::Occupied(mut occ) => {
-                let pool = (occ.get_mut().as_mut() as &mut dyn Any)
+                let pool = (occ.get_mut().boxed_pool.as_mut() as &mut dyn Any)
                     .downcast_mut::<Pool<T>>()
                     .unwrap();
                 pool.insert(comp)
@@ -95,9 +103,11 @@ impl CompStock {
         // 我们要先调用该Pool的函数得到带类型信息的移除器，
         // 然后调用该移除器正确析构组件
 
-        if let Ok(pool) =
-            RefMut::filter_map(this, |this| this.stock.get_mut(&id.tid).map(Box::as_mut))
-        {
+        if let Ok(pool) = RefMut::filter_map(this, |this| {
+            this.stock
+                .get_mut(&id.tid)
+                .map(|comps| comps.boxed_pool.as_mut())
+        }) {
             pool.get_remover()(pool, id)
         }
     }
