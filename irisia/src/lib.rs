@@ -1,3 +1,5 @@
+#![deny(unsafe_code)]
+
 pub type Result<T> = anyhow::Result<T>;
 type Handle<T> = Rc<RefCell<T>>;
 type WeakHandle<T> = Weak<RefCell<T>>;

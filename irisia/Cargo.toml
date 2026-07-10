@@ -17,7 +17,7 @@ tokio = { workspace = true, features = [
 ] }
 irisia_macros = { workspace = true }
 irisia_backend = { workspace = true, features = ["fps_recorder"] }
-irisia_utils = { workspace = true }
+irisia_unsafe = { workspace = true }
 impl_variadics = { workspace = true }
 stack_box = { workspace = true }
 irisia-log = { version = "0.1.0", path = "../irisia-log" }

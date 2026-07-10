@@ -1,5 +1,5 @@
 [package]
-name = "irisia_utils"
+name = "irisia_unsafe"
 version = "0.1.0"
 edition = "2021"
 

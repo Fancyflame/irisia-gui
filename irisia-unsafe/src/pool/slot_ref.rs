@@ -6,12 +6,10 @@ use std::{
 
 use thiserror::Error;
 
-use crate::global::pool::{
-    Pool, PoolId, PoolSlot, PoolSlotContent, destroy_slot_in_place, resolve,
-};
+use super::{destroy_slot_in_place, resolve, Pool, PoolId, PoolSlot, PoolSlotContent};
 
 #[derive(Debug, Error)]
-pub(crate) enum PoolAccessError {
+pub enum PoolAccessError {
     #[error("cannot access item because it does not exist")]
     NotFound,
     #[error("cannot access item because it is being borrowed")]

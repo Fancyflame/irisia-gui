@@ -9,4 +9,4 @@ publish = false
 irisia = { workspace = true }
 irisia_backend = { workspace = true }
 irisia_macros = { workspace = true }
-irisia_utils = { workspace = true }
+irisia_unsafe = { workspace = true }

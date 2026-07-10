@@ -14,10 +14,10 @@ use crate::{
     utils::ReasonCell,
 };
 use entity::{EntityData, EntityObject};
+use irisia_unsafe::pool;
 
 pub mod components;
 pub mod entity;
-pub(crate) mod pool;
 pub mod system;
 
 pub struct Runtime {

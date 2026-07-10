@@ -9,7 +9,7 @@ mod slot_ref;
 
 type PoolVec<T> = Vec<Rc<[PoolSlot<T>]>>;
 
-pub(crate) struct Pool<T> {
+pub struct Pool<T> {
     first_chunk_size: usize,
     first_vacant: Rc<Cell<Option<PoolId>>>,
     buffer: PoolVec<T>,
@@ -150,7 +150,7 @@ fn destroy_slot_in_place<T>(
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub(crate) struct PoolId {
+pub struct PoolId {
     chunk_index: usize,
     slot_index: usize,
     version: u64,

@@ -7,9 +7,10 @@ members = [
     "irisia",
     "irisia-backend",
     "irisia-macros",
-    "irisia-utils",
+    "irisia-unsafe",
     "examples",
-    "tests", "irisia-log",
+    "tests",
+    "irisia-log",
 ]
 resolver = "3"
 
@@ -30,7 +31,7 @@ impl_variadics = "0.1.1"
 irisia = { path = "irisia" }
 irisia_backend = { path = "irisia-backend" }
 irisia_macros = { path = "irisia-macros" }
-irisia_utils = { path = "irisia-utils" }
+irisia_unsafe = { path = "irisia-unsafe" }
 irisia_widgets = { path = "irisia-widgets" }
 lazy_static = "1"
 pixels = "0.14"
