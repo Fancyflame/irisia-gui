@@ -1,5 +1,6 @@
 [package]
 name = "irisia_unsafe"
+description = "crate to make unsafe utilities"
 version = "0.1.0"
 edition = "2021"
 
