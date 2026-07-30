@@ -71,7 +71,7 @@ impl AnyBox {
         self.metadata = Some(metadata);
     }
 
-    fn clear_value(&mut self) {
+    pub fn clear_value(&mut self) {
         if let Some(metadata) = self.metadata.take() {
             unsafe {
                 ptr::drop_in_place(metadata.restore_pointer(self.ptr.as_ptr().cast()));

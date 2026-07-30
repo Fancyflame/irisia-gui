@@ -19,7 +19,7 @@ pub enum PoolAccessError {
 pub struct SlotRef<T: 'static> {
     // 字段顺序不可颠倒，Ref必须先Drop
     r: Ref<'static, T>,
-    guard: CheckRemove<T>,
+    _guard: CheckRemove<T>,
 }
 
 impl<T> Pool<T> {
@@ -42,7 +42,7 @@ impl<T> Pool<T> {
 
         Ok(SlotRef {
             r: value_ref,
-            guard,
+            _guard: guard,
         })
     }
 }
@@ -57,7 +57,7 @@ impl<T> Deref for SlotRef<T> {
 pub struct SlotRefMut<T: 'static> {
     // 字段顺序不可颠倒，Ref必须先Drop
     r: RefMut<'static, T>,
-    guard: CheckRemove<T>,
+    _guard: CheckRemove<T>,
 }
 
 impl<T> Pool<T> {
@@ -80,7 +80,7 @@ impl<T> Pool<T> {
 
         Ok(SlotRefMut {
             r: value_ref,
-            guard,
+            _guard: guard,
         })
     }
 }

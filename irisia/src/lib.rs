@@ -20,6 +20,7 @@ pub mod primitive;
 mod utils;
 
 use std::{
+    any::Any,
     cell::RefCell,
     rc::{Rc, Weak},
 };
@@ -42,4 +43,12 @@ pub trait Component: 'static {
     fn on_mounted(&mut self) {}
 }
 
-pub trait System: 'static {}
+pub trait System: 'static {
+    /// 当前系统正在初始化自身，现在暂时不能访问其他系统
+    fn on_before_mount(&mut self, global: &Weak<Runtime>) {
+        let _ = global;
+    }
+
+    /// 所有系统已完成初始化，现在可以正常访问其他系统了
+    fn on_mounted(&mut self) {}
+}

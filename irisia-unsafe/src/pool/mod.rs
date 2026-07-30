@@ -9,6 +9,7 @@ mod slot_ref;
 
 type PoolVec<T> = Vec<Rc<[PoolSlot<T>]>>;
 
+/// 对象池。允许在拥有任何对象的引用时往池里插入或删除非被引用对象。
 pub struct Pool<T> {
     first_chunk_size: usize,
     first_vacant: Rc<Cell<Option<PoolId>>>,
@@ -25,10 +26,6 @@ struct PoolSlot<T> {
 enum PoolSlotContent<T> {
     Vacant { next_vacant: Option<PoolId> },
     Occupied { value: T },
-}
-
-impl<T> PoolSlotContent<T> {
-    const EMPTY: Self = Self::Vacant { next_vacant: None };
 }
 
 impl<T> Pool<T> {
